@@ -1,0 +1,349 @@
+# GO LIVE — step by step
+
+From "works on my laptop" to "works on the internet".
+
+Do these in order. Each step says what you should see before moving on.
+
+---
+
+## Before you start: two things are still outstanding
+
+| Thing | Status |
+|---|---|
+| `backend/composer.lock` | **missing** — step 1 |
+| `frontend/package-lock.json` | present but a placeholder — step 1 |
+| Git repository | not created — step 3 |
+| `/api/milestones` route | added but not live yet — step 0 |
+
+---
+
+## Step 0 — Finish local validation
+
+The new `/api/milestones` endpoint is in the code but the container cached the
+old route table at boot. Clear it:
+
+```sh
+cd /c/Users/yuehe/Desktop/study/fyp/AIProject/psm-system
+docker compose exec app php artisan route:clear
+docker compose exec app php artisan config:clear
+docker compose restart app
+```
+
+Wait ~30 seconds, then confirm:
+
+```sh
+curl -o /dev/null -w "%{http_code}\n" http://localhost:8000/api/milestones
+```
+
+**Expect `401`.** That means the route now exists and is correctly refusing an
+unauthenticated request. A `404` means the route still is not registered.
+
+Then open the Milestones page at http://localhost:5173/milestones and confirm it
+renders a list rather than an error.
+
+---
+
+## Step 1 — Generate the lock files
+
+Both hosts build from your repository, and without lock files they resolve
+dependency versions fresh each time. That means the version you tested is not
+necessarily the version that deploys.
+
+**Composer** — run this in your own Git Bash, from the project root:
+
+```sh
+MSYS_NO_PATHCONV=1 docker run --rm \
+  -v "C:/Users/yuehe/Desktop/study/fyp/AIProject/psm-system/backend:/app" \
+  -w /app composer:2 composer update --no-dev
+```
+
+That writes `backend/composer.lock`. Confirm it appeared:
+
+```sh
+ls -la backend/composer.lock
+```
+
+**npm** — the existing `package-lock.json` is a stub with no dependencies in it.
+Replace it with a real one:
+
+```sh
+MSYS_NO_PATHCONV=1 docker run --rm \
+  -v "C:/Users/yuehe/Desktop/study/fyp/AIProject/psm-system/frontend:/app" \
+  -w /app node:20-alpine sh -c "npm install --package-lock-only"
+```
+
+Confirm it grew from ~500 bytes to a few hundred KB:
+
+```sh
+ls -la frontend/package-lock.json
+```
+
+**Expect:** two real lock files. Both should be committed in step 3.
+
+---
+
+## Step 2 — Check nothing secret is about to be committed
+
+```sh
+cd /c/Users/yuehe/Desktop/study/fyp/AIProject/psm-system
+cat .gitignore | head -20
+```
+
+`backend/.env` and `.env` should both be listed. If you have a real `.env` file
+with real credentials anywhere, it must not be committed.
+
+You can verify what git would actually add once the repo exists (step 3):
+
+```sh
+git status --porcelain | grep -i "\.env" || echo "no .env files staged - good"
+```
+
+---
+
+## Step 3 — Put the code on GitHub
+
+```sh
+cd /c/Users/yuehe/Desktop/study/fyp/AIProject/psm-system
+git init
+git add .
+git commit -m "PSM Management System"
+```
+
+Then create an **empty** repository on github.com (no README, no .gitignore —
+you already have both) and follow the two commands GitHub shows you:
+
+```sh
+git remote add origin https://github.com/YOUR-USERNAME/YOUR-REPO.git
+git branch -M main
+git push -u origin main
+```
+
+**Expect:** your code visible on github.com. Click into `backend/` and confirm
+`composer.lock` is there, and that `.env` is **not**.
+
+---
+
+## Step 4 — Create the database (Neon)
+
+1. Sign up at **https://neon.tech**
+2. Create a project — pick a region close to where you will host the backend
+3. Copy the **connection string**; it looks like:
+
+```
+postgresql://user:password@ep-xxx.region.aws.neon.tech/psm_system?sslmode=require
+```
+
+Split it into the pieces you will need in step 5:
+
+| From the string | Env var |
+|---|---|
+| host (`ep-xxx...neon.tech`) | `DB_HOST` |
+| `user` | `DB_USERNAME` |
+| `password` | `DB_PASSWORD` |
+| `psm_system` | `DB_DATABASE` |
+| `5432` | `DB_PORT` |
+
+`DB_CONNECTION=pgsql` and `DB_SSLMODE=require` — Neon rejects unencrypted
+connections.
+
+**Note:** the codebase was deliberately written to run on either MySQL or
+PostgreSQL, so no code changes are needed. See `docs/DEPLOYMENT.md` section 4.
+
+---
+
+## Step 5 — Deploy the backend (Render)
+
+1. Sign up at **https://render.com**
+2. **New → Web Service**, connect your GitHub repo
+3. Settings:
+   - **Environment:** Docker
+   - **Dockerfile path:** `./Dockerfile`
+   - **Health check path:** `/up`
+   - **Instance type:** Free to start
+4. Add these environment variables:
+
+```
+APP_NAME="PSM Management System"
+APP_ENV=production
+APP_DEBUG=false
+APP_KEY=                       # see below
+APP_URL=https://YOUR-APP.onrender.com
+FRONTEND_URL=https://YOUR-APP.vercel.app
+
+DB_CONNECTION=pgsql
+DB_HOST=...
+DB_PORT=5432
+DB_DATABASE=psm_system
+DB_USERNAME=...
+DB_PASSWORD=...
+DB_SSLMODE=require
+
+SESSION_DRIVER=database
+CACHE_STORE=database
+QUEUE_CONNECTION=database
+
+MAIL_MAILER=smtp
+MAIL_HOST=...
+MAIL_PORT=587
+MAIL_USERNAME=...
+MAIL_PASSWORD=...
+MAIL_FROM_ADDRESS=noreply@your-domain
+MAIL_FROM_NAME="${APP_NAME}"
+
+SANCTUM_STATEFUL_DOMAINS=YOUR-APP.vercel.app
+PSM_MILESTONE_BLEND_PERCENT=20
+LEADERBOARD_TOP_N=3
+LEADERBOARD_MIN_ASSESSORS=2
+REMINDER_DAYS_BEFORE=7,3,1
+SUPERVISOR_MAX_CAPACITY=8
+SUBMISSION_MAX_MB=25
+AUDIT_RETAIN_YEARS=7
+
+RUN_MIGRATIONS=false
+```
+
+**Generate `APP_KEY`** — run this locally and paste the output:
+
+```sh
+MSYS_NO_PATHCONV=1 docker run --rm \
+  -v "C:/Users/yuehe/Desktop/study/fyp/AIProject/psm-system/backend:/app" \
+  -w /app composer:2 php artisan key:generate --show
+```
+
+It prints something like `base64:abc123...=`. Copy the whole thing including
+`base64:`.
+
+**Add a persistent disk** — this is the step people skip and regret:
+
+- **Disks → Add Disk**
+- **Mount path:** `/var/www/html/storage/app`
+- Size: 1 GB is plenty
+
+Without it, every uploaded thesis file disappears on the next deploy.
+
+5. Click **Create Web Service** and watch the build.
+
+**Expect:** the build succeeds and the service reports healthy. If it fails,
+paste the last 20 lines and check `docs/SETUP.md` section 7.
+
+---
+
+## Step 6 — Create the database tables
+
+Once the service is live, run the migrations. Render's **Shell** tab (paid) or a
+one-off job:
+
+```sh
+php artisan migrate --force
+```
+
+**Do not run `--seed`.** The seeder creates demo accounts with the password
+`password`. If you want demo data for a presentation, seed and then change every
+password immediately.
+
+Confirm the API is alive:
+
+```sh
+curl https://YOUR-APP.onrender.com/up
+```
+
+**Expect:** HTTP 200.
+
+---
+
+## Step 7 — Deploy the frontend (Vercel)
+
+1. Sign up at **https://vercel.com**
+2. **Add New → Project**, import the same GitHub repo
+3. **Root Directory:** `frontend` ← important, or Vercel will not find it
+4. Framework preset: Vite (usually auto-detected)
+5. Add an environment variable:
+
+```
+VITE_API_URL=https://YOUR-APP.onrender.com/api
+```
+
+6. Deploy.
+
+**Expect:** Vercel gives you a URL like `https://your-app.vercel.app`.
+
+---
+
+## Step 8 — Connect the two halves
+
+This step is easy to forget and produces confusing login failures.
+
+Go back to **Render → Environment** and update:
+
+```
+APP_URL=https://YOUR-APP.onrender.com
+FRONTEND_URL=https://your-app.vercel.app
+SANCTUM_STATEFUL_DOMAINS=your-app.vercel.app
+```
+
+Render redeploys automatically. The backend must be *told* which frontend
+origin is allowed to talk to it — until it knows, browser requests are refused
+even though the API works fine in curl.
+
+---
+
+## Step 9 — Test the live system
+
+Open your Vercel URL and check, in order:
+
+- [ ] The login page renders
+- [ ] Signing in as `admin@psm.test` / `password` works
+- [ ] The dashboard shows real numbers
+- [ ] Navigating between pages does not log you out
+- [ ] **`https://your-app.vercel.app/leaderboard` loads with no login** — this is
+      your public Pixel-It page and your best demo feature
+- [ ] Uploading a file works, then **redeploy and check the file is still there**
+      (this proves the persistent disk is wired up)
+
+---
+
+## Two things that will surprise you
+
+### Render's free tier sleeps
+
+After **15 minutes with no visitors**, Render shuts the free service down. The
+next visitor waits **30–60 seconds**.
+
+For a demo this is genuinely awkward. Either:
+
+1. Pay $7/month for an always-on instance during demo week — what I would do
+2. Set up a free uptime monitor to ping it every 5 minutes
+3. Open the site yourself 5 minutes before, so it is already awake
+
+### Neon scales to zero
+
+The free tier suspends your database when idle. The first query after that takes
+a second or two. Harmless, but worth expecting.
+
+---
+
+## Where to look if something breaks
+
+| Symptom | Look at |
+|---|---|
+| Build fails | `docs/SETUP.md` section 7 |
+| 502 from Render | Render → Logs |
+| Login fails but curl works | `SANCTUM_STATEFUL_DOMAINS` and `FRONTEND_URL` (step 8) |
+| Uploads vanish | the persistent disk (step 5) |
+| Blank page on Vercel | browser console — usually `VITE_API_URL` |
+| CORS errors | `FRONTEND_URL` on Render |
+
+---
+
+## Checklist
+
+- [ ] Step 0 — `/api/milestones` returns 401, Milestones page renders
+- [ ] Step 1 — both lock files real
+- [ ] Step 2 — no `.env` about to be committed
+- [ ] Step 3 — code on GitHub
+- [ ] Step 4 — Neon database created, connection details copied
+- [ ] Step 5 — Render service live, `APP_KEY` set, disk mounted
+- [ ] Step 6 — migrations run
+- [ ] Step 7 — Vercel frontend live
+- [ ] Step 8 — `FRONTEND_URL` and `SANCTUM_STATEFUL_DOMAINS` set
+- [ ] Step 9 — logged in on the live site, public leaderboard loads

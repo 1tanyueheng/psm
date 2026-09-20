@@ -1,0 +1,61 @@
+# =====================================================================
+# Build context exclusions
+# =====================================================================
+# Without this file, `docker build` sends the ENTIRE project directory to the
+# Docker daemon on every build. That is slow, and it breaks outright on any
+# broken symlink in the tree — which is exactly what happened here:
+#
+#   failed to solve: invalid file request backend/public/storage
+#
+# `backend/public/storage` is created by `php artisan storage:link` inside the
+# container. It is an absolute symlink to /var/www/html/storage/app/public, a
+# path that only exists inside the container. On Windows it dangles, and the
+# daemon cannot tar a dangling link.
+#
+# Both problems are solved by excluding these paths from the context. They are
+# all generated — either by the container at runtime, or by the Dockerfile
+# itself — so nothing here needs to be copied in.
+# =====================================================================
+
+# --- Container-generated runtime state ---------------------------------
+# Written by `storage:link`, the scheduler, and the queue worker.
+backend/public/storage
+backend/storage
+
+# Cache and discovery manifests, rebuilt during the image build.
+backend/bootstrap/cache
+
+# Compiled SPA. The Dockerfile builds this fresh in the `assets` stage.
+backend/public/build
+
+# --- Host-side dependency trees ----------------------------------------
+# The Dockerfile runs `composer install` and `npm ci` itself. Shipping the
+# host's copies would shadow the container's and can differ by platform.
+backend/vendor
+frontend/node_modules
+frontend/dist
+
+# --- Local configuration and secrets -----------------------------------
+# Environment is supplied by docker-compose.yml / the host, never baked in.
+.env
+backend/.env
+*.key
+
+# --- Version control and tooling ---------------------------------------
+.git
+.gitignore
+.github
+.vscode
+.idea
+*.swp
+
+# --- Logs and editor noise ---------------------------------------------
+*.log
+backend/storage/logs/*
+.DS_Store
+Thumbs.db
+
+# --- Docs and scripts not needed at runtime ----------------------------
+docs
+*.md
+!README.md
