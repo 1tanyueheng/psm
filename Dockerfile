@@ -82,14 +82,23 @@ RUN npx vite build --outDir dist --emptyOutDir
 FROM php:8.2-fpm-alpine AS runtime
 
 # Build deps are removed in the same layer to keep the image small.
+# PostgreSQL support (Neon): postgresql-dev is the build-time client headers
+# the pdo_pgsql / pgsql extensions must compile against, and libpq is the
+# runtime client library they link to. Both are required or the driver build
+# fails and every DB call returns "could not find driver".
 RUN apk add --no-cache --virtual .build-deps \
-        $PHPIZE_DEPS \
+        autoconf \
+        automake \
+        libtool \
+        m4 \
+        build-base \
         libpng-dev \
         libjpeg-turbo-dev \
         freetype-dev \
         libzip-dev \
         icu-dev \
         oniguruma-dev \
+        postgresql-dev \
     && apk add --no-cache \
         libpng \
         libjpeg-turbo \
@@ -97,6 +106,7 @@ RUN apk add --no-cache --virtual .build-deps \
         libzip \
         icu \
         oniguruma \
+        libpq \
         mysql-client \
         nginx \
         supervisor \

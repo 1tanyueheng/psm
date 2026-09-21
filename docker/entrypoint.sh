@@ -77,7 +77,14 @@ php /var/www/html/artisan config:clear --no-interaction >/dev/null 2>&1 || true
 if [ -n "$APP_KEY" ]; then
     php /var/www/html/artisan config:cache --no-interaction || true
     php /var/www/html/artisan route:cache  --no-interaction || true
-    php /var/www/html/artisan view:cache   --no-interaction || true
+    # An API-only build has no Blade templates, so resources/views may be
+    # absent. view:cache would then throw "directory does not exist" — harmless
+    # but noisy. Skip it when there is nothing to cache.
+    if [ -d /var/www/html/resources/views ]; then
+        php /var/www/html/artisan view:cache --no-interaction || true
+    else
+        echo "[entrypoint] No resources/views — skipping view:cache (API-only build)"
+    fi
 else
     echo "[entrypoint] Skipping config cache (no APP_KEY)"
 fi
