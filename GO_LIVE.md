@@ -376,6 +376,8 @@ a second or two. Harmless, but worth expecting.
 | Uploads vanish | the persistent disk (step 5) |
 | Blank page on Vercel | browser console — usually `VITE_API_URL` |
 | CORS errors | `FRONTEND_URL` on Render |
+| `Driver [database] is not supported` (500 on `/`) | A store-driver env var has a **stray trailing space** (e.g. `SESSION_DRIVER=database `) or `LOG_CHANNEL=database` is set. Re-type the value with no spaces; unset `LOG_CHANNEL` (defaults to `stack`). |
+| `relation "cache" does not exist` / queue workers crash | Migrations never ran — `RUN_MIGRATIONS` was not `true` on Render. Set `RUN_MIGRATIONS=true` and **restart** the service (entrypoint re-runs `migrate --force` on boot). |
 
 ---
 
