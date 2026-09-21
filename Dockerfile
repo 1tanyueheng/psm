@@ -105,6 +105,8 @@ RUN apk add --no-cache --virtual .build-deps \
     && docker-php-ext-install -j$(nproc) \
         pdo_mysql \
         mysqli \
+        pdo_pgsql \
+        pgsql \
         gd \
         zip \
         intl \

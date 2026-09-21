@@ -160,6 +160,8 @@ PostgreSQL, so no code changes are needed. See `docs/DEPLOYMENT.md` section 4.
    - **Dockerfile path:** `./Dockerfile`
    - **Health check path:** `/up`
    - **Instance type:** Free to start
+   - **Port:** `8080` (the Dockerfile `EXPOSE`s 8080 and nginx listens there;
+     Render auto-detects it, but set it explicitly if Render asks for a port)
 4. Add these environment variables:
 
 ```
@@ -199,8 +201,15 @@ SUPERVISOR_MAX_CAPACITY=8
 SUBMISSION_MAX_MB=25
 AUDIT_RETAIN_YEARS=7
 
-RUN_MIGRATIONS=false
+RUN_MIGRATIONS=true
 ```
+
+> `RUN_MIGRATIONS=true` makes the container run `php artisan migrate --force` on
+> every boot. The migration is **idempotent** (it only applies migrations that
+> have not run yet) and the entrypoint is written so a failed migration does not
+> crash the container — so this is safe even on the free tier, where the service
+> sleeps and wakes. This removes the need for Render's paid **Shell** tab, which
+> Step 6 previously relied on. Leave `RUN_SEED` **off** in production.
 
 **Generate `APP_KEY`** — run this locally and paste the output:
 
