@@ -303,6 +303,12 @@ VITE_API_URL=https://YOUR-APP.onrender.com/api
 
 6. Deploy.
 
+> `frontend/vite.config.js` builds to `frontend/dist` (Vercel's expected
+> output) and `frontend/vercel.json` rewrites every route to `index.html`, so
+> deep links like `/login` and `/milestones` work without a 404. Leave both in
+> place — do **not** point the Vite `outDir` back at `backend/public/build`,
+> or the Vercel build will fail with "No Output Directory named dist".
+
 **Expect:** Vercel gives you a URL like `https://your-app.vercel.app`.
 
 ---

@@ -24,8 +24,11 @@ export default defineConfig(({ mode }) => {
     },
 
     build: {
-      // Relative to frontend/, so this lands in backend/public/build
-      outDir: '../backend/public/build',
+      // Output to frontend/dist. Vercel expects this default location for the
+      // build output. The Docker image overrides the same value with
+      // `--outDir dist` in its assets stage and copies the result into
+      // public/build for nginx, so both hosts agree on where assets land.
+      outDir: 'dist',
       emptyOutDir: true,
       sourcemap: false,
       chunkSizeWarningLimit: 900,
