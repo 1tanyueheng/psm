@@ -258,6 +258,35 @@ curl https://YOUR-APP.onrender.com/up
 
 **Expect:** HTTP 200.
 
+### Running artisan commands without the Shell tab (free tier)
+
+Render's **Shell** is paid-only. You don't need it:
+
+- **Migrations** run automatically because `RUN_MIGRATIONS=true` (step 5) — every
+  container boot applies any new migrations, so the free tier's sleep/wake cycle
+  just re-runs them harmlessly.
+- **Any other artisan command** (`migrate:status`, `db:seed`, `config:clear`,
+  `queue:retry`, …) can be run from your laptop against the *same Neon database*,
+  because Neon is an external host reachable from anywhere. Point a throwaway
+  container at it (no `db` service needed):
+
+  ```sh
+  MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps \
+    -e DB_CONNECTION=pgsql \
+    -e DB_HOST=ep-jolly-night-b3klornn.c-4.ap-southeast-1.aws.neon.tech \
+    -e DB_PORT=5432 -e DB_DATABASE=neondb \
+    -e DB_USERNAME=neondb_owner -e DB_PASSWORD=YOUR_NEON_PASSWORD \
+    -e DB_SSLMODE=require \
+    app php artisan migrate:status
+  ```
+
+  Swap the last argument for whatever you need. For a presentation seed, run
+  `db:seed --force` locally this way, then change **every** password immediately.
+
+---
+
+## Step 7 — Deploy the frontend (Vercel)
+
 ---
 
 ## Step 7 — Deploy the frontend (Vercel)
