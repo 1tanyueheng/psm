@@ -29,7 +29,7 @@ return new class extends Migration
             $table->text('subtitle')->nullable();
             $table->text('description')->nullable();
 
-            $table->enum('psm_part', ['PSM1', 'PSM2', 'BOTH'])->default('PSM2');
+            $table->string('psm_part')->default('PSM2');
             $table->string('batch', 32)->nullable()->index();
             $table->string('academic_session', 32)->nullable();
 
@@ -41,13 +41,13 @@ return new class extends Migration
             $table->unsignedTinyInteger('min_assessors')->default(2);
 
             // Ranking basis, so the published figure is explainable
-            $table->enum('ranking_basis', ['final_mark', 'aggregate_percent', 'milestone_score'])
+            $table->string('ranking_basis')
                   ->default('final_mark');
-            $table->enum('tie_breaker', ['assessor_count', 'supervisor_score', 'submission_time'])
+            $table->string('tie_breaker')
                   ->default('assessor_count');
 
             // Publication state
-            $table->enum('status', ['draft', 'published', 'unpublished'])
+            $table->string('status')
                   ->default('draft')->index();
             $table->timestamp('published_at')->nullable()->index();
             $table->timestamp('unpublished_at')->nullable();
@@ -85,7 +85,7 @@ return new class extends Migration
             $table->string('project_title');
             $table->text('project_abstract')->nullable();
             $table->string('project_code', 32)->nullable();
-            $table->enum('category', ['system', 'research'])->nullable();
+            $table->string('category')->nullable();
             $table->string('program', 128)->nullable();
 
             $table->json('students');      // [{name, student_id}] — no email/phone, ever
@@ -116,7 +116,7 @@ return new class extends Migration
 
             $table->unsignedSmallInteger('default_top_n')->default(3);
             $table->unsignedTinyInteger('default_min_assessors')->default(2);
-            $table->enum('default_ranking_basis', ['final_mark', 'aggregate_percent', 'milestone_score'])
+            $table->string('default_ranking_basis')
                   ->default('final_mark');
 
             // Whether any leaderboard may be published at all

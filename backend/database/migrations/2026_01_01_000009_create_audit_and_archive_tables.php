@@ -26,7 +26,7 @@ return new class extends Migration
 
             $table->string('action', 64)->index();        // AuditAction value
             $table->string('category', 48)->nullable()->index();
-            $table->enum('severity', ['info', 'warning', 'critical'])->default('info')->index();
+            $table->string('severity')->default('info')->index();
 
             // Subject — polymorphic so any model can be audited
             $table->string('auditable_type')->nullable();
@@ -66,8 +66,8 @@ return new class extends Migration
             $table->string('code', 32)->index();
             $table->string('title');
             $table->text('abstract')->nullable();
-            $table->enum('category', ['system', 'research']);
-            $table->enum('psm_part', ['PSM1', 'PSM2']);
+            $table->string('category');
+            $table->string('psm_part');
             $table->string('academic_session', 32)->index();
             $table->string('batch', 32)->index();
             $table->string('program', 128)->nullable();

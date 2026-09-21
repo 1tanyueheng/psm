@@ -36,15 +36,7 @@ return new class extends Migration
             $table->decimal('weight_percent', 5, 2)->default(0.00);
 
             // Module 3 — `status` is derived/maintained by MilestoneService.
-            $table->enum('status', [
-                'pending',
-                'open',
-                'submitted',
-                'reviewed',
-                'approved',
-                'rejected',
-                'overdue',
-            ])->default('pending')->index();
+            $table->string('status')->default('pending')->index();
 
             // Scheduling
             $table->date('opens_at')->nullable();

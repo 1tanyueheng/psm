@@ -26,7 +26,7 @@ return new class extends Migration
             $table->json('weights');
 
             // How multiple assessors of the *same* type combine
-            $table->enum('aggregation', ['mean', 'weighted_mean', 'max', 'min'])
+            $table->string('aggregation')
                   ->default('mean');
 
             // Discard the highest and lowest examiner mark when >= 3 examiners
@@ -55,10 +55,10 @@ return new class extends Migration
             // later template edit cannot rewrite history (Module 7 integrity).
             $table->json('rubric_snapshot');
 
-            $table->enum('assessor_type', ['supervisor', 'examiner', 'coordinator'])->index();
-            $table->enum('psm_part', ['PSM1', 'PSM2'])->default('PSM2');
+            $table->string('assessor_type')->index();
+            $table->string('psm_part')->default('PSM2');
 
-            $table->enum('status', ['draft', 'submitted', 'moderated', 'released', 'recused'])
+            $table->string('status')
                   ->default('draft')->index();
 
             // Raw rubric total before any moderation adjustment
@@ -139,7 +139,7 @@ return new class extends Migration
             $table->foreignId('project_id')->constrained()->cascadeOnDelete();
             $table->foreignId('student_profile_id')->constrained()->cascadeOnDelete();
 
-            $table->enum('psm_part', ['PSM1', 'PSM2'])->default('PSM2');
+            $table->string('psm_part')->default('PSM2');
 
             // Per-assessor-type subtotals, kept for transparent reporting
             $table->decimal('supervisor_score', 6, 2)->nullable();
@@ -164,7 +164,7 @@ return new class extends Migration
             // Snapshot of the arithmetic, so a result is reproducible
             $table->json('computation_breakdown')->nullable();
 
-            $table->enum('status', ['provisional', 'moderated', 'released', 'withheld'])
+            $table->string('status')
                   ->default('provisional')->index();
 
             $table->timestamp('computed_at')->nullable();

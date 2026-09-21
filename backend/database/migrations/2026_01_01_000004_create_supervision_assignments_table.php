@@ -23,10 +23,10 @@ return new class extends Migration
 
             // Which part of the project this supervisor covers. PSM1 and PSM2
             // can legitimately have different supervisors.
-            $table->enum('psm_part', ['PSM1', 'PSM2', 'BOTH'])->default('BOTH');
+            $table->string('psm_part')->default('BOTH');
 
             // primary = main supervisor; co = co-supervisor
-            $table->enum('role', ['primary', 'co', 'advisor'])->default('primary');
+            $table->string('role')->default('primary');
 
             // Share of the supervision mark this supervisor is responsible for.
             // The sum per (student, psm_part) should be 100 — enforced in the

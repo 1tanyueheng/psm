@@ -32,7 +32,7 @@ return new class extends Migration
             $table->foreignId('examiner_id')->constrained('users')->cascadeOnDelete();
 
             // Which presentation/session this examiner covers
-            $table->enum('psm_part', ['PSM1', 'PSM2'])->default('PSM2');
+            $table->string('psm_part')->default('PSM2');
             $table->string('panel_role', 32)->nullable();   // chair | member | reserve
 
             $table->boolean('is_active')->default(true)->index();

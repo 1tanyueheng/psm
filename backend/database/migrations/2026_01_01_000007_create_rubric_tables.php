@@ -23,11 +23,11 @@ return new class extends Migration
             $table->id();
 
             $table->string('name');
-            $table->enum('category', ['system', 'research'])->index();
-            $table->enum('psm_part', ['PSM1', 'PSM2', 'BOTH'])->default('BOTH');
+            $table->string('category')->index();
+            $table->string('psm_part')->default('BOTH');
 
             // Which assessment deliverable this rubric scores
-            $table->enum('assessor_type', ['supervisor', 'examiner', 'coordinator'])
+            $table->string('assessor_type')
                   ->default('supervisor')->index();
 
             $table->unsignedSmallInteger('version')->default(1);

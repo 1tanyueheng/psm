@@ -25,12 +25,12 @@ return new class extends Migration
             $table->string('password');
 
             // Module 1 — RBAC
-            $table->enum('role', ['student', 'supervisor', 'coordinator', 'examiner', 'admin'])
+            $table->string('role')
                   ->default('student')
                   ->index();
 
             // Account lifecycle: active | inactive | suspended | pending
-            $table->enum('status', ['active', 'inactive', 'suspended', 'pending'])
+            $table->string('status')
                   ->default('active')
                   ->index();
 

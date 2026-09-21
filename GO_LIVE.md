@@ -378,6 +378,7 @@ a second or two. Harmless, but worth expecting.
 | CORS errors | `FRONTEND_URL` on Render |
 | `Driver [database] is not supported` (500 on `/`) | A store-driver env var has a **stray trailing space** (e.g. `SESSION_DRIVER=database `) or `LOG_CHANNEL=database` is set. Re-type the value with no spaces; unset `LOG_CHANNEL` (defaults to `stack`). |
 | `relation "cache" does not exist` / queue workers crash | Migrations never ran — `RUN_MIGRATIONS` was not `true` on Render. Set `RUN_MIGRATIONS=true` and **restart** the service (entrypoint re-runs `migrate --force` on boot). |
+| `SQLSTATE[25P02]` `current transaction is aborted` during `migrate` | A migration used `enum()` columns, which **PostgreSQL rejects** (MySQL accepts them). All migrations were converted to `string()` columns — Postgres-compatible. Re-run `migrate --force`; the DB enum constraint is enforced in PHP instead. |
 
 ---
 

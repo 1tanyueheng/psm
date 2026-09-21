@@ -24,8 +24,8 @@ return new class extends Migration
             $table->text('scope')->nullable();
 
             // Module 3 — category drives which milestone + rubric template apply
-            $table->enum('category', ['system', 'research'])->index();
-            $table->enum('psm_part', ['PSM1', 'PSM2'])->index();
+            $table->string('category')->index();
+            $table->string('psm_part')->index();
 
             $table->string('academic_session', 32);          // e.g. 2025/2026
             $table->string('batch', 32)->index();
@@ -34,15 +34,7 @@ return new class extends Migration
             $table->string('program', 128)->nullable();
 
             // Registration lifecycle
-            $table->enum('status', [
-                'draft',
-                'submitted',
-                'approved',
-                'rejected',
-                'in_progress',
-                'completed',
-                'archived',
-            ])->default('draft')->index();
+            $table->string('status')->default('draft')->index();
 
             // Module 3 — who owns the project record
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
@@ -91,8 +83,8 @@ return new class extends Migration
             $table->id();
 
             $table->string('name');                                  // e.g. "System Development 2025/26"
-            $table->enum('category', ['system', 'research'])->index();
-            $table->enum('psm_part', ['PSM1', 'PSM2', 'BOTH'])->default('BOTH');
+            $table->string('category')->index();
+            $table->string('psm_part')->default('BOTH');
 
             $table->unsignedSmallInteger('version')->default(1);
             $table->boolean('is_active')->default(true)->index();
