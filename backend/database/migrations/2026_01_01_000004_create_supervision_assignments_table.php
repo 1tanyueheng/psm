@@ -54,36 +54,10 @@ return new class extends Migration
                 'supervision_lookup_idx'
             );
         });
-
-        // ---------------------------------------------------------------
-        // Module 2 / 4 — Examiner allocation
-        // ---------------------------------------------------------------
-        // Explicitly modelled: who examines which project, so Module 4 knows
-        // whose evaluation forms to create and Module 5 can report workload.
-        Schema::create('examiner_assignments', function (Blueprint $table) {
-            $table->id();
-
-            $table->foreignId('project_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('examiner_id')->constrained('users')->cascadeOnDelete();
-
-            // Which presentation/session this examiner covers
-            $table->string('psm_part')->default('PSM2');
-            $table->string('panel_role', 32)->nullable();   // chair | member | reserve
-
-            $table->boolean('is_active')->default(true)->index();
-
-            $table->foreignId('assigned_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('notified_at')->nullable();
-
-            $table->timestamps();
-
-            $table->unique(['project_id', 'examiner_id', 'psm_part'], 'examiner_unique_per_part');
-        });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('examiner_assignments');
         Schema::dropIfExists('supervision_assignments');
     }
 };
