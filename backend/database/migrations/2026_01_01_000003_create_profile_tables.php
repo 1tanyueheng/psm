@@ -88,6 +88,7 @@ return new class extends Migration
             $table->foreignId('expertise_area_id')->constrained()->cascadeOnDelete();
             // 1 = incidental familiarity, 5 = primary research field
             $table->unsignedTinyInteger('proficiency')->default(3);
+            $table->timestamps();
 
             $table->unique(
                 ['supervisor_profile_id', 'expertise_area_id'],
