@@ -89,18 +89,6 @@ return new class extends Migration
             // 1 = incidental familiarity, 5 = primary research field
             $table->unsignedTinyInteger('proficiency')->default(3);
 
-            // Both models reach this table through belongsToMany() and declare
-            // ->withTimestamps(), and the seeder attaches rows through those
-            // relationships. Without these columns every insert fails with:
-            //
-            //   SQLSTATE[42S22]: Column not found: 1054
-            //   Unknown column 'created_at' in 'field list'
-            //
-            // They are worth having beyond making the seeder work: a
-            // proficiency is an assessment, and knowing when it was recorded
-            // matters when a supervisor's declared expertise is reviewed.
-            $table->timestamps();
-
             $table->unique(
                 ['supervisor_profile_id', 'expertise_area_id'],
                 'supervisor_expertise_unique'

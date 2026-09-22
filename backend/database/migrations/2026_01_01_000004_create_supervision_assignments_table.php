@@ -58,22 +58,32 @@ return new class extends Migration
         // ---------------------------------------------------------------
         // Module 2 / 4 — Examiner allocation
         // ---------------------------------------------------------------
-        // MOVED. `examiner_assignments` declares a foreign key to `projects`,
-        // which is not created until migration 000005. MySQL rejects a foreign
-        // key to a table that does not exist yet:
-        //
-        //   SQLSTATE[HY000]: General error: 1824
-        //   Failed to open the referenced table 'projects'
-        //
-        // It now lives in
-        // 2026_01_01_000013_create_examiner_assignments_table, which runs after
-        // `projects` exists. `supervision_assignments` above is unaffected —
-        // it only references `student_profiles` and `supervisor_profiles`,
-        // both created in migration 000003.
+        // Explicitly modelled: who examines which project, so Module 4 knows
+        // whose evaluation forms to create and Module 5 can report workload.
+        Schema::create('examiner_assignments', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('project_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('examiner_id')->constrained('users')->cascadeOnDelete();
+
+            // Which presentation/session this examiner covers
+            $table->string('psm_part')->default('PSM2');
+            $table->string('panel_role', 32)->nullable();   // chair | member | reserve
+
+            $table->boolean('is_active')->default(true)->index();
+
+            $table->foreignId('assigned_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamp('notified_at')->nullable();
+
+            $table->timestamps();
+
+            $table->unique(['project_id', 'examiner_id', 'psm_part'], 'examiner_unique_per_part');
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('examiner_assignments');
         Schema::dropIfExists('supervision_assignments');
     }
 };
