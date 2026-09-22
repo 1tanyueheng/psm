@@ -110,6 +110,7 @@ RUN apk add --no-cache --virtual .build-deps \
         mysql-client \
         nginx \
         supervisor \
+        python3 \
         curl \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
@@ -158,6 +159,11 @@ RUN mkdir -p \
 
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Gates the queue workers and scheduler behind migrations. Needs python3
+# (installed above) because it speaks supervisord's event protocol on stdin.
+COPY docker/wait-for-migrations.py /usr/local/bin/wait-for-migrations.py
+RUN chmod +x /usr/local/bin/wait-for-migrations.py
 
 EXPOSE 8080
 

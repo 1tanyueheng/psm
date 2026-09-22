@@ -65,3 +65,9 @@ desktop.ini
 /coverage/
 *.zip
 *.tar.gz
+
+# --- Python tooling ---------------------------------------------------
+# docker/wait-for-migrations.py is a supervisord event listener. Compiling it
+# leaves a __pycache__ directory next to it, which should not be committed.
+__pycache__/
+*.py[cod]

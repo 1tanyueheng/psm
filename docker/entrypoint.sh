@@ -90,32 +90,36 @@ else
 fi
 
 # ---------------------------------------------------------------------
-# 5. Migrations
+# 5. Migrations — deliberately NOT run here
 # ---------------------------------------------------------------------
-# Opt-in via RUN_MIGRATIONS=true. Migrating automatically on every boot is
-# convenient but dangerous: a bad deploy takes the database with it. The
-# intended production flow is a one-off release command instead.
+# This used to run `migrate --force` before handing off to supervisord, on the
+# reasoning that the database should be ready before the workers start.
 #
-# Deliberately non-fatal. Under `set -e` an unguarded failure here exits the
-# container, and Docker restarts it — so a single bad migration presents as an
-# endless restart loop with the actual SQL error buried in the logs. Letting
-# the container come up instead means the error is visible and the migration
-# can be re-run by hand.
-if [ "$RUN_MIGRATIONS" = "true" ]; then
-    echo "[entrypoint] Running migrations"
-    if ! php /var/www/html/artisan migrate --force --no-interaction; then
-        echo "[entrypoint] ----------------------------------------------------"
-        echo "[entrypoint] MIGRATION FAILED. The container will still start so"
-        echo "[entrypoint] the error above stays readable. Re-run it with:"
-        echo "[entrypoint]   docker compose exec app php artisan migrate --force"
-        echo "[entrypoint] ----------------------------------------------------"
-    fi
-
-    if [ "$RUN_SEED" = "true" ]; then
-        echo "[entrypoint] Seeding (demo data — never enable this in production)"
-        php /var/www/html/artisan db:seed --force --no-interaction || \
-            echo "[entrypoint] Seeding failed — see the error above."
-    fi
+# That reasoning was right; the placement was wrong. `exec "$@"` starts
+# supervisord, and supervisord starts every `autostart = true` program
+# immediately — but it starts them as *supervised children*, not as a
+# blocking step in this script. So the queue worker's first poll of
+# `illuminate:queue:restart` could still land while `migrate` was mid-flight
+# creating the table it lives in:
+#
+#   SQLSTATE[42P01]: relation "cache" does not exist
+#   WARN exited: queue-worker_00 (exit status 1; not expected)   [repeats]
+#
+# The migration then succeeded, which is why the database looked empty while
+# the API worked — the failures were the workers crash-looping, not the
+# migration failing.
+#
+# Migrations now run as a supervised one-shot program (`[program:migrate]` in
+# docker/supervisord.conf) with a lower `priority` than the workers. Both are
+# choices supervisord enforces, which is what makes the ordering reliable
+# rather than a race that usually goes the right way.
+#
+# Seeding stays here: it has no ordering constraint against the workers, and
+# keeping it out of supervisord means a bad seeder cannot repeatedly restart.
+if [ "$RUN_SEED" = "true" ]; then
+    echo "[entrypoint] Seeding (demo data — never enable this in production)"
+    php /var/www/html/artisan db:seed --force --no-interaction || \
+        echo "[entrypoint] Seeding failed — see the error above."
 fi
 
 # ---------------------------------------------------------------------

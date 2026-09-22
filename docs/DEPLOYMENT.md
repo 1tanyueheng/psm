@@ -95,6 +95,30 @@ processes under `supervisord`. The queue worker and scheduler — the two things
 that break on serverless — come along automatically. There is also no CORS
 setup, no cross-domain cookies, and one thing to deploy.
 
+### Container startup order
+
+The five supervised programs do not all start at once. Migrations must finish
+before anything that touches the `cache` table, because a queue worker's first
+action is to read `illuminate:queue:restart` from it.
+
+```
+priority  5   php-fpm        no database access
+priority 10   nginx          no database access
+priority 15   migrate        creates the tables, then exits
+priority 18   gate           event listener: releases 20 and 30 when 15 exits
+priority 20   queue-worker   x2, autostart = false
+priority 30   scheduler      autostart = false
+```
+
+`priority` alone is not sufficient — it orders when supervisord *forks* each
+program, not when each *finishes*. The workers are therefore held
+`STOPPED` via `autostart = false` and released by the event listener at
+`priority 18`. See `docker/wait-for-migrations.py`, which documents the
+reasoning and supervisord's event protocol.
+
+This ordering is what prevents the `relation "cache" does not exist` crash
+loop described in section 8.
+
 **Choose this unless you have a specific reason not to.**
 
 ### Option B — split frontend and backend
@@ -294,15 +318,108 @@ Before pointing a real cohort at this:
       password `password`)
 - [ ] HTTPS working, and `SANCTUM_STATEFUL_DOMAINS` matches the real frontend
       origin
+- [ ] A CORS preflight from the real frontend origin returns
+      `Access-Control-Allow-Origin` (see section 8)
 - [ ] The public leaderboard loads without logging in
 - [ ] One full journey tested end to end as a real student: register → upload →
       get marked → see the grade
 
 ---
 
-## 7. Where to go next
+## 7. Troubleshooting the two failures that actually happened
+
+Both of these were hit on a real deploy. Both are fixed in the repository, and
+both are recorded here because each is easy to misdiagnose.
+
+### `relation "cache" does not exist`, repeating forever
+
+```
+SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "cache" does not exist
+LINE 1: select * from "cache" where "key" in ($1)
+WARN exited: queue-worker_00 (exit status 1; not expected)
+WARN exited: queue-worker_01 (exit status 1; not expected)
+```
+
+**This does not necessarily mean migrations failed.** In the case that
+produced this log, the migration ran and succeeded. The workers had simply
+started before it finished.
+
+A Laravel queue worker's first action is to read `illuminate:queue:restart`
+from the cache store, which here is the database `cache` table. Migrations
+create that table. Start the worker first and it dies instantly; supervisord
+restarts it; forever.
+
+Two things make this confusing:
+
+- **The API is unaffected.** The site loads and the database can look empty at
+  the same time, because the error is two workers crash-looping, not a failed
+  migration.
+- **`priority` does not fix it.** It orders when supervisord forks each
+  program, not when each finishes. Workers still reach `RUNNING` while
+  `php artisan migrate` is opening its connection.
+
+**Check what actually applied** before assuming anything:
+
+```sh
+php artisan migrate:status
+```
+
+Point a throwaway container at the same database (Neon is reachable from
+anywhere) — see the shell-free artisan recipe in `GO_LIVE.md` step 6.
+
+**The fix** is in `docker/supervisord.conf` and
+`docker/wait-for-migrations.py`: workers and scheduler have
+`autostart = false` and an event listener releases them once the migrate
+program exits. See "Container startup order" in section 2.
+
+### Login fails with a network error — missing CORS config
+
+The symptom is a generic red banner on the login form, with no HTTP status
+code. In the browser console there is a CORS error; in the Network tab there
+may be no `POST` request at all, only a failed `OPTIONS`.
+
+The cause was that `backend/config/cors.php` **did not exist**. Laravel 11
+registers `HandleCors` globally by default, so the middleware was running —
+but it reads its allowed paths from `config('cors.paths')`, and with no config
+file that returns an empty array. Every path check failed, the middleware did
+nothing, and the request fell through to the router.
+
+Worse, Laravel's *bundled* fallback config answers with
+`Access-Control-Allow-Origin: *`. That looks permissive but is fatal here:
+`Authorization` is a **CORS non-wildcard request-header name** in the Fetch
+standard, so a request carrying it can never be satisfied by the wildcard, and
+the browser blocks the response.
+
+Verified with a real preflight against the app:
+
+| Origin sent | Result |
+|---|---|
+| `https://your-app.vercel.app` (allowlisted) | `204` + `Access-Control-Allow-Origin: https://your-app.vercel.app`, `Allow-Credentials: true` |
+| `https://evil.example.com` (not allowlisted) | no allow-origin header — blocked, as intended |
+
+**The fix** is `backend/config/cors.php`, which allowlists `FRONTEND_URL` and
+`APP_URL` from the environment and sets `supports_credentials = true`.
+
+When debugging, remember:
+
+- `FRONTEND_URL` must match the origin **exactly** — no trailing slash, no
+  path, correct subdomain. A Vercel preview URL will not match the production
+  domain; add it to `CORS_ALLOWED_ORIGIN_PATTERNS` if you need it.
+- **A 401 or 422 in the Network tab means CORS is working.** The request got
+  through; the problem is credentials or seed data instead.
+- Hard-reload after any change. Preflight responses are cached for
+  `CORS_MAX_AGE` seconds (24 hours by default) and a cached failure makes a
+  correct fix look like it did nothing.
+- A stale `bootstrap/cache/config.php` will shadow a new config file. The
+  entrypoint clears it on every boot, but locally run
+  `php artisan config:clear`.
+
+---
+
+## 8. Where to go next
 
 - `WHAT_TO_DO_NEXT.md` — getting it running locally first, in plain language
 - `docs/SETUP.md` — full setup, including the Render section
 - `docs/ARCHITECTURE.md` — how the code is organised and why
 - `frontend/LOCKFILE.md` — the lock file situation
+- `GO_LIVE.md` — the step-by-step deployment runbook
