@@ -131,6 +131,47 @@ def read_event(header):
     return parse_payload(payload)
 
 
+def can_reach_database():
+    """
+    Return True if the application's default database connection works.
+
+    Used only on the failure path, to decide whether starting the queue workers
+    is worth attempting at all.
+
+    The return value on *doubt* is True, deliberately: the fallback — start the
+    workers and let supervisord manage them — is the behaviour that existed
+    before this check, so anything unexpected here must degrade to it rather
+    than make things worse. `php` or `artisan` going missing is a broken image,
+    not a broken database, and it should not quietly disable the queue.
+
+    `db:show` is Laravel's own connection inspector. It opens a real connection
+    and exits non-zero when it cannot, which is exactly the question being
+    asked, and it needs no extra dependency.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "php",
+                "/var/www/html/artisan",
+                "db:show",
+                "--no-interaction",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        # Binary missing, not executable, timed out. Not a verdict on the
+        # database — fall back to starting the workers.
+        return True
+
+    # A signal killing the process is not a "no" either.
+    if result.returncode < 0:
+        return True
+
+    return result.returncode == 0
+
+
 def main():
     # supervisord will not send anything until it sees this.
     emit("READY")
@@ -174,16 +215,53 @@ def main():
         released = True
 
         note(
-            "migrate finished ({}) - starting queue workers and scheduler".format(
+            "migrate finished ({}) - releasing queue workers and "
+            "scheduler".format(
                 "succeeded" if succeeded else "FAILED, see the [migrate] output above"
             )
         )
 
         if not succeeded:
-            note(
-                "The API is unaffected. Check DB credentials and re-run "
-                "migrations before relying on email delivery."
-            )
+            # Migrations failed. Check *why* before touching the workers.
+            #
+            # Releasing them anyway is the safer default — a worker that starts
+            # and reports a missing table once beats one that crash-loops — but
+            # supervisord gives up permanently after three fast failures:
+            #
+            #     INFO gave up: queue-worker_00 entered FATAL state
+            #
+            # A worker whose start attempt fails dies immediately, so if the
+            # database is unreachable those three retries are gone in under a
+            # second, and the queue stays dead even after the connection is
+            # fixed. So: if the database is plainly down, leave the workers
+            # STOPPED rather than spend the retries on a lost cause.
+            #
+            # Nothing is lost by waiting. Migrations, seeding and every HTTP
+            # request run in the web process; the only thing the workers carry
+            # is queued mail.
+            #
+            # Do NOT `return` or `sys.exit()` here. This process is the event
+            # listener, and it has `autorestart = true`. If it exits,
+            # supervisord restarts it, it is handed the *same* replayable
+            # PROCESS_STATE_EXITED event again, and this whole block re-runs —
+            # an endless respawn loop that repeats the message every few
+            # seconds instead of stating it once. Staying alive is what makes
+            # the message appear exactly once.
+            #
+            # When migration failed but the database *is* reachable, the cause
+            # is something else (a bad migration, a permission problem) and the
+            # workers are released as usual: `autorestart` then covers the case
+            # where the fault clears.
+            if not can_reach_database():
+                note(
+                    "Database still unreachable - leaving the queue workers "
+                    "STOPPED, so their start retries are not burned on a "
+                    "connection that cannot succeed. The API, migrations and "
+                    "seeding all run in the web process, so only queued email "
+                    "is affected. Fix the credentials and re-run: "
+                    "php artisan migrate --force"
+                )
+                continue
 
         # Programs are named explicitly rather than as `psm:queue-worker:*`.
         # The glob looks tidier but is rejected with "ERROR (no such

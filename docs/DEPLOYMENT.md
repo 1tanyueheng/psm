@@ -372,6 +372,35 @@ anywhere) — see the shell-free artisan recipe in `GO_LIVE.md` step 6.
 `autostart = false` and an event listener releases them once the migrate
 program exits. See "Container startup order" in section 2.
 
+#### What the listener does when a migration genuinely fails
+
+Releasing the workers anyway is the right default — a worker that starts and
+reports a missing table once beats one that crash-loops — but there is a trap.
+**supervisord gives up on a program permanently after three fast failures:**
+
+```
+INFO gave up: queue-worker_00 entered FATAL state, too many start retries too quickly
+```
+
+Releasing the workers the instant a migration fails spends all three attempts
+in under a second against a database that is certainly still broken, leaving
+the queue dead even after the connection is fixed. So the listener checks the
+connection first (`php artisan db:show`) and, if it is still down, leaves the
+workers `STOPPED` and logs:
+
+```
+[gate] Database still unreachable - leaving the queue workers STOPPED, so their
+       start retries are not burned on a connection that cannot succeed. ...
+```
+
+Nothing is lost by waiting. Migrations, seeding and every HTTP request run in
+the web process; the only thing the queue workers carry is queued mail. Fix the
+credentials, redeploy, and the workers start normally.
+
+If the connection *is* reachable but migrations failed, the workers are
+released as usual — the failure was something else, and `autorestart` covers
+the case where it clears.
+
 ### Login fails with a network error — missing CORS config
 
 The symptom is a generic red banner on the login form, with no HTTP status
