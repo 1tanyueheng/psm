@@ -40,7 +40,9 @@ export default function CoordinatorDashboard() {
         if (cancelled) return
 
         setOverview(unwrap(overviewRes))
-        setDistribution(unwrap(distributionRes) ?? [])
+        // The API returns the distribution as { by_band: [...] } — the bands
+        // are what the bars render, not the raw `distribution` map.
+        setDistribution(unwrap(distributionRes)?.by_band ?? [])
         setWorkload(unwrap(workloadRes) ?? [])
         setUnpaired(unwrapPaged(unpairedRes).meta)
       } catch (err) {
@@ -61,24 +63,30 @@ export default function CoordinatorDashboard() {
     [distribution]
   )
 
-  const bottlenecks = useMemo(
-    () =>
-      (overview?.milestone_bottlenecks ?? []).slice(0, 5).sort(
-        (a, b) => (b.overdue_count ?? 0) - (a.overdue_count ?? 0)
-      ),
-    [overview]
-  )
+  const k = overview ?? {}
+  const cohort = k.cohort ?? {}
+  const stages = cohort.stages ?? {}
+  const byBand = (() => {
+    const first = cohort.by_batch?.[0]
+    return first?.batch ? `Batch ${first.batch}` : null
+  })()
+
+  // Module 5's "where is the cohort stuck" — drawn from the summary the
+  // dashboard endpoint already returns, rather than a separate round-trip.
+  const attention = [
+    { label: 'Awaiting review', count: k.awaiting_review ?? 0, tone: 'warning' },
+    { label: 'At risk', count: k.at_risk ?? 0, tone: 'danger' },
+    { label: 'Revision required', count: stages.rejected?.count ?? 0, tone: 'warning' },
+  ].filter((item) => item.count > 0)
 
   if (loading) return <Spinner label="Loading cohort analytics" />
-  if (error) return <ErrorState error={error} />
-
-  const k = overview ?? {}
+  if (error) return <ErrorState message={error.message || error} />
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Cohort overview"
-        subtitle={k.academic_session ? `Session ${k.academic_session} · batch ${k.batch ?? '—'}` : 'Current cohort'}
+        subtitle={byBand ?? 'Current cohort'}
         actions={
           <div className="flex gap-2">
             <Link to="/assignments">
@@ -92,7 +100,7 @@ export default function CoordinatorDashboard() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Active projects" value={k.active_projects ?? 0} hint="PSM1 + PSM2 in flight" />
+        <StatCard label="Active projects" value={cohort.total_projects ?? 0} hint="Current batch in flight" />
         <StatCard
           label="Unpaired students"
           value={unpaired?.total ?? 0}
@@ -101,14 +109,14 @@ export default function CoordinatorDashboard() {
         />
         <StatCard
           label="Overdue milestones"
-          value={k.overdue_milestones ?? 0}
+          value={stages.overdue?.count ?? 0}
           hint="Past due date, not approved"
-          tone={(k.overdue_milestones ?? 0) > 0 ? 'warning' : 'success'}
+          tone={(stages.overdue?.count ?? 0) > 0 ? 'warning' : 'success'}
         />
         <StatCard
           label="Grades released"
-          value={k.grades_released ?? 0}
-          hint="Visible to students"
+          value={k.grades?.total ?? 0}
+          hint="Released final grades"
           tone="success"
         />
       </div>
@@ -118,7 +126,7 @@ export default function CoordinatorDashboard() {
         <Card>
           <CardHeader
             title="Grade distribution"
-            subtitle={k.graded_count ? `${k.graded_count} graded projects` : 'All graded projects'}
+            subtitle={k.grades?.stats?.count ? `${k.grades.stats.count} graded projects` : 'All graded projects'}
           />
           {distribution.length === 0 ? (
             <EmptyState
@@ -155,31 +163,20 @@ export default function CoordinatorDashboard() {
           )}
         </Card>
 
-        {/* Bottlenecks — where the cohort is collectively stuck. */}
+        {/* Where the cohort is collectively stuck — awaiting/at-risk/revisions. */}
         <Card>
           <CardHeader
-            title="Where the cohort is stuck"
-            subtitle="Milestones with the most overdue submissions"
+            title="Where the cohort needs attention"
+            subtitle="Items that require a coordinator decision"
           />
-          {bottlenecks.length === 0 ? (
-            <EmptyState title="No backlog" message="Nothing is overdue across the cohort." />
+          {attention.length === 0 ? (
+            <EmptyState title="All clear" message="Nothing needs attention across the cohort." />
           ) : (
             <ul className="divide-y divide-slate-100">
-              {bottlenecks.map((row) => (
-                <li key={row.milestone_code ?? row.name} className="flex items-center gap-3 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-slate-800">{row.name}</p>
-                    <p className="text-xs text-slate-500">
-                      {row.milestone_code}
-                      {row.psm_part ? ` · ${row.psm_part}` : ''}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-rose-600 tabular-nums">
-                      {row.overdue_count ?? 0}
-                    </p>
-                    <p className="text-xs text-slate-400">overdue</p>
-                  </div>
+              {attention.map((item) => (
+                <li key={item.label} className="flex items-center justify-between py-3">
+                  <p className="text-sm font-medium text-slate-800">{item.label}</p>
+                  <Badge tone={item.tone}>{item.count}</Badge>
                 </li>
               ))}
             </ul>
@@ -203,19 +200,18 @@ export default function CoordinatorDashboard() {
         ) : (
           <DataTable
             columns={[
-              'Supervisor',
-              'Expertise',
-              'Load',
-              'Capacity',
-              'Utilisation',
-              'Availability',
+              { key: 'name', label: 'Supervisor' },
+              { key: 'expertise', label: 'Expertise' },
+              { key: 'load', label: 'Load' },
+              { key: 'capacity', label: 'Capacity' },
+              { key: 'utilisation', label: 'Utilisation' },
+              { key: 'availability', label: 'Availability' },
             ]}
-          >
-            {workload.map((row) => {
-              const used = row.current_load ?? row.supervisee_count ?? 0
-              const max = row.max_supervisees ?? 0
-              const pct = max > 0 ? Math.round((used / max) * 100) : 0
-              const full = row.has_capacity === false || (max > 0 && used >= max)
+            render={(row) => {
+              const used = row.supervising ?? 0
+              const max = row.capacity ?? 0
+              const pct = row.utilisation ?? 0
+              const full = row.overloaded === true || row.accepting === false
 
               return (
                 <tr key={row.id ?? row.name}>
@@ -225,12 +221,7 @@ export default function CoordinatorDashboard() {
                       <div className="font-mono text-xs text-slate-400">{row.staff_id}</div>
                     )}
                   </Td>
-                  <Td className="text-sm text-slate-600">
-                    {(row.expertise ?? []).slice(0, 2).join(', ')}
-                    {(row.expertise?.length ?? 0) > 2 && (
-                      <span className="text-slate-400"> +{row.expertise.length - 2}</span>
-                    )}
-                  </Td>
+                  <Td className="text-sm text-slate-600">{row.expertise ?? '—'}</Td>
                   <Td className="tabular-nums">{used}</Td>
                   <Td className="tabular-nums">{max || '—'}</Td>
                   <Td>
@@ -253,8 +244,8 @@ export default function CoordinatorDashboard() {
                   </Td>
                 </tr>
               )
-            })}
-          </DataTable>
+            }}
+          />
         )}
       </Card>
     </div>
