@@ -43,7 +43,7 @@ abstract class ApiController extends BaseController
         return response()->json($payload, $status);
     }
 
-    protected function created(mixed $data = null, ?string $message = 'Created.'): JsonResponse
+    protected function created(mixed $data = null, ?string $message = 'تم الإنشاء.'): JsonResponse
     {
         return $this->ok($data, $message, 201);
     }
@@ -64,7 +64,7 @@ abstract class ApiController extends BaseController
 
     protected function noContent(?string $message = null): JsonResponse
     {
-        return $this->ok(null, $message ?? 'Done.');
+        return $this->ok(null, $message ?? 'تم.');
     }
 
     /**

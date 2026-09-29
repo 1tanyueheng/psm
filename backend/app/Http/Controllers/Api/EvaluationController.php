@@ -110,7 +110,7 @@ class EvaluationController extends ApiController
 
         return $this->created(
             new EvaluationResource($evaluation->load('scores', 'assessor', 'rubricTemplate')),
-            'Evaluation form ready.'
+            'نموذج التقييم جاهز.'
         );
     }
 
@@ -150,7 +150,7 @@ class EvaluationController extends ApiController
 
         $updated->load('scores', 'assessor', 'rubricTemplate');
 
-        return $this->ok(new EvaluationResource($updated), 'Marks saved.');
+        return $this->ok(new EvaluationResource($updated), 'تم حفظ الدرجات.');
     }
 
     /**
@@ -170,7 +170,7 @@ class EvaluationController extends ApiController
 
         return $this->ok(
             new EvaluationResource($submitted->load('scores', 'assessor', 'rubricTemplate')),
-            'Marks submitted and locked. A coordinator can now moderate them.'
+            'تم تسليم الدرجات وقفلها. يمكن للمنسق الآن تحكيمها.'
         );
     }
 
@@ -203,7 +203,7 @@ class EvaluationController extends ApiController
 
         return $this->ok(
             new EvaluationResource($moderated->load('scores', 'assessor', 'rubricTemplate', 'moderatedBy')),
-            'Marks moderated. The change is recorded in the audit trail.'
+            'تم تحكيم الدرجات. التغيير مسجَّل في سجل التدقيق.'
         );
     }
 
@@ -227,7 +227,7 @@ class EvaluationController extends ApiController
 
         $this->audit->log(
             action: AuditAction::EvaluationUpdated,
-            description: "Recused from assessing: {$validated['declaration']}",
+            description: "اعتذر عن التقييم: {$validated['declaration']}",
             subject: $evaluation,
             actor: $request->user(),
         );
@@ -237,16 +237,16 @@ class EvaluationController extends ApiController
             User::withRole('coordinator')->active()->get(),
             \App\Enums\NotificationType::EvaluationAssigned,
             [
-                'title'      => 'Assessor recused',
-                'body'       => "{$request->user()->name} declared a conflict of interest on "
-                                ."{$evaluation->project->code}. A replacement is needed.",
+                'title'      => 'اعتذر المقيّم',
+                'body'       => "أعلن {$request->user()->name} تضارب مصالح على "
+                                ."{$evaluation->project->code}. إعادة تكليف مطلوبة.",
                 'action_url' => "/reports/projects/{$evaluation->project_id}",
                 'urgent'     => true,
             ],
             $evaluation,
         );
 
-        return $this->ok(null, 'Your conflict of interest has been recorded. Please do not assess this project.');
+        return $this->ok(null, 'تم تسجيل تضارب المصالح لديك. يُرجى عدم تقييم هذا المشروع.');
     }
 
     /**
@@ -348,7 +348,7 @@ class EvaluationController extends ApiController
 
         return $this->ok(
             new \App\Http\Resources\FinalGradeResource($updated->load('studentProfile.user', 'project')),
-            'Grade recomputed.'
+            'تمت إعادة حساب الدرجة.'
         );
     }
 
@@ -363,7 +363,7 @@ class EvaluationController extends ApiController
 
         return $this->ok(
             new \App\Http\Resources\FinalGradeResource($released->load('studentProfile.user', 'project')),
-            'Grade released to the student.'
+            'تم الإفراج عن الدرجة للطالب.'
         );
     }
 
@@ -415,7 +415,7 @@ class EvaluationController extends ApiController
         $total = collect($validated['weights'])->sum(fn ($w) => (float) $w['weight']);
 
         if (abs($total - 100.0) > 0.01) {
-            return $this->fail("Assessor weights must total 100% (currently {$total}%).", 422);
+            return $this->fail("يجب أن يكون مجموع أوزان المقيّمين 100% (حاليًا {$total}%).", 422);
         }
 
         $scheme = \App\Models\GradeScheme::ensureFor($project);
@@ -428,7 +428,7 @@ class EvaluationController extends ApiController
 
         $this->audit->log(
             action: AuditAction::GradeRecalculated,
-            description: 'Grade scheme updated',
+            description: 'تم تحديث مخطط الدرجات',
             subject: $scheme,
             before: $before,
             after: $scheme->fresh()->getAttributes(),
@@ -444,6 +444,6 @@ class EvaluationController extends ApiController
             'weights'        => $scheme->fresh()->weights,
             'aggregation'    => $scheme->aggregation,
             'weights_balance'=> $scheme->weightsBalance(),
-        ], 'Grade scheme updated and grades recomputed.');
+        ], 'تم تحديث مخطط الدرجات وإعادة حساب الدرجات.');
     }
 }

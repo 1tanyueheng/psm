@@ -71,12 +71,12 @@ class SendDeadlineRemindersCommand extends Command
                     continue;
                 }
 
-                $daysText = $daysBefore === 1 ? 'tomorrow' : "in {$daysBefore} days";
+                $daysText = $daysBefore === 1 ? 'غدًا' : "خلال {$daysBefore} أيام";
 
                 $payload = [
-                    'title'      => "Deadline {$daysText}: {$milestone->title}",
+                    'title'      => "الموعد {$daysText}: {$milestone->title}",
                     'body'       => sprintf(
-                        "'%s' for %s is due %s. Current status: %s.",
+                        "معلم '%s' لمشروع %s استحقاقه %s. الحالة الحالية: %s.",
                         $milestone->title,
                         $milestone->project->code,
                         $milestone->due_at?->format('d M Y'),
@@ -126,8 +126,8 @@ class SendDeadlineRemindersCommand extends Command
                             $daysBefore,
                             NotificationType::DeadlineReminder,
                             [
-                                'title'      => "Deadline tomorrow: {$milestone->project->code}",
-                                'body'       => "{$milestone->title} is due tomorrow and has not been submitted.",
+                                'title'      => "الموعد غدًا: {$milestone->project->code}",
+                                'body'       => "موعد تسليم {$milestone->title} غدًا ولم يتم تسليمه.",
                                 'action_url' => "/projects/{$milestone->project_id}/milestones/{$milestone->id}",
                             ],
                         );

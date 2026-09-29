@@ -56,18 +56,18 @@ class SubmissionEvent extends Model
     /** A sentence the timeline can render without further logic. */
     public function describe(): string
     {
-        $who = $this->actor?->name ?? 'System';
+        $who = $this->actor?->name ?? 'النظام';
 
         return match ($this->event) {
-            self::EVENT_UPLOADED         => "{$who} uploaded a submission",
-            self::EVENT_REPLACED         => "{$who} replaced the submission file",
-            self::EVENT_REVIEWED         => "{$who} reviewed the submission",
-            self::EVENT_APPROVED         => "{$who} approved this milestone",
-            self::EVENT_REJECTED         => "{$who} requested a revision",
-            self::EVENT_DEADLINE_CHANGED => "{$who} changed the deadline",
-            self::EVENT_OPENED           => 'Milestone opened for submission',
-            self::EVENT_COMMENTED        => "{$who} added a comment",
-            default                      => "{$who} updated the milestone",
+            self::EVENT_UPLOADED         => "{$who} رفع تسليمًا",
+            self::EVENT_REPLACED         => "{$who} استبدل ملف التسليم",
+            self::EVENT_REVIEWED         => "{$who} راجع التسليم",
+            self::EVENT_APPROVED         => "{$who} اعتمد هذا المعلم",
+            self::EVENT_REJECTED         => "{$who} طلب مراجعة",
+            self::EVENT_DEADLINE_CHANGED => "{$who} غيّر الموعد النهائي",
+            self::EVENT_OPENED           => 'فتح المعلم للتسليم',
+            self::EVENT_COMMENTED        => "{$who} أضاف تعليقًا",
+            default                      => "{$who} حدّث المعلم",
         };
     }
 

@@ -85,8 +85,8 @@ class ArchiveController extends ApiController
             'batches'  => ArchivedProject::query()
                 ->select('batch')->distinct()->orderByDesc('batch')->pluck('batch'),
             'categories' => [
-                ['value' => 'system',   'label' => 'System Development'],
-                ['value' => 'research', 'label' => 'Research'],
+                ['value' => 'system',   'label' => 'تطوير الأنظمة'],
+                ['value' => 'research', 'label' => 'بحث'],
             ],
         ]);
     }
@@ -107,7 +107,7 @@ class ArchiveController extends ApiController
         return $this->created([
             'project_id' => $project->id,
             'code'       => $project->code,
-        ], 'Project restored from the archive.');
+        ], 'تمت استعادة المشروع من الأرشيف.');
     }
 
     /**
@@ -122,10 +122,12 @@ class ArchiveController extends ApiController
         return response()->streamDownload(function () use ($term) {
             $out = fopen('php://output', 'w');
 
+            fwrite($out, "\xEF\xBB\xBF");
+
             fputcsv($out, [
-                'Code', 'Title', 'Category', 'PSM Part', 'Session', 'Batch',
-                'Students', 'Supervisors', 'Final Mark', 'Grade',
-                'Documents', 'Public', 'Archived At',
+                'الرمز', 'العنوان', 'التصنيف', 'جزء المشروع', 'الفصل الدراسي', 'الدفعة',
+                'الطلاب', 'المشرفون', 'الدرجة النهائية', 'الدرجة الحرفية',
+                'الوثائق', 'عام', 'تاريخ الأرشفة',
             ]);
 
             ArchivedProject::query()
@@ -196,8 +198,8 @@ class ArchiveController extends ApiController
         return $this->ok([
             'actions'    => \App\Enums\AuditAction::options(),
             'categories' => [
-                'Authentication', 'Accounts & Profiles', 'Projects & Milestones',
-                'Evaluation & Grading', 'Reporting', 'Recognitions', 'Archive', 'Other',
+                'المصادقة', 'الحسابات والملفات الشخصية', 'المشاريع والمعالم',
+                'التقييم والدرجات', 'التقارير', 'التكريم', 'الأرشيف', 'أخرى',
             ],
             'severities' => ['info', 'warning', 'critical'],
         ]);
@@ -226,7 +228,7 @@ class ArchiveController extends ApiController
         $class = $map[strtolower($type)] ?? null;
 
         if ($class === null) {
-            return $this->fail('Unknown subject type.', 422);
+            return $this->fail('نوع السجل غير معروف.', 422);
         }
 
         $paginator = AuditLog::query()

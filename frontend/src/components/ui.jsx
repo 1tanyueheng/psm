@@ -135,7 +135,7 @@ export function ProgressBar({ value = 0, tone = 'brand', showLabel = false }) {
         />
       </div>
       {showLabel && (
-        <span className="text-xs text-slate-500 tabular-nums w-10 text-right">
+        <span className="text-xs text-slate-500 tabular-nums w-10 text-end">
           {Math.round(clamped)}%
         </span>
       )}
@@ -176,7 +176,7 @@ export function EmptyState({ title, description, action }) {
   )
 }
 
-export function Spinner({ label = 'Loading…' }) {
+export function Spinner({ label = 'جارٍ التحميل…' }) {
   return (
     <div className="flex items-center justify-center gap-3 py-12" role="status">
       <svg className="w-4 h-4 animate-spin text-brand-500" viewBox="0 0 24 24" fill="none">
@@ -202,14 +202,14 @@ export function Spinner({ label = 'Loading…' }) {
 export function ErrorState({ message, onRetry }) {
   return (
     <div className="rounded-lg border border-rose-200 bg-rose-50 p-4">
-      <p className="text-sm text-rose-800">{message || 'Something went wrong.'}</p>
+      <p className="text-sm text-rose-800">{message || 'حدث خطأ ما.'}</p>
       {onRetry && (
         <button
           type="button"
           onClick={onRetry}
           className="mt-3 text-xs font-medium text-rose-700 underline hover:no-underline"
         >
-          Try again
+          إعادة المحاولة
         </button>
       )}
     </div>
@@ -331,7 +331,7 @@ export function Button({
  */
 export function DataTable({ columns, rows, render, empty, keyField = 'id' }) {
   if (!rows?.length) {
-    return empty ?? <EmptyState title="Nothing to show yet" />
+    return empty ?? <EmptyState title="لا توجد بيانات بعد" />
   }
 
   return (
@@ -343,7 +343,7 @@ export function DataTable({ columns, rows, render, empty, keyField = 'id' }) {
               <th
                 key={column.key}
                 className={`px-5 py-2.5 text-xs font-medium text-slate-500 ${
-                  column.align === 'right' ? 'text-right' : 'text-left'
+                  column.align === 'right' ? 'text-end' : 'text-start'
                 }`}
                 style={column.width ? { width: column.width } : undefined}
               >
@@ -371,7 +371,7 @@ export function Td({ children, align = 'left', className = '' }) {
   return (
     <td
       className={`px-5 py-3 align-middle ${
-        align === 'right' ? 'text-right' : 'text-left'
+        align === 'right' ? 'text-end' : 'text-start'
       } ${className}`}
     >
       {children}

@@ -22,7 +22,7 @@ export function RequireAuth({ children }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Spinner label="Restoring your session…" />
+        <Spinner label="استعادة جلستك…" />
       </div>
     )
   }

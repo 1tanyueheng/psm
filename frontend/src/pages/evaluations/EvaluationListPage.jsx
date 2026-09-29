@@ -73,7 +73,7 @@ export default function EvaluationListPage() {
     }
   }, [rows])
 
-  if (loading) return <Spinner label="Loading assessments" />
+  if (loading) return <Spinner label="جارٍ تحميل التقييمات" />
   if (error) return <ErrorState error={error} />
 
   const canSeeAll = ['coordinator', 'admin'].includes(user?.role)
@@ -81,8 +81,8 @@ export default function EvaluationListPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Assessments"
-        subtitle={meta ? `${meta.total} form${meta.total === 1 ? '' : 's'}` : undefined}
+        title="التقييمات"
+        subtitle={meta ? `${meta.total} ${meta.total === 1 ? 'نموذج' : 'نماذج'}` : undefined}
       />
 
       <Card>
@@ -91,28 +91,28 @@ export default function EvaluationListPage() {
             <Select
               value={scope}
               onChange={(e) => setFilter('scope', e.target.value)}
-              aria-label="Scope"
+              aria-label="النطاق"
             >
-              <option value="mine">My forms</option>
-              <option value="all">All forms</option>
+              <option value="mine">نماذجي</option>
+              <option value="all">كل النماذج</option>
             </Select>
           )}
           <Select
             value={assessorType}
             onChange={(e) => setFilter('assessor_type', e.target.value)}
-            aria-label="Filter by assessor type"
+            aria-label="تصفية حسب نوع المقيم"
           >
-            <option value="">All assessor types</option>
-            <option value="supervisor">Supervisor</option>
-            <option value="examiner">Examiner</option>
-            <option value="coordinator">Coordinator</option>
+            <option value="">كل أنواع المقيمين</option>
+            <option value="supervisor">مشرف</option>
+            <option value="examiner">ممتحن</option>
+            <option value="coordinator">منسق</option>
           </Select>
           <Select
             value={status}
             onChange={(e) => setFilter('status', e.target.value)}
-            aria-label="Filter by status"
+            aria-label="تصفية حسب الحالة"
           >
-            <option value="">All statuses</option>
+            <option value="">كل الحالات</option>
             {Object.entries(EVALUATION_STATUS).map(([value, m]) => (
               <option key={value} value={value}>
                 {m.label}
@@ -123,9 +123,9 @@ export default function EvaluationListPage() {
             <button
               type="button"
               onClick={() => setParams(new URLSearchParams(), { replace: true })}
-              className="self-center text-left text-sm font-medium text-brand-700 hover:underline"
+              className="self-center text-start text-sm font-medium text-brand-700 hover:underline"
             >
-              Clear filters
+              مسح التصفية
             </button>
           )}
         </div>
@@ -133,62 +133,70 @@ export default function EvaluationListPage() {
 
       <Card>
         <CardHeader
-          title="Outstanding"
-          subtitle="Draft forms that still need marks"
-          action={open.length > 0 ? <Badge tone="warning">{open.length}</Badge> : <Badge tone="success">Clear</Badge>}
+          title="معلّقة"
+          subtitle="نماذج مسودة ما زالت بحاجة إلى درجات"
+          action={open.length > 0 ? <Badge tone="warning">{open.length}</Badge> : <Badge tone="success">مكتملة</Badge>}
         />
         {open.length === 0 ? (
           <EmptyState
-            title="Nothing outstanding"
-            message="You have no draft assessment forms waiting to be completed."
+            title="لا يوجد شيء معلّق"
+            message="لا توجد نماذج تقييم مسودة بانتظار إكمالها."
           />
         ) : (
           <ul className="divide-y divide-slate-100">
             {open.map((row) => (
-              <EvaluationRow key={row.id} row={row} actionLabel="Continue marking" />
+              <EvaluationRow key={row.id} row={row} actionLabel="متابعة التقييم" />
             ))}
           </ul>
         )}
       </Card>
 
       <Card>
-        <CardHeader title="Filed" subtitle="Submitted forms — read-only" />
+        <CardHeader title="مُسلَّمة" subtitle="النماذج المقدمة — للقراءة فقط" />
         {filed.length === 0 ? (
-          <EmptyState title="Nothing filed yet" message="Submitted forms will be listed here." />
+          <EmptyState title="لم يُسلَّم شيء بعد" message="ستُعرض النماذج المقدمة هنا." />
         ) : (
-          <DataTable columns={['Project', 'Assessor', 'Type', 'Status', 'Mark', 'Submitted', '']}>
-            {filed.map((row) => {
+          <DataTable
+            columns={[
+              { key: 'project', label: 'المشروع' },
+              { key: 'assessor', label: 'المقيم' },
+              { key: 'type', label: 'النوع' },
+              { key: 'status', label: 'الحالة' },
+              { key: 'mark', label: 'الدرجة' },
+              { key: 'submitted', label: 'أُرسل' },
+              { key: 'action', label: '' },
+            ]}
+            rows={filed}
+            render={(row) => {
               const m = statusMeta(EVALUATION_STATUS, row.status)
-              return (
-                <tr key={row.id} className="hover:bg-slate-50/60">
-                  <Td>
-                    <div className="text-sm font-medium text-slate-800">
-                      {row.project?.title ?? `#${row.project_id}`}
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      {row.project?.students?.[0]?.name}
-                    </div>
-                  </Td>
-                  <Td className="text-sm text-slate-600">{row.assessor?.name ?? '—'}</Td>
-                  <Td className="text-sm capitalize text-slate-600">{row.assessor_type}</Td>
-                  <Td>
-                    <Badge tone={m?.tone ?? 'neutral'}>{m?.label ?? row.status}</Badge>
-                  </Td>
-                  <Td className="font-semibold tabular-nums">
-                    {row.aggregate_mark != null ? formatMark(row.aggregate_mark) : '—'}
-                  </Td>
-                  <Td className="text-sm text-slate-500">
-                    {row.submitted_at ? formatDate(row.submitted_at) : '—'}
-                  </Td>
-                  <Td>
-                    <Link to={`/evaluations/${row.id}`}>
-                      <Button size="sm" variant="secondary">View</Button>
-                    </Link>
-                  </Td>
-                </tr>
-              )
-            })}
-          </DataTable>
+              return [
+                <Td key="project">
+                  <div className="text-sm font-medium text-slate-800">
+                    {row.project?.title ?? `#${row.project_id}`}
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {row.project?.students?.[0]?.name}
+                  </div>
+                </Td>,
+                <Td key="assessor" className="text-sm text-slate-600">{row.assessor?.name ?? '—'}</Td>,
+                <Td key="type" className="text-sm capitalize text-slate-600">{row.assessor_type}</Td>,
+                <Td key="status">
+                  <Badge tone={m?.tone ?? 'neutral'}>{m?.label ?? row.status}</Badge>
+                </Td>,
+                <Td key="mark" className="font-semibold tabular-nums">
+                  {row.aggregate_mark != null ? formatMark(row.aggregate_mark) : '—'}
+                </Td>,
+                <Td key="submitted" className="text-sm text-slate-500">
+                  {row.submitted_at ? formatDate(row.submitted_at) : '—'}
+                </Td>,
+                <Td key="action">
+                  <Link to={`/evaluations/${row.id}`}>
+                    <Button size="sm" variant="secondary">عرض</Button>
+                  </Link>
+                </Td>,
+              ]
+            }}
+          />
         )}
       </Card>
     </div>
@@ -198,17 +206,17 @@ export default function EvaluationListPage() {
 function EvaluationRow({ row, actionLabel }) {
   return (
     <li className="flex flex-wrap items-center gap-3 py-3">
-      <Avatar name={row.project?.students?.[0]?.name ?? 'Project'} size="sm" />
+      <Avatar name={row.project?.students?.[0]?.name ?? 'المشروع'} size="sm" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <Link
             to={`/evaluations/${row.id}`}
             className="truncate font-medium text-slate-800 hover:text-brand-700"
           >
-            {row.project?.title ?? `Evaluation #${row.id}`}
+            {row.project?.title ?? `تقييم #${row.id}`}
           </Link>
           <Badge tone="neutral">{row.assessor_type}</Badge>
-          {row.has_conflict && <Badge tone="danger">Conflict</Badge>}
+          {row.has_conflict && <Badge tone="danger">تعارض</Badge>}
         </div>
         {row.rubric_completion_percent != null && (
           <div className="mt-2 flex items-center gap-3">
@@ -224,10 +232,10 @@ function EvaluationRow({ row, actionLabel }) {
           </div>
         )}
       </div>
-      <div className="text-right text-sm">
+      <div className="text-end text-sm">
         {row.due_at && !row.submitted_at && (
           <>
-            <p className="text-slate-700">due {formatDate(row.due_at)}</p>
+            <p className="text-slate-700">الموعد {formatDate(row.due_at)}</p>
             <p className="text-xs text-slate-400">{relativeDays(row.due_at)}</p>
           </>
         )}

@@ -48,7 +48,7 @@ export default function ResetPasswordPage() {
       // that explicit.
       navigate('/login', {
         replace: true,
-        state: { message: 'Password updated. Please sign in.' },
+        state: { message: 'تم تحديث كلمة المرور. يرجى تسجيل الدخول.' },
       })
     } catch (err) {
       setErrors(err.errors)
@@ -65,20 +65,20 @@ export default function ResetPasswordPage() {
           <div className="w-11 h-11 rounded-xl bg-brand-600 text-white flex items-center justify-center text-sm font-medium mx-auto mb-3">
             PSM
           </div>
-          <h1 className="text-lg font-medium text-slate-900">Choose a new password</h1>
+          <h1 className="text-lg font-medium text-slate-900">اختر كلمة مرور جديدة</h1>
         </div>
 
         {missingToken ? (
           <div className="bg-white border border-slate-200 rounded-xl p-5 text-center">
-            <p className="text-sm text-slate-700">This reset link is incomplete.</p>
+            <p className="text-sm text-slate-700">رابط إعادة التعيين هذا غير مكتمل.</p>
             <p className="text-xs text-slate-500 mt-2">
-              Please open the link from your email again, or request a new one.
+              يرجى فتح الرابط من بريدك الإلكتروني مرة أخرى، أو طلب رابط جديد.
             </p>
             <Link
               to="/forgot-password"
               className="inline-block mt-4 text-xs font-medium text-brand-600 hover:underline"
             >
-              Request a new link
+              طلب رابط جديد
             </Link>
           </div>
         ) : (
@@ -92,7 +92,7 @@ export default function ResetPasswordPage() {
               </div>
             )}
 
-            <Field label="Email" required errors={errors} field="email">
+            <Field label="البريد الإلكتروني" required errors={errors} field="email">
               <Input
                 type="email"
                 autoComplete="username"
@@ -103,11 +103,11 @@ export default function ResetPasswordPage() {
             </Field>
 
             <Field
-              label="New password"
+              label="كلمة المرور الجديدة"
               required
               errors={errors}
               field="password"
-              hint="At least 8 characters."
+              hint="8 أحرف على الأقل."
             >
               <Input
                 type="password"
@@ -121,7 +121,7 @@ export default function ResetPasswordPage() {
             </Field>
 
             <Field
-              label="Confirm new password"
+              label="تأكيد كلمة المرور الجديدة"
               required
               errors={errors}
               field="password_confirmation"
@@ -137,7 +137,7 @@ export default function ResetPasswordPage() {
             </Field>
 
             <Button type="submit" className="w-full" loading={submitting}>
-              Update password
+              تحديث كلمة المرور
             </Button>
           </form>
         )}

@@ -128,7 +128,7 @@ class AssignmentController extends ApiController
             'supervisor' => $supervisor->label(),
             'psm_part' => $assignment->psm_part,
             'role' => $assignment->role,
-        ], 'Supervisor assigned.');
+        ], 'تم تكليف المشرف.');
     }
 
     /**
@@ -148,7 +148,7 @@ class AssignmentController extends ApiController
             $validated['reason'] ?? null
         );
 
-        return $this->ok(null, 'Supervisor removed. The record has been retained for audit.');
+        return $this->ok(null, 'تمت إزالة المشرف. تم الاحتفاظ بالسجل للتدقيق.');
     }
 
     /**
@@ -173,7 +173,7 @@ class AssignmentController extends ApiController
             'current_load'       => $updated->currentLoad(),
             'remaining_capacity' => $updated->remainingCapacity(),
             'is_overloaded'      => $updated->isOverloaded(),
-        ], 'Capacity updated.');
+        ], 'تم تحديث السعة.');
     }
 
     /**
@@ -266,7 +266,7 @@ class AssignmentController extends ApiController
             'project'  => $project->code,
             'examiner' => $examiner->displayName(),
             'psm_part' => $assignment->psm_part,
-        ], 'Examiner allocated.');
+        ], 'تم تكليف الممتحن.');
     }
 
     /**
@@ -284,7 +284,7 @@ class AssignmentController extends ApiController
             $assignment->delete();
         }
 
-        return $this->ok(null, 'Examiner allocation removed.');
+        return $this->ok(null, 'تمت إزالة تكليف الممتحن.');
     }
 
     // -----------------------------------------------------------------
@@ -302,7 +302,7 @@ class AssignmentController extends ApiController
             ->get()
             ->groupBy('category')
             ->map(fn ($group, $category) => [
-                'category' => $category ?: 'Other',
+                'category' => $category ?: 'أخرى',
                 'areas'    => $group->map(fn (ExpertiseArea $a) => [
                     'id'   => $a->id,
                     'name' => $a->name,

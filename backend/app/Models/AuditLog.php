@@ -72,7 +72,7 @@ class AuditLog extends Model
     /** "Dr. Lim reviewed the milestone" — rendered directly in the UI. */
     public function sentence(): string
     {
-        $who = $this->actor_name ?? 'System';
+        $who = $this->actor_name ?? 'النظام';
         $action = $this->action instanceof AuditAction
             ? $this->action->label()
             : (string) $this->action;

@@ -30,9 +30,9 @@ class EnsureAccountIsActive
             return response()->json([
                 'success' => false,
                 'message' => match ($user->status) {
-                    'suspended' => 'Your account has been suspended. Please contact the administrator.',
-                    'inactive'  => 'Your account is no longer active.',
-                    default     => 'Your account is not verified yet.',
+                    'suspended' => 'تم تعليق حسابك. يرجى التواصل مع المسؤول.',
+                    'inactive'  => 'حسابك لم يعد نشطًا.',
+                    default     => 'لم يتم التحقق من حسابك بعد.',
                 },
                 'status' => $user->status,
             ], 403);
@@ -41,7 +41,7 @@ class EnsureAccountIsActive
         if ($user->isLocked()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Your account is temporarily locked after repeated failed sign-in attempts.',
+                'message' => 'تم قفل حسابك مؤقتًا بعد محاولات تسجيل دخول فاشلة متكررة.',
                 'locked_until' => $user->locked_until?->toIso8601String(),
             ], 423);
         }

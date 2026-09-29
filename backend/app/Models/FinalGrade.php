@@ -88,7 +88,7 @@ class FinalGrade extends Model
             }
         }
 
-        return ['min' => 0, 'grade' => 'F', 'point' => 0.0, 'label' => 'Fail'];
+        return ['min' => 0, 'grade' => 'F', 'point' => 0.0, 'label' => 'راسب'];
     }
 
     public function gradeLabel(): string

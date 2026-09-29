@@ -304,9 +304,9 @@ class RubricTemplateSeeder extends Seeder
         return [
             [
                 'code'        => 'report',
-                'title'       => 'Final Report',
+                'title'       => 'التقرير النهائي',
                 'weight'      => 35.00,
-                'description' => 'The written submission, judged on its own terms.',
+                'description' => 'التسليم المكتوب، يُقيَّم بمعاييره الخاصة.',
                 'comment_below' => true,
                 'criteria'    => [
                     ['code' => 'structure',  'title' => 'Structure and organisation','weight' => 30.00, 'guidance' => 'Follows the faculty template; sections are proportionate to their importance.'],

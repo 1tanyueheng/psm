@@ -7,6 +7,7 @@ import {
   Spinner, ErrorState, Button,
 } from '../../components/ui'
 import { formatDateTime, relativeDays } from '../../lib/format'
+import { ROLE_LABELS } from '../../lib/permissions'
 
 /**
  * Admin dashboard — Module 1/2 housekeeping plus Module 7 oversight.
@@ -53,7 +54,7 @@ export default function AdminDashboard() {
     }
   }, [])
 
-  if (loading) return <Spinner label="Loading system overview" />
+  if (loading) return <Spinner label="جارٍ تحميل نظرة النظام" />
   if (error) return <ErrorState error={error} />
 
   const s = stats ?? {}
@@ -62,51 +63,53 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="System administration"
-        subtitle="Accounts, access, and the audit trail"
+        title="إدارة النظام"
+        subtitle="الحسابات، الوصول، وسجل التدقيق"
         actions={
           <div className="flex gap-2">
             <Link to="/audit">
-              <Button variant="secondary">Audit log</Button>
+              <Button variant="secondary">سجل التدقيق</Button>
             </Link>
             <Link to="/leaderboards">
-              <Button>Pixel-It awards</Button>
+              <Button>جوائز Pixel-It</Button>
             </Link>
           </div>
         }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Active users" value={s.active_users ?? 0} hint="Not soft-deleted" />
+        <StatCard label="مستخدمون نشطون" value={s.active_users ?? 0} hint="لم يُحذفوا" />
         <StatCard
-          label="Suspended"
+          label="موقوفون"
           value={s.suspended_users ?? 0}
-          hint="Blocked from signing in"
+          hint="محجوبون عن الدخول"
           tone={(s.suspended_users ?? 0) > 0 ? 'warning' : 'default'}
         />
         <StatCard
-          label="Archived projects"
+          label="مشاريع مؤرشفة"
           value={s.archived_projects ?? 0}
-          hint="Permanent record"
+          hint="سجل دائم"
         />
         <StatCard
-          label="Flagged events"
+          label="أحداث معلَّمة"
           value={suspicious}
-          hint="Marked suspicious"
+          hint="معلَّمة كمشبوهة"
           tone={suspicious > 0 ? 'danger' : 'success'}
         />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>
-          <CardHeader title="Accounts by role" />
+          <CardHeader title="الحسابات حسب الدور" />
           <ul className="divide-y divide-slate-100">
             {Object.entries(roleCounts).length === 0 ? (
-              <li className="py-3 text-sm text-slate-500">No data</li>
+              <li className="py-3 text-sm text-slate-500">لا توجد بيانات</li>
             ) : (
               Object.entries(roleCounts).map(([role, count]) => (
                 <li key={role} className="flex items-center justify-between py-2.5">
-                  <span className="text-sm capitalize text-slate-700">{role.replace(/_/g, ' ')}</span>
+                  <span className="text-sm text-slate-700">
+                    {ROLE_LABELS[role] ?? role.replace(/_/g, ' ')}
+                  </span>
                   <span className="font-semibold tabular-nums text-slate-800">{count}</span>
                 </li>
               ))
@@ -116,16 +119,16 @@ export default function AdminDashboard() {
 
         <Card className="lg:col-span-2">
           <CardHeader
-            title="Recent privileged activity"
-            subtitle="The most recent audited events across the system"
+            title="النشاط المميز الأخير"
+            subtitle="أحدث أحداث التدقيق عبر النظام"
             action={
               <Link to="/audit">
-                <Button size="sm" variant="ghost">View all</Button>
+                <Button size="sm" variant="ghost">عرض الكل</Button>
               </Link>
             }
           />
           {audit.length === 0 ? (
-            <EmptyState title="No activity recorded" message="Audited events will appear here." />
+            <EmptyState title="لا نشاط مسجّل" message="ستظهر الأحداث المُدققة هنا." />
           ) : (
             <ul className="divide-y divide-slate-100">
               {audit.map((entry) => (
@@ -134,13 +137,13 @@ export default function AdminDashboard() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-slate-800">{entry.description}</p>
                     <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
-                      <span className="font-medium">{entry.actor_name ?? 'system'}</span>
+                      <span className="font-medium">{entry.actor_name ?? 'النظام'}</span>
                       {entry.actor_role && <span>· {entry.actor_role}</span>}
                       {entry.category && <Badge tone="neutral">{entry.category}</Badge>}
-                      {entry.is_suspicious && <Badge tone="danger">flagged</Badge>}
+                      {entry.is_suspicious && <Badge tone="danger">معلَّم</Badge>}
                     </p>
                   </div>
-                  <div className="shrink-0 text-right text-xs text-slate-400">
+                  <div className="shrink-0 text-end text-xs text-slate-400">
                     <div>{formatDateTime(entry.created_at)}</div>
                     <div>{relativeDays(entry.created_at)}</div>
                   </div>
@@ -153,27 +156,27 @@ export default function AdminDashboard() {
 
       {/* Quick links to the tasks only an admin can do. */}
       <Card>
-        <CardHeader title="Administrative tools" />
+        <CardHeader title="أدوات إدارية" />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <AdminLink
             to="/users"
-            title="Manage users"
-            description="Create accounts, reset passwords, suspend access"
+            title="إدارة المستخدمين"
+            description="إنشاء الحسابات، إعادة تعيين كلمات المرور، إيقاف الوصول"
           />
           <AdminLink
             to="/rubrics"
-            title="Rubric templates"
-            description="Publish new versions for future cohorts"
+            title="قوالب سلم التقييم"
+            description="نشر إصدارات جديدة للدفعات القادمة"
           />
           <AdminLink
             to="/archive"
-            title="Project archive"
-            description="Browse and release historic projects"
+            title="أرشيف المشاريع"
+            description="تصفح وإتاحة المشاريع السابقة"
           />
           <AdminLink
             to="/audit"
-            title="Audit trail"
-            description="Immutable record of every change"
+            title="مسار التدقيق"
+            description="سجل ثابت لكل تغيير"
           />
         </div>
       </Card>

@@ -15,7 +15,7 @@ export default function DashboardRouter() {
   if (loading) {
     return (
       <div className="py-20">
-        <Spinner label="Loading your dashboard…" />
+        <Spinner label="جارٍ تحميل لوحتك…" />
       </div>
     )
   }

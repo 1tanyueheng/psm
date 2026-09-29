@@ -59,11 +59,11 @@ export function can(role, capability) {
 
 /** Human label for a role, used in headers and badges. */
 export const ROLE_LABELS = {
-  student: 'Student',
-  supervisor: 'Supervisor',
-  coordinator: 'Coordinator',
-  examiner: 'Examiner',
-  admin: 'Administrator',
+  student: 'طالب',
+  supervisor: 'مشرف',
+  coordinator: 'منسق',
+  examiner: 'ممتحن',
+  admin: 'مدير النظام',
 }
 
 /** Tailwind classes per role, so a role is recognisable at a glance. */

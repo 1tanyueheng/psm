@@ -95,13 +95,13 @@ export default function ProjectRegisterPage() {
       navigate(`/projects/${created?.id ?? ''}`, { replace: true })
     } catch (err) {
       if (err?.errors) setErrors(err.errors)
-      else setFormError(err?.message ?? 'Could not register the project.')
+      else setFormError(err?.message ?? 'تعذّر تسجيل المشروع.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  if (loading) return <Spinner label="Preparing the registration form" />
+  if (loading) return <Spinner label="جارٍ تجهيز نموذج التسجيل" />
 
   const categories = meta?.categories?.length
     ? meta.categories.map((c) => (typeof c === 'string' ? { value: c, label: CATEGORY_LABELS[c] ?? c } : c))
@@ -112,23 +112,23 @@ export default function ProjectRegisterPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader
-        title="Register your PSM project"
-        subtitle="Your coordinator reviews this before milestones are generated"
-        back={{ to: '/projects', label: 'Back to projects' }}
+        title="سجّل مشروع PSM الخاص بك"
+        subtitle="يراجعه المنسق قبل توليد المراحل"
+        back={{ to: '/projects', label: 'العودة إلى المشاريع' }}
       />
 
       {formError && <ErrorState error={{ message: formError }} />}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
-          <CardHeader title="Project details" subtitle="What you intend to build or investigate" />
+          <CardHeader title="تفاصيل المشروع" subtitle="ما تنوي بناءه أو دراسته" />
 
           <div className="space-y-5">
             <Field
-              label="Project title"
+              label="عنوان المشروع"
               htmlFor="title"
               required
-              hint="Aim for a specific, descriptive title — it appears in the archive and on the Pixel-It board."
+              hint="اختر عنواناً محدداً وواصفاً — سيظهر في الأرشيف وعلى لوحة Pixel-It."
               error={errors?.title}
             >
               <Input
@@ -138,15 +138,15 @@ export default function ProjectRegisterPage() {
                 required
                 minLength={10}
                 maxLength={255}
-                placeholder="e.g. A Web-Based Clinical Appointment Scheduler for Rural Clinics"
+                placeholder="مثال: نظام حجز مواعيد علاجية عبر الويب للعيادات الريفية"
               />
             </Field>
 
             <Field
-              label="Abstract"
+              label="الملخص"
               htmlFor="abstract"
               required
-              hint="150–300 words. Describe the problem, your intended approach, and the expected outcome."
+              hint="150–300 كلمة. صف المشكلة ونهجك المقترح والنتيجة المتوقعة."
               error={errors?.abstract}
             >
               <Textarea
@@ -157,46 +157,46 @@ export default function ProjectRegisterPage() {
                 required
                 minLength={80}
                 maxLength={4000}
-                placeholder="State the problem you are addressing, why it matters, and how you plan to solve it…"
+                placeholder="اذكر المشكلة التي تعالجها، ولماذا تهم، وكيف تخطط لحلها…"
               />
-              <p className="mt-1 text-right text-xs text-slate-400 tabular-nums">
-                {form.abstract.length} characters
+              <p className="mt-1 text-end text-xs text-slate-400 tabular-nums">
+                {form.abstract.length} حرف
               </p>
             </Field>
 
             <Field
-              label="Keywords"
+              label="الكلمات المفتاحية"
               htmlFor="keywords"
-              hint="Comma separated, up to 6. Used for archive search."
+              hint="مفصولة بفواصل، حتى 6. تُستخدم للبحث في الأرشيف."
               error={errors?.keywords}
             >
               <Input
                 id="keywords"
                 value={form.keywords}
                 onChange={update('keywords')}
-                placeholder="web application, scheduling, healthcare"
+                placeholder="تطبيق ويب، جدولة، رعاية صحية"
               />
             </Field>
           </div>
         </Card>
 
         <Card>
-          <CardHeader title="Classification" subtitle="Determines which milestone template you follow" />
+          <CardHeader title="التصنيف" subtitle="يحدد قالب المراحل الذي ستتبعه" />
 
           <div className="space-y-5">
             <Field
-              label="Category"
+              label="الفئة"
               htmlFor="category"
               required
               hint={
                 form.category
                   ? CATEGORY_HINTS[form.category]
-                  : 'Choose carefully — this fixes the milestone set for the whole project.'
+                  : 'اختر بعناية — تحدد مجموعة المراحل للمشروع بأكمله.'
               }
               error={errors?.category}
             >
               <Select id="category" value={form.category} onChange={update('category')} required>
-                <option value="">Select a category…</option>
+                <option value="">اختر فئة…</option>
                 {categories.map((c) => (
                   <option key={c.value} value={c.value}>
                     {c.label ?? c.value}
@@ -207,10 +207,10 @@ export default function ProjectRegisterPage() {
 
             <div className="grid gap-5 sm:grid-cols-2">
               <Field
-                label="PSM part"
+                label="جزء PSM"
                 htmlFor="psm_part"
                 required
-                hint="PSM1 runs in one semester; PSM2 continues it."
+                hint="يمتد PSM1 في فصل دراسي واحد؛ ويكمله PSM2."
                 error={errors?.psm_part}
               >
                 <Select id="psm_part" value={form.psm_part} onChange={update('psm_part')} required>
@@ -220,7 +220,7 @@ export default function ProjectRegisterPage() {
               </Field>
 
               <Field
-                label="Academic session"
+                label="الدورة الأكاديمية"
                 htmlFor="academic_session"
                 error={errors?.academic_session}
               >
@@ -235,9 +235,9 @@ export default function ProjectRegisterPage() {
 
             {supervisors.length > 0 && (
               <Field
-                label="Preferred supervisor"
+                label="المشرف المفضل"
                 htmlFor="preferred_supervisor_id"
-                hint="Optional. Your coordinator makes the final assignment."
+                hint="اختياري. المنسق يتخذ قرار التعيين النهائي."
                 error={errors?.preferred_supervisor_id}
               >
                 <Select
@@ -245,7 +245,7 @@ export default function ProjectRegisterPage() {
                   value={form.preferred_supervisor_id}
                   onChange={update('preferred_supervisor_id')}
                 >
-                  <option value="">No preference</option>
+                  <option value="">لا تفضيل</option>
                   {supervisors.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
@@ -260,14 +260,14 @@ export default function ProjectRegisterPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-500">
-            You can edit these details while the project is still a draft.
+            يمكنك تعديل هذه التفاصيل بينما المشروع لا يزال مسودة.
           </p>
           <div className="flex gap-2">
             <Button type="button" variant="secondary" onClick={() => navigate('/projects')}>
-              Cancel
+              إلغاء
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting ? 'Registering…' : 'Register project'}
+              {submitting ? 'جارٍ التسجيل…' : 'تسجيل المشروع'}
             </Button>
           </div>
         </div>
@@ -282,7 +282,7 @@ export default function ProjectRegisterPage() {
  */
 const CATEGORY_HINTS = {
   system:
-    'A software artefact: requirements, design, implementation, testing, then a report. You will submit code archives at the implementation and testing milestones.',
+    'نتاج برمجي: المتطلبات، التصميم، التنفيذ، الاختبار، ثم التقرير. ستقدّم أرشيفات الشيفرة عند مراحل التنفيذ والاختبار.',
   research:
-    'An empirical study: literature review, methodology, data collection and analysis, then a report. Submissions are documents rather than code.',
+    'دراسة تجريبية: مراجعة الأدبيات، المنهجية، جمع البيانات وتحليلها، ثم التقرير. التسليمات تكون مستندات وليست شيفرة.',
 }

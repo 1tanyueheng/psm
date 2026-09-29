@@ -18,9 +18,9 @@ enum AssessorType: string
     public function label(): string
     {
         return match ($this) {
-            self::Supervisor  => 'Supervisor',
-            self::Examiner    => 'Examiner',
-            self::Coordinator => 'Coordinator',
+            self::Supervisor  => 'مشرف',
+            self::Examiner    => 'ممتحن',
+            self::Coordinator => 'منسّق',
         };
     }
 

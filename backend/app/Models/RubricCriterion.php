@@ -63,13 +63,13 @@ class RubricCriterion extends Model
     public static function descriptorFor(float $percent): string
     {
         return match (true) {
-            $percent >= 85 => 'Outstanding',
-            $percent >= 75 => 'Excellent',
-            $percent >= 65 => 'Good',
-            $percent >= 55 => 'Satisfactory',
-            $percent >= 50 => 'Pass',
-            $percent >= 40 => 'Weak',
-            default        => 'Insufficient',
+            $percent >= 85 => 'متميز',
+            $percent >= 75 => 'ممتاز',
+            $percent >= 65 => 'جيد',
+            $percent >= 55 => 'مرضي',
+            $percent >= 50 => 'ناجح',
+            $percent >= 40 => 'ضعيف',
+            default        => 'غير كافٍ',
         };
     }
 }

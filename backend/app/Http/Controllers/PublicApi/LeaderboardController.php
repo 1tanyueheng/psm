@@ -38,7 +38,7 @@ class LeaderboardController extends PublicApiController
         $payload = $this->leaderboards->publicPayload();
 
         if ($payload === null) {
-            return $this->fail('No results have been published yet.', 404);
+            return $this->fail('لا توجد نتائج منشورة بعد.', 404);
         }
 
         return $this->ok($payload);
@@ -55,7 +55,7 @@ class LeaderboardController extends PublicApiController
         $payload = $this->leaderboards->publicPayload($slug);
 
         if ($payload === null) {
-            return $this->fail('That leaderboard could not be found or is no longer published.', 404);
+            return $this->fail('تعذّر العثور على لوح الجوائز أو لم يعد منشورًا.', 404);
         }
 
         return $this->ok($payload);
@@ -99,13 +99,13 @@ class LeaderboardController extends PublicApiController
             ->first();
 
         if ($leaderboard === null) {
-            return $this->fail('That leaderboard could not be found.', 404);
+            return $this->fail('تعذّر العثور على لوح الجوائز.', 404);
         }
 
         $entry = $leaderboard->visibleEntries()->where('rank', $rank)->first();
 
         if ($entry === null) {
-            return $this->fail('No entry at that rank.', 404);
+            return $this->fail('لا يوجد عنصر بهذا الترتيب.', 404);
         }
 
         return $this->ok([

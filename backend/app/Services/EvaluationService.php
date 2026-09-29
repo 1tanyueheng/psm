@@ -51,15 +51,15 @@ class EvaluationService
 
         if ($rubric === null) {
             throw new InvalidArgumentException(
-                "No published rubric for category [{$project->category->value}], "
-                ."part [{$project->psm_part}], assessor [{$assessorType->value}]."
+                "لا يوجد نموذج تقييم منشور للتصنيف [{$project->category->value}], "
+                ."جزء [{$project->psm_part}], مقيّم [{$assessorType->value}]."
             );
         }
 
         if (! $rubric->weightsBalance()) {
             throw new InvalidArgumentException(
-                "Rubric [{$rubric->name}] has component weights totalling "
-                .$rubric->totalComponentWeight().'%, expected 100%.'
+                "أوزان مكونات نموذج التقييم [{$rubric->name}] تبلغ "
+                .$rubric->totalComponentWeight().'%، والمتوقع 100%.'
             );
         }
 
@@ -102,7 +102,7 @@ class EvaluationService
 
                 $this->audit->log(
                     action: AuditAction::EvaluationCreated,
-                    description: "Evaluation form created for {$assessor->name} on {$project->code}",
+                    description: "تم إنشاء نموذج التقييم لـ {$assessor->name} على مشروع {$project->code}",
                     subject: $evaluation,
                     actor: $assessor->id === auth()->id() ? $assessor : auth()->user(),
                 );
@@ -111,8 +111,8 @@ class EvaluationService
                     [$assessor],
                     NotificationType::EvaluationAssigned,
                     [
-                        'title'      => 'Evaluation assigned',
-                        'body'       => "You have been asked to assess {$project->title}.",
+                        'title'      => 'أُسند إليك تقييم',
+                        'body'       => "طُلب منك تقييم {$project->title}.",
                         'action_url' => "/evaluations/{$evaluation->id}",
                     ],
                     $evaluation,
@@ -136,7 +136,7 @@ class EvaluationService
     {
         if (! $evaluation->status->isEditable()) {
             throw new InvalidArgumentException(
-                "Evaluation [{$evaluation->id}] is {$evaluation->status->value} and can no longer be edited."
+                "التقييم [{$evaluation->id}] بحالة {$evaluation->status->value} ولا يمكن تعديله بعد الآن."
             );
         }
 
@@ -158,7 +158,7 @@ class EvaluationService
 
                 if ($value < 0 || $value > $max) {
                     throw new InvalidArgumentException(
-                        "Mark for '{$score->criterion_code}' must be between 0 and {$max}."
+                        "درجة '{$score->criterion_code}' يجب أن تكون بين 0 و {$max}."
                     );
                 }
 
@@ -181,7 +181,7 @@ class EvaluationService
 
             $this->audit->log(
                 action: AuditAction::EvaluationUpdated,
-                description: "Marks saved ({$evaluation->score_percent}%)",
+                description: "تم حفظ الدرجات ({$evaluation->score_percent}%)",
                 subject: $evaluation,
                 actor: $actor,
             );
@@ -197,7 +197,7 @@ class EvaluationService
     {
         if (! $evaluation->status->isEditable()) {
             throw new InvalidArgumentException(
-                "Only a draft evaluation can be submitted (current: {$evaluation->status->value})."
+                "فقط التقييم المسوَّد يمكن تسليمه (الحالية: {$evaluation->status->value})."
             );
         }
 
@@ -222,7 +222,7 @@ class EvaluationService
 
             $this->audit->log(
                 action: AuditAction::EvaluationSubmitted,
-                description: "Marks submitted: {$fresh->score_percent}%",
+                description: "تم تسليم الدرجات: {$fresh->score_percent}%",
                 subject: $fresh,
                 before: $before,
                 after: $fresh->getAttributes(),
@@ -244,8 +244,8 @@ class EvaluationService
                 $coordinators,
                 NotificationType::EvaluationSubmitted,
                 [
-                    'title'      => 'Marks submitted',
-                    'body'       => "{$actor->name} submitted marks for {$fresh->project->title}.",
+                    'title'      => 'تم تسليم الدرجات',
+                    'body'       => "سلّم {$actor->name} درجات مشروع {$fresh->project->title}.",
                     'action_url' => "/reports/projects/{$fresh->project_id}",
                 ],
                 $fresh,
@@ -266,11 +266,11 @@ class EvaluationService
         User $actor,
     ): Evaluation {
         if (! $evaluation->status->isLocked()) {
-            throw new InvalidArgumentException('Only a submitted evaluation can be moderated.');
+            throw new InvalidArgumentException('فقط التقييم المقدَّم يمكن تحكيمه.');
         }
 
         if ($newPercent < 0 || $newPercent > 100) {
-            throw new InvalidArgumentException('A moderated percentage must be between 0 and 100.');
+            throw new InvalidArgumentException('النسبة المحكَّمة يجب أن تكون بين 0 و 100.');
         }
 
         return DB::transaction(function () use ($evaluation, $newPercent, $reason, $actor) {
@@ -291,7 +291,7 @@ class EvaluationService
             $this->audit->log(
                 action: AuditAction::EvaluationModerated,
                 description: sprintf(
-                    'Moderated %.2f%% → %.2f%% (%s)',
+                    'تحكيم %.2f%% → %.2f%% (%s)',
                     $originalPercent,
                     $newPercent,
                     $reason
@@ -434,7 +434,7 @@ class EvaluationService
 
         $this->audit->log(
             action: AuditAction::GradeRecalculated,
-            description: "Final mark {$finalMark}% ({$band['grade']}) from {$evaluations->count()} assessor(s)",
+            description: "الدرجة النهائية {$finalMark}% ({$band['grade']}) من {$evaluations->count()} مقيّم",
             subject: $grade,
         );
 
@@ -465,7 +465,7 @@ class EvaluationService
 
         $this->audit->log(
             action: AuditAction::GradeReleased,
-            description: "Released {$grade->final_mark}% ({$grade->grade_letter})",
+            description: "تم الإفراج عن {$grade->final_mark}% ({$grade->grade_letter})",
             subject: $grade,
             before: $before,
             after: $grade->getAttributes(),
@@ -476,8 +476,8 @@ class EvaluationService
             $grade->project->students->pluck('user')->filter(),
             NotificationType::GradeReleased,
             [
-                'title'      => 'Grade released',
-                'body'       => "Your result for {$grade->project->title} is now available.",
+                'title'      => 'تم الإفراج عن الدرجة',
+                'body'       => "نتيجة مشروع {$grade->project->title} متاحة الآن.",
                 'action_url' => "/projects/{$grade->project_id}/result",
             ],
             $grade,

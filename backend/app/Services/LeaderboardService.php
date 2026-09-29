@@ -45,7 +45,7 @@ class LeaderboardService
     {
         if ($leaderboard->isPublished()) {
             throw new InvalidArgumentException(
-                'Unpublish this leaderboard before rebuilding it, so a live page never changes underneath visitors.'
+                'قم بإلغاء نشر لوح الجوائز قبل إعادة بنائه حتى لا تتغير الصفحة المنشورة تحت أعين الزوّار.'
             );
         }
 
@@ -148,24 +148,24 @@ class LeaderboardService
         $settings = LeaderboardSetting::current();
 
         if (! $settings->module_enabled) {
-            throw new InvalidArgumentException('The recognition module is currently disabled.');
+            throw new InvalidArgumentException('وحدة التكريم معطّلة حاليًا.');
         }
 
         if ($leaderboard->entries()->where('is_hidden', false)->count() === 0) {
             throw new InvalidArgumentException(
-                'This leaderboard has no visible entries — build it before publishing.'
+                'لا توجد عناصر ظاهرة في هذه القائمة — أنشئها قبل النشر.'
             );
         }
 
         if ($settings->require_approval && ! $actor->hasRole('admin', 'coordinator')) {
-            throw new InvalidArgumentException('Publishing this board requires coordinator approval.');
+            throw new InvalidArgumentException('نشر هذه القائمة يتطلب موافقة المنسق.');
         }
 
         $leaderboard->publish($actor);
 
         $this->audit->log(
             action: AuditAction::LeaderboardPublished,
-            description: "Published '{$leaderboard->title}' with TOP {$leaderboard->top_n}",
+            description: "نُشر '{$leaderboard->title}' مع أفضل {$leaderboard->top_n}",
             subject: $leaderboard,
             actor: $actor,
         );
@@ -183,8 +183,8 @@ class LeaderboardService
             $students,
             NotificationType::LeaderboardPublished,
             [
-                'title'      => 'You are on the PSM showcase!',
-                'body'       => "{$leaderboard->title} has been published.",
+                'title'      => 'أنت ضمن قائمة الشرف في مشروع التخرج!',
+                'body'       => "تم نشر {$leaderboard->title}.",
                 'action_url' => $leaderboard->publicPath(),
             ],
             $leaderboard,
@@ -199,7 +199,7 @@ class LeaderboardService
 
         $this->audit->log(
             action: AuditAction::LeaderboardUnpublished,
-            description: $reason ?? "Unpublished '{$leaderboard->title}'",
+            description: $reason ?? "تم إلغاء نشر '{$leaderboard->title}'",
             subject: $leaderboard,
             actor: $actor,
         );
@@ -311,9 +311,9 @@ class LeaderboardService
     protected function scoreLabel(string $basis): string
     {
         return match ($basis) {
-            'aggregate_percent' => 'Assessor aggregate',
-            'milestone_score'   => 'Milestone completion',
-            default             => 'Final mark',
+            'aggregate_percent' => 'متوسط درجات المقيّمين',
+            'milestone_score'   => 'إنجاز المعالم',
+            default             => 'الدرجة النهائية',
         };
     }
 }

@@ -73,55 +73,55 @@ export default function SupervisorDashboard() {
     return { total, atRisk, completed, awaiting: pending.length }
   }, [projects, pending])
 
-  if (loading) return <Spinner label="Loading your supervision workspace" />
+  if (loading) return <Spinner label="جارٍ تحميل مساحة الإشراف الخاصة بك" />
   if (error) return <ErrorState error={error} />
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Welcome, ${user?.name?.split(' ')[0] ?? 'Supervisor'}`}
-        subtitle={`${stats.total} student${stats.total === 1 ? '' : 's'} under supervision`}
+        title={`مرحباً، ${user?.name?.split(' ')[0] ?? 'مشرف'}`}
+        subtitle={`${stats.total} ${stats.total === 1 ? 'طالب' : 'طالب'} تحت إشرافك`}
         actions={
           <Link to="/projects">
-            <Button variant="secondary">All my projects</Button>
+            <Button variant="secondary">كل مشاريعي</Button>
           </Link>
         }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Supervisees" value={stats.total} hint="Primary and co-supervision" />
+        <StatCard label="الطلاب" value={stats.total} hint="إشراف أساسي ومشارك" />
         <StatCard
-          label="Awaiting review"
+          label="بانتظار المراجعة"
           value={stats.awaiting}
-          hint="Submitted milestones"
+          hint="مراحل مقدمة"
           tone={stats.awaiting > 0 ? 'warning' : 'default'}
         />
         <StatCard
-          label="Needs attention"
+          label="بحاجة إلى اهتمام"
           value={stats.atRisk}
-          hint="Overdue or at risk"
+          hint="متأخرة أو في خطر"
           tone={stats.atRisk > 0 ? 'danger' : 'default'}
         />
-        <StatCard label="Completed" value={stats.completed} hint="This session" tone="success" />
+        <StatCard label="مكتملة" value={stats.completed} hint="في هذه الدورة" tone="success" />
       </div>
 
       {/* Action queue first — this is why the supervisor opened the page. */}
       <Card>
         <CardHeader
-          title="Review queue"
-          subtitle="Submissions waiting on your feedback"
+          title="قائمة المراجعة"
+          subtitle="تسليمات بانتظار ملاحظاتك"
           action={
             stats.awaiting > 0 ? (
-              <Badge tone="warning">{stats.awaiting} pending</Badge>
+              <Badge tone="warning">{stats.awaiting} بانتظار المراجعة</Badge>
             ) : (
-              <Badge tone="success">Clear</Badge>
+              <Badge tone="success">لا شيء</Badge>
             )
           }
         />
         {pending.length === 0 ? (
           <EmptyState
-            title="Nothing to review"
-            message="When a student submits a milestone it will appear here with their files attached."
+            title="لا يوجد شيء للمراجعة"
+            message="عندما يقدّم الطالب مرحلة، ستظهر هنا مع ملفاته المرفقة."
           />
         ) : (
           <ul className="divide-y divide-slate-100">
@@ -135,13 +135,13 @@ export default function SupervisorDashboard() {
                     >
                       {milestone.name}
                     </Link>
-                    <Badge tone="info">Submitted</Badge>
+                    <Badge tone="info">مُقدَّم</Badge>
                   </div>
                   <p className="mt-0.5 truncate text-sm text-slate-500">
                     {milestone.project?.title}
                   </p>
                 </div>
-                <div className="text-right text-sm">
+                <div className="text-end text-sm">
                   <p className="text-slate-700">
                     {formatDate(milestone.submitted_at, { fallback: '—' })}
                   </p>
@@ -150,7 +150,7 @@ export default function SupervisorDashboard() {
                   </p>
                 </div>
                 <Link to={`/milestones/${milestone.id}`}>
-                  <Button size="sm">Open</Button>
+                  <Button size="sm">فتح</Button>
                 </Link>
               </li>
             ))}
@@ -160,11 +160,11 @@ export default function SupervisorDashboard() {
 
       {/* Then the roster, ordered so the drifting students float to the top. */}
       <Card>
-        <CardHeader title="My supervisees" subtitle="Sorted by how much attention they need" />
+        <CardHeader title="الطلاب تحت إشرافي" subtitle="مرتبون حسب مدى حاجتهم للاهتمام" />
         {projects.length === 0 ? (
           <EmptyState
-            title="No students assigned yet"
-            message="Your coordinator assigns supervision pairs. Once assigned the projects will show up here."
+            title="لم يُعيَّن طلاب بعد"
+            message="يقوم المنسق بتعيين أزواج الإشراف. بعد التعيين ستظهر المشاريع هنا."
           />
         ) : (
           <ul className="divide-y divide-slate-100">
@@ -192,13 +192,13 @@ function SuperviseeRow({ project }) {
               to={`/projects/${project.id}`}
               className="font-medium text-slate-900 hover:text-brand-700"
             >
-              {lead?.name ?? 'Unassigned'}
+              {lead?.name ?? 'غير معيّن'}
             </Link>
             <span className="font-mono text-xs text-slate-400">{lead?.student_id}</span>
             <Badge tone={project.psm_part === 'PSM2' ? 'brand' : 'neutral'}>
               {project.psm_part}
             </Badge>
-            {overdue && <Badge tone="danger">Overdue</Badge>}
+            {overdue && <Badge tone="danger">متأخر</Badge>}
           </div>
           <p className="mt-1 line-clamp-1 text-sm text-slate-600">{project.title}</p>
 
@@ -215,16 +215,16 @@ function SuperviseeRow({ project }) {
           </div>
         </div>
 
-        <div className="text-right text-sm">
+        <div className="text-end text-sm">
           {project.next_milestone_name ? (
             <>
               <p className="text-slate-700">{project.next_milestone_name}</p>
               <p className={`text-xs ${overdue ? 'text-rose-600' : 'text-slate-400'}`}>
-                due {formatDate(project.next_milestone_due_at, { fallback: 'no date' })}
+                مستحق {formatDate(project.next_milestone_due_at, { fallback: 'بدون تاريخ' })}
               </p>
             </>
           ) : (
-            <span className="text-xs text-slate-400">No open milestones</span>
+            <span className="text-xs text-slate-400">لا توجد مراحل مفتوحة</span>
           )}
         </div>
       </div>
@@ -244,6 +244,6 @@ function sortByRisk(projects) {
     if (byRisk !== 0) return byRisk
     const byProgress = (a.progress_percent ?? 0) - (b.progress_percent ?? 0)
     if (byProgress !== 0) return byProgress
-    return (a.title ?? '').localeCompare(b.title ?? '')
+    return (a.title ?? '').localeCompare(b.title ?? '', 'ar')
   })
 }

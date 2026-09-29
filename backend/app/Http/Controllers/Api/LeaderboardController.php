@@ -99,12 +99,12 @@ class LeaderboardController extends ApiController
 
         $this->audit->log(
             action: AuditAction::LeaderboardConfigChanged,
-            description: "Created leaderboard '{$leaderboard->title}'",
+            description: "تم إنشاء لوح الجوائز '{$leaderboard->title}'",
             subject: $leaderboard,
             actor: $request->user(),
         );
 
-        return $this->created(new LeaderboardResource($leaderboard), 'Leaderboard created as a draft.');
+        return $this->created(new LeaderboardResource($leaderboard), 'تم إنشاء لوح الجوائز كمسوّدة.');
     }
 
     /**
@@ -137,14 +137,14 @@ class LeaderboardController extends ApiController
 
         $this->audit->log(
             action: AuditAction::LeaderboardConfigChanged,
-            description: 'Leaderboard settings updated',
+            description: 'تم تحديث إعدادات لوح الجوائز',
             subject: $leaderboard,
             before: $before,
             after: $leaderboard->fresh()->getAttributes(),
             actor: $request->user(),
         );
 
-        return $this->ok(new LeaderboardResource($leaderboard->fresh()), 'Leaderboard updated.');
+        return $this->ok(new LeaderboardResource($leaderboard->fresh()), 'تم تحديث لوح الجوائز.');
     }
 
     /**
@@ -166,7 +166,7 @@ class LeaderboardController extends ApiController
 
         return $this->ok(
             new LeaderboardResource($leaderboard->load('entries')),
-            $leaderboard->entries->count().' entries ranked. Review them, then publish.'
+            $leaderboard->entries->count().' عنصرًا تم ترتيبها. راجعها ثم انشر.'
         );
     }
 
@@ -186,7 +186,7 @@ class LeaderboardController extends ApiController
         return $this->ok([
             'leaderboard' => new LeaderboardResource($published->load('entries')),
             'public_url'  => $published->publicUrl(),
-        ], 'Leaderboard published. It is now publicly accessible.');
+        ], 'تم نشر لوح الجوائز. أصبح متاحًا للجمهور.');
     }
 
     /**
@@ -208,7 +208,7 @@ class LeaderboardController extends ApiController
 
         return $this->ok(
             new LeaderboardResource($unpublished),
-            'Leaderboard withdrawn from public view.'
+            'تم سحب لوح الجوائز من العرض العام.'
         );
     }
 
@@ -222,7 +222,7 @@ class LeaderboardController extends ApiController
         $this->authorize('manageEntries', $leaderboard);
 
         if ($entry->leaderboard_id !== $leaderboard->id) {
-            return $this->fail('That entry does not belong to this leaderboard.', 422);
+            return $this->fail('هذا العنصر لا ينتمي إلى لوح الجوائز.', 422);
         }
 
         $validated = $request->validate([
@@ -241,7 +241,7 @@ class LeaderboardController extends ApiController
             'award_title' => $entry->award_title,
             'is_hidden'   => (bool) $entry->is_hidden,
             'is_top_n'    => (bool) $entry->is_top_n,
-        ], 'Entry updated.');
+        ], 'تم تحديث العنصر.');
     }
 
     /**
@@ -275,10 +275,10 @@ class LeaderboardController extends ApiController
 
         $this->audit->log(
             action: AuditAction::LeaderboardUnpublished,
-            description: "Deleted leaderboard '{$title}'",
+            description: "تم حذف لوح الجوائز '{$title}'",
         );
 
-        return $this->ok(null, 'Leaderboard deleted.');
+        return $this->ok(null, 'تم حذف لوح الجوائز.');
     }
 
     // -----------------------------------------------------------------
@@ -316,14 +316,14 @@ class LeaderboardController extends ApiController
 
         $this->audit->log(
             action: AuditAction::LeaderboardConfigChanged,
-            description: 'Recognition module settings updated',
+            description: 'تم تحديث إعدادات وحدة التكريم',
             subject: $settings,
             before: $before,
             after: $settings->fresh()->getAttributes(),
             actor: $request->user(),
         );
 
-        return $this->ok($settings->fresh(), 'Settings saved.');
+        return $this->ok($settings->fresh(), 'تم حفظ الإعدادات.');
     }
 
     /**
@@ -351,21 +351,21 @@ class LeaderboardController extends ApiController
             $reasons = [];
 
             if ($grade->project === null) {
-                $reasons[] = 'Project record missing';
+                $reasons[] = 'سجل المشروع مفقود';
             } else {
                 if (! $grade->is_publishable) {
-                    $reasons[] = 'Grade is not marked publishable';
+                    $reasons[] = 'الدرجة ليست قابلة للنشر';
                 }
                 if ($grade->project->leaderboard_opt_out) {
-                    $reasons[] = 'Student opted out';
+                    $reasons[] = 'انسحب الطالب';
                 }
                 if ($grade->project->status !== 'completed') {
-                    $reasons[] = 'Project is not completed';
+                    $reasons[] = 'المشروع غير مكتمل';
                 }
             }
 
             if ($grade->assessor_count < $minAssessors) {
-                $reasons[] = "Only {$grade->assessor_count} assessor(s), {$minAssessors} required";
+                $reasons[] = "عدد المقيّمين {$grade->assessor_count} فقط، والمطلوب {$minAssessors}";
             }
 
             $row = [

@@ -58,7 +58,9 @@ export default function GradeListPage() {
       const { items, meta: pageMeta } = unwrapPaged(listRes.value)
       setRows(items)
       setMeta(pageMeta)
-      setDistribution(distRes.status === 'fulfilled' ? (unwrap(distRes.value) ?? []) : [])
+      setDistribution(
+        distRes.status === 'fulfilled' ? unwrap(distRes.value)?.by_band ?? [] : []
+      )
     } catch (err) {
       setError(err)
     } finally {
@@ -79,7 +81,7 @@ export default function GradeListPage() {
       await gradeApi.release(grade.id)
       await load()
     } catch (err) {
-      setActionError(err?.message ?? 'Could not release that grade.')
+      setActionError(err?.message ?? 'تعذّر الإفراج عن هذه الدرجة.')
     } finally {
       setBusyId(null)
     }
@@ -97,25 +99,25 @@ export default function GradeListPage() {
       }
       await load()
     } catch (err) {
-      setActionError(err?.message ?? 'Some grades could not be released.')
+      setActionError(err?.message ?? 'تعذّر الإفراج عن بعض الدرجات.')
       await load()
     } finally {
       setBusyId(null)
     }
   }
 
-  if (loading) return <Spinner label="Loading grades" />
+  if (loading) return <Spinner label="جارٍ تحميل الدرجات" />
   if (error) return <ErrorState error={error} />
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Grades"
-        subtitle={meta ? `${meta.total} computed` : undefined}
+        title="الدرجات"
+        subtitle={meta ? `${meta.total} محسوبة` : undefined}
         actions={
           canRelease && pending.length > 0 ? (
             <Button onClick={releaseAll} disabled={busyId === 'all'}>
-              {busyId === 'all' ? 'Releasing…' : `Release all ${pending.length}`}
+              {busyId === 'all' ? 'جارٍ الإفراج…' : `الإفراج عن الكل (${pending.length})`}
             </Button>
           ) : null
         }
@@ -127,17 +129,17 @@ export default function GradeListPage() {
         <Card className="border-amber-200 bg-amber-50/50">
           <p className="text-sm text-amber-900">
             <span className="font-semibold">{pending.length}</span>{' '}
-            grade{pending.length === 1 ? '' : 's'} computed but not yet visible to students.
-            Releasing publishes the mark and writes an audit entry per project.
+            {pending.length === 1 ? 'درجة محسوبة' : 'درجات محسوبة'} لكنها غير ظاهرة للطلاب بعد.
+            الإفراج ينشر الدرجة ويكتب سجل تدقيق لكل مشروع.
           </p>
         </Card>
       )}
 
       <div className="grid gap-6 lg:grid-cols-4">
         <Card>
-          <CardHeader title="Distribution" />
+          <CardHeader title="التوزيع" />
           {distribution.length === 0 ? (
-            <p className="text-sm text-slate-500">No data</p>
+            <p className="text-sm text-slate-500">لا توجد بيانات</p>
           ) : (
             <ul className="space-y-2">
               {distribution.map((row) => (
@@ -157,23 +159,23 @@ export default function GradeListPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <Input
                 type="search"
-                placeholder="Search by student or project"
+                placeholder="ابحث باسم طالب أو مشروع"
                 defaultValue={search}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') setFilter('q', e.currentTarget.value.trim())
                 }}
-                aria-label="Search grades"
+                aria-label="البحث في الدرجات"
               />
               <Select
                 value={status}
                 onChange={(e) => setFilter('status', e.target.value)}
-                aria-label="Filter by status"
+                aria-label="تصفية حسب الحالة"
               >
-                <option value="">All statuses</option>
-                <option value="computed">Computed, not released</option>
-                <option value="released">Released</option>
-                <option value="pending">Pending assessment</option>
-                <option value="moderated">Moderated</option>
+                <option value="">كل الحالات</option>
+                <option value="computed">محسوبة، غير مُفرج عنها</option>
+                <option value="released">مُفرج عنها</option>
+                <option value="pending">تقييم معلّق</option>
+                <option value="moderated">تمت المراجعة</option>
               </Select>
             </div>
           </Card>
@@ -183,26 +185,24 @@ export default function GradeListPage() {
       {rows.length === 0 ? (
         <Card>
           <EmptyState
-            title="No grades"
-            message="Grades appear once assessors submit their marks and the final mark is computed."
+            title="لا توجد درجات"
+            message="تظهر الدرجات بعد أن يسلم المقيمون درجاتهم ويُحسب التقدير النهائي."
           />
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">
-          <div className="overflow-x-auto">
-            <DataTable
-              columns={[
-                'Project',
-                'Student',
-                'Category',
-                'Assessors',
-                'Final mark',
-                'Grade',
-                'Status',
-                '',
-              ]}
-            >
-              {rows.map((grade) => (
+          <DataTable
+            columns={[
+              { key: 'project', label: 'المشروع' },
+              { key: 'student', label: 'الطالب' },
+              { key: 'category', label: 'الفئة' },
+              { key: 'assessors', label: 'المقيمون' },
+              { key: 'mark', label: 'الدرجة النهائية' },
+              { key: 'grade', label: 'التقدير' },
+              { key: 'status', label: 'الحالة' },
+              { key: 'actions', label: '' },
+            ]}
+            render={(grade) => (
                 <tr key={grade.id} className="hover:bg-slate-50/60">
                   <Td>
                     <Link
@@ -231,7 +231,7 @@ export default function GradeListPage() {
                   <Td className="text-center tabular-nums text-slate-600">
                     {grade.assessor_count ?? 0}
                     {grade.min_assessors != null && grade.assessor_count < grade.min_assessors && (
-                      <span className="ml-1 text-xs text-amber-600">insufficient</span>
+                      <span className="ms-1 text-xs text-amber-600">غير كافٍ</span>
                     )}
                   </Td>
                   <Td className="font-semibold tabular-nums">
@@ -250,7 +250,7 @@ export default function GradeListPage() {
                             : 'neutral'
                       }
                     >
-                      {grade.status === 'computed' ? 'awaiting release' : grade.status}
+                      {grade.status === 'computed' ? 'بانتظار الإفراج' : grade.status}
                     </Badge>
                     {grade.released_at && (
                       <div className="mt-0.5 text-xs text-slate-400">
@@ -265,20 +265,20 @@ export default function GradeListPage() {
                         disabled={busyId === grade.id || busyId === 'all'}
                         onClick={() => release(grade)}
                       >
-                        {busyId === grade.id ? 'Releasing…' : 'Release'}
+                        {busyId === grade.id ? 'جارٍ الإفراج…' : 'إفراج'}
                       </Button>
                     ) : (
                       <Link to={`/projects/${grade.project_id}`}>
                         <Button size="sm" variant="ghost">
-                          View
+                          عرض
                         </Button>
                       </Link>
                     )}
                   </Td>
                 </tr>
-              ))}
-            </DataTable>
-          </div>
+              )
+            }
+          />
         </Card>
       )}
     </div>

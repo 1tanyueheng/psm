@@ -25,7 +25,7 @@ class EnsureUserHasRole
         if ($user === null) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthenticated. Please sign in to continue.',
+                'message' => 'غير مصادَق. يرجى تسجيل الدخول للمتابعة.',
             ], 401);
         }
 
@@ -43,7 +43,7 @@ class EnsureUserHasRole
         if (! $user->hasRole(...$wanted)) {
             return response()->json([
                 'success' => false,
-                'message' => 'You do not have permission to access this resource.',
+                'message' => 'ليست لديك صلاحية الوصول إلى هذا المورد.',
                 'required_roles' => $wanted,
             ], 403);
         }

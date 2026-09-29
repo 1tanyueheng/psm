@@ -58,11 +58,11 @@ export default function LoginPage() {
   }
 
   const demoAccounts = [
-    { email: 'student@psm.test', label: 'Student' },
-    { email: 'supervisor@psm.test', label: 'Supervisor' },
-    { email: 'coordinator@psm.test', label: 'Coordinator' },
-    { email: 'examiner@psm.test', label: 'Examiner' },
-    { email: 'admin@psm.test', label: 'Admin' },
+    { email: 'student@psm.test', label: 'طالب' },
+    { email: 'supervisor@psm.test', label: 'مشرف' },
+    { email: 'coordinator@psm.test', label: 'منسق' },
+    { email: 'examiner@psm.test', label: 'ممتحن' },
+    { email: 'admin@psm.test', label: 'مدير النظام' },
   ]
 
   return (
@@ -74,9 +74,9 @@ export default function LoginPage() {
             <div className="w-11 h-11 rounded-xl bg-brand-600 text-white flex items-center justify-center text-sm font-medium mx-auto mb-3">
               PSM
             </div>
-            <h1 className="text-lg font-medium text-slate-900">Sign in</h1>
+            <h1 className="text-lg font-medium text-slate-900">تسجيل الدخول</h1>
             <p className="text-sm text-slate-500 mt-1">
-              Final Year Project Management System
+              نظام إدارة المشاريع التخرجية
             </p>
           </div>
 
@@ -90,7 +90,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            <Field label="Email" required errors={errors} field="email">
+            <Field label="البريد الإلكتروني" required errors={errors} field="email">
               <Input
                 type="email"
                 name="email"
@@ -103,7 +103,7 @@ export default function LoginPage() {
               />
             </Field>
 
-            <Field label="Password" required errors={errors} field="password">
+            <Field label="كلمة المرور" required errors={errors} field="password">
               <Input
                 type="password"
                 name="password"
@@ -116,7 +116,7 @@ export default function LoginPage() {
             </Field>
 
             <Button type="submit" className="w-full" loading={submitting}>
-              {submitting ? 'Signing in…' : 'Sign in'}
+              {submitting ? 'جارٍ تسجيل الدخول…' : 'تسجيل الدخول'}
             </Button>
 
             <div className="text-center">
@@ -124,7 +124,7 @@ export default function LoginPage() {
                 to="/forgot-password"
                 className="text-xs text-slate-500 hover:text-brand-600"
               >
-                Forgot your password?
+                نسيت كلمة المرور؟
               </Link>
             </div>
           </form>
@@ -132,9 +132,9 @@ export default function LoginPage() {
           {/* Demo accounts — this is an assessed project, so a marker needs a
               way in without reading the repository. */}
           <div className="mt-5 bg-white border border-slate-200 rounded-xl p-4">
-            <p className="text-xs font-medium text-slate-700 mb-2">Demo accounts</p>
+            <p className="text-xs font-medium text-slate-700 mb-2">الحسابات التجريبية</p>
             <p className="text-[11px] text-slate-500 mb-3">
-              Password for all accounts: <code className="text-slate-700">password</code>
+              كلمة المرور لجميع الحسابات: <code className="text-slate-700">password</code>
             </p>
             <div className="flex flex-wrap gap-1.5">
               {demoAccounts.map((account) => (
@@ -153,7 +153,7 @@ export default function LoginPage() {
 
           <p className="text-center text-xs text-slate-400 mt-5">
             <Link to="/leaderboard" className="hover:text-brand-600">
-              View the public showcase →
+              عرض المعرض العام ⟵
             </Link>
           </p>
         </div>

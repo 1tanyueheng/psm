@@ -82,12 +82,12 @@ export default function ProjectListPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Projects"
-        subtitle={meta ? `${meta.total} project${meta.total === 1 ? '' : 's'}` : undefined}
+        title="المشاريع"
+        subtitle={meta ? `${meta.total} ${meta.total === 1 ? 'مشروع' : 'مشروع'}` : undefined}
         actions={
           canRegister ? (
             <Link to="/projects/register">
-              <Button>Register a project</Button>
+              <Button>تسجيل مشروع</Button>
             </Link>
           ) : null
         }
@@ -97,28 +97,28 @@ export default function ProjectListPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Input
             type="search"
-            placeholder="Search title or student"
+            placeholder="ابحث بالعنوان أو اسم الطالب"
             defaultValue={search}
             onKeyDown={(e) => {
               if (e.key === 'Enter') setFilter('q', e.currentTarget.value.trim())
             }}
-            aria-label="Search projects"
+            aria-label="البحث في المشاريع"
           />
           <Select
             value={psmPart}
             onChange={(e) => setFilter('psm_part', e.target.value)}
-            aria-label="Filter by PSM part"
+            aria-label="تصفية حسب جزء PSM"
           >
-            <option value="">All parts</option>
+            <option value="">كل الأجزاء</option>
             <option value="PSM1">PSM1</option>
             <option value="PSM2">PSM2</option>
           </Select>
           <Select
             value={category}
             onChange={(e) => setFilter('category', e.target.value)}
-            aria-label="Filter by category"
+            aria-label="تصفية حسب الفئة"
           >
-            <option value="">All categories</option>
+            <option value="">كل الفئات</option>
             {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
@@ -128,9 +128,9 @@ export default function ProjectListPage() {
           <Select
             value={status}
             onChange={(e) => setFilter('status', e.target.value)}
-            aria-label="Filter by status"
+            aria-label="تصفية حسب الحالة"
           >
-            <option value="">All statuses</option>
+            <option value="">كل الحالات</option>
             {Object.entries(PROJECT_STATUS).map(([value, meta]) => (
               <option key={value} value={value}>
                 {meta.label}
@@ -140,37 +140,37 @@ export default function ProjectListPage() {
         </div>
         {(search || status || category || psmPart) && (
           <div className="mt-3 flex items-center gap-2 text-sm text-slate-500">
-            <span>Filters active</span>
+            <span>التصفية مفعّلة</span>
             <button
               type="button"
               onClick={() => setParams(new URLSearchParams(), { replace: true })}
               className="font-medium text-brand-700 hover:underline"
             >
-              Clear all
+              مسح الكل
             </button>
           </div>
         )}
       </Card>
 
       {loading ? (
-        <Spinner label="Loading projects" />
+        <Spinner label="جارٍ تحميل المشاريع" />
       ) : error ? (
         <ErrorState error={error} />
       ) : rows.length === 0 ? (
         <Card>
           <EmptyState
-            title="No projects found"
+            title="لا توجد مشاريع"
             message={
               search || status || category || psmPart
-                ? 'Try widening the filters.'
+                ? 'جرّب توسيع نطاق التصفية.'
                 : canRegister
-                  ? 'Register your PSM project to get started.'
-                  : 'No projects are visible to your role yet.'
+                  ? 'سجّل مشروع PSM الخاص بك للبدء.'
+                  : 'لا توجد مشاريع مرئية لدورك بعد.'
             }
             action={
               canRegister && !search && !status ? (
                 <Link to="/projects/register">
-                  <Button>Register a project</Button>
+                  <Button>تسجيل مشروع</Button>
                 </Link>
               ) : null
             }
@@ -180,9 +180,16 @@ export default function ProjectListPage() {
         <Card className="overflow-hidden p-0">
           <div className="overflow-x-auto">
             <DataTable
-              columns={['Project', 'Student', 'Part', 'Category', 'Progress', 'Next milestone', 'Status']}
-            >
-              {rows.map((project) => (
+              columns={[
+                { key: 'project', label: 'المشروع' },
+                { key: 'student', label: 'الطالب' },
+                { key: 'part', label: 'الجزء' },
+                { key: 'category', label: 'الفئة' },
+                { key: 'progress', label: 'التقدم' },
+                { key: 'next', label: 'المرحلة القادمة' },
+                { key: 'status', label: 'الحالة' },
+              ]}
+              render={(project) => (
                 <tr key={project.id} className="hover:bg-slate-50/60">
                   <Td>
                     <Link
@@ -240,7 +247,7 @@ export default function ProjectListPage() {
                               : 'text-slate-400'
                           }`}
                         >
-                          {formatDate(project.next_milestone_due_at, { fallback: 'no date' })}
+                          {formatDate(project.next_milestone_due_at, { fallback: 'بدون تاريخ' })}
                         </div>
                       </>
                     ) : (
@@ -251,8 +258,8 @@ export default function ProjectListPage() {
                     <StatusBadge status={project.status} />
                   </Td>
                 </tr>
-              ))}
-            </DataTable>
+              )}
+            />
           </div>
         </Card>
       )}
@@ -260,7 +267,7 @@ export default function ProjectListPage() {
       {meta && meta.last_page > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-slate-500">
-            Showing {meta.from}–{meta.to} of {meta.total}
+            عرض {meta.from}–{meta.to} من {meta.total}
           </p>
           <div className="flex gap-2">
             <Button
@@ -269,7 +276,7 @@ export default function ProjectListPage() {
               disabled={meta.current_page <= 1}
               onClick={() => setFilter('page', String(meta.current_page - 1))}
             >
-              Previous
+              السابق
             </Button>
             <Button
               variant="secondary"
@@ -277,7 +284,7 @@ export default function ProjectListPage() {
               disabled={meta.current_page >= meta.last_page}
               onClick={() => setFilter('page', String(meta.current_page + 1))}
             >
-              Next
+              التالي
             </Button>
           </div>
         </div>

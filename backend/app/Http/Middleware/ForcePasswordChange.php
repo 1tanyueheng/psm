@@ -41,7 +41,7 @@ class ForcePasswordChange
 
         return response()->json([
             'success'  => false,
-            'message'  => 'You must change your password before continuing.',
+            'message'  => 'يجب عليك تغيير كلمة المرور قبل المتابعة.',
             'code'     => 'password_change_required',
             'action'   => '/change-password',
         ], 409);

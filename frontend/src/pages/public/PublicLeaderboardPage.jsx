@@ -73,7 +73,7 @@ export default function PublicLeaderboardPage() {
   if (loading) {
     return (
       <PublicShell>
-        <Spinner label="Loading the results" />
+        <Spinner label="جارٍ تحميل النتائج" />
       </PublicShell>
     )
   }
@@ -84,7 +84,7 @@ export default function PublicLeaderboardPage() {
         <ErrorState error={error} />
         <div className="mt-6 text-center">
           <Link to="/leaderboard">
-            <Button variant="secondary">Try the current board</Button>
+            <Button variant="secondary">تجربة اللوح الحالي</Button>
           </Link>
         </div>
       </PublicShell>
@@ -96,13 +96,13 @@ export default function PublicLeaderboardPage() {
       <PublicShell>
         <Card>
           <EmptyState
-            title="No results published yet"
-            message="The Pixel-It award board for this session has not been published. Please check back later."
+            title="لم تُنشر النتائج بعد"
+            message="لم يُنشر لوح جوائز Pixel-It لهذا الفصل بعد. يرجى العودة لاحقًا."
           />
         </Card>
         <p className="mt-6 text-center">
           <Link to="/login" className="text-sm font-medium text-brand-700 hover:underline">
-            Staff and student sign in
+            تسجيل دخول الموظفين والطلاب
           </Link>
         </p>
       </PublicShell>
@@ -119,14 +119,14 @@ export default function PublicLeaderboardPage() {
     <PublicShell>
       <header className="mb-8 text-center">
         <p className="text-sm font-medium uppercase tracking-widest text-brand-700">
-          Pixel-It Awards
+          جوائز Pixel-It
         </p>
         <h1 className="mt-2 text-3xl font-semibold text-slate-900 sm:text-4xl">
-          {board.title ?? 'PSM Project Recognition'}
+          {board.title ?? 'تكريم المشاريع التخرُّجية'}
         </h1>
         <p className="mt-2 text-slate-600">
           {board.academic_session ? `${board.academic_session} · ` : ''}
-          {entries.length} project{entries.length === 1 ? '' : 's'} ranked
+          {entries.length} مشروع{entries.length === 1 ? '' : 'ات'} مُرتَّب{entries.length === 1 ? '' : 'ة'}
         </p>
         {board.subtitle && <p className="mt-3 text-sm text-slate-500">{board.subtitle}</p>}
       </header>
@@ -134,8 +134,8 @@ export default function PublicLeaderboardPage() {
       {entries.length === 0 ? (
         <Card>
           <EmptyState
-            title="Board is empty"
-            message="This board has been published but contains no ranked projects."
+            title="اللوح فارغ"
+            message="تم نشر هذا اللوح لكنه لا يحتوي على مشاريع مرتبة."
           />
         </Card>
       ) : (
@@ -157,7 +157,7 @@ export default function PublicLeaderboardPage() {
           {rest.length > 0 && (
             <Card className="overflow-hidden p-0">
               <div className="border-b border-slate-200 px-5 py-3">
-                <h2 className="font-semibold text-slate-800">Remaining placements</h2>
+                <h2 className="font-semibold text-slate-800">المراتب المتبقية</h2>
               </div>
               <ul className="divide-y divide-slate-100">
                 {rest.map((entry) => (
@@ -193,8 +193,8 @@ export default function PublicLeaderboardPage() {
       )}
 
       {others.length > 1 && (
-        <nav className="mt-8 text-center" aria-label="Other award sessions">
-          <p className="mb-2 text-sm text-slate-500">Other sessions</p>
+        <nav className="mt-8 text-center" aria-label="مواسم جوائز أخرى">
+          <p className="mb-2 text-sm text-slate-500">مواسم أخرى</p>
           <div className="flex flex-wrap justify-center gap-2">
             {others.map((other) => (
               <Link key={other.slug} to={`/leaderboard/${other.slug}`}>
@@ -209,11 +209,11 @@ export default function PublicLeaderboardPage() {
 
       <footer className="mt-12 border-t border-slate-200 pt-6 text-center text-xs text-slate-400">
         <p>
-          Marks shown are final moderated results. Student ID numbers are not published.
+          الدرجات المعروضة هي نتائج نهائية اعتمدت. أرقام هويات الطلاب لا تُنشر.
         </p>
         <p className="mt-2">
           <Link to="/login" className="font-medium text-brand-700 hover:underline">
-            Staff and student sign in
+            تسجيل دخول الموظفين والطلاب
           </Link>
         </p>
       </footer>
@@ -246,7 +246,7 @@ function PodiumCard({ entry, showScores, showNames, showSupervisors, featured })
       </div>
 
       <p className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-400">
-        {entry.rank === 1 ? 'Winner' : `Place ${entry.rank}`}
+        {entry.rank === 1 ? 'الفائز' : `المرتبة ${entry.rank}`}
       </p>
 
       <h2 className="mt-1.5 text-base font-semibold leading-snug text-slate-900">
@@ -271,7 +271,7 @@ function PodiumCard({ entry, showScores, showNames, showSupervisors, featured })
 
       {entry.supervisors?.length > 0 && showSupervisors && (
         <p className="mt-3 text-xs text-slate-500">
-          Supervised by{' '}
+          بإشراف{' '}
           {entry.supervisors.map((s) => (typeof s === 'string' ? s : s.name)).join(', ')}
         </p>
       )}

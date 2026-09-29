@@ -44,9 +44,9 @@ export default function ArchiveDetailPage() {
     }
   }, [id])
 
-  if (loading) return <Spinner label="Loading archived record" />
+  if (loading) return <Spinner label="جارٍ تحميل السجل المؤرشف" />
   if (error) return <ErrorState error={error} />
-  if (!record) return <ErrorState error={{ message: 'Archived record not found.' }} />
+  if (!record) return <ErrorState error={{ message: 'السجل المؤرشف غير موجود.' }} />
 
   const summary = record.milestone_summary ?? {}
   const breakdown = record.grade_breakdown ?? {}
@@ -65,21 +65,21 @@ export default function ArchiveDetailPage() {
               <Badge tone="neutral">{CATEGORY_LABELS[record.category] ?? record.category}</Badge>
             )}
             {record.academic_session && <Badge tone="neutral">{record.academic_session}</Badge>}
-            {record.is_public && <Badge tone="success">public record</Badge>}
+            {record.is_public && <Badge tone="success">سجل عام</Badge>}
           </span>
         }
-        back={{ to: '/archive', label: 'Back to archive' }}
+        back={{ to: '/archive', label: 'العودة إلى الأرشيف' }}
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader title="Abstract" subtitle="As submitted at the time of archiving" />
+          <CardHeader title="الملخص" subtitle="كما سُلِّم وقت الأرشفة" />
           {record.abstract ? (
             <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
               {record.abstract}
             </p>
           ) : (
-            <p className="text-sm text-slate-500">No abstract was recorded.</p>
+            <p className="text-sm text-slate-500">لم يُسجَّل أي ملخص.</p>
           )}
 
           {record.keywords?.length > 0 && (
@@ -98,25 +98,25 @@ export default function ArchiveDetailPage() {
 
         {/* The outcome block — why most visitors opened this page. */}
         <Card>
-          <CardHeader title="Final outcome" />
+          <CardHeader title="النتيجة النهائية" />
           {record.final_mark != null ? (
             <div className="space-y-5">
               <div className="flex items-end gap-5">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Mark</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-400">الدرجة</p>
                   <p className="text-3xl font-semibold tabular-nums text-slate-900">
                     {formatMark(record.final_mark)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Grade</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-400">التقدير</p>
                   <p className="text-3xl font-semibold text-slate-900">
                     {record.grade_letter ?? '—'}
                   </p>
                 </div>
                 {record.grade_point != null && (
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-400">Point</p>
+                    <p className="text-xs uppercase tracking-wide text-slate-400">النقطة</p>
                     <p className="text-3xl font-semibold tabular-nums text-slate-900">
                       {record.grade_point.toFixed(2)}
                     </p>
@@ -126,7 +126,7 @@ export default function ArchiveDetailPage() {
 
               {Object.keys(breakdown).length > 0 && (
                 <div className="border-t border-slate-100 pt-4">
-                  <p className="mb-3 text-sm font-medium text-slate-700">Assessment breakdown</p>
+                  <p className="mb-3 text-sm font-medium text-slate-700">تفصيل التقييم</p>
                   <div className="space-y-2.5">
                     {Object.entries(breakdown).map(([key, row]) => (
                       <div key={key}>
@@ -148,7 +148,7 @@ export default function ArchiveDetailPage() {
             </div>
           ) : (
             <p className="text-sm text-slate-500">
-              No final mark was recorded for this project.
+              لم تُسجَّل درجة نهائية لهذا المشروع.
             </p>
           )}
         </Card>
@@ -156,10 +156,10 @@ export default function ArchiveDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>
-          <CardHeader title="Students" />
+          <CardHeader title="الطلاب" />
           <ul className="space-y-3">
             {(record.students ?? []).length === 0 ? (
-              <li className="text-sm text-slate-500">No student roster recorded.</li>
+              <li className="text-sm text-slate-500">لم يُسجَّل أي اسم طالب.</li>
             ) : (
               record.students.map((student) => (
                 <li key={student.student_id ?? student.name}>
@@ -167,7 +167,7 @@ export default function ArchiveDetailPage() {
                   <p className="text-xs text-slate-500">
                     {student.student_id}
                     {student.program && ` · ${student.program}`}
-                    {student.batch && ` · batch ${student.batch}`}
+                    {student.batch && ` · دفعة ${student.batch}`}
                   </p>
                 </li>
               ))
@@ -176,15 +176,15 @@ export default function ArchiveDetailPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Supervisors & examiners" />
+          <CardHeader title="المشرفون والممتحنون" />
           <div className="space-y-4">
             <div>
               <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
-                Supervisors
+                المشرفون
               </p>
               <ul className="space-y-1">
                 {(record.supervisor_names ?? record.supervisors ?? []).length === 0 ? (
-                  <li className="text-sm text-slate-500">None recorded</li>
+                  <li className="text-sm text-slate-500">لا يوجد مُسجَّل</li>
                 ) : (
                   (record.supervisor_names ?? record.supervisors ?? []).map((s) => {
                     const name = typeof s === 'string' ? s : s.name
@@ -192,7 +192,7 @@ export default function ArchiveDetailPage() {
                       <li key={name} className="text-sm text-slate-700">
                         {name}
                         {typeof s !== 'string' && s.role && s.role !== 'primary' && (
-                          <span className="ml-1.5 text-xs text-slate-400">{s.role}</span>
+                          <span className="ms-1.5 text-xs text-slate-400">{s.role}</span>
                         )}
                       </li>
                     )
@@ -202,11 +202,11 @@ export default function ArchiveDetailPage() {
             </div>
             <div className="border-t border-slate-100 pt-3">
               <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
-                Examiners
+                الممتحنون
               </p>
               <ul className="space-y-1">
                 {(record.examiners ?? []).length === 0 ? (
-                  <li className="text-sm text-slate-500">None recorded</li>
+                  <li className="text-sm text-slate-500">لا يوجد مُسجَّل</li>
                 ) : (
                   record.examiners.map((e) => {
                     const name = typeof e === 'string' ? e : e.name
@@ -214,7 +214,7 @@ export default function ArchiveDetailPage() {
                       <li key={name} className="text-sm text-slate-700">
                         {name}
                         {typeof e !== 'string' && e.panel_role && (
-                          <span className="ml-1.5 text-xs text-slate-400">{e.panel_role}</span>
+                          <span className="ms-1.5 text-xs text-slate-400">{e.panel_role}</span>
                         )}
                       </li>
                     )
@@ -226,27 +226,27 @@ export default function ArchiveDetailPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Milestone record" />
+          <CardHeader title="سجل المراحل" />
           {Object.keys(summary).length === 0 ? (
-            <p className="text-sm text-slate-500">No milestone summary recorded.</p>
+            <p className="text-sm text-slate-500">لم يُسجَّل ملخص المراحل.</p>
           ) : (
             <div className="space-y-3">
               {summary.total != null && (
-                <Row label="Total milestones" value={summary.total} />
+                <Row label="إجمالي المراحل" value={summary.total} />
               )}
               {summary.approved != null && (
-                <Row label="Approved" value={summary.approved} tone="text-emerald-700" />
+                <Row label="معتمدة" value={summary.approved} tone="text-emerald-700" />
               )}
               {summary.revisions != null && (
-                <Row label="Revisions requested" value={summary.revisions} />
+                <Row label="طلبات التعديل" value={summary.revisions} />
               )}
               {summary.late != null && (
-                <Row label="Submitted late" value={summary.late} tone="text-rose-600" />
+                <Row label="سُلِّمت متأخرة" value={summary.late} tone="text-rose-600" />
               )}
               {summary.completion_percent != null && (
                 <div className="border-t border-slate-100 pt-3">
                   <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
-                    <span>Completion</span>
+                    <span>الإنجاز</span>
                     <span className="tabular-nums">{summary.completion_percent}%</span>
                   </div>
                   <ProgressBar value={summary.completion_percent} tone="success" />
@@ -256,7 +256,7 @@ export default function ArchiveDetailPage() {
           )}
 
           <div className="mt-5 border-t border-slate-100 pt-4 text-xs text-slate-500">
-            <p>Archived {formatDate(record.archived_at, { fallback: 'unknown date' })}</p>
+            <p>أُرشف {formatDate(record.archived_at, { fallback: 'تاريخ غير معروف' })}</p>
             {record.archive_note && (
               <p className="mt-1 italic text-slate-600">{record.archive_note}</p>
             )}
@@ -266,14 +266,14 @@ export default function ArchiveDetailPage() {
 
       {(record.documents ?? []).length > 0 && (
         <Card>
-          <CardHeader title="Documents" subtitle="Files preserved with this record" />
+          <CardHeader title="المستندات" subtitle="مرفقات محفوظة مع هذا السجل" />
           <ul className="divide-y divide-slate-100">
             {record.documents.map((doc) => (
               <li key={doc.id ?? doc.name} className="flex items-center gap-3 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-slate-700">{doc.name ?? doc.original_name}</p>
                   <p className="text-xs text-slate-400">
-                    {doc.milestone ?? doc.milestone_code ?? 'general'}
+                    {doc.milestone ?? doc.milestone_code ?? 'عام'}
                   </p>
                 </div>
                 <Button
@@ -281,7 +281,7 @@ export default function ArchiveDetailPage() {
                   variant="ghost"
                   onClick={() => window.open(archiveApi.downloadUrl(doc.id), '_blank')}
                 >
-                  Download
+                  تنزيل
                 </Button>
               </li>
             ))}

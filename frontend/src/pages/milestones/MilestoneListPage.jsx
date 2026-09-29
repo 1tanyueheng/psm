@@ -62,7 +62,7 @@ export default function MilestoneListPage() {
     }
   }, [status, projectId])
 
-  if (loading) return <Spinner label="Loading milestones" />
+  if (loading) return <Spinner label="جارٍ تحميل المراحل" />
   if (error) return <ErrorState error={error} />
 
   const groups = groupByUrgency(rows)
@@ -70,8 +70,8 @@ export default function MilestoneListPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Milestones"
-        subtitle={`${rows.length} milestone${rows.length === 1 ? '' : 's'}`}
+        title="المراحل"
+        subtitle={`${rows.length} ${rows.length === 1 ? 'مرحلة' : 'مرحلة'}`}
       />
 
       <Card>
@@ -79,9 +79,9 @@ export default function MilestoneListPage() {
           <Select
             value={projectId}
             onChange={(e) => setFilter('project_id', e.target.value)}
-            aria-label="Filter by project"
+            aria-label="تصفية حسب المشروع"
           >
-            <option value="">All my projects</option>
+            <option value="">كل مشاريعي</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.title}
@@ -91,9 +91,9 @@ export default function MilestoneListPage() {
           <Select
             value={status}
             onChange={(e) => setFilter('status', e.target.value)}
-            aria-label="Filter by status"
+            aria-label="تصفية حسب الحالة"
           >
-            <option value="">All statuses</option>
+            <option value="">كل الحالات</option>
             {Object.entries(MILESTONE_STATUS).map(([value, meta]) => (
               <option key={value} value={value}>
                 {meta.label}
@@ -104,9 +104,9 @@ export default function MilestoneListPage() {
             <button
               type="button"
               onClick={() => setParams(new URLSearchParams(), { replace: true })}
-              className="self-center text-left text-sm font-medium text-brand-700 hover:underline"
+              className="self-center text-start text-sm font-medium text-brand-700 hover:underline"
             >
-              Clear filters
+              مسح التصفية
             </button>
           )}
         </div>
@@ -115,11 +115,11 @@ export default function MilestoneListPage() {
       {rows.length === 0 ? (
         <Card>
           <EmptyState
-            title="No milestones"
+            title="لا توجد مراحل"
             message={
               status || projectId
-                ? 'Nothing matches those filters.'
-                : 'Milestones appear here once your project is approved.'
+                ? 'لا شيء يطابق هذه التصفية.'
+                : 'تظهر المراحل هنا بعد اعتماد مشروعك.'
             }
           />
         </Card>
@@ -165,33 +165,33 @@ function MilestoneRow({ milestone }) {
           </Link>
           <Badge tone={meta?.tone ?? 'neutral'}>{meta?.label ?? milestone.status}</Badge>
           {(milestone.revision_count ?? 0) > 0 && (
-            <Badge tone="warning">rev {milestone.revision_count}</Badge>
+            <Badge tone="warning">المراجعة {milestone.revision_count}</Badge>
           )}
         </div>
         <p className="mt-0.5 truncate text-sm text-slate-500">
           {milestone.project?.title}
           {milestone.milestone_code && (
-            <span className="ml-2 font-mono text-xs text-slate-400">
+            <span className="ms-2 font-mono text-xs text-slate-400">
               {milestone.milestone_code}
             </span>
           )}
         </p>
       </div>
 
-      <div className="text-right text-sm">
+      <div className="text-end text-sm">
         <p className={late ? 'font-medium text-rose-600' : 'text-slate-700'}>
-          {formatDate(due, { fallback: 'no date' })}
+          {formatDate(due, { fallback: 'بدون تاريخ' })}
         </p>
         <p className="text-xs text-slate-400">
           {milestone.approved_at
-            ? `approved ${relativeDays(milestone.approved_at)}`
+            ? `معتمد ${relativeDays(milestone.approved_at)}`
             : relativeDays(due)}
         </p>
       </div>
 
       <Link to={`/milestones/${milestone.id}`}>
         <Button size="sm" variant="secondary">
-          Open
+          فتح
         </Button>
       </Link>
     </li>
@@ -228,9 +228,9 @@ function groupByUrgency(rows) {
   done.sort((a, b) => new Date(b.approved_at ?? 0) - new Date(a.approved_at ?? 0))
 
   return [
-    { key: 'overdue', title: 'Overdue', tone: 'danger', items: overdue, hint: 'past the due date' },
-    { key: 'review', title: 'In review', tone: 'warning', items: dueSoon, hint: 'submitted, awaiting a decision' },
-    { key: 'open', title: 'In progress', tone: 'neutral', items: open },
-    { key: 'done', title: 'Approved', tone: 'success', items: done },
+    { key: 'overdue', title: 'متأخرة', tone: 'danger', items: overdue, hint: 'تجاوزت الموعد' },
+    { key: 'review', title: 'قيد المراجعة', tone: 'warning', items: dueSoon, hint: 'مقدمة، بانتظار القرار' },
+    { key: 'open', title: 'قيد التنفيذ', tone: 'neutral', items: open },
+    { key: 'done', title: 'معتمدة', tone: 'success', items: done },
   ].filter((g) => g.items.length > 0)
 }
