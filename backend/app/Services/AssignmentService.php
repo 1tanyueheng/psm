@@ -52,21 +52,21 @@ class AssignmentService
     ): SupervisionAssignment {
         if (! $supervisor->is_accepting_students) {
             throw new InvalidArgumentException(
-                "{$supervisor->label()} لا يقبل طلابًا جددًا حاليًا."
+                "{$supervisor->label()} is not currently accepting new students."
             );
         }
 
         if (! $supervisor->hasCapacity()) {
             throw new InvalidArgumentException(
-                "{$supervisor->label()} عند السعة القصوى "
+                "{$supervisor->label()} is at full capacity "
                 ."({$supervisor->currentLoad()}/{$supervisor->max_supervisees})."
             );
         }
 
         if ($student->remainingSupervisorSlots() <= 0) {
             throw new InvalidArgumentException(
-                "لدى {$student->student_id} بالفعل العدد الأقصى من المشرفين "
-                ."({$student->max_supervisors})."
+                "{$student->student_id} already has the maximum of "
+                ."{$student->max_supervisors} supervisors."
             );
         }
 
@@ -79,7 +79,7 @@ class AssignmentService
 
         if ($existing) {
             throw new InvalidArgumentException(
-                'هذا المشرف مكلّف بالفعل على هذا الطالب لجزء '.$psmPart.'.'
+                'This supervisor is already assigned to this student for '.$psmPart.'.'
             );
         }
 
@@ -101,7 +101,7 @@ class AssignmentService
 
             $this->audit->log(
                 action: AuditAction::SupervisorAssigned,
-                description: "{$supervisor->label()} ← {$student->student_id} ({$psmPart})",
+                description: "{$supervisor->label()} → {$student->student_id} ({$psmPart})",
                 subject: $assignment,
                 actor: $actor,
             );
@@ -112,8 +112,8 @@ class AssignmentService
                     [$supervisor->user],
                     NotificationType::CapacityWarning,
                     [
-                        'title'      => 'أنت الآن في سعة الإشراف القصوى',
-                        'body'       => "أنت تشرف على {$supervisor->max_supervisees} طلاب، وهو الحد الأقصى المحدد لك.",
+                        'title'      => 'You are now at full supervision capacity',
+                        'body'       => "You are supervising {$supervisor->max_supervisees} students, which is your configured maximum.",
                         'action_url' => '/dashboard/supervisor',
                     ],
                     $supervisor,
@@ -125,8 +125,8 @@ class AssignmentService
                     [$student->user],
                     NotificationType::SupervisorAssigned,
                     [
-                        'title'      => 'تم تعيين مشرف',
-                        'body'       => "تم تعيين {$supervisor->label()} مشرفًا {$role} عليك لمشروع {$psmPart}.",
+                        'title'      => 'Supervisor assigned',
+                        'body'       => "{$supervisor->label()} has been assigned as your {$role} supervisor for {$psmPart}.",
                         'action_url' => '/profile',
                     ],
                     $assignment,
@@ -152,7 +152,7 @@ class AssignmentService
 
         $this->audit->log(
             action: AuditAction::SupervisorRemoved,
-            description: 'تمت الإزالة '.($reason ? "({$reason})" : ''),
+            description: 'Removed '.($reason ? "({$reason})" : ''),
             subject: $assignment,
             before: $before,
             after: $assignment->getAttributes(),
@@ -166,8 +166,8 @@ class AssignmentService
                 [$student->user],
                 NotificationType::SupervisorReassigned,
                 [
-                    'title'      => 'تغير الإشراف',
-                    'body'       => 'تمت إزالة أحد مشرفيك من سجلك.',
+                    'title'      => 'Supervision changed',
+                    'body'       => 'One of your supervisors has been removed from your record.',
                     'action_url' => '/profile',
                 ],
                 $assignment,
@@ -185,7 +185,7 @@ class AssignmentService
     public function setCapacity(SupervisorProfile $supervisor, int $max, User $actor): SupervisorProfile
     {
         if ($max < 0) {
-            throw new InvalidArgumentException('لا يمكن أن تكون السعة سالبة.');
+            throw new InvalidArgumentException('Capacity cannot be negative.');
         }
 
         $before = $supervisor->getAttributes();
@@ -194,7 +194,7 @@ class AssignmentService
 
         $this->audit->log(
             action: AuditAction::CapacityChanged,
-            description: "تم تحديد السعة بـ {$max}",
+            description: "Capacity set to {$max}",
             subject: $supervisor,
             before: $before,
             after: $supervisor->getAttributes(),
@@ -206,8 +206,8 @@ class AssignmentService
                 [$supervisor->user],
                 NotificationType::CapacityWarning,
                 [
-                    'title'      => 'تجاوزت سعة الإشراف',
-                    'body'       => "حدك {$max} طالب لكن لديك {$supervisor->currentLoad()} طلاب مسجلين.",
+                    'title'      => 'Supervision capacity exceeded',
+                    'body'       => "Your limit is {$max} but you have {$supervisor->currentLoad()} students assigned.",
                     'action_url' => '/dashboard/supervisor',
                 ],
                 $supervisor,
@@ -234,7 +234,7 @@ class AssignmentService
     ): ExaminerAssignment {
         if (! $examiner->isExaminer() && ! $examiner->isSupervisor()) {
             throw new InvalidArgumentException(
-                'فقط المستخدم بدور ممتحن أو مشرف يمكن تكليفه كممتحن.'
+                'Only a user with the examiner or supervisor role may be allocated as an examiner.'
             );
         }
 
@@ -247,7 +247,7 @@ class AssignmentService
 
         if ($isOwnProject) {
             throw new InvalidArgumentException(
-                'مشرف هذا المشروع لا يمكنه أيضًا الامتحان فيه (تضارب مصالح).'
+                'A supervisor of this project cannot also examine it (conflict of interest).'
             );
         }
 
@@ -258,7 +258,7 @@ class AssignmentService
             ->first();
 
         if ($existing) {
-            throw new InvalidArgumentException('هذا الممتحن مكلّف بالفعل على هذا المشروع.');
+            throw new InvalidArgumentException('This examiner is already allocated to this project.');
         }
 
         return DB::transaction(function () use ($project, $examiner, $actor, $psmPart, $panelRole) {
@@ -273,7 +273,7 @@ class AssignmentService
 
             $this->audit->log(
                 action: AuditAction::SupervisorAssigned,
-                description: "ممتحن {$examiner->name} ← {$project->code} ({$psmPart})",
+                description: "Examiner {$examiner->name} → {$project->code} ({$psmPart})",
                 subject: $assignment,
                 actor: $actor,
             );
@@ -331,7 +331,7 @@ class AssignmentService
                     'supervisor'  => $s,
                     'score'       => 0,
                     'matched_on'  => [],
-                    'reason'      => 'اختيار حسب السعة المتاحة',
+                    'reason'      => 'Selected by available capacity',
                 ])
                 ->values()
                 ->all();
@@ -356,8 +356,8 @@ class AssignmentService
                     'score'      => $score,
                     'matched_on' => $matched->pluck('name')->all(),
                     'reason'     => $matched->isEmpty()
-                        ? 'لا تداخل في المواضيع — حسب السعة المتاحة فقط'
-                        : 'تطابق: '.$matched->pluck('name')->implode('، '),
+                        ? 'No topic overlap — available capacity only'
+                        : 'Matches: '.$matched->pluck('name')->implode(', '),
                 ];
             })
             ->sortByDesc('score')

@@ -24,11 +24,6 @@ import {
   PROJECT_STATUS,
 } from '../../lib/format'
 
-const SUPERVISION_ROLE = {
-  primary: 'أساسي',
-  co: 'مشارك',
-}
-
 /**
  * Module 3 — the student's own view.
  *
@@ -82,12 +77,12 @@ export default function StudentDashboard() {
     }
   }, [])
 
-  if (loading) return <Spinner label="جارٍ تحميل مشروعك…" />
+  if (loading) return <Spinner label="Loading your project…" />
 
   if (error) {
     return (
       <>
-        <PageHeader title="مشروعي" />
+        <PageHeader title="My Project" />
         <ErrorState message={error} onRetry={() => window.location.reload()} />
       </>
     )
@@ -98,16 +93,16 @@ export default function StudentDashboard() {
     return (
       <>
         <PageHeader
-          title={`مرحباً، ${user?.name?.split(' ')[0] ?? 'بك'}`}
-          subtitle="لا يوجد لديك مشروع PSM مسجّل بعد."
+          title={`Welcome, ${user?.name?.split(' ')[0] ?? 'there'}`}
+          subtitle="You do not have a PSM project registered yet."
         />
         <Card>
           <EmptyState
-            title="سجّل مشروعك"
-            description="قدّم عنوانك المقترح والملخص والفئة. سيقوم المنسق بتعيين مشرف بعد الموافقة."
+            title="Register your project"
+            description="Submit your proposed title, abstract and category. Your coordinator will assign a supervisor once it is approved."
             action={
               <Link to="/projects/new">
-                <Button>تسجيل مشروع</Button>
+                <Button>Register a project</Button>
               </Link>
             }
           />
@@ -141,7 +136,7 @@ export default function StudentDashboard() {
             <Badge tone={projectStatus.tone}>{projectStatus.label}</Badge>
             <Link to={`/projects/${selected.id}`}>
               <Button variant="secondary" size="sm">
-                تفاصيل المشروع
+                Project detail
               </Button>
             </Link>
           </div>
@@ -151,17 +146,17 @@ export default function StudentDashboard() {
       {/* --- Headline numbers --- */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <StatCard
-          label="التقدم الإجمالي"
+          label="Overall progress"
           value={`${Math.round(Number(progress) || 0)}%`}
-          hint={`${approved} من ${milestones.length} مراحل معتمدة`}
+          hint={`${approved} of ${milestones.length} milestones approved`}
           tone="info"
         />
-        <StatCard label="معتمد" value={approved} tone="good" />
-        <StatCard label="بانتظار المراجعة" value={submitted} tone="warn" />
+        <StatCard label="Approved" value={approved} tone="good" />
+        <StatCard label="Awaiting review" value={submitted} tone="warn" />
         <StatCard
-          label="المرحلة الحالية"
+          label="Current milestone"
           value={current ? current.sequence : '—'}
-          hint={current?.title ?? 'اكتملت جميع المراحل'}
+          hint={current?.title ?? 'All milestones complete'}
         />
       </div>
 
@@ -170,14 +165,14 @@ export default function StudentDashboard() {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader
-              title="المراحل"
-              subtitle="سلسلة تقديمك لهذا المشروع"
+              title="Milestones"
+              subtitle="Your submission chain for this project"
             />
 
             {milestones.length === 0 ? (
               <EmptyState
-                title="لا توجد مراحل بعد"
-                description="تُنشأ المراحل بعد الموافقة على تسجيل مشروعك."
+                title="No milestones yet"
+                description="Milestones are created once your project registration is approved."
               />
             ) : (
               <ol className="space-y-2">
@@ -214,29 +209,29 @@ export default function StudentDashboard() {
                             <Badge tone={meta.tone}>{meta.label}</Badge>
                             {milestone.revision_count > 0 && (
                               <Badge tone="bg-amber-50 text-amber-700 border-amber-200">
-                                المراجعة {milestone.revision_count}
+                                Revision {milestone.revision_count}
                               </Badge>
                             )}
                           </div>
 
                           <p className="text-xs text-slate-500 mt-1">
-                            مستحق {formatDate(milestone.due_at)}
+                            Due {formatDate(milestone.due_at)}
                             {milestone.due_at && ` · ${relativeDays(milestone.due_at)}`}
                             {milestone.weight_percent
-                              ? ` · ${Number(milestone.weight_percent)}% من التقدم`
+                              ? ` · ${Number(milestone.weight_percent)}% of progress`
                               : ''}
                           </p>
 
                           {milestone.review_comment && (
                             <p className="text-xs text-slate-600 mt-1.5 line-clamp-2">
-                              <span className="text-slate-400">المشرف: </span>
+                              <span className="text-slate-400">Supervisor: </span>
                               {milestone.review_comment}
                             </p>
                           )}
                         </div>
 
                         <span className="text-slate-300 text-sm shrink-0" aria-hidden="true">
-                          ‹
+                          ›
                         </span>
                       </Link>
                     </li>
@@ -251,14 +246,14 @@ export default function StudentDashboard() {
         <div className="space-y-5">
           {/* Next action */}
           <Card>
-            <CardHeader title="ما عليك فعله بعد ذلك" />
+            <CardHeader title="What to do next" />
 
             {current ? (
               <div className="space-y-3">
                 <div>
                   <p className="text-sm font-medium text-slate-900">{current.title}</p>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    مستحق {formatDate(current.due_at)} · {relativeDays(current.due_at)}
+                    Due {formatDate(current.due_at)} · {relativeDays(current.due_at)}
                   </p>
                 </div>
 
@@ -267,20 +262,21 @@ export default function StudentDashboard() {
                 {['open', 'rejected', 'overdue'].includes(current.status) && (
                   <Link to={`/milestones/${current.id}`} className="block">
                     <Button className="w-full" size="sm">
-                      {current.status === 'rejected' ? 'إعادة تقديم العمل' : 'تقديم العمل'}
+                      {current.status === 'rejected' ? 'Resubmit work' : 'Submit work'}
                     </Button>
                   </Link>
                 )}
 
                 {current.status === 'pending' && (
                   <p className="text-xs text-slate-500 bg-slate-50 rounded-lg p-3">
-                    تُفتح هذه المرحلة بعد اعتماد المرحلة السابقة.
+                    This milestone opens once the previous one is approved.
                   </p>
                 )}
               </div>
             ) : (
               <p className="text-sm text-slate-600">
-                تم اعتماد جميع المراحل. سيقوم مشرفك بتأكيد ترتيبات الامتحان.
+                Every milestone is approved. Your supervisor will confirm the
+                examination arrangements.
               </p>
             )}
           </Card>
@@ -288,7 +284,7 @@ export default function StudentDashboard() {
           {/* Supervisors */}
           {selected.supervisors?.length > 0 && (
             <Card>
-              <CardHeader title="المشرفون عليك" />
+              <CardHeader title="Your supervisors" />
               <ul className="space-y-2">
                 {selected.supervisors.map((supervisor) => (
                   <li
@@ -309,7 +305,7 @@ export default function StudentDashboard() {
                             : 'bg-slate-100 text-slate-600 border-slate-200'
                         }
                       >
-                        {SUPERVISION_ROLE[supervisor.pivot.role] ?? supervisor.pivot.role}
+                        {supervisor.pivot.role}
                       </Badge>
                     )}
                   </li>
@@ -321,7 +317,7 @@ export default function StudentDashboard() {
           {/* Result, once released */}
           {selected.primary_grade?.status === 'released' && (
             <Card>
-              <CardHeader title="النتيجة" subtitle="صادق عليها المنسق" />
+              <CardHeader title="Result" subtitle="Released by the coordinator" />
               <div className="flex items-baseline gap-3">
                 <p className="text-3xl font-medium text-slate-900">
                   {formatMark(selected.primary_grade.final_mark)}

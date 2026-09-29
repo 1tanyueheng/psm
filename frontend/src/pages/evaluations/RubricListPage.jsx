@@ -98,18 +98,18 @@ export default function RubricListPage() {
     }
   }
 
-  if (loading) return <Spinner label="جارٍ تحميل نماذج سُلّم التقييم" />
+  if (loading) return <Spinner label="Loading rubric templates" />
   if (error) return <ErrorState error={error} />
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="قوالب سُلّم التقييم"
-        subtitle="أنظمة تصحيح بنسخ — النسخ المنشورة لا تُعدَّل في مكانها أبدًا"
+        title="Rubric templates"
+        subtitle="Versioned marking schemes — published versions are never edited in place"
         actions={
           canManage ? (
             <Button onClick={createVersion} disabled={cloning || !detail}>
-              {cloning ? 'جارٍ الإنشاء…' : 'نسخة جديدة من الحالية'}
+              {cloning ? 'Creating…' : 'New version from current'}
             </Button>
           ) : null
         }
@@ -117,14 +117,14 @@ export default function RubricListPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1">
-          <CardHeader title="القوالب" />
+          <CardHeader title="Templates" />
           <div className="mb-3">
             <Select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              aria-label="تصفية حسب الفئة"
+              aria-label="Filter by category"
             >
-              <option value="">كل الفئات</option>
+              <option value="">All categories</option>
               {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -134,7 +134,7 @@ export default function RubricListPage() {
           </div>
 
           {templates.length === 0 ? (
-            <EmptyState title="لا توجد قوالب" message="لا توجد قوالب سُلّم تقييم تطابق هذه التصفية." />
+            <EmptyState title="No templates" message="No rubric templates match this filter." />
           ) : (
             <ul className="divide-y divide-slate-100">
               {templates.map((template) => (
@@ -142,10 +142,10 @@ export default function RubricListPage() {
                   <button
                     type="button"
                     onClick={() => setSelectedId(template.id)}
-                    className={`w-full px-1 py-3 text-start transition ${
+                    className={`w-full px-1 py-3 text-left transition ${
                       selectedId === template.id
-                        ? 'border-r-2 border-brand-600 pr-3'
-                        : 'border-r-2 border-transparent pr-3 hover:bg-slate-50'
+                        ? 'border-l-2 border-brand-600 pl-3'
+                        : 'border-l-2 border-transparent pl-3 hover:bg-slate-50'
                     }`}
                     aria-current={selectedId === template.id ? 'true' : undefined}
                   >
@@ -166,13 +166,13 @@ export default function RubricListPage() {
                     </div>
                     <div className="mt-1 flex items-center gap-2">
                       {template.is_published ? (
-                        <Badge tone="success">منشور</Badge>
+                        <Badge tone="success">published</Badge>
                       ) : (
-                        <Badge tone="warning">مسودة</Badge>
+                        <Badge tone="warning">draft</Badge>
                       )}
                       {template.usage_count > 0 && (
                         <span className="text-xs text-slate-400">
-                          استُخدم {template.usage_count} مرة
+                          used {template.usage_count}×
                         </span>
                       )}
                     </div>
@@ -185,10 +185,10 @@ export default function RubricListPage() {
 
         <div className="lg:col-span-2">
           {detailLoading ? (
-            <Spinner label="جارٍ تحميل القالب" />
+            <Spinner label="Loading template" />
           ) : !detail ? (
             <Card>
-              <EmptyState title="اختر قالبًا" message="اختر سُلّمًا في القائمة اليسرى لفحصه." />
+              <EmptyState title="Select a template" message="Choose a rubric on the left to inspect it." />
             </Card>
           ) : (
             <div className="space-y-6">
@@ -198,7 +198,7 @@ export default function RubricListPage() {
                   subtitle={
                     <span className="flex flex-wrap items-center gap-2">
                       <Badge tone={detail.is_published ? 'success' : 'warning'}>
-                        {detail.is_published ? 'منشور' : 'مسودة'}
+                        {detail.is_published ? 'published' : 'draft'}
                       </Badge>
                       <Badge tone="neutral">v{detail.version}</Badge>
                       <span className="capitalize">{detail.assessor_type}</span>
@@ -208,17 +208,17 @@ export default function RubricListPage() {
                   }
                 />
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <Meta label="إجمالي الدرجات" value={detail.total_marks ?? 100} />
-                  <Meta label="درجة النجاح" value={detail.pass_mark ?? 50} />
+                  <Meta label="Total marks" value={detail.total_marks ?? 100} />
+                  <Meta label="Pass mark" value={detail.pass_mark ?? 50} />
                   <Meta
-                    label="المكوّنات"
+                    label="Components"
                     value={(detail.components ?? []).length}
                   />
-                  <Meta label="أُنشئ" value={formatDate(detail.created_at)} />
+                  <Meta label="Created" value={formatDate(detail.created_at)} />
                 </div>
                 {!detail.is_published && canManage && (
                   <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                    هذه النسخة مسودة. انشرها قبل استخدامها في نماذج جديدة.
+                    This version is a draft. Publish it before it can be used for new forms.
                   </p>
                 )}
               </Card>
@@ -243,12 +243,12 @@ export default function RubricListPage() {
                               </p>
                             )}
                           </div>
-                          <div className="shrink-0 text-end text-xs text-slate-500">
+                          <div className="shrink-0 text-right text-xs text-slate-500">
                             <div className="font-semibold tabular-nums text-slate-700">
-                              {formatMark(criterion.max_marks)} درجة
+                              {formatMark(criterion.max_marks)} marks
                             </div>
                             {criterion.weight != null && (
-                              <div>{criterion.weight}% من المكوّن</div>
+                              <div>{criterion.weight}% of component</div>
                             )}
                           </div>
                         </div>
@@ -292,12 +292,12 @@ function WeightCheck({ detail }) {
         </span>
         <div>
           <p className={`font-medium ${balanced ? 'text-emerald-900' : 'text-amber-900'}`}>
-            مجموع أوزان المكوّنات {formatMark(total)}%
+            Component weights total {formatMark(total)}%
           </p>
           <p className={`text-sm ${balanced ? 'text-emerald-800' : 'text-amber-800'}`}>
             {balanced
-              ? 'الأوزان متوازنة — تُرتبط المجاميع المحسوبة مباشرة بمقياس 100 درجة.'
-              : 'الأوزان لا تجمع إلى 100. تُعاد تسوية الدرجات النهائية نسبيًا، فيُحفظ الوزن النسبي لكن يختلف الحساب الخام عن المجموع الصارم.'}
+              ? 'Weights are balanced — computed totals map directly onto the 100-mark scale.'
+              : 'Weights do not sum to 100. Final marks are rescaled proportionally, so relative weighting is preserved but the raw arithmetic differs from a strict total.'}
           </p>
         </div>
       </div>

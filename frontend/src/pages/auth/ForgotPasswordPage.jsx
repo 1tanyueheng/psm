@@ -42,21 +42,21 @@ export default function ForgotPasswordPage() {
           <div className="w-11 h-11 rounded-xl bg-brand-600 text-white flex items-center justify-center text-sm font-medium mx-auto mb-3">
             PSM
           </div>
-          <h1 className="text-lg font-medium text-slate-900">إعادة تعيين كلمة المرور</h1>
+          <h1 className="text-lg font-medium text-slate-900">Reset your password</h1>
         </div>
 
         {sent ? (
           <div className="bg-white border border-slate-200 rounded-xl p-5 text-center">
-            <p className="text-sm text-slate-700">تحقق من بريدك الإلكتروني.</p>
+            <p className="text-sm text-slate-700">Check your email.</p>
             <p className="text-xs text-slate-500 mt-2">
-              إذا وُجد حساب مربوط بـ <strong>{email}</strong>، فسيصلك رابط إعادة التعيين قريباً.
-              يصلح الرابط لمدة 60 دقيقة فقط.
+              If an account exists for <strong>{email}</strong>, a reset link is on its way.
+              The link expires in 60 minutes.
             </p>
             <Link
               to="/login"
               className="inline-block mt-4 text-xs font-medium text-brand-600 hover:underline"
             >
-              العودة إلى تسجيل الدخول
+              Back to sign in
             </Link>
           </div>
         ) : (
@@ -65,10 +65,10 @@ export default function ForgotPasswordPage() {
             className="bg-white border border-slate-200 rounded-xl p-5 space-y-4"
           >
             <p className="text-xs text-slate-500">
-              أدخل بريدك الإلكتروني وسنرسل لك رابطاً لاختيار كلمة مرور جديدة.
+              Enter your email address and we will send you a link to choose a new password.
             </p>
 
-            <Field label="البريد الإلكتروني" required errors={errors} field="email">
+            <Field label="Email" required errors={errors} field="email">
               <Input
                 type="email"
                 autoComplete="username"
@@ -81,12 +81,12 @@ export default function ForgotPasswordPage() {
             </Field>
 
             <Button type="submit" className="w-full" loading={submitting}>
-              إرسال رابط إعادة التعيين
+              Send reset link
             </Button>
 
             <div className="text-center">
               <Link to="/login" className="text-xs text-slate-500 hover:text-brand-600">
-                العودة إلى تسجيل الدخول
+                Back to sign in
               </Link>
             </div>
           </form>

@@ -17,7 +17,7 @@ export function formatDate(value) {
 
   if (Number.isNaN(date.getTime())) return '—'
 
-  return date.toLocaleDateString('ar-EG-u-nu-latn', {
+  return date.toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -32,7 +32,7 @@ export function formatDateTime(value) {
 
   if (Number.isNaN(date.getTime())) return '—'
 
-  return date.toLocaleString('ar-EG-u-nu-latn', {
+  return date.toLocaleString('en-GB', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -60,11 +60,11 @@ export function relativeDays(value) {
 
   const days = Math.round((target - startOfToday) / 86_400_000)
 
-  if (days === 0) return 'اليوم'
-  if (days === 1) return 'غدًا'
-  if (days === -1) return 'أمس'
-  if (days > 0) return `بعد ${days} أيام`
-  return `قبل ${Math.abs(days)} أيام`
+  if (days === 0) return 'today'
+  if (days === 1) return 'tomorrow'
+  if (days === -1) return 'yesterday'
+  if (days > 0) return `in ${days} days`
+  return `${Math.abs(days)} days ago`
 }
 
 /** True when a deadline has passed and work is still outstanding. */
@@ -138,36 +138,36 @@ export function initials(name) {
 // ---------------------------------------------------------------------
 
 export const MILESTONE_STATUS = {
-  pending: { label: 'لم يبدأ', tone: 'bg-slate-100 text-slate-700 border-slate-200' },
-  open: { label: 'متاح', tone: 'bg-blue-50 text-blue-700 border-blue-200' },
-  submitted: { label: 'مُقدَّم', tone: 'bg-amber-50 text-amber-700 border-amber-200' },
-  reviewed: { label: 'مُراجَع', tone: 'bg-violet-50 text-violet-700 border-violet-200' },
-  approved: { label: 'معتمد', tone: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  rejected: { label: 'مطلوب تعديل', tone: 'bg-rose-50 text-rose-700 border-rose-200' },
-  overdue: { label: 'متأخر', tone: 'bg-red-50 text-red-700 border-red-200' },
+  pending: { label: 'Not started', tone: 'bg-slate-100 text-slate-700 border-slate-200' },
+  open: { label: 'Open', tone: 'bg-blue-50 text-blue-700 border-blue-200' },
+  submitted: { label: 'Submitted', tone: 'bg-amber-50 text-amber-700 border-amber-200' },
+  reviewed: { label: 'Reviewed', tone: 'bg-violet-50 text-violet-700 border-violet-200' },
+  approved: { label: 'Approved', tone: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  rejected: { label: 'Revision required', tone: 'bg-rose-50 text-rose-700 border-rose-200' },
+  overdue: { label: 'Overdue', tone: 'bg-red-50 text-red-700 border-red-200' },
 }
 
 export const PROJECT_STATUS = {
-  draft: { label: 'مسودة', tone: 'bg-slate-100 text-slate-700 border-slate-200' },
-  submitted: { label: 'بانتظار الموافقة', tone: 'bg-amber-50 text-amber-700 border-amber-200' },
-  approved: { label: 'معتمد', tone: 'bg-blue-50 text-blue-700 border-blue-200' },
-  rejected: { label: 'مرفوض', tone: 'bg-rose-50 text-rose-700 border-rose-200' },
-  in_progress: { label: 'قيد التنفيذ', tone: 'bg-sky-50 text-sky-700 border-sky-200' },
-  completed: { label: 'مكتمل', tone: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  archived: { label: 'مؤرشَف', tone: 'bg-slate-100 text-slate-600 border-slate-200' },
+  draft: { label: 'Draft', tone: 'bg-slate-100 text-slate-700 border-slate-200' },
+  submitted: { label: 'Pending approval', tone: 'bg-amber-50 text-amber-700 border-amber-200' },
+  approved: { label: 'Approved', tone: 'bg-blue-50 text-blue-700 border-blue-200' },
+  rejected: { label: 'Rejected', tone: 'bg-rose-50 text-rose-700 border-rose-200' },
+  in_progress: { label: 'In progress', tone: 'bg-sky-50 text-sky-700 border-sky-200' },
+  completed: { label: 'Completed', tone: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  archived: { label: 'Archived', tone: 'bg-slate-100 text-slate-600 border-slate-200' },
 }
 
 export const EVALUATION_STATUS = {
-  draft: { label: 'مسودة', tone: 'bg-slate-100 text-slate-700 border-slate-200' },
-  submitted: { label: 'مُقدَّم', tone: 'bg-amber-50 text-amber-700 border-amber-200' },
-  moderated: { label: 'مُعدَّل', tone: 'bg-violet-50 text-violet-700 border-violet-200' },
-  released: { label: 'مُنشَر', tone: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  recused: { label: 'مُنسحِب', tone: 'bg-slate-100 text-slate-600 border-slate-200' },
+  draft: { label: 'Draft', tone: 'bg-slate-100 text-slate-700 border-slate-200' },
+  submitted: { label: 'Submitted', tone: 'bg-amber-50 text-amber-700 border-amber-200' },
+  moderated: { label: 'Moderated', tone: 'bg-violet-50 text-violet-700 border-violet-200' },
+  released: { label: 'Released', tone: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  recused: { label: 'Recused', tone: 'bg-slate-100 text-slate-600 border-slate-200' },
 }
 
 export const CATEGORY_LABELS = {
-  system: 'تطوير الأنظمة',
-  research: 'بحثي',
+  system: 'System Development',
+  research: 'Research',
 }
 
 /** Grade band → tone, matching psm.grade_bands on the server. */
@@ -181,9 +181,9 @@ export function gradeTone(letter) {
 }
 
 export const EXAMINER_PANEL_ROLES = {
-  chair: 'رئيس اللجنة',
-  member: 'عضو اللجنة',
-  reserve: 'احتياط',
+  chair: 'Panel Chair',
+  member: 'Panel Member',
+  reserve: 'Reserve',
 }
 
 /** 'gold' | 'silver' | 'bronze' | null → medal display for the podium. */

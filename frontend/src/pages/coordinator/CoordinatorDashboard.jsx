@@ -68,55 +68,55 @@ export default function CoordinatorDashboard() {
   const stages = cohort.stages ?? {}
   const byBand = (() => {
     const first = cohort.by_batch?.[0]
-    return first?.batch ? `الدفعة ${first.batch}` : null
+    return first?.batch ? `Batch ${first.batch}` : null
   })()
 
   // Module 5's "where is the cohort stuck" — drawn from the summary the
   // dashboard endpoint already returns, rather than a separate round-trip.
   const attention = [
-    { label: 'بانتظار المراجعة', count: k.awaiting_review ?? 0, tone: 'warning' },
-    { label: 'في خطر', count: k.at_risk ?? 0, tone: 'danger' },
-    { label: 'مطلوب تعديل', count: stages.rejected?.count ?? 0, tone: 'warning' },
+    { label: 'Awaiting review', count: k.awaiting_review ?? 0, tone: 'warning' },
+    { label: 'At risk', count: k.at_risk ?? 0, tone: 'danger' },
+    { label: 'Revision required', count: stages.rejected?.count ?? 0, tone: 'warning' },
   ].filter((item) => item.count > 0)
 
-  if (loading) return <Spinner label="جارٍ تحميل تحليلات الدفعة" />
+  if (loading) return <Spinner label="Loading cohort analytics" />
   if (error) return <ErrorState message={error.message || error} />
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="نظرة عامة على الدفعة"
-        subtitle={byBand ?? 'الدفعة الحالية'}
+        title="Cohort overview"
+        subtitle={byBand ?? 'Current cohort'}
         actions={
           <div className="flex gap-2">
             <Link to="/assignments">
-              <Button variant="secondary">تعيين المشرفين</Button>
+              <Button variant="secondary">Assign supervisors</Button>
             </Link>
             <Link to="/reports">
-              <Button>التحليلات الكاملة</Button>
+              <Button>Full analytics</Button>
             </Link>
           </div>
         }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="مشاريع نشطة" value={cohort.total_projects ?? 0} hint="الدفعة الحالية قيد التنفيذ" />
+        <StatCard label="Active projects" value={cohort.total_projects ?? 0} hint="Current batch in flight" />
         <StatCard
-          label="طلاب بلا مشرف"
+          label="Unpaired students"
           value={unpaired?.total ?? 0}
-          hint="لا يوجد مشرف بعد"
+          hint="No supervisor yet"
           tone={(unpaired?.total ?? 0) > 0 ? 'danger' : 'success'}
         />
         <StatCard
-          label="مراحل متأخرة"
+          label="Overdue milestones"
           value={stages.overdue?.count ?? 0}
-          hint="تجاوزت موعدها ولم تُعتمد"
+          hint="Past due date, not approved"
           tone={(stages.overdue?.count ?? 0) > 0 ? 'warning' : 'success'}
         />
         <StatCard
-          label="الدرجات المنشورة"
+          label="Grades released"
           value={k.grades?.total ?? 0}
-          hint="الدرجات النهائية المنشورة"
+          hint="Released final grades"
           tone="success"
         />
       </div>
@@ -125,13 +125,13 @@ export default function CoordinatorDashboard() {
         {/* Grade distribution — module 5's headline chart. */}
         <Card>
           <CardHeader
-            title="توزيع الدرجات"
-            subtitle={k.grades?.stats?.count ? `${k.grades.stats.count} مشاريع مصنّفة` : 'كل المشاريع المصنّفة'}
+            title="Grade distribution"
+            subtitle={k.grades?.stats?.count ? `${k.grades.stats.count} graded projects` : 'All graded projects'}
           />
           {distribution.length === 0 ? (
             <EmptyState
-              title="لا توجد درجات بعد"
-              message="يظهر التوزيع بعد أن يقدّم الممتحنون والمشرفون علاماتهم."
+              title="No grades yet"
+              message="The distribution appears once examiners and supervisors submit marks."
             />
           ) : (
             <div className="space-y-3 pt-1">
@@ -148,10 +148,10 @@ export default function CoordinatorDashboard() {
                         style={{ width: `${share}%` }}
                       />
                     </div>
-                    <span className="w-20 shrink-0 text-end text-sm tabular-nums text-slate-600">
+                    <span className="w-20 shrink-0 text-right text-sm tabular-nums text-slate-600">
                       {row.count ?? 0}
                       {row.percent != null && (
-                        <span className="ms-1 text-xs text-slate-400">
+                        <span className="ml-1 text-xs text-slate-400">
                           {formatPercent(row.percent, 0)}
                         </span>
                       )}
@@ -166,11 +166,11 @@ export default function CoordinatorDashboard() {
         {/* Where the cohort is collectively stuck — awaiting/at-risk/revisions. */}
         <Card>
           <CardHeader
-            title="أين تحتاج الدفعة إلى اهتمام"
-            subtitle="بنود تتطلب قراراً من المنسق"
+            title="Where the cohort needs attention"
+            subtitle="Items that require a coordinator decision"
           />
           {attention.length === 0 ? (
-            <EmptyState title="كل شيء على ما يرام" message="لا شيء يحتاج إلى اهتمام عبر الدفعة." />
+            <EmptyState title="All clear" message="Nothing needs attention across the cohort." />
           ) : (
             <ul className="divide-y divide-slate-100">
               {attention.map((item) => (
@@ -187,25 +187,25 @@ export default function CoordinatorDashboard() {
       {/* Supervisor workload — feeds the assignment decision. */}
       <Card>
         <CardHeader
-          title="عبء عمل المشرفين"
-          subtitle="استخدام السعة عبر الدفعة"
+          title="Supervisor workload"
+          subtitle="Capacity utilisation across the cohort"
           action={
             <Link to="/assignments">
-              <Button size="sm" variant="secondary">إدارة التعيينات</Button>
+              <Button size="sm" variant="secondary">Manage assignments</Button>
             </Link>
           }
         />
         {workload.length === 0 ? (
-          <EmptyState title="لا يوجد مشرفون" message="أضف مشرفين لرؤية العبء." />
+          <EmptyState title="No supervisors loaded" message="Add supervisors to see workload." />
         ) : (
           <DataTable
             columns={[
-              { key: 'name', label: 'المشرف' },
-              { key: 'expertise', label: 'الخبرة' },
-              { key: 'load', label: 'العدد' },
-              { key: 'capacity', label: 'السعة' },
-              { key: 'utilisation', label: 'الاستخدام' },
-              { key: 'availability', label: 'التوفر' },
+              { key: 'name', label: 'Supervisor' },
+              { key: 'expertise', label: 'Expertise' },
+              { key: 'load', label: 'Load' },
+              { key: 'capacity', label: 'Capacity' },
+              { key: 'utilisation', label: 'Utilisation' },
+              { key: 'availability', label: 'Availability' },
             ]}
             render={(row) => {
               const used = row.supervising ?? 0
@@ -237,9 +237,9 @@ export default function CoordinatorDashboard() {
                   </Td>
                   <Td>
                     {full ? (
-                      <Badge tone="danger">بالسعة القصوى</Badge>
+                      <Badge tone="danger">At capacity</Badge>
                     ) : (
-                      <Badge tone="success">متاح</Badge>
+                      <Badge tone="success">Available</Badge>
                     )}
                   </Td>
                 </tr>

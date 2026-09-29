@@ -47,7 +47,7 @@ class AuthController extends ApiController
         if ($user === null) {
             $this->audit->log(
                 action: AuditAction::LoginFailed,
-                description: "حساب غير معروف: {$credentials['email']}",
+                description: "Unknown account: {$credentials['email']}",
             );
 
             throw ValidationException::withMessages([
@@ -57,7 +57,7 @@ class AuthController extends ApiController
 
         if ($user->isLocked()) {
             throw ValidationException::withMessages([
-                'email' => 'هذا الحساب مقفَل مؤقتًا. حاول مجددًا بعد '
+                'email' => 'This account is temporarily locked. Try again after '
                     .$user->locked_until?->diffForHumans().'.',
             ]);
         }
@@ -68,8 +68,8 @@ class AuthController extends ApiController
             $this->audit->log(
                 action: AuditAction::LoginFailed,
                 description: $justLocked
-                    ? "تم إقفال الحساب بعد محاولات متكررة: {$user->email}"
-                    : "كلمة مرور خاطئة لـ {$user->email}",
+                    ? "Account locked after repeated failures: {$user->email}"
+                    : "Incorrect password for {$user->email}",
                 actor: $user,
             );
 
@@ -81,9 +81,9 @@ class AuthController extends ApiController
         if (! $user->isActive()) {
             throw ValidationException::withMessages([
                 'email' => match ($user->status) {
-                    'suspended' => 'تم إيقاف هذا الحساب. يُرجى التواصل مع الإدارة.',
-                    'inactive'  => 'هذا الحساب لم يعد نشطًا.',
-                    default     => 'لم يتم التحقق من هذا الحساب بعد.',
+                    'suspended' => 'This account has been suspended. Please contact the administrator.',
+                    'inactive'  => 'This account is no longer active.',
+                    default     => 'This account has not been verified yet.',
                 },
             ]);
         }
@@ -100,7 +100,7 @@ class AuthController extends ApiController
 
         $this->audit->log(
             action: AuditAction::Login,
-            description: 'تسجيل دخول من '.$request->ip(),
+            description: 'Signed in from '.$request->ip(),
             actor: $user,
         );
 
@@ -109,7 +109,7 @@ class AuthController extends ApiController
             'user'  => new UserResource($user->load(['studentProfile', 'supervisorProfile'])),
             // The SPA uses this to pick a landing dashboard
             'home'  => $user->role->homeRoute(),
-        ], 'تم تسجيل الدخول بنجاح.');
+        ], 'Signed in successfully.');
     }
 
     /**
@@ -121,14 +121,14 @@ class AuthController extends ApiController
 
         $this->audit->log(
             action: AuditAction::Logout,
-            description: 'تسجيل خروج',
+            description: 'Signed out',
             actor: $user,
         );
 
         // Revoke only the token used for this request
         $user->currentAccessToken()?->delete();
 
-        return $this->ok(null, 'تم تسجيل الخروج.');
+        return $this->ok(null, 'Signed out.');
     }
 
     /**
@@ -157,7 +157,7 @@ class AuthController extends ApiController
 
         return $this->ok(
             null,
-            'إذا كان عنوان البريد مسجّلًا، فسيصل رابط إعادة التعيين قريبًا.'
+            'If that email address is registered, a reset link is on its way.'
         );
     }
 
@@ -182,7 +182,7 @@ class AuthController extends ApiController
 
                 $this->audit->log(
                     action: AuditAction::PasswordReset,
-                    description: 'إعادة تعيين كلمة المرور عبر رابط البريد',
+                    description: 'Password reset via email link',
                     actor: $user,
                 );
             }
@@ -192,7 +192,7 @@ class AuthController extends ApiController
             return $this->fail(__($status), 422);
         }
 
-        return $this->ok(null, 'تمت إعادة تعيين كلمة المرور. يمكنك تسجيل الدخول الآن.');
+        return $this->ok(null, 'Your password has been reset. You can sign in now.');
     }
 
     /**
@@ -206,14 +206,14 @@ class AuthController extends ApiController
             'current_password' => ['required', 'string'],
             'password'         => ['required', 'string', 'min:8', 'confirmed', 'different:current_password'],
         ], [
-            'password.different' => 'يجب أن تختلف كلمة المرور الجديدة عن الحالية.',
+            'password.different' => 'Your new password must be different from your current one.',
         ]);
 
         $user = $request->user();
 
         if (! Hash::check($validated['current_password'], $user->password)) {
             throw ValidationException::withMessages([
-                'current_password' => 'كلمة المرور الحالية غير صحيحة.',
+                'current_password' => 'Your current password is incorrect.',
             ]);
         }
 
@@ -233,10 +233,10 @@ class AuthController extends ApiController
 
         $this->audit->log(
             action: AuditAction::PasswordChanged,
-            description: 'تغيير كلمة المرور',
+            description: 'Password changed',
             actor: $user,
         );
 
-        return $this->ok(null, 'تم تغيير كلمة المرور. تم تسجيل الخروج من الأجهزة الأخرى.');
+        return $this->ok(null, 'Password changed. Other devices have been signed out.');
     }
 }

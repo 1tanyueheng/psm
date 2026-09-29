@@ -16,16 +16,16 @@ enum ProjectCategory: string
     public function label(): string
     {
         return match ($this) {
-            self::System   => 'تطوير نظام',
-            self::Research => 'بحث علمي',
+            self::System   => 'System Development',
+            self::Research => 'Research',
         };
     }
 
     public function description(): string
     {
         return match ($this) {
-            self::System   => 'بناء منتج عملي: المتطلبات، التصميم، التنفيذ، الاختبار، والنشر.',
-            self::Research => 'إنتاج نتائج تجريبية: مراجعة الأدبيات، المنهجية، جمع البيانات، التحليل، والاستنتاج.',
+            self::System   => 'Builds a working artefact: requirements, design, implementation, testing, deployment.',
+            self::Research => 'Produces empirical findings: literature review, methodology, data collection, analysis, conclusion.',
         };
     }
 
@@ -34,18 +34,18 @@ enum ProjectCategory: string
     {
         return match ($this) {
             self::System => [
-                ['code' => 'proposal',   'title' => 'المقترح',        'weight' => 10.0, 'offset_days' => 21],
-                ['code' => 'design',     'title' => 'تصميم النظام',   'weight' => 15.0, 'offset_days' => 49],
-                ['code' => 'implement',  'title' => 'التنفيذ',        'weight' => 30.0, 'offset_days' => 91],
-                ['code' => 'testing',    'title' => 'الاختبار',       'weight' => 25.0, 'offset_days' => 119],
-                ['code' => 'report',     'title' => 'التقرير النهائي', 'weight' => 20.0, 'offset_days' => 140],
+                ['code' => 'proposal',   'title' => 'Proposal',        'weight' => 10.0, 'offset_days' => 21],
+                ['code' => 'design',     'title' => 'System Design',   'weight' => 15.0, 'offset_days' => 49],
+                ['code' => 'implement',  'title' => 'Implementation',  'weight' => 30.0, 'offset_days' => 91],
+                ['code' => 'testing',    'title' => 'Testing',         'weight' => 25.0, 'offset_days' => 119],
+                ['code' => 'report',     'title' => 'Final Report',    'weight' => 20.0, 'offset_days' => 140],
             ],
             self::Research => [
-                ['code' => 'proposal',   'title' => 'المقترح',        'weight' => 10.0, 'offset_days' => 21],
-                ['code' => 'litreview',  'title' => 'مراجعة الأدبيات', 'weight' => 20.0, 'offset_days' => 49],
-                ['code' => 'methods',    'title' => 'المنهجية',       'weight' => 20.0, 'offset_days' => 77],
-                ['code' => 'analysis',   'title' => 'تحليل البيانات', 'weight' => 30.0, 'offset_days' => 119],
-                ['code' => 'report',     'title' => 'التقرير النهائي', 'weight' => 20.0, 'offset_days' => 140],
+                ['code' => 'proposal',   'title' => 'Proposal',        'weight' => 10.0, 'offset_days' => 21],
+                ['code' => 'litreview',  'title' => 'Literature Review','weight' => 20.0, 'offset_days' => 49],
+                ['code' => 'methods',    'title' => 'Methodology',     'weight' => 20.0, 'offset_days' => 77],
+                ['code' => 'analysis',   'title' => 'Data Analysis',   'weight' => 30.0, 'offset_days' => 119],
+                ['code' => 'report',     'title' => 'Final Report',    'weight' => 20.0, 'offset_days' => 140],
             ],
         };
     }

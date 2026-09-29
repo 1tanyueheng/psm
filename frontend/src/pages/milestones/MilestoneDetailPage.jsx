@@ -54,15 +54,15 @@ export default function MilestoneDetailPage() {
       await fn()
       await load()
     } catch (err) {
-      setActionError(err?.message ?? 'تعذّر إتمام هذا الإجراء.')
+      setActionError(err?.message ?? 'That action could not be completed.')
     } finally {
       setBusy(false)
     }
   }
 
-  if (loading) return <Spinner label="جارٍ تحميل المرحلة" />
+  if (loading) return <Spinner label="Loading milestone" />
   if (error) return <ErrorState error={error} />
-  if (!milestone) return <ErrorState error={{ message: 'المرحلة غير موجودة.' }} />
+  if (!milestone) return <ErrorState error={{ message: 'Milestone not found.' }} />
 
   const meta = statusMeta(MILESTONE_STATUS, milestone.status)
   const due = milestone.effective_due_at ?? milestone.due_at
@@ -81,8 +81,8 @@ export default function MilestoneDetailPage() {
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <Badge tone={meta?.tone ?? 'neutral'}>{meta?.label ?? milestone.status}</Badge>
-            {late && <Badge tone="danger">متأخرة</Badge>}
-            {milestone.revision_count > 0 && <Badge tone="warning">المراجعة {milestone.revision_count}</Badge>}
+            {late && <Badge tone="danger">Overdue</Badge>}
+            {milestone.revision_count > 0 && <Badge tone="warning">Revision {milestone.revision_count}</Badge>}
             {milestone.milestone_code && (
               <span className="font-mono text-xs">{milestone.milestone_code}</span>
             )}
@@ -91,7 +91,7 @@ export default function MilestoneDetailPage() {
         back={
           milestone.project
             ? { to: `/projects/${milestone.project.id}`, label: milestone.project.title }
-            : { to: '/milestones', label: 'كل المراحل' }
+            : { to: '/milestones', label: 'All milestones' }
         }
       />
 
@@ -101,7 +101,7 @@ export default function MilestoneDetailPage() {
         <div className="space-y-6 lg:col-span-2">
           {/* The requirement — what is actually being asked for. */}
           <Card>
-            <CardHeader title="المطلوب في هذه المرحلة" />
+            <CardHeader title="What is required" />
             <div className="space-y-4">
               {milestone.deliverable_expectation ? (
                 <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
@@ -109,27 +109,27 @@ export default function MilestoneDetailPage() {
                 </p>
               ) : (
                 <p className="text-sm text-slate-500">
-                  لم يُسجَّل وصف تفصيلي لهذه المرحلة.
+                  No detailed brief was recorded for this milestone.
                 </p>
               )}
 
               <dl className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-4">
-                <Detail label="الموعد" value={formatDate(due, { fallback: 'لا يوجد موعد' })} />
-                <Detail label="الوزن" value={milestone.weight ? `${milestone.weight}%` : '—'} />
+                <Detail label="Due" value={formatDate(due, { fallback: 'No date set' })} />
+                <Detail label="Weight" value={milestone.weight ? `${milestone.weight}%` : '—'} />
                 <Detail
-                  label="الملفات"
+                  label="Files"
                   value={
                     milestone.max_files
-                      ? `حتى ${milestone.max_files}`
-                      : 'غير محدود'
+                      ? `up to ${milestone.max_files}`
+                      : 'unlimited'
                   }
                 />
                 <Detail
-                  label="الأنواع المقبولة"
+                  label="Accepted"
                   value={
                     milestone.allowed_file_types?.length
                       ? milestone.allowed_file_types.join(', ')
-                      : 'أي نوع'
+                      : 'any'
                   }
                 />
               </dl>
@@ -146,8 +146,8 @@ export default function MilestoneDetailPage() {
           {/* Decision history — the audit trail of this specific milestone. */}
           <Card>
             <CardHeader
-              title="السجل"
-              subtitle={`${milestone.events?.length ?? 0} ${milestone.events?.length === 1 ? 'حدث' : 'أحداث'} مسجّل${milestone.events?.length === 1 ? '' : 'ة'}`}
+              title="History"
+              subtitle={`${milestone.events?.length ?? 0} recorded event${milestone.events?.length === 1 ? '' : 's'}`}
             />
             <EventTimeline events={milestone.events ?? []} />
           </Card>
@@ -158,11 +158,11 @@ export default function MilestoneDetailPage() {
           {isReviewer && <ReviewCard milestone={milestone} busy={busy} onRun={run} />}
 
           <Card>
-            <CardHeader title="الملكية" />
+            <CardHeader title="Ownership" />
             <div className="space-y-4">
-              <PersonRow label="الطالب" person={student} showId />
+              <PersonRow label="Student" person={student} showId />
               {milestone.project?.supervisors?.map((s) => (
-                <PersonRow key={s.id ?? s.name} label="المشرف" person={s} />
+                <PersonRow key={s.id ?? s.name} label="Supervisor" person={s} />
               ))}
             </div>
           </Card>
@@ -174,10 +174,10 @@ export default function MilestoneDetailPage() {
                   ✓
                 </span>
                 <div>
-                  <p className="font-medium text-emerald-900">تم الاعتماد</p>
+                  <p className="font-medium text-emerald-900">Approved</p>
                   <p className="text-sm text-emerald-800">
                     {formatDateTime(milestone.approved_at)}
-                    {milestone.approved_by?.name && ` بواسطة ${milestone.approved_by.name}`}
+                    {milestone.approved_by?.name && ` by ${milestone.approved_by.name}`}
                   </p>
                 </div>
               </div>
@@ -218,13 +218,13 @@ function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
     const max = milestone.max_files || Infinity
 
     if (picked.length + files.length > max) {
-      setError(`يمكنك إرفاع حد أقصى ${max} ${max === 1 ? 'ملف' : 'ملفات'}.`)
+      setError(`You can attach at most ${max} file${max === 1 ? '' : 's'}.`)
       return
     }
     // Guard the size here too, so the user is told before the request fails.
     const tooBig = picked.find((f) => f.size > 32 * 1024 * 1024)
     if (tooBig) {
-      setError(`"${tooBig.name}" أكبر من الحد الأقصى 32 ميجابايت.`)
+      setError(`"${tooBig.name}" is larger than the 32 MB limit.`)
       return
     }
 
@@ -239,7 +239,7 @@ function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
 
   async function submit() {
     if (files.length === 0) {
-      setError('أرفِق ملفًا واحدًا على الأقل قبل الإرسال.')
+      setError('Attach at least one file before submitting.')
       return
     }
 
@@ -258,7 +258,7 @@ function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
       onSubmitted()
     } catch (err) {
       if (err?.errors) setErrors(err.errors)
-      else setError(err?.message ?? 'فشل الرفع. يرجى المحاولة مرة أخرى.')
+      else setError(err?.message ?? 'Upload failed. Please try again.')
     } finally {
       setUploading(false)
     }
@@ -267,11 +267,11 @@ function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
   return (
     <Card>
       <CardHeader
-        title="التسليم"
+        title="Submission"
         subtitle={
           accepts
-            ? 'أرفِق التسليم، ثم أرسله للمراجعة'
-            : `حالة هذه المرحلة: ${milestone.status.replace(/_/g, ' ')} — التسليمات مغلقة`
+            ? 'Attach your deliverable, then submit for review'
+            : `This milestone is ${milestone.status.replace(/_/g, ' ')} — submissions are closed`
         }
       />
 
@@ -287,17 +287,17 @@ function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
                 </p>
                 <p className="text-xs text-slate-400">
                   {formatBytes(file.size)}
-                  {file.uploaded_at && ` · تم الرفع ${relativeDays(file.uploaded_at)}`}
+                  {file.uploaded_at && ` · uploaded ${relativeDays(file.uploaded_at)}`}
                 </p>
               </div>
               <Button size="sm" variant="ghost" onClick={() => window.open(milestoneApi.downloadUrl(file.id), '_blank')}>
-                تنزيل
+                Download
               </Button>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mb-4 text-sm text-slate-500">لم يتم تسليم أي شيء بعد.</p>
+        <p className="mb-4 text-sm text-slate-500">Nothing has been submitted yet.</p>
       )}
 
       {canSubmit && (
@@ -316,20 +316,20 @@ function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
             className="rounded-lg border-2 border-dashed border-slate-300 px-4 py-6 text-center"
           >
             <p className="text-sm text-slate-600">
-              اسحب الملفات هنا، أو
+              Drag files here, or
               {' '}
               <button
                 type="button"
                 className="font-medium text-brand-700 hover:underline"
                 onClick={() => inputRef.current?.click()}
               >
-                تصفّح
+                browse
               </button>
             </p>
             <p className="mt-1 text-xs text-slate-400">
-              {acceptAttr ? `الأنواع المقبولة: ${acceptAttr}` : 'أي نوع ملفات'}
-              {milestone.max_files ? ` · حد أقصى ${milestone.max_files} ملفات` : ''}
-              {' · 32 ميجابايت لكل ملف'}
+              {acceptAttr ? `Accepted: ${acceptAttr}` : 'Any file type'}
+              {milestone.max_files ? ` · max ${milestone.max_files} files` : ''}
+              {' · 32 MB per file'}
             </p>
             <input
               ref={inputRef}
@@ -357,28 +357,28 @@ function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
                     type="button"
                     onClick={() => remove(index)}
                     className="text-sm text-slate-500 hover:text-rose-600"
-                    aria-label={`إزالة ${file.name}`}
+                    aria-label={`Remove ${file.name}`}
                   >
-                    إزالة
+                    Remove
                   </button>
                 </li>
               ))}
             </ul>
           )}
 
-          <Field label="ملاحظة للمشرف" htmlFor="note" hint="اختياري">
+          <Field label="Note for your supervisor" htmlFor="note" hint="Optional">
             <Textarea
               id="note"
               rows={3}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="أي شيء يجب أن يعرفه المصحّح عن هذا التسليم…"
+              placeholder="Anything your reviewer should know about this submission…"
             />
           </Field>
 
           <div className="flex justify-end">
             <Button onClick={submit} disabled={uploading || files.length === 0}>
-              {uploading ? 'جارٍ الرفع…' : 'إرسال للمراجعة'}
+              {uploading ? 'Uploading…' : 'Submit for review'}
             </Button>
           </div>
         </div>
@@ -398,7 +398,7 @@ function ReviewCard({ milestone, busy, onRun }) {
 
   async function confirm() {
     if (needsComment && comment.trim().length < 10) {
-      setError('اشرح ما يجب تغييره — 10 أحرف على الأقل.')
+      setError('Explain what needs changing — at least 10 characters.')
       return
     }
     setError(null)
@@ -415,11 +415,11 @@ function ReviewCard({ milestone, busy, onRun }) {
   if (!canReview) {
     return (
       <Card>
-        <CardHeader title="المراجعة" />
+        <CardHeader title="Review" />
         <p className="text-sm text-slate-500">
           {milestone.status === 'approved'
-            ? 'تم اعتماد هذه المرحلة.'
-            : 'لا يوجد ما يتطلب مراجعتك الآن.'}
+            ? 'This milestone has been approved.'
+            : 'There is nothing awaiting your review right now.'}
         </p>
       </Card>
     )
@@ -427,7 +427,7 @@ function ReviewCard({ milestone, busy, onRun }) {
 
   return (
     <Card>
-      <CardHeader title="المراجعة" subtitle="اعتمد، أو أعد مع ملاحظات" />
+      <CardHeader title="Review" subtitle="Approve, or send back with feedback" />
       <div className="space-y-4">
         {error && (
           <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
@@ -443,7 +443,7 @@ function ReviewCard({ milestone, busy, onRun }) {
                 : 'border-slate-200 text-slate-600 hover:border-slate-300'
             }`}
           >
-            اعتماد
+            Approve
           </button>
           <button
             type="button"
@@ -454,15 +454,15 @@ function ReviewCard({ milestone, busy, onRun }) {
                 : 'border-slate-200 text-slate-600 hover:border-slate-300'
             }`}
           >
-            طلب تعديل
+            Request revision
           </button>
         </div>
 
         <Field
-          label={needsComment ? 'ما الذي يحتاج إلى تغيير؟' : 'تعليق'}
+          label={needsComment ? 'What needs changing?' : 'Comment'}
           htmlFor="comment"
           required={needsComment}
-          hint={needsComment ? 'مطلوب' : 'اختياري، مرئي للطالب'}
+          hint={needsComment ? 'Required' : 'Optional, visible to the student'}
         >
           <Textarea
             id="comment"
@@ -471,14 +471,14 @@ function ReviewCard({ milestone, busy, onRun }) {
             onChange={(e) => setComment(e.target.value)}
             placeholder={
               needsComment
-                ? 'كن محددًا — يحتاج الطالب إلى معرفة ما يجب إصلاحه بالضبط.'
-                : 'ملاحظات، أو إشارة للسجل…'
+                ? 'Be specific — the student needs to know exactly what to fix.'
+                : 'Feedback, or a note for the record…'
             }
           />
         </Field>
 
         <Button className="w-full" disabled={busy || !decision} onClick={confirm}>
-          {busy ? 'جارٍ التسجيل…' : decision === 'approved' ? 'اعتماد المرحلة' : 'إرسال للتعديل'}
+          {busy ? 'Recording…' : decision === 'approved' ? 'Approve milestone' : 'Send back for revision'}
         </Button>
       </div>
     </Card>
@@ -487,7 +487,7 @@ function ReviewCard({ milestone, busy, onRun }) {
 
 function EventTimeline({ events }) {
   if (events.length === 0) {
-    return <EmptyState title="لا أحداث بعد" message="ستظهر هنا عمليات التسليم والمراجعة." />
+    return <EmptyState title="No events yet" message="Submission and review activity will appear here." />
   }
 
   const sorted = [...events].sort(
@@ -498,10 +498,10 @@ function EventTimeline({ events }) {
     <ul className="space-y-4">
       {sorted.map((event) => (
         <li key={event.id} className="flex gap-3">
-          <Avatar name={event.actor?.name ?? event.actor_name ?? 'النظام'} size="sm" />
+          <Avatar name={event.actor?.name ?? event.actor_name ?? 'System'} size="sm" />
           <div className="min-w-0 flex-1">
             <p className="text-sm text-slate-800">
-              <span className="font-medium">{event.actor?.name ?? event.actor_name ?? 'النظام'}</span>
+              <span className="font-medium">{event.actor?.name ?? event.actor_name ?? 'System'}</span>
               {' '}
               <span className="text-slate-600">{describeEvent(event)}</span>
             </p>
@@ -523,16 +523,16 @@ function EventTimeline({ events }) {
 
 function describeEvent(event) {
   const labels = {
-    created: 'أنشأ هذه المرحلة',
-    submitted: 'سلّم الملفات للمراجعة',
-    commented: 'ترك تعليقًا',
-    approved: 'اعتمد التسليم',
-    revision_requested: 'طلب تعديلًا',
-    resubmitted: 'أعاد التسليم بعد التعديل',
-    extended: 'مدّد الموعد النهائي',
-    reopened: 'أعاد فتح المرحلة',
+    created: 'created this milestone',
+    submitted: 'submitted files for review',
+    commented: 'left a comment',
+    approved: 'approved the submission',
+    revision_requested: 'requested a revision',
+    resubmitted: 'resubmitted after revision',
+    extended: 'extended the deadline',
+    reopened: 'reopened the milestone',
   }
-  return labels[event.event_type ?? event.action] ?? (event.event_type ?? event.action ?? 'حدّث هذه المرحلة')
+  return labels[event.event_type ?? event.action] ?? (event.event_type ?? event.action ?? 'updated this milestone')
 }
 
 function Detail({ label, value }) {

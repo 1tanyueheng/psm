@@ -182,7 +182,7 @@ class UserController extends ApiController
 
         return $this->created(
             new UserResource($user->load(['studentProfile', 'supervisorProfile', 'coordinatorScopes'])),
-            'تم إنشاء الحساب. تم إرسال بريد لتعيين كلمة المرور.'
+            'Account created. A set-password email has been sent.'
         );
     }
 
@@ -220,11 +220,11 @@ class UserController extends ApiController
 
         // Guard the sensitive fields explicitly rather than silently ignoring
         if (isset($validated['role']) && ! $isAdmin) {
-            return $this->fail('مدير النظام فقط يمكنه تغيير الدور.', 403);
+            return $this->fail('Only a system administrator may change a role.', 403);
         }
 
         if (isset($validated['status']) && ! $isAdmin) {
-            return $this->fail('مدير النظام فقط يمكنه تغيير حالة الحساب.', 403);
+            return $this->fail('Only a system administrator may change an account status.', 403);
         }
 
         $before = $user->getAttributes();
@@ -263,7 +263,7 @@ class UserController extends ApiController
 
         return $this->ok(
             new UserResource($user->fresh(['studentProfile', 'supervisorProfile', 'coordinatorScopes'])),
-            'تم تحديث الحساب.'
+            'Account updated.'
         );
     }
 
@@ -288,7 +288,7 @@ class UserController extends ApiController
             after: $user->getAttributes(),
         );
 
-        return $this->ok(null, 'تم تعطيل الحساب وإبطال جميع الجلسات.');
+        return $this->ok(null, 'Account deactivated and all sessions revoked.');
     }
 
     /**
@@ -310,7 +310,7 @@ class UserController extends ApiController
             after: $user->getAttributes(),
         );
 
-        return $this->ok(null, 'تمت إعادة تفعيل الحساب.');
+        return $this->ok(null, 'Account reactivated.');
     }
 
     /**
@@ -334,7 +334,7 @@ class UserController extends ApiController
             subject: $user,
         );
 
-        return $this->ok(null, 'تم إرسال رابط إعادة تعيين كلمة المرور إلى المستخدم.');
+        return $this->ok(null, 'A password reset link has been sent to the user.');
     }
 
     /**
@@ -352,7 +352,7 @@ class UserController extends ApiController
             subject: $user,
         );
 
-        return $this->ok(null, 'تم إلغاء قفل الحساب.');
+        return $this->ok(null, 'Account unlocked.');
     }
 
     /**
@@ -387,7 +387,7 @@ class UserController extends ApiController
             before: $before,
         );
 
-        return $this->ok(null, 'تم حذف الحساب. تم الاحتفاظ بالسجل الأكاديمي.');
+        return $this->ok(null, 'Account deleted. The academic record has been retained.');
     }
 
     /**

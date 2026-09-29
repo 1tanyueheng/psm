@@ -63,29 +63,29 @@ export default function ExaminerDashboard() {
     }
   }, [forms])
 
-  if (loading) return <Spinner label="جارٍ تحميل تكليفات الامتحان" />
+  if (loading) return <Spinner label="Loading your examination assignments" />
   if (error) return <ErrorState error={error} />
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`مرحباً، ${user?.name?.split(' ')[0] ?? 'ممتحن'}`}
-        subtitle="المشاريع التي تم تكليفك بتقييمها"
+        title={`Welcome, ${user?.name?.split(' ')[0] ?? 'Examiner'}`}
+        subtitle="Projects you have been assigned to assess"
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="الموكل إليك" value={stats.total} hint="نماذج التقييم" />
+        <StatCard label="Assigned" value={stats.total} hint="Evaluation forms" />
         <StatCard
-          label="معلق"
+          label="Outstanding"
           value={stats.outstanding}
-          hint="مسودة غير مقدمة"
+          hint="Draft, not submitted"
           tone={stats.outstanding > 0 ? 'warning' : 'default'}
         />
-        <StatCard label="مقدمة" value={stats.done} hint="مقفلة ومحتسبة" tone="success" />
+        <StatCard label="Submitted" value={stats.done} hint="Locked and counted" tone="success" />
         <StatCard
-          label="تعارض معلَن"
+          label="Conflicts declared"
           value={stats.conflicts}
-          hint="مستبعدة من التقييم"
+          hint="Excluded from assessment"
           tone={stats.conflicts > 0 ? 'danger' : 'default'}
         />
       </div>
@@ -95,10 +95,10 @@ export default function ExaminerDashboard() {
           <div className="flex flex-wrap items-center gap-3 p-1">
             <div className="flex-1">
               <p className="font-medium text-amber-900">
-                {stats.outstanding} نموذج لا يزال في المسودة
+                {stats.outstanding} form{stats.outstanding === 1 ? '' : 's'} still in draft
               </p>
               <p className="text-sm text-amber-800">
-                العلامات لا تظهر لأي أحد حتى تقدم. قدّم قبل موعد اللجنة.
+                Marks are not visible to anyone until you submit. Submit before the panel deadline.
               </p>
             </div>
           </div>
@@ -107,13 +107,13 @@ export default function ExaminerDashboard() {
 
       <Card>
         <CardHeader
-          title="التقييمات المعلقة"
-          subtitle="نماذج مسودة بانتظار إكمالها"
+          title="Outstanding assessments"
+          subtitle="Draft forms you still need to complete"
         />
         {drafts.length === 0 ? (
           <EmptyState
-            title="لا توجد تقييمات معلقة"
-            message="تم تقديم جميع النماذج الموكل بها إليك. شكراً لك."
+            title="Nothing outstanding"
+            message="Every form assigned to you has been submitted. Thank you."
           />
         ) : (
           <ul className="divide-y divide-slate-100">
@@ -125,9 +125,9 @@ export default function ExaminerDashboard() {
       </Card>
 
       <Card>
-        <CardHeader title="التقييمات المقدمة" subtitle="سجل للقراءة فقط لما أودعته" />
+        <CardHeader title="Submitted assessments" subtitle="A read-only record of what you filed" />
         {submitted.length === 0 ? (
-          <EmptyState title="لا توجد تقديمات بعد" message="تُحفظ النماذج المقدمة هنا." />
+          <EmptyState title="No submissions yet" message="Submitted forms are archived here." />
         ) : (
           <ul className="divide-y divide-slate-100">
             {submitted.map((form) => (
@@ -155,19 +155,19 @@ function FormRow({ form, readOnly = false }) {
               to={`/evaluations/${form.id}`}
               className="font-medium text-slate-900 hover:text-brand-700"
             >
-              {project.title ?? `تقييم #${form.id}`}
+              {project.title ?? `Evaluation #${form.id}`}
             </Link>
             <Badge tone={meta?.tone ?? 'neutral'}>{meta?.label ?? form.status}</Badge>
             {form.panel_role && (
               <Badge tone="neutral">{EXAMINER_PANEL_ROLES[form.panel_role] ?? form.panel_role}</Badge>
             )}
-            {form.has_conflict && <Badge tone="danger">تم الإعلان عن تعارض</Badge>}
+            {form.has_conflict && <Badge tone="danger">Conflict declared</Badge>}
           </div>
 
           <p className="mt-1 text-sm text-slate-600">
             {lead?.name}
             {lead?.student_id && (
-              <span className="ms-2 font-mono text-xs text-slate-400">{lead.student_id}</span>
+              <span className="ml-2 font-mono text-xs text-slate-400">{lead.student_id}</span>
             )}
           </p>
 
@@ -188,12 +188,12 @@ function FormRow({ form, readOnly = false }) {
 
           {readOnly && form.aggregate_mark != null && (
             <p className="mt-2 text-sm text-slate-700">
-              علامتك: <span className="font-semibold tabular-nums">{formatMark(form.aggregate_mark)}</span>
+              Your mark: <span className="font-semibold tabular-nums">{formatMark(form.aggregate_mark)}</span>
             </p>
           )}
         </div>
 
-        <div className="text-end text-sm">
+        <div className="text-right text-sm">
           {form.submitted_at ? (
             <>
               <p className="text-slate-700">{formatDate(form.submitted_at)}</p>
@@ -201,7 +201,7 @@ function FormRow({ form, readOnly = false }) {
             </>
           ) : form.due_at ? (
             <>
-              <p className="text-slate-700">مستحق {formatDate(form.due_at)}</p>
+              <p className="text-slate-700">due {formatDate(form.due_at)}</p>
               <p className="text-xs text-slate-400">{relativeDays(form.due_at)}</p>
             </>
           ) : null}
@@ -209,7 +209,7 @@ function FormRow({ form, readOnly = false }) {
 
         <Link to={`/evaluations/${form.id}`}>
           <Button size="sm" variant={readOnly ? 'secondary' : 'primary'}>
-            {readOnly ? 'عرض' : 'تقييم'}
+            {readOnly ? 'View' : 'Mark'}
           </Button>
         </Link>
       </div>

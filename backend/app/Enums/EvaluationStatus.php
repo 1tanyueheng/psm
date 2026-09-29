@@ -21,11 +21,11 @@ enum EvaluationStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::Draft     => 'مسودة',
-            self::Submitted => 'تم التسليم',
-            self::Moderated => 'تم التحكيم',
-            self::Released  => 'تم الإفراج',
-            self::Recused   => 'معتذر',
+            self::Draft     => 'Draft',
+            self::Submitted => 'Submitted',
+            self::Moderated => 'Moderated',
+            self::Released  => 'Released',
+            self::Recused   => 'Recused',
         };
     }
 

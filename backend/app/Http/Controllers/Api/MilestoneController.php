@@ -137,20 +137,20 @@ class MilestoneController extends ApiController
             ],
             'note'    => ['nullable', 'string', 'max:2000'],
         ], [
-            'files.max'      => "يمكنك رفع {$milestone->max_files} ملفًا كحد أقصى لهذا المعلم.",
-            'files.*.max'    => "يجب أن يكون كل ملف أصغر من {$maxMb} ميجابايت.",
-            'files.*.mimes'  => 'الأنواع المسموحة: '.implode('، ', $allowed).'.',
+            'files.max'      => "You may upload at most {$milestone->max_files} file(s) for this milestone.",
+            'files.*.max'    => "Each file must be smaller than {$maxMb} MB.",
+            'files.*.mimes'  => 'Allowed file types: '.implode(', ', $allowed).'.',
         ]);
 
         if (! $milestone->acceptsSubmission()) {
             return $this->fail(
                 match (true) {
                     $milestone->status === MilestoneStatus::Approved
-                        => 'تم اعتماد هذا المعلم ولم يعد يقبل تسليمات.',
+                        => 'This milestone is already approved and no longer accepts submissions.',
                     $milestone->isOverdue()
-                        => 'انتهى موعد هذا المعلم ولا يُسمح بالتسليم المتأخر. '
-                           .'تواصل مع المنسق لطلب تمديد.',
-                    default => 'هذا المعلم غير مفتوح للتسليم حاليًا.',
+                        => 'The deadline for this milestone has passed and late submission is not permitted. '
+                           .'Contact your coordinator to request an extension.',
+                    default => 'This milestone is not currently open for submission.',
                 },
                 422
             );
@@ -227,8 +227,8 @@ class MilestoneController extends ApiController
             $supervisorUsers,
             NotificationType::MilestoneSubmitted,
             [
-                'title'      => 'تسليم جديد للمراجعة',
-                'body'       => "قدّم {$milestone->project->code} تسليم '{$milestone->title}'.",
+                'title'      => 'New submission to review',
+                'body'       => "{$milestone->project->code} submitted '{$milestone->title}'.",
                 'action_url' => "/projects/{$milestone->project_id}/milestones/{$milestone->id}",
                 'meta'       => ['file_count' => count($files)],
             ],
@@ -240,7 +240,7 @@ class MilestoneController extends ApiController
         return $this->created([
             'milestone' => new MilestoneResource($milestone),
             'files'     => SubmissionFileResource::collection($files),
-        ], 'تم استلام التسليم.');
+        ], 'Submission received.');
     }
 
     /**
@@ -255,7 +255,7 @@ class MilestoneController extends ApiController
         ]);
 
         if (! $milestone->status->isProgressed()) {
-            return $this->fail('لا يوجد شيء للموافقة عليه بعد — لم يتم تقديم أي تسليم.', 422);
+            return $this->fail('There is nothing to approve yet — no submission has been made.', 422);
         }
 
         $updated = $this->milestones->approve(
@@ -268,14 +268,14 @@ class MilestoneController extends ApiController
             $updated->project->students->pluck('user')->filter(),
             NotificationType::MilestoneApproved,
             [
-                'title'      => 'تم اعتماد المعلم',
-                'body'       => "تم اعتماد {$updated->title}.",
+                'title'      => 'Milestone approved',
+                'body'       => "{$updated->title} has been approved.",
                 'action_url' => "/projects/{$updated->project_id}/milestones/{$updated->id}",
             ],
             $updated,
         );
 
-        return $this->ok(new MilestoneResource($updated->load('currentFiles')), 'تم اعتماد المعلم.');
+        return $this->ok(new MilestoneResource($updated->load('currentFiles')), 'Milestone approved.');
     }
 
     /**
@@ -297,7 +297,7 @@ class MilestoneController extends ApiController
 
         return $this->ok(
             new MilestoneResource($updated->load('currentFiles')),
-            'تم طلب المراجعة. تم إشعار الطالب.'
+            'Revision requested. The student has been notified.'
         );
     }
 
@@ -325,7 +325,7 @@ class MilestoneController extends ApiController
 
         return $this->ok(
             new MilestoneResource($updated->load('currentFiles')),
-            'تم تحديث الموعد النهائي وإشعار الطالب.'
+            'Deadline updated and the student has been notified.'
         );
     }
 
@@ -351,7 +351,7 @@ class MilestoneController extends ApiController
             'to_status'    => $milestone->status->value,
         ]);
 
-        return $this->ok(null, 'تمت إضافة التعليق.');
+        return $this->ok(null, 'Comment added.');
     }
 
     /**
@@ -367,7 +367,7 @@ class MilestoneController extends ApiController
         $this->authorize('download', $milestone);
 
         if (! $file->exists()) {
-            return $this->fail('تعذّر العثور على الملف المخزَّن. ربما تم نقله أثناء الأرشفة.', 404);
+            return $this->fail('The stored file could not be found. It may have been moved during archiving.', 404);
         }
 
         $this->audit->log(
@@ -400,9 +400,9 @@ class MilestoneController extends ApiController
         // If nothing current remains, reopen the milestone for a fresh upload
         if ($milestone->currentFiles()->count() === 0
             && $milestone->status === MilestoneStatus::Submitted) {
-            $this->milestones->transitionTo($milestone, MilestoneStatus::Rejected, $request->user(), 'سحب التسليم من قبل الطالب.');
+            $this->milestones->transitionTo($milestone, MilestoneStatus::Rejected, $request->user(), 'Submission withdrawn by the student.');
         }
 
-        return $this->ok(null, 'تم سحب الملف. يبقى في سجل التدقيق.');
+        return $this->ok(null, 'File withdrawn. It remains in the audit trail.');
     }
 }

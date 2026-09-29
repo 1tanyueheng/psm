@@ -77,7 +77,7 @@ export default function AssignmentPage() {
       })
       await load()
     } catch (err) {
-      setActionError(err?.message ?? 'تعذّر إنشاء هذا الإسناد.')
+      setActionError(err?.message ?? 'Could not create that assignment.')
     } finally {
       setBusyId(null)
     }
@@ -90,20 +90,20 @@ export default function AssignmentPage() {
       await assignmentApi.remove(pair.id)
       await load()
     } catch (err) {
-      setActionError(err?.message ?? 'تعذّر إزالة هذا الإسناد.')
+      setActionError(err?.message ?? 'Could not remove that assignment.')
     } finally {
       setBusyId(null)
     }
   }
 
-  if (loading) return <Spinner label="جارٍ تحميل الإسنادات" />
+  if (loading) return <Spinner label="Loading assignments" />
   if (error) return <ErrorState error={error} />
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="إسناد المشرفين"
-        subtitle={`${unassigned.length} ${unassigned.length === 1 ? 'طالب بانتظار مشرف' : 'طلاب بانتظار مشرف'}`}
+        title="Supervisor assignments"
+        subtitle={`${unassigned.length} student${unassigned.length === 1 ? '' : 's'} awaiting a supervisor`}
       />
 
       {actionError && <ErrorState error={{ message: actionError }} />}
@@ -111,16 +111,16 @@ export default function AssignmentPage() {
       {unassigned.length > 0 && (
         <Card className="border-amber-200 bg-amber-50/50">
           <p className="text-sm text-amber-900">
-            {unassigned.length} {unassigned.length === 1 ? 'طالب ليس له مشرف' : 'طلاب ليس لهم مشرف'}.
-            لا تُنشأ المراحل حتى يُسنَد مشرف أساسي.
+            {unassigned.length} student{unassigned.length === 1 ? '' : 's'} have no supervisor.
+            Milestones are not generated until a primary supervisor is assigned.
           </p>
         </Card>
       )}
 
       <div className="flex gap-1 border-b border-slate-200">
         {[
-          { key: 'assign', label: 'الإسناد', count: unassigned.length },
-          { key: 'pairs', label: 'الإسنادات الحالية', count: pairs.length },
+          { key: 'assign', label: 'Assign', count: unassigned.length },
+          { key: 'pairs', label: 'Current pairings', count: pairs.length },
         ].map((t) => (
           <button
             key={t.key}
@@ -134,7 +134,7 @@ export default function AssignmentPage() {
             aria-current={tab === t.key ? 'page' : undefined}
           >
             {t.label}
-            <span className="ms-1.5 rounded-full bg-slate-100 px-1.5 text-xs tabular-nums text-slate-600">
+            <span className="ml-1.5 rounded-full bg-slate-100 px-1.5 text-xs tabular-nums text-slate-600">
               {t.count}
             </span>
           </button>
@@ -146,28 +146,28 @@ export default function AssignmentPage() {
           <div className="lg:col-span-2">
             <Card>
               <CardHeader
-                title="الطلاب غير المُسنَدين"
-                subtitle="اختر مشرفًا من اللوحة على اليمين"
+                title="Unassigned students"
+                subtitle="Pick a supervisor from the panel on the right"
               />
               {unassigned.length > 0 && (
                 <div className="mb-4">
                   <Input
                     type="search"
-                    placeholder="تصفية بالاسم أو الرقم أو البرنامج"
+                    placeholder="Filter by name, ID, or programme"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    aria-label="تصفية الطلاب"
+                    aria-label="Filter students"
                   />
                 </div>
               )}
 
               {filteredUnassigned.length === 0 ? (
                 <EmptyState
-                  title={unassigned.length === 0 ? 'تم إسناد الجميع' : 'لا توجد نتائج'}
+                  title={unassigned.length === 0 ? 'Everyone is assigned' : 'No matches'}
                   message={
                     unassigned.length === 0
-                      ? 'كل طالب في هذه الدفعة لديه مشرف.'
-                      : 'لا يوجد طالب يطابق هذه التصفية.'
+                      ? 'Every student in this cohort has a supervisor.'
+                      : 'No student matches that filter.'
                   }
                 />
               ) : (
@@ -185,7 +185,7 @@ export default function AssignmentPage() {
                           </div>
                           <p className="mt-0.5 text-sm text-slate-500">
                             {student.program}
-                            {student.batch && ` · دفعة ${student.batch}`}
+                            {student.batch && ` · batch ${student.batch}`}
                           </p>
                           {student.project_title && (
                             <p className="mt-1 line-clamp-1 text-sm text-slate-600">
@@ -196,7 +196,7 @@ export default function AssignmentPage() {
 
                         <div className="w-full sm:w-64">
                           <label className="sr-only" htmlFor={`sup-${student.id}`}>
-                            إسناد مشرف لـ {student.name}
+                            Assign supervisor for {student.name}
                           </label>
                           <Select
                             id={`sup-${student.id}`}
@@ -207,7 +207,7 @@ export default function AssignmentPage() {
                             }}
                           >
                             <option value="">
-                              {available.length === 0 ? 'لا توجد سعة متاحة' : 'اختر مشرفًا…'}
+                              {available.length === 0 ? 'No capacity available' : 'Choose supervisor…'}
                             </option>
                             {available.map((s) => (
                               <option key={s.id} value={s.id}>
@@ -219,7 +219,7 @@ export default function AssignmentPage() {
                             ))}
                           </Select>
                           {busyId === student.id && (
-                            <p className="mt-1 text-xs text-slate-500">جارٍ الإسناد…</p>
+                            <p className="mt-1 text-xs text-slate-500">Assigning…</p>
                           )}
                         </div>
                       </div>
@@ -233,9 +233,9 @@ export default function AssignmentPage() {
           {/* Capacity panel — the constraint the coordinator is working within. */}
           <div className="lg:col-span-1">
             <Card>
-              <CardHeader title="سعة المشرفين" subtitle="يُعرض فقط المشرفون الذين لديهم متّسع" />
+              <CardHeader title="Supervisor capacity" subtitle="Only supervisors with room are offered" />
               {supervisors.length === 0 ? (
-                <EmptyState title="لا يوجد مشرفون" message="لا يوجد مشرفون يقبلون طلابًا في الوقت الحالي." />
+                <EmptyState title="No supervisors" message="No supervisors are accepting students." />
               ) : (
                 <ul className="space-y-4">
                   {sortByAvailable(supervisors).map((s) => {
@@ -251,7 +251,7 @@ export default function AssignmentPage() {
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium text-slate-800">{s.name}</p>
                             <p className="text-xs text-slate-400">
-                              {s.expertise?.slice(0, 2).join(', ') || 'لا توجد خبرات مدرجة'}
+                              {s.expertise?.slice(0, 2).join(', ') || 'No expertise listed'}
                             </p>
                           </div>
                           <span className="shrink-0 text-xs tabular-nums text-slate-500">
@@ -265,7 +265,7 @@ export default function AssignmentPage() {
                           />
                         </div>
                         {full && (
-                          <p className="mt-1 text-xs text-rose-600">بلغ السعة القصوى</p>
+                          <p className="mt-1 text-xs text-rose-600">At capacity</p>
                         )}
                       </li>
                     )
@@ -278,62 +278,57 @@ export default function AssignmentPage() {
       ) : (
         <Card className="overflow-hidden p-0">
           {pairs.length === 0 ? (
-            <EmptyState title="لا توجد إسنادات بعد" message="ستُعرض الإسنادات التي تنشئها هنا." />
+            <EmptyState title="No pairings yet" message="Assignments you create will be listed here." />
           ) : (
             <div className="overflow-x-auto">
               <DataTable
-                columns={[
-                  { key: 'student', label: 'الطالب' },
-                  { key: 'programme', label: 'البرنامج' },
-                  { key: 'supervisor', label: 'المشرف' },
-                  { key: 'role', label: 'الدور' },
-                  { key: 'assigned', label: 'تاريخ الإسناد' },
-                  { key: 'action', label: '' },
-                ]}
-                rows={pairs}
-                render={(pair) => [
-                  <Td key="student">
-                    <div className="flex items-center gap-2">
-                      <Avatar name={pair.student?.name ?? '?'} size="sm" />
-                      <div className="min-w-0">
-                        <div className="truncate text-sm text-slate-700">
-                          {pair.student?.name ?? '—'}
-                        </div>
-                        <div className="font-mono text-xs text-slate-400">
-                          {pair.student?.student_id}
+                columns={['Student', 'Programme', 'Supervisor', 'Role', 'Assigned', '']}
+              >
+                {pairs.map((pair) => (
+                  <tr key={pair.id} className="hover:bg-slate-50/60">
+                    <Td>
+                      <div className="flex items-center gap-2">
+                        <Avatar name={pair.student?.name ?? '?'} size="sm" />
+                        <div className="min-w-0">
+                          <div className="truncate text-sm text-slate-700">
+                            {pair.student?.name ?? '—'}
+                          </div>
+                          <div className="font-mono text-xs text-slate-400">
+                            {pair.student?.student_id}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </Td>,
-                  <Td key="programme" className="text-sm text-slate-600">{pair.student?.program ?? '—'}</Td>,
-                  <Td key="supervisor">
-                    <div className="flex items-center gap-2">
-                      <Avatar name={pair.supervisor?.name ?? '?'} size="sm" />
-                      <span className="text-sm text-slate-700">
-                        {pair.supervisor?.name ?? '—'}
-                      </span>
-                    </div>
-                  </Td>,
-                  <Td key="role">
-                    <Badge tone={pair.role === 'primary' ? 'brand' : 'neutral'}>
-                      {pair.role}
-                    </Badge>
-                  </Td>,
-                  <Td key="assigned" className="text-sm text-slate-500">
-                    {formatDate(pair.assigned_at, { fallback: '—' })}
-                  </Td>,
-                  <Td key="action">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busyId === pair.id}
-                      onClick={() => remove(pair)}
-                    >
-                      إزالة
-                    </Button>
-                  </Td>,
-                ]}
-              />
+                    </Td>
+                    <Td className="text-sm text-slate-600">{pair.student?.program ?? '—'}</Td>
+                    <Td>
+                      <div className="flex items-center gap-2">
+                        <Avatar name={pair.supervisor?.name ?? '?'} size="sm" />
+                        <span className="text-sm text-slate-700">
+                          {pair.supervisor?.name ?? '—'}
+                        </span>
+                      </div>
+                    </Td>
+                    <Td>
+                      <Badge tone={pair.role === 'primary' ? 'brand' : 'neutral'}>
+                        {pair.role}
+                      </Badge>
+                    </Td>
+                    <Td className="text-sm text-slate-500">
+                      {formatDate(pair.assigned_at, { fallback: '—' })}
+                    </Td>
+                    <Td>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={busyId === pair.id}
+                        onClick={() => remove(pair)}
+                      >
+                        Remove
+                      </Button>
+                    </Td>
+                  </tr>
+                ))}
+              </DataTable>
             </div>
           )}
         </Card>

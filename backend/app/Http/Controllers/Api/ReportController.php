@@ -204,7 +204,7 @@ class ReportController extends ApiController
 
         $this->audit->log(
             action: AuditAction::ReportExported,
-            description: "تصدير تقرير الدرجات (الدفعة: ".($batch ?: 'الكل').", {$psmPart})",
+            description: "Grade report exported (batch: ".($batch ?: 'all').", {$psmPart})",
         );
 
         $filename = 'psm-grades-'.($batch ?: 'all').'-'.now()->format('Ymd-His').'.csv';
@@ -212,13 +212,11 @@ class ReportController extends ApiController
         return response()->streamDownload(function () use ($batch, $psmPart) {
             $out = fopen('php://output', 'w');
 
-            fwrite($out, "\xEF\xBB\xBF");
-
             fputcsv($out, [
-                'رمز المشروع', 'العنوان', 'التصنيف', 'رقم الطالب', 'اسم الطالب',
-                'البرنامج', 'الدفعة', 'درجة المشرف', 'درجة الممتحن',
-                'المتوسط %', 'إنجاز المعالم %', 'الدرجة النهائية', 'الدرجة الحرفية', 'نقطة الدرجة',
-                'عدد المقيّمين', 'الحالة', 'تاريخ الإفراج',
+                'Project Code', 'Title', 'Category', 'Student ID', 'Student Name',
+                'Program', 'Batch', 'Supervisor Score', 'Examiner Score',
+                'Aggregate %', 'Milestone %', 'Final Mark', 'Grade', 'Grade Point',
+                'Assessors', 'Status', 'Released At',
             ]);
 
             \App\Models\FinalGrade::query()
@@ -268,7 +266,7 @@ class ReportController extends ApiController
 
         $this->audit->log(
             action: AuditAction::ReportExported,
-            description: "تصدير تقرير المشاريع (الدفعة: ".($batch ?: 'الكل').", {$psmPart})",
+            description: "Project report exported (batch: ".($batch ?: 'all').", {$psmPart})",
         );
 
         $filename = 'psm-projects-'.($batch ?: 'all').'-'.now()->format('Ymd-His').'.csv';
@@ -276,12 +274,10 @@ class ReportController extends ApiController
         return response()->streamDownload(function () use ($batch, $psmPart) {
             $out = fopen('php://output', 'w');
 
-            fwrite($out, "\xEF\xBB\xBF");
-
             fputcsv($out, [
-                'رمز المشروع', 'العنوان', 'التصنيف', 'جزء المشروع', 'الدفعة', 'البرنامج',
-                'الحالة', 'الطلاب', 'المشرفون', 'نسبة الإنجاز %', 'المرحلة الحالية',
-                'الموعد القادم', 'تاريخ التقديم', 'تاريخ الاعتماد',
+                'Project Code', 'Title', 'Category', 'PSM Part', 'Batch', 'Program',
+                'Status', 'Students', 'Supervisors', 'Progress %', 'Current Stage',
+                'Next Deadline', 'Submitted At', 'Approved At',
             ]);
 
             Project::query()

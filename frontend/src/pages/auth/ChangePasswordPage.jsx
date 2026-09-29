@@ -56,15 +56,15 @@ export default function ChangePasswordPage() {
       <div className={forced ? 'w-full max-w-sm' : 'max-w-lg'}>
         {forced ? (
           <div className="text-center mb-6">
-            <h1 className="text-lg font-medium text-slate-900">تعيين كلمة مرور جديدة</h1>
+            <h1 className="text-lg font-medium text-slate-900">Set a new password</h1>
             <p className="text-sm text-slate-500 mt-1">
-              حسابك يستخدم كلمة مرور مؤقتة. اختر كلمة مرور جديدة للمتابعة.
+              Your account is using a temporary password. Choose a new one to continue.
             </p>
           </div>
         ) : (
           <PageHeader
-            title="تغيير كلمة المرور"
-            subtitle="ستبقى مسجلاً الدخول على هذا الجهاز."
+            title="Change password"
+            subtitle="You will stay signed in on this device."
           />
         )}
 
@@ -76,7 +76,7 @@ export default function ChangePasswordPage() {
               </div>
             )}
 
-            <Field label="كلمة المرور الحالية" required errors={errors} field="current_password">
+            <Field label="Current password" required errors={errors} field="current_password">
               <Input
                 type="password"
                 autoComplete="current-password"
@@ -88,11 +88,11 @@ export default function ChangePasswordPage() {
             </Field>
 
             <Field
-              label="كلمة المرور الجديدة"
+              label="New password"
               required
               errors={errors}
               field="password"
-              hint="8 أحرف على الأقل. تجنّب إعادة استخدام كلمة مرور من موقع آخر."
+              hint="At least 8 characters. Avoid reusing a password from another site."
             >
               <Input
                 type="password"
@@ -105,7 +105,7 @@ export default function ChangePasswordPage() {
             </Field>
 
             <Field
-              label="تأكيد كلمة المرور الجديدة"
+              label="Confirm new password"
               required
               errors={errors}
               field="password_confirmation"
@@ -122,7 +122,7 @@ export default function ChangePasswordPage() {
 
             <div className="flex items-center gap-3 pt-1">
               <Button type="submit" loading={submitting}>
-                تحديث كلمة المرور
+                Update password
               </Button>
 
               {!forced && (
@@ -131,13 +131,13 @@ export default function ChangePasswordPage() {
                   variant="secondary"
                   onClick={() => navigate(-1)}
                 >
-                  إلغاء
+                  Cancel
                 </Button>
               )}
 
               {forced && (
                 <Button type="button" variant="ghost" onClick={logout}>
-                  تسجيل الخروج بدلاً من ذلك
+                  Sign out instead
                 </Button>
               )}
             </div>

@@ -60,10 +60,7 @@ api.interceptors.response.use(
 
     return Promise.reject({
       status,
-      message:
-        payload?.message ||
-        (error.code === 'ERR_NETWORK' ? 'تعذّر الاتصال بالخادم. تحقق من اتصالك بالإنترنت.' : error.message) ||
-        'حدث خطأ غير متوقع.',
+      message: payload?.message || error.message || 'Something went wrong.',
       // Validation errors arrive as { field: [messages] }
       errors: payload?.errors || null,
       isNetworkError: !error.response,

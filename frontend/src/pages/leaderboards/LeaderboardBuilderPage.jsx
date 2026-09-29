@@ -63,7 +63,7 @@ export default function LeaderboardBuilderPage() {
       await leaderboardApi.update(id, patch)
       await load()
     } catch (err) {
-      setActionError(err?.message ?? 'تعذّر حفظ هذا التغيير.')
+      setActionError(err?.message ?? 'Could not save that change.')
     } finally {
       setSaving(false)
     }
@@ -76,15 +76,15 @@ export default function LeaderboardBuilderPage() {
       await leaderboardApi.publish(id)
       await load()
     } catch (err) {
-      setActionError(err?.message ?? 'تعذّر نشر هذا اللوح.')
+      setActionError(err?.message ?? 'Could not publish this board.')
     } finally {
       setSaving(false)
     }
   }
 
-  if (loading) return <Spinner label="جارٍ تحميل اللوح" />
+  if (loading) return <Spinner label="Loading board" />
   if (error) return <ErrorState error={error} />
-  if (!board) return <ErrorState error={{ message: 'اللوح غير موجود.' }} />
+  if (!board) return <ErrorState error={{ message: 'Board not found.' }} />
 
   const entries = board.entries ?? []
   const ranked = entries.filter((e) => e.rank != null).sort((a, b) => a.rank - b.rank)
@@ -93,25 +93,25 @@ export default function LeaderboardBuilderPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={board.title ?? 'لوح الجوائز'}
+        title={board.title ?? 'Award board'}
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             {board.is_published ? (
-              <Badge tone="success">مباشر</Badge>
+              <Badge tone="success">live</Badge>
             ) : (
-              <Badge tone="warning">مسودة</Badge>
+              <Badge tone="warning">draft</Badge>
             )}
             <span className="font-mono text-xs">{board.slug}</span>
             {board.academic_session && <Badge tone="neutral">{board.academic_session}</Badge>}
           </span>
         }
-        back={{ to: '/leaderboards', label: 'كل الألواح' }}
+        back={{ to: '/leaderboards', label: 'All boards' }}
         actions={
           <div className="flex gap-2">
             {board.is_published ? (
               <>
                 <Button variant="secondary" onClick={() => window.open(`/leaderboard/${board.slug}`, '_blank')}>
-                  عرض الصفحة العامة
+                  View public page
                 </Button>
                 <Button
                   variant="secondary"
@@ -120,12 +120,12 @@ export default function LeaderboardBuilderPage() {
                     update({ is_published: false }).then(() => navigate('/leaderboards'))
                   }
                 >
-                  إزالة من النشر
+                  Take down
                 </Button>
               </>
             ) : (
               <Button disabled={saving || ranked.length === 0} onClick={publish}>
-                {saving ? 'جارٍ التنفيذ…' : 'نشر اللوح'}
+                {saving ? 'Working…' : 'Publish board'}
               </Button>
             )}
           </div>
@@ -136,9 +136,9 @@ export default function LeaderboardBuilderPage() {
 
       {!board.is_published && (
         <Card>
-          <CardHeader title="خيارات العرض" subtitle="ينطبق على هذا اللوح فقط" />
+          <CardHeader title="Display options" subtitle="Applies to this board only" />
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="عدد الفائزين المعروضين" htmlFor="top_n">
+            <Field label="Winners to show" htmlFor="top_n">
               <Input
                 id="top_n"
                 type="number"
@@ -158,7 +158,7 @@ export default function LeaderboardBuilderPage() {
                 onChange={(e) => update({ show_scores: e.target.checked })}
                 className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
               />
-              عرض الدرجات علنًا
+              Show marks publicly
             </label>
             <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
               <input
@@ -167,19 +167,20 @@ export default function LeaderboardBuilderPage() {
                 onChange={(e) => update({ show_student_names: e.target.checked })}
                 className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
               />
-              عرض أسماء الطلاب
+              Show student names
             </label>
           </div>
           <p className="mt-3 text-sm text-slate-500">
-            إخفاء الأسماء أو الدرجات لا يزال يعرض عنوان المشروع والمرتبة. أرقام الطلاب لا تُنشر أبدًا.
+            Hiding names or marks still shows the project title and rank. Student IDs are
+            never published.
           </p>
         </Card>
       )}
 
       <div className="flex gap-1 border-b border-slate-200">
         {[
-          { key: 'ranked', label: 'المُرتَّبون', count: ranked.length },
-          { key: 'excluded', label: 'المُستبعدون', count: excluded.length },
+          { key: 'ranked', label: 'Ranked', count: ranked.length },
+          { key: 'excluded', label: 'Excluded', count: excluded.length },
         ].map((t) => (
           <button
             key={t.key}
@@ -193,7 +194,7 @@ export default function LeaderboardBuilderPage() {
             aria-current={tab === t.key ? 'page' : undefined}
           >
             {t.label}
-            <span className="ms-1.5 rounded-full bg-slate-100 px-1.5 text-xs tabular-nums text-slate-600">
+            <span className="ml-1.5 rounded-full bg-slate-100 px-1.5 text-xs tabular-nums text-slate-600">
               {t.count}
             </span>
           </button>
@@ -204,28 +205,25 @@ export default function LeaderboardBuilderPage() {
         ranked.length === 0 ? (
           <Card>
             <EmptyState
-              title="لا توجد مشاركات مرتبة"
-              message="لا ترتيب لهذا اللوح بعد. أنشئ مسودة من صفحة الجوائز بعد الإفراج عن الدرجات."
+              title="No ranked entries"
+              message="This board has no ranking yet. Build a draft from the awards page once marks are released."
             />
           </Card>
         ) : (
           <Card className="overflow-hidden p-0">
             <div className="overflow-x-auto">
               <DataTable
-                columns={[
-                  { key: 'rank', label: 'المرتبة' },
-                  { key: 'project', label: 'المشروع' },
-                  { key: 'students', label: 'الطلاب' },
-                  { key: 'category', label: 'الفئة' },
-                  { key: 'assessors', label: 'المُقيِّمون' },
-                  { key: 'mark', label: 'الدرجة النهائية' },
-                  { key: 'board', label: 'اللوح' },
-                ]}
-                render={(entry) => {
+                columns={['Rank', 'Project', 'Students', 'Category', 'Assessors', 'Final mark', 'Board']}
+              >
+                {ranked.map((entry) => {
                   const medal = medalFor(entry.rank)
                   const inTop = entry.rank <= (board.top_n ?? 3)
+
                   return (
-                    <>
+                    <tr
+                      key={entry.id}
+                      className={`hover:bg-slate-50/60 ${inTop ? 'bg-brand-50/30' : ''}`}
+                    >
                       <Td>
                         <span className="inline-flex items-center gap-1.5">
                           {medal && <span aria-hidden="true">{medal}</span>}
@@ -257,38 +255,31 @@ export default function LeaderboardBuilderPage() {
                       </Td>
                       <Td>
                         {inTop ? (
-                          <Badge tone="brand">معروض</Badge>
+                          <Badge tone="brand">shown</Badge>
                         ) : (
-                          <Badge tone="neutral">مخفي</Badge>
+                          <Badge tone="neutral">hidden</Badge>
                         )}
                       </Td>
-                    </>
+                    </tr>
                   )
-                }}
-                rows={ranked}
-              />
+                })}
+              </DataTable>
             </div>
           </Card>
         )
       ) : excluded.length === 0 ? (
         <Card>
           <EmptyState
-            title="لا شيء مستبعد"
-            message="كل مشروع حصل على درجة مُفرَج عنها مؤهل لهذا اللوح."
+            title="Nothing excluded"
+            message="Every project with a released grade qualifies for this board."
           />
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">
           <div className="overflow-x-auto">
-            <DataTable
-              columns={[
-                { key: 'project', label: 'المشروع' },
-                { key: 'student', label: 'الطالب' },
-                { key: 'category', label: 'الفئة' },
-                { key: 'reasons', label: 'سبب الاستبعاد' },
-              ]}
-              render={(row) => (
-                <>
+            <DataTable columns={['Project', 'Student', 'Category', 'Why excluded']}>
+              {excluded.map((row) => (
+                <tr key={row.id ?? row.project_id} className="hover:bg-slate-50/60">
                   <Td>
                     <div className="font-medium text-slate-800">{row.title}</div>
                     {row.code && (
@@ -298,7 +289,7 @@ export default function LeaderboardBuilderPage() {
                   <Td className="text-sm text-slate-600">
                     {row.student?.name ?? row.student_name ?? '—'}
                     {row.student?.student_id && (
-                      <span className="ms-1.5 font-mono text-xs text-slate-400">
+                      <span className="ml-1.5 font-mono text-xs text-slate-400">
                         {row.student.student_id}
                       </span>
                     )}
@@ -312,14 +303,13 @@ export default function LeaderboardBuilderPage() {
                         </li>
                       ))}
                       {(row.reasons?.length ?? 0) === 0 && (
-                        <li className="text-sm text-slate-400">لم يُسجَّل أي سبب</li>
+                        <li className="text-sm text-slate-400">No reason recorded</li>
                       )}
                     </ul>
                   </Td>
-                </>
-              )}
-              rows={excluded}
-            />
+                </tr>
+              ))}
+            </DataTable>
           </div>
         </Card>
       )}

@@ -61,7 +61,7 @@ class NotificationController extends ApiController
 
         return $this->ok([
             'unread_count' => $request->user()->receivedNotifications()->whereNull('read_at')->count(),
-        ], 'حُدِّدت كمقروءة.');
+        ], 'Marked as read.');
     }
 
     /**
@@ -74,7 +74,7 @@ class NotificationController extends ApiController
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
 
-        return $this->ok(['marked' => $count], 'حُدِّدت جميع الإشعارات كمقروءة.');
+        return $this->ok(['marked' => $count], 'All notifications marked as read.');
     }
 
     /**
@@ -87,7 +87,7 @@ class NotificationController extends ApiController
             ->where('id', $id)
             ->delete();
 
-        return $this->ok(null, 'تم تجاهل الإشعار.');
+        return $this->ok(null, 'Notification dismissed.');
     }
 
     /**
@@ -150,6 +150,6 @@ class NotificationController extends ApiController
 
         $user->save();
 
-        return $this->ok(null, 'تم حفظ تفضيلات الإشعارات.');
+        return $this->ok(null, 'Notification preferences saved.');
     }
 }

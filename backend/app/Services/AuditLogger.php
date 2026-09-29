@@ -53,7 +53,7 @@ class AuditLogger
 
         return AuditLog::create([
             'user_id'        => $actor?->id,
-            'actor_name'     => $actor?->name ?? 'النظام',
+            'actor_name'     => $actor?->name ?? 'System',
             'actor_role'     => $actor?->role?->value,
             'action'         => $action->value,
             'category'       => $action->category(),

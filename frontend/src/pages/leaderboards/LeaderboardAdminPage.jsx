@@ -58,13 +58,13 @@ export default function LeaderboardAdminPage() {
       await fn()
       await load()
     } catch (err) {
-      setActionError(err?.message ?? 'تعذّر تنفيذ هذا الإجراء.')
+      setActionError(err?.message ?? 'That action could not be completed.')
     } finally {
       setBusy(null)
     }
   }
 
-  if (loading) return <Spinner label="جارٍ تحميل ألواح الجوائز" />
+  if (loading) return <Spinner label="Loading award boards" />
   if (error) return <ErrorState error={error} />
 
   const excluded = eligibility?.excluded_count ?? 0
@@ -73,65 +73,56 @@ export default function LeaderboardAdminPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="جوائز Pixel-It"
-        subtitle="تكريم مرتب للمشاريع التخرُّجية المكتملة"
+        title="Pixel-It awards"
+        subtitle="Ranked recognition for completed PSM projects"
         actions={
           <Button
             disabled={busy === 'build'}
             onClick={() => act('build', () => leaderboardApi.build({}))}
           >
-            {busy === 'build' ? 'جارٍ الإنشاء…' : 'إنشاء مسودة جديدة'}
+            {busy === 'build' ? 'Building…' : 'Build a new draft'}
           </Button>
         }
       />
 
       {actionError && <ErrorState error={{ message: actionError }} />}
 
-      {/* ملخص الأهلية — هذا ما يمنع نشر لوح خاطئ. */}
+      {/* Eligibility summary — this is what stops a bad board being published. */}
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
-          <p className="text-xs uppercase tracking-wide text-slate-400">مشاريع مؤهلة</p>
+          <p className="text-xs uppercase tracking-wide text-slate-400">Eligible projects</p>
           <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-900">{eligibleCount}</p>
           <p className="mt-1 text-sm text-slate-500">
-            درجات مُفرَج عنها و{settings?.min_assessors ?? 2} مُقيِّم على الأقل
+            Released grades and at least {settings?.min_assessors ?? 2} assessors
           </p>
         </Card>
         <Card>
-          <p className="text-xs uppercase tracking-wide text-slate-400">مُستبعدة</p>
+          <p className="text-xs uppercase tracking-wide text-slate-400">Excluded</p>
           <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-900">{excluded}</p>
           <p className="mt-1 text-sm text-slate-500">
-            {settings?.honour_opt_out ? 'يشمل الطلاب الذين انسحبوا' : 'غير مؤهلة للترتيب'}
+            {settings?.honour_opt_out ? 'Includes students who opted out' : 'Not eligible for ranking'}
           </p>
         </Card>
         <Card>
-          <p className="text-xs uppercase tracking-wide text-slate-400">لوح مباشر</p>
+          <p className="text-xs uppercase tracking-wide text-slate-400">Live board</p>
           <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-900">
             {boards.filter((b) => b.is_published).length}
           </p>
-          <p className="mt-1 text-sm text-slate-500">ظاهر للجمهور الآن</p>
+          <p className="mt-1 text-sm text-slate-500">Currently visible to the public</p>
         </Card>
       </div>
 
       <Card>
-        <CardHeader title="الألواح" subtitle="الألواح المسوَّدة خاصة حتى النشر" />
+        <CardHeader title="Boards" subtitle="Draft boards are private until published" />
         {boards.length === 0 ? (
           <EmptyState
-            title="لا توجد ألواح بعد"
-            message="أنشئ مسودة لأخذ لقطة من الترتيب الحالي، ثم انشرها."
+            title="No boards yet"
+            message="Build a draft to snapshot the current rankings, then publish it."
           />
         ) : (
-          <DataTable
-            columns={[
-              { key: 'board', label: 'اللوح' },
-              { key: 'session', label: 'الفصل' },
-              { key: 'entries', label: 'المشاركات' },
-              { key: 'top', label: 'أعلى ن' },
-              { key: 'state', label: 'الحالة' },
-              { key: 'built', label: 'تاريخ الإنشاء' },
-              { key: 'actions', label: '' },
-            ]}
-            render={(board) => (
-              <>
+          <DataTable columns={['Board', 'Session', 'Entries', 'Top N', 'State', 'Built', '']}>
+            {boards.map((board) => (
+              <tr key={board.id} className="hover:bg-slate-50/60">
                 <Td>
                   <div className="font-medium text-slate-800">{board.title ?? board.name}</div>
                   {board.slug && (
@@ -144,7 +135,7 @@ export default function LeaderboardAdminPage() {
                 <Td>
                   {board.is_published ? (
                     <>
-                      <Badge tone="success">مباشر</Badge>
+                      <Badge tone="success">live</Badge>
                       {board.published_at && (
                         <div className="mt-0.5 text-xs text-slate-400">
                           {formatDate(board.published_at)}
@@ -152,7 +143,7 @@ export default function LeaderboardAdminPage() {
                       )}
                     </>
                   ) : (
-                    <Badge tone="warning">مسودة</Badge>
+                    <Badge tone="warning">draft</Badge>
                   )}
                 </Td>
                 <Td className="text-sm text-slate-500">
@@ -161,7 +152,7 @@ export default function LeaderboardAdminPage() {
                 <Td>
                   <div className="flex flex-wrap gap-2">
                     <Link to={`/leaderboards/${board.id}`}>
-                      <Button size="sm" variant="secondary">فتح</Button>
+                      <Button size="sm" variant="secondary">Open</Button>
                     </Link>
                     {!board.is_published ? (
                       <Button
@@ -171,7 +162,7 @@ export default function LeaderboardAdminPage() {
                           act(`publish-${board.id}`, () => leaderboardApi.publish(board.id))
                         }
                       >
-                        {busy === `publish-${board.id}` ? 'جارٍ النشر…' : 'نشر'}
+                        {busy === `publish-${board.id}` ? 'Publishing…' : 'Publish'}
                       </Button>
                     ) : (
                       <Button
@@ -182,39 +173,39 @@ export default function LeaderboardAdminPage() {
                           act(`unpublish-${board.id}`, () => leaderboardApi.unpublish(board.id))
                         }
                       >
-                        إزالة من النشر
+                        Take down
                       </Button>
                     )}
                   </div>
                 </Td>
-              </>
-            )}
-            rows={boards}
-          />
+              </tr>
+            ))}
+          </DataTable>
         )}
       </Card>
 
       {settings && (
         <Card>
           <CardHeader
-            title="إعدادات الجوائز"
-            subtitle="قواعد عامة تُطبَّق عند إنشاء لوح"
+            title="Award settings"
+            subtitle="System-wide rules applied when a board is built"
           />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Setting label="عدد الفائزين المعروضين" value={settings.top_n ?? 3} />
-            <Setting label="الحد الأدنى للمُقيِّمين" value={settings.min_assessors ?? 2} />
+            <Setting label="Winners shown" value={settings.top_n ?? 3} />
+            <Setting label="Minimum assessors" value={settings.min_assessors ?? 2} />
             <Setting
-              label="يتطلب الاعتماد"
-              value={settings.require_approval ? 'نعم' : 'لا'}
+              label="Require approval"
+              value={settings.require_approval ? 'Yes' : 'No'}
             />
             <Setting
-              label="خيار الانسحاب"
-              value={settings.honour_opt_out ? 'نعم' : 'لا'}
+              label="Honour opt-out"
+              value={settings.honour_opt_out ? 'Yes' : 'No'}
             />
           </div>
           <p className="mt-4 text-sm text-slate-500">
-            الإعدادات قادمة من إعدادات الخادم والبيئة. غيّرها عبر بيئة النشر وليس لكل لوح
-            على حدة، بحيث يُرتَّب كل الألواح في الفصل تحت نفس القواعد.
+            Settings come from the server&rsquo;s configuration and environment. Change them via
+            the deployment environment rather than per-board, so every board in a session
+            is ranked under the same rules.
           </p>
         </Card>
       )}

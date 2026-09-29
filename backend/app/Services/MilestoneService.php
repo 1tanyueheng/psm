@@ -46,8 +46,8 @@ class MilestoneService
 
         if ($template === null) {
             throw new InvalidArgumentException(
-                "لا يوجد قالب معالم نشط للتصنيف [{$project->category->value}] "
-                ."والجزء [{$project->psm_part}]."
+                "No active milestone template for category [{$project->category->value}] "
+                ."and part [{$project->psm_part}]."
             );
         }
 
@@ -120,8 +120,8 @@ class MilestoneService
 
         if (! $current->canTransitionTo($target)) {
             throw new InvalidArgumentException(
-                "لا يمكن نقل المعلم [{$milestone->code}] من "
-                ."'{$current->value}' إلى '{$target->value}'."
+                "Cannot move milestone [{$milestone->code}] from "
+                ."'{$current->value}' to '{$target->value}'."
             );
         }
 
@@ -193,8 +193,8 @@ class MilestoneService
             $milestone->project->students->pluck('user')->filter(),
             NotificationType::RevisionRequested,
             [
-                'title'      => 'يتطلب تعديلًا',
-                'body'       => "{$milestone->title} يحتاج إلى تعديلات: {$comment}",
+                'title'      => 'Revision required',
+                'body'       => "{$milestone->title} needs changes: {$comment}",
                 'action_url' => "/projects/{$milestone->project_id}/milestones/{$milestone->id}",
                 'milestone'  => $milestone->title,
             ],
@@ -232,7 +232,7 @@ class MilestoneService
             $next,
             SubmissionEvent::EVENT_OPENED,
             MilestoneStatus::Pending,
-            'فُتح بعد اعتماد المعلم السابق',
+            'Opened after previous milestone was approved',
             actor: null,
         );
 
@@ -240,8 +240,8 @@ class MilestoneService
             $next->project->students->pluck('user')->filter(),
             NotificationType::MilestoneOpened,
             [
-                'title'      => 'فُتح معلم جديد',
-                'body'       => "{$next->title} أصبح مفتوحًا الآن".($next->due_at ? '، والموعد '.$next->due_at->format('d M Y') : ''),
+                'title'      => 'New milestone open',
+                'body'       => "{$next->title} is now open".($next->due_at ? ', due '.$next->due_at->format('d M Y') : ''),
                 'action_url' => "/projects/{$next->project_id}/milestones/{$next->id}",
                 'milestone'  => $next->title,
             ],
@@ -298,8 +298,8 @@ class MilestoneService
             $milestone->project->students->pluck('user')->filter(),
             NotificationType::DeadlineOverridden,
             [
-                'title'      => 'تغير الموعد',
-                'body'       => "موعد تسليم {$milestone->title} أصبح {$newDueAt->format('d M Y')}.",
+                'title'      => 'Deadline changed',
+                'body'       => "{$milestone->title} is now due {$newDueAt->format('d M Y')}.",
                 'action_url' => "/projects/{$milestone->project_id}/milestones/{$milestone->id}",
             ],
             $milestone,
@@ -327,8 +327,8 @@ class MilestoneService
                         $milestone->project->students->pluck('user')->filter(),
                         NotificationType::DeadlineMissed,
                         [
-                            'title'      => 'فات الموعد',
-                            'body'       => "كان موعد {$milestone->title} في {$milestone->due_at?->format('d M Y')} ولم يتم تسليمه.",
+                            'title'      => 'Deadline missed',
+                            'body'       => "{$milestone->title} was due {$milestone->due_at?->format('d M Y')} and has not been submitted.",
                             'action_url' => "/projects/{$milestone->project_id}/milestones/{$milestone->id}",
                             'urgent'     => true,
                         ],

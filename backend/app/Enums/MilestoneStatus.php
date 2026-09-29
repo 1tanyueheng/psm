@@ -23,13 +23,13 @@ enum MilestoneStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::Pending   => 'لم يبدأ',
-            self::Open      => 'مفتوح للتسليم',
-            self::Submitted => 'تم التسليم',
-            self::Reviewed  => 'تمت المراجعة',
-            self::Approved  => 'معتمد',
-            self::Rejected  => 'يتطلب تعديلًا',
-            self::Overdue   => 'متأخر',
+            self::Pending   => 'Not started',
+            self::Open      => 'Open for submission',
+            self::Submitted => 'Submitted',
+            self::Reviewed  => 'Reviewed',
+            self::Approved  => 'Approved',
+            self::Rejected  => 'Revision required',
+            self::Overdue   => 'Overdue',
         };
     }
 

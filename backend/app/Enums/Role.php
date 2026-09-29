@@ -22,11 +22,11 @@ enum Role: string
     public function label(): string
     {
         return match ($this) {
-            self::Student     => 'طالب',
-            self::Supervisor  => 'مشرف',
-            self::Coordinator => 'منسّق',
-            self::Examiner    => 'ممتحن',
-            self::Admin       => 'مسؤول النظام',
+            self::Student     => 'Student',
+            self::Supervisor  => 'Supervisor',
+            self::Coordinator => 'Coordinator',
+            self::Examiner    => 'Examiner',
+            self::Admin       => 'System Administrator',
         };
     }
 

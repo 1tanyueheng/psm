@@ -93,7 +93,7 @@ export default function UserListPage() {
       setNotice(successMessage)
       await load()
     } catch (err) {
-      setActionError(err?.message ?? 'فشل هذا الإجراء.')
+      setActionError(err?.message ?? 'That action failed.')
     } finally {
       setBusy(null)
     }
@@ -108,15 +108,15 @@ export default function UserListPage() {
     return out
   }, [rows, meta])
 
-  if (loading && rows.length === 0) return <Spinner label="جارٍ تحميل الحسابات" />
+  if (loading && rows.length === 0) return <Spinner label="Loading accounts" />
   if (error) return <ErrorState error={error} />
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="حسابات المستخدمين"
+        title="User accounts"
         subtitle={
-          meta?.total != null ? `${meta.total} ${meta.total === 1 ? 'حساب' : 'حسابات'}` : undefined
+          meta?.total != null ? `${meta.total} account${meta.total === 1 ? '' : 's'}` : undefined
         }
       />
 
@@ -129,19 +129,19 @@ export default function UserListPage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
-          <p className="text-xs uppercase tracking-wide text-slate-500">الحسابات</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Accounts</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">
             {counts.total}
           </p>
         </Card>
         <Card>
-          <p className="text-xs uppercase tracking-wide text-slate-500">موقوفة</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Suspended</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">
             {counts.suspended}
           </p>
         </Card>
         <Card>
-          <p className="text-xs uppercase tracking-wide text-slate-500">بانتظار تسجيل الدخول</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Awaiting sign-in</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">
             {counts.pending}
           </p>
@@ -149,38 +149,38 @@ export default function UserListPage() {
       </div>
 
       <Card>
-        <CardHeader title="تصفية" />
+        <CardHeader title="Filter" />
         <div className="grid gap-3 sm:grid-cols-3">
           <Input
             type="search"
-            placeholder="الاسم أو البريد أو رقم الموظف"
+            placeholder="Name, email or staff number"
             defaultValue={search}
             onKeyDown={(e) => {
               if (e.key === 'Enter') setFilter('q', e.currentTarget.value.trim())
             }}
-            aria-label="البحث في الحسابات"
+            aria-label="Search accounts"
           />
           <Select
             value={role}
             onChange={(e) => setFilter('role', e.target.value)}
-            aria-label="تصفية حسب الدور"
+            aria-label="Filter by role"
           >
-            <option value="">كل الأدوار</option>
-            <option value="student">الطلاب</option>
-            <option value="supervisor">المشرفون</option>
-            <option value="coordinator">المنسقون</option>
-            <option value="examiner">الممتحنون</option>
-            <option value="admin">المسؤولون</option>
+            <option value="">All roles</option>
+            <option value="student">Students</option>
+            <option value="supervisor">Supervisors</option>
+            <option value="coordinator">Coordinators</option>
+            <option value="examiner">Examiners</option>
+            <option value="admin">Administrators</option>
           </Select>
           <Select
             value={status}
             onChange={(e) => setFilter('status', e.target.value)}
-            aria-label="تصفية حسب الحالة"
+            aria-label="Filter by status"
           >
-            <option value="">كل الحالات</option>
-            <option value="active">نشط</option>
-            <option value="suspended">موقوف</option>
-            <option value="pending">مدعو، لم يسجّل الدخول بعد</option>
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+            <option value="pending">Invited, not yet signed in</option>
           </Select>
         </div>
       </Card>
@@ -188,161 +188,156 @@ export default function UserListPage() {
       {rows.length === 0 ? (
         <Card>
           <EmptyState
-            title="لا توجد حسابات مطابقة"
-            description="عدّل التصفية، أو تأكد من استيراد الحسابات لهذه الدورة."
+            title="No accounts match"
+            description="Adjust the filters, or check that the accounts have been imported for this session."
           />
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">
           <div className="overflow-x-auto">
             <DataTable
-              columns={[
-                { key: 'name', label: 'الاسم' },
-                { key: 'role', label: 'الدور' },
-                { key: 'identifier', label: 'المعرّف' },
-                { key: 'status', label: 'الحالة' },
-                { key: 'last_login', label: 'آخر تسجيل دخول' },
-                { key: 'actions', label: 'إجراءات' },
-              ]}
-              rows={rows}
-              render={(row) => {
+              columns={['Name', 'Role', 'Identifier', 'Status', 'Last signed in', 'Actions']}
+            >
+              {rows.map((row) => {
                 const suspended = row.is_active === false || row.status === 'suspended'
                 const isSelf = row.id === me?.id
 
-                return [
-                  <Td key="name">
-                    <div className="flex items-center gap-2">
-                      <Avatar name={row.name} size="sm" />
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-slate-800">
-                          {row.name}
-                          {isSelf && (
-                            <span className="ms-1.5 text-xs font-normal text-slate-400">
-                              أنت
-                            </span>
-                          )}
+                return (
+                  <tr key={row.id} className="hover:bg-slate-50/60">
+                    <Td>
+                      <div className="flex items-center gap-2">
+                        <Avatar name={row.name} size="sm" />
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-slate-800">
+                            {row.name}
+                            {isSelf && (
+                              <span className="ml-1.5 text-xs font-normal text-slate-400">
+                                you
+                              </span>
+                            )}
+                          </div>
+                          <div className="truncate text-xs text-slate-500">{row.email}</div>
                         </div>
-                        <div className="truncate text-xs text-slate-500">{row.email}</div>
                       </div>
-                    </div>
-                  </Td>,
-                  <Td key="role">
-                    <Badge tone={roleTone(row.role)}>{roleLabel(row.role)}</Badge>
-                  </Td>,
-                  <Td key="identifier" className="font-mono text-xs text-slate-500">
-                    {row.student_id ?? row.staff_no ?? '—'}
-                  </Td>,
-                  <Td key="status">
-                    <Badge tone={suspended ? 'danger' : 'success'}>
-                      {suspended ? 'موقوف' : (row.status ?? 'نشط')}
-                    </Badge>
-                    {row.must_change_password && (
-                      <div className="mt-0.5 text-xs text-amber-600">
-                        يجب تغيير كلمة المرور
-                      </div>
-                    )}
-                  </Td>,
-                  <Td key="last_login" className="text-sm text-slate-600">
-                    {row.last_login_at ? (
-                      <>
-                        <div>{formatDate(row.last_login_at)}</div>
-                        <div className="text-xs text-slate-400">
-                          {formatDateTime(row.last_login_at)}
+                    </Td>
+                    <Td>
+                      <Badge tone={roleTone(row.role)}>{roleLabel(row.role)}</Badge>
+                    </Td>
+                    <Td className="font-mono text-xs text-slate-500">
+                      {row.student_id ?? row.staff_no ?? '—'}
+                    </Td>
+                    <Td>
+                      <Badge tone={suspended ? 'danger' : 'success'}>
+                        {suspended ? 'suspended' : (row.status ?? 'active')}
+                      </Badge>
+                      {row.must_change_password && (
+                        <div className="mt-0.5 text-xs text-amber-600">
+                          must change password
                         </div>
-                      </>
-                    ) : (
-                      <span className="text-slate-400">أبدًا</span>
-                    )}
-                  </Td>,
-                  <Td key="actions">
-                    <div className="flex flex-wrap gap-1.5">
-                      {/*
+                      )}
+                    </Td>
+                    <Td className="text-sm text-slate-600">
+                      {row.last_login_at ? (
+                        <>
+                          <div>{formatDate(row.last_login_at)}</div>
+                          <div className="text-xs text-slate-400">
+                            {formatDateTime(row.last_login_at)}
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-slate-400">never</span>
+                      )}
+                    </Td>
+                    <Td>
+                      <div className="flex flex-wrap gap-1.5">
+                        {/*
                           Deactivating yourself would lock you out of the very
                           screen you would use to undo it. The API permits it;
                           this UI declines to offer it.
                         */}
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={isSelf || busy === `toggle-${row.id}`}
-                        onClick={() =>
-                          act(
-                            `toggle-${row.id}`,
-                            () =>
-                              suspended ? userApi.reactivate(row.id) : userApi.deactivate(row.id),
-                            suspended
-                              ? `يمكن لـ ${row.name} تسجيل الدخول مجددًا.`
-                              : `لم يعد ${row.name} قادرًا على تسجيل الدخول.`,
-                          )
-                        }
-                      >
-                        {busy === `toggle-${row.id}`
-                          ? 'جارٍ التنفيذ…'
-                          : suspended
-                            ? 'إعادة تفعيل'
-                            : 'إيقاف'}
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={busy === `reset-${row.id}`}
-                        onClick={() =>
-                          act(
-                            `reset-${row.id}`,
-                            () => userApi.sendPasswordReset(row.id),
-                            `سيستلم ${row.name} بريدًا لإعادة تعيين كلمة المرور.`,
-                          )
-                        }
-                      >
-                        {busy === `reset-${row.id}` ? 'جارٍ الإرسال…' : 'إعادة تعيين كلمة المرور'}
-                      </Button>
-
-                      {row.locked_at && (
                         <Button
                           size="sm"
-                          variant="ghost"
-                          disabled={busy === `unlock-${row.id}`}
+                          variant="secondary"
+                          disabled={isSelf || busy === `toggle-${row.id}`}
                           onClick={() =>
                             act(
-                              `unlock-${row.id}`,
-                              () => userApi.unlock(row.id),
-                              `تم فتح قفل ${row.name}.`,
+                              `toggle-${row.id}`,
+                              () =>
+                                suspended ? userApi.reactivate(row.id) : userApi.deactivate(row.id),
+                              suspended
+                                ? `${row.name} can sign in again.`
+                                : `${row.name} can no longer sign in.`,
                             )
                           }
                         >
-                          فك القفل
+                          {busy === `toggle-${row.id}`
+                            ? 'Working…'
+                            : suspended
+                              ? 'Reactivate'
+                              : 'Suspend'}
                         </Button>
-                      )}
-                    </div>
-                  </Td>,
-                ]
-              }}
-            />
+
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={busy === `reset-${row.id}`}
+                          onClick={() =>
+                            act(
+                              `reset-${row.id}`,
+                              () => userApi.sendPasswordReset(row.id),
+                              `Password reset for ${row.name} will receive an email.`,
+                            )
+                          }
+                        >
+                          {busy === `reset-${row.id}` ? 'Sending…' : 'Reset password'}
+                        </Button>
+
+                        {row.locked_at && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={busy === `unlock-${row.id}`}
+                            onClick={() =>
+                              act(
+                                `unlock-${row.id}`,
+                                () => userApi.unlock(row.id),
+                                `${row.name} is unlocked.`,
+                              )
+                            }
+                          >
+                            Unlock
+                          </Button>
+                        )}
+                      </div>
+                    </Td>
+                  </tr>
+                )
+              })}
+            </DataTable>
           </div>
         </Card>
       )}
 
       <Card>
-        <CardHeader title="ماذا تفعل هذه الإجراءات" />
+        <CardHeader title="What these actions do" />
         <ul className="space-y-2 text-sm text-slate-600">
           <li>
-            <span className="font-medium text-slate-800">إيقاف</span> يمنع تسجيل الدخول لكنه يبقي
-            الحساب ومشاريعه وسجل التدقيق سليمة. وهو قابل للعكس.
+            <span className="font-medium text-slate-800">Suspend</span> blocks sign-in but keeps
+            the account, its projects and its audit history intact. It is reversible.
           </li>
           <li>
-            <span className="font-medium text-slate-800">إعادة تعيين كلمة المرور</span> ترسل رابطًا
-            لاستخدام واحد عبر البريد لصاحب الحساب. لا يرى أي مسؤول كلمة المرور أو يضعها، فيبقى
-            التغيير قابلًا للإسناد.
+            <span className="font-medium text-slate-800">Reset password</span> emails a
+            single-use link to the account holder. No administrator ever sees or sets a password,
+            so the change stays attributable.
           </li>
           <li>
-            <span className="font-medium text-slate-800">فك القفل</span> يزيل قفلًا ناتجًا عن محاولات
-            تسجيل دخول فاشلة متكررة. يظهر فقط للحسابات المقفلة فعليًا.
+            <span className="font-medium text-slate-800">Unlock</span> clears a lockout from
+            repeated failed sign-ins. It appears only for accounts that are actually locked.
           </li>
         </ul>
         <p className="mt-3 text-xs text-slate-500">
-          لا تُحذف الحسابات من هذه الشاشة أبدًا. سجل الطالب مطلوب للأرشيف وسجل التدقيق حتى بعد
-          تخرجه بوقت طويل.
+          Accounts are never deleted from this screen. A student&rsquo;s record is needed by the
+          archive and the audit trail long after they graduate.
         </p>
       </Card>
     </div>

@@ -96,28 +96,28 @@ return Application::configure(basePath: dirname(__DIR__))
                 ],
                 $e instanceof AuthenticationException => [
                     401,
-                    'غير مصادق. يُرجى تسجيل الدخول للمتابعة.',
+                    'Unauthenticated. Please sign in to continue.',
                     null,
                 ],
                 $e instanceof AuthorizationException => [
                     403,
-                    'غير مسموح لك بتنفيذ هذا الإجراء.',
+                    'You are not permitted to perform this action.',
                     null,
                 ],
                 $e instanceof ModelNotFoundException,
                 $e instanceof NotFoundHttpException => [
                     404,
-                    'الموارد المطلوبة غير موجودة.',
+                    'The requested resource was not found.',
                     null,
                 ],
                 $e instanceof HttpExceptionInterface => [
                     $e->getStatusCode(),
-                    $e->getMessage() ?: 'فشل الطلب.',
+                    $e->getMessage() ?: 'Request failed.',
                     null,
                 ],
                 default => [
                     500,
-                    config('app.debug') ? $e->getMessage() : 'حدث خطأ غير متوقع في الخادم.',
+                    config('app.debug') ? $e->getMessage() : 'An unexpected server error occurred.',
                     config('app.debug') ? [
                         'exception' => get_class($e),
                         'file'      => $e->getFile(),

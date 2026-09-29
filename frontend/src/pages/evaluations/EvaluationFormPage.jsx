@@ -92,7 +92,7 @@ export default function EvaluationFormPage() {
         dirtyRef.current = false
         setSavedAt(new Date())
       } catch (err) {
-        setSaveError(err?.message ?? 'تعذّر حفظ درجاتك.')
+        setSaveError(err?.message ?? 'Could not save your marks.')
       } finally {
         if (!silent) setSaving(false)
       }
@@ -131,15 +131,15 @@ export default function EvaluationFormPage() {
       await load()
     } catch (err) {
       if (err?.errors) setErrors(err.errors)
-      else setSaveError(err?.message ?? 'تعذّر إرسال النموذج.')
+      else setSaveError(err?.message ?? 'Could not submit the form.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  if (loading) return <Spinner label="جارٍ تحميل نموذج التقييم" />
+  if (loading) return <Spinner label="Loading the marking form" />
   if (error) return <ErrorState error={error} />
-  if (!evaluation) return <ErrorState error={{ message: 'التقييم غير موجود.' }} />
+  if (!evaluation) return <ErrorState error={{ message: 'Evaluation not found.' }} />
 
   const meta = statusMeta(EVALUATION_STATUS, evaluation.status)
   const components = evaluation.rubric_snapshot?.components ?? []
@@ -150,8 +150,8 @@ export default function EvaluationFormPage() {
       <div className="mx-auto max-w-2xl">
         <Card>
           <EmptyState
-            title="لا يوجد سُلّم تقييم"
-            message="لا يحتوي هذا النموذج على نسخة سُلّم التقييم، لذا لا يوجد ما تُقيَّم على أساسه. اطلب من المنسق إعادة إصداره."
+            title="No rubric attached"
+            message="This form has no rubric snapshot, so there is nothing to mark against. Ask your coordinator to re-issue it."
           />
         </Card>
       </div>
@@ -161,23 +161,23 @@ export default function EvaluationFormPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={evaluation.project?.title ?? 'تقييم'}
+        title={evaluation.project?.title ?? 'Assessment'}
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <Badge tone={meta?.tone ?? 'neutral'}>{meta?.label ?? evaluation.status}</Badge>
             <Badge tone="neutral">{evaluation.assessor_type}</Badge>
             {evaluation.panel_role && <Badge tone="neutral">{evaluation.panel_role}</Badge>}
-            {evaluation.due_at && <span className="text-xs">الموعد {formatDate(evaluation.due_at)}</span>}
+            {evaluation.due_at && <span className="text-xs">due {formatDate(evaluation.due_at)}</span>}
           </span>
         }
-        back={{ to: '/evaluations', label: 'كل التقييمات' }}
+        back={{ to: '/evaluations', label: 'All assessments' }}
       />
 
       {readOnly && (
         <Card className="border-brand-200 bg-brand-50/50">
           <p className="text-sm text-brand-900">
-            تم {evaluation.status} هذا النموذج وأصبح للقراءة فقط.
-            {evaluation.submitted_at && ` أُرسل ${formatDateTime(evaluation.submitted_at)}.`}
+            This form has been {evaluation.status} and is now read-only.
+            {evaluation.submitted_at && ` Filed ${formatDateTime(evaluation.submitted_at)}.`}
           </p>
         </Card>
       )}
@@ -193,7 +193,7 @@ export default function EvaluationFormPage() {
                 title={component.name}
                 subtitle={
                   component.weight != null
-                    ? `${component.weight}% من الدرجة النهائية`
+                    ? `Weighted ${component.weight}% of the final mark`
                     : undefined
                 }
                 action={
@@ -224,8 +224,8 @@ export default function EvaluationFormPage() {
           {/* Overall comment — a single narrative summary alongside the rubric. */}
           {evaluation.overall_comment != null || !readOnly ? (
             <Card>
-              <CardHeader title="التعليق العام" subtitle="يظهر مع درجاتك بعد الإفراج عنها" />
-              <Field label="الملخص" htmlFor="overall" hint="اختياري لكن يُنصح بشدة">
+              <CardHeader title="Overall comment" subtitle="Visible with your marks once released" />
+              <Field label="Summary" htmlFor="overall" hint="Optional but strongly encouraged">
                 <Textarea
                   id="overall"
                   rows={5}
@@ -238,10 +238,10 @@ export default function EvaluationFormPage() {
                       evaluationApi
                         .saveMarks(id, { ...payloadFor(), overall_comment: value })
                         .then(() => setSavedAt(new Date()))
-                        .catch((err) => setSaveError(err?.message ?? 'تعذّر حفظ التعليق.'))
+                        .catch((err) => setSaveError(err?.message ?? 'Could not save the comment.'))
                     }
                   }}
-                  placeholder="تقييم سردي مختصر للمشروع…"
+                  placeholder="A short narrative assessment of the project…"
                 />
               </Field>
             </Card>
@@ -252,14 +252,14 @@ export default function EvaluationFormPage() {
         <div className="lg:col-span-1">
           <div className="sticky top-6 space-y-4">
             <Card>
-              <CardHeader title="المجموع الحالي" />
+              <CardHeader title="Running total" />
               <div className="space-y-4">
                 <div>
                   <p className="text-3xl font-semibold tabular-nums text-slate-900">
                     {formatMark(totals.total)}
                   </p>
                   <p className="text-xs text-slate-500">
-                    من أصل {evaluation.rubric_snapshot?.total_marks ?? 100}
+                    out of {evaluation.rubric_snapshot?.total_marks ?? 100}
                   </p>
                 </div>
 
@@ -270,11 +270,11 @@ export default function EvaluationFormPage() {
                   }
                 />
                 <p className="text-xs text-slate-500">
-                  {totals.markedCount} من {totals.criterionCount} معايير مُقيَّمة
+                  {totals.markedCount} of {totals.criterionCount} criteria marked
                   {totals.percent < (evaluation.rubric_snapshot?.pass_mark ?? 50) &&
                     totals.markedCount > 0 && (
-                      <span className="ms-1 text-rose-600">
-                        · أقل من علامة {evaluation.rubric_snapshot?.pass_mark ?? 50}
+                      <span className="ml-1 text-rose-600">
+                        · below the {evaluation.rubric_snapshot?.pass_mark ?? 50} mark
                       </span>
                     )}
                 </p>
@@ -285,7 +285,7 @@ export default function EvaluationFormPage() {
                       <span className="truncate text-slate-600">{row.name}</span>
                       <span className="shrink-0 tabular-nums text-slate-800">
                         {formatMark(row.score)}
-                        <span className="ms-1 text-xs text-slate-400">/{row.max}</span>
+                        <span className="ml-1 text-xs text-slate-400">/{row.max}</span>
                       </span>
                     </li>
                   ))}
@@ -298,9 +298,9 @@ export default function EvaluationFormPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-xs text-slate-500">
                     <span>
-                      {saving ? 'جارٍ الحفظ…' : savedAt ? `حُفظ ${relativeDays(savedAt)}` : 'لم يُحفظ بعد'}
+                      {saving ? 'Saving…' : savedAt ? `Saved ${relativeDays(savedAt)}` : 'Not saved yet'}
                     </span>
-                    {dirtyRef.current && <span className="text-amber-600">تغييرات غير محفوظة</span>}
+                    {dirtyRef.current && <span className="text-amber-600">Unsaved changes</span>}
                   </div>
                   <Button
                     variant="secondary"
@@ -308,23 +308,23 @@ export default function EvaluationFormPage() {
                     disabled={saving}
                     onClick={() => save(false)}
                   >
-                    حفظ المسودة
+                    Save draft
                   </Button>
                   <Button className="w-full" disabled={submitting} onClick={handleSubmit}>
-                    {submitting ? 'جارٍ الإرسال…' : 'إرسال الدرجات النهائية'}
+                    {submitting ? 'Submitting…' : 'Submit final marks'}
                   </Button>
                   <p className="text-xs text-slate-500">
-                    يؤدي الإرسال إلى قفل النموذج. تواصل مع المنسق إذا احتجت إلى إعادة فتحه.
+                    Submitting locks the form. Ask your coordinator if you need it reopened.
                   </p>
                 </div>
               </Card>
             )}
 
             <Card>
-              <CardHeader title="المشروع" />
+              <CardHeader title="Project" />
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <Avatar name={student?.name ?? 'الطالب'} size="sm" />
+                  <Avatar name={student?.name ?? 'Student'} size="sm" />
                   <div className="min-w-0">
                     <p className="truncate text-sm text-slate-700">{student?.name ?? '—'}</p>
                     {student?.student_id && (
@@ -335,7 +335,7 @@ export default function EvaluationFormPage() {
                 {evaluation.project?.id && (
                   <Link to={`/projects/${evaluation.project.id}`}>
                     <Button size="sm" variant="secondary" className="w-full">
-                      فتح المشروع
+                      Open project
                     </Button>
                   </Link>
                 )}
@@ -368,7 +368,7 @@ function CriterionRow({ criterion, component, mark, comment, readOnly, onMark, o
             <p className="font-medium text-slate-800">{criterion.name}</p>
             <span className="text-xs text-slate-400">
               {component.weight != null && `${component.weight}% · `}
-              {max} درجة
+              {max} marks
             </span>
           </div>
           {criterion.description && (
@@ -377,7 +377,7 @@ function CriterionRow({ criterion, component, mark, comment, readOnly, onMark, o
           {criterion.grading_guide && (
             <details className="mt-2">
               <summary className="cursor-pointer text-xs font-medium text-brand-700 hover:underline">
-                عرض وصف النطاقات
+                Show band descriptors
               </summary>
               <div className="mt-2 whitespace-pre-line rounded-md bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600">
                 {criterion.grading_guide}
@@ -388,7 +388,7 @@ function CriterionRow({ criterion, component, mark, comment, readOnly, onMark, o
 
         <div className="w-28 shrink-0">
           <label className="sr-only" htmlFor={`mark-${criterion.code}`}>
-            الدرجة لـ {criterion.name}
+            Mark for {criterion.name}
           </label>
           <div className="relative">
             <input
@@ -413,7 +413,7 @@ function CriterionRow({ criterion, component, mark, comment, readOnly, onMark, o
             </span>
           </div>
           {invalid && (
-            <p className="mt-1 text-xs text-rose-600">0–{max} فقط</p>
+            <p className="mt-1 text-xs text-rose-600">0–{max} only</p>
           )}
         </div>
       </div>
@@ -424,7 +424,7 @@ function CriterionRow({ criterion, component, mark, comment, readOnly, onMark, o
           rows={2}
           value={comment}
           onChange={(e) => onComment(e.target.value)}
-          placeholder="ملاحظات موجزة لهذا المعيار…"
+          placeholder="Brief feedback for this criterion…"
           className="mt-3"
         />
       )}
@@ -440,7 +440,7 @@ function ComponentScore({ component, marks }) {
   return (
     <span className="text-sm tabular-nums text-slate-700">
       {formatMark(score)}
-      <span className="ms-1 text-xs text-slate-400">/ {formatMark(max)}</span>
+      <span className="ml-1 text-xs text-slate-400">/ {formatMark(max)}</span>
     </span>
   )
 }

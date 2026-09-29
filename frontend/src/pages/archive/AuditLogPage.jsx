@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { can } from '../../lib/permissions'
 import {
   Card, PageHeader, Badge, EmptyState, Spinner, ErrorState,
-  Button, Input, Select, Avatar, Td,
+  Button, Input, Select, Avatar, DataTable, Td,
 } from '../../components/ui'
 import { formatDateTime, relativeDays } from '../../lib/format'
 
@@ -94,8 +94,8 @@ export default function AuditLogPage() {
       <div className="mx-auto max-w-2xl">
         <Card>
           <EmptyState
-            title="وصول مقيد"
-            message="سجل التدقيق مرئي فقط للمنسقين والمسؤولين."
+            title="Restricted"
+            message="The audit log is only visible to coordinators and administrators."
           />
         </Card>
       </div>
@@ -105,10 +105,10 @@ export default function AuditLogPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="سجل التدقيق"
+        title="Audit log"
         subtitle={
           meta
-            ? `${meta.total} ${meta.total === 1 ? 'حدث مسجّل' : 'أحداث مسجّلة'} — إلحاقي فقط، لا يُعدَّل أبدًا`
+            ? `${meta.total} recorded event${meta.total === 1 ? '' : 's'} — append-only, never edited`
             : undefined
         }
       />
@@ -117,19 +117,19 @@ export default function AuditLogPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Input
             type="search"
-            placeholder="ابحث في الوصف أو الفاعل"
+            placeholder="Search description or actor"
             defaultValue={search}
             onKeyDown={(e) => {
               if (e.key === 'Enter') setFilter('q', e.currentTarget.value.trim())
             }}
-            aria-label="البحث في سجل التدقيق"
+            aria-label="Search audit log"
           />
           <Select
             value={action}
             onChange={(e) => setFilter('action', e.target.value)}
-            aria-label="تصفية حسب الإجراء"
+            aria-label="Filter by action"
           >
-            <option value="">كل الإجراءات</option>
+            <option value="">All actions</option>
             {actions.map((a) => (
               <option key={a} value={a}>
                 {a.replace(/_/g, ' ')}
@@ -139,12 +139,12 @@ export default function AuditLogPage() {
           <Select
             value={severity}
             onChange={(e) => setFilter('severity', e.target.value)}
-            aria-label="تصفية حسب الخطورة"
+            aria-label="Filter by severity"
           >
-            <option value="">كل مستويات الخطورة</option>
-            <option value="info">معلومات</option>
-            <option value="warning">تحذير</option>
-            <option value="critical">حرج</option>
+            <option value="">All severities</option>
+            <option value="info">Info</option>
+            <option value="warning">Warning</option>
+            <option value="critical">Critical</option>
           </Select>
           <label className="flex items-center gap-2 self-center text-sm text-slate-700">
             <input
@@ -153,123 +153,113 @@ export default function AuditLogPage() {
               onChange={(e) => setFilter('suspicious', e.target.checked ? '1' : '')}
               className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
             />
-            فقط الأحداث المعلَّمة
+            Only flagged events
           </label>
         </div>
       </Card>
 
       {loading ? (
-        <Spinner label="جارٍ تحميل سجل التدقيق" />
+        <Spinner label="Loading the audit trail" />
       ) : error ? (
         <ErrorState error={error} />
       ) : rows.length === 0 ? (
         <Card>
           <EmptyState
-            title="لا توجد أحداث"
-            message="لا توجد سجلات تدقيق تطابق التصفية الحالية."
+            title="No events"
+            message="No audit entries match the current filters."
           />
         </Card>
       ) : (
         <>
           <Card className="overflow-hidden p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[720px]">
-                <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="px-5 py-2.5 text-start text-xs font-medium text-slate-500">متى</th>
-                    <th className="px-5 py-2.5 text-start text-xs font-medium text-slate-500">الفاعل</th>
-                    <th className="px-5 py-2.5 text-start text-xs font-medium text-slate-500">الإجراء</th>
-                    <th className="px-5 py-2.5 text-start text-xs font-medium text-slate-500">الوصف</th>
-                    <th className="px-5 py-2.5 text-start text-xs font-medium text-slate-500">الخطورة</th>
-                    <th className="px-5 py-2.5 text-start text-xs font-medium text-slate-500"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((entry) => {
-                    const isOpen = expanded === entry.id
-                    const hasDetail =
-                      entry.before || entry.after || entry.changes || entry.ip_address
+              <DataTable
+                columns={['When', 'Actor', 'Action', 'Description', 'Severity', '']}
+              >
+                {rows.map((entry) => {
+                  const isOpen = expanded === entry.id
+                  const hasDetail =
+                    entry.before || entry.after || entry.changes || entry.ip_address
 
-                    // A keyed Fragment is required here: the row and its detail
-                    // panel are siblings in the same <tbody>.
-                    return (
-                      <Fragment key={entry.id}>
-                        <tr
-                          className={`border-b border-slate-100 last:border-0 hover:bg-slate-50/70 ${entry.is_suspicious ? 'bg-rose-50/40' : ''}`}
-                        >
-                          <Td>
-                            <div className="text-sm text-slate-700">
-                              {formatDateTime(entry.created_at)}
-                            </div>
-                            <div className="text-xs text-slate-400">
-                              {relativeDays(entry.created_at)}
-                            </div>
-                          </Td>
-                          <Td>
-                            <div className="flex items-center gap-2">
-                              <Avatar name={entry.actor_name ?? 'النظام'} size="sm" />
-                              <div className="min-w-0">
-                                <div className="truncate text-sm text-slate-700">
-                                  {entry.actor_name ?? 'النظام'}
-                                </div>
-                                {entry.actor_role && (
-                                  <div className="text-xs text-slate-400">{entry.actor_role}</div>
-                                )}
+                  // A keyed Fragment is required here: the row and its detail
+                  // panel are siblings in the same <tbody>.
+                  return (
+                    <Fragment key={entry.id}>
+                      <tr
+                        className={`hover:bg-slate-50/60 ${entry.is_suspicious ? 'bg-rose-50/40' : ''}`}
+                      >
+                        <Td>
+                          <div className="text-sm text-slate-700">
+                            {formatDateTime(entry.created_at)}
+                          </div>
+                          <div className="text-xs text-slate-400">
+                            {relativeDays(entry.created_at)}
+                          </div>
+                        </Td>
+                        <Td>
+                          <div className="flex items-center gap-2">
+                            <Avatar name={entry.actor_name ?? 'System'} size="sm" />
+                            <div className="min-w-0">
+                              <div className="truncate text-sm text-slate-700">
+                                {entry.actor_name ?? 'System'}
                               </div>
+                              {entry.actor_role && (
+                                <div className="text-xs text-slate-400">{entry.actor_role}</div>
+                              )}
                             </div>
-                          </Td>
-                          <Td>
-                            <span className="font-mono text-xs text-slate-600">
-                              {entry.action?.replace(/_/g, ' ')}
-                            </span>
-                            {entry.category && (
-                              <div className="mt-0.5">
-                                <Badge tone="neutral">{entry.category}</Badge>
-                              </div>
-                            )}
-                          </Td>
-                          <Td className="max-w-md text-sm text-slate-700">{entry.description}</Td>
-                          <Td>
-                            <SeverityBadge severity={entry.severity} />
-                            {entry.is_suspicious && (
-                              <div className="mt-1">
-                                <Badge tone="danger">معلَّم</Badge>
-                              </div>
-                            )}
-                          </Td>
-                          <Td>
-                            {hasDetail && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setExpanded(isOpen ? null : entry.id)}
-                                aria-expanded={isOpen}
-                              >
-                                {isOpen ? 'إخفاء' : 'التفاصيل'}
-                              </Button>
-                            )}
-                          </Td>
+                          </div>
+                        </Td>
+                        <Td>
+                          <span className="font-mono text-xs text-slate-600">
+                            {entry.action?.replace(/_/g, ' ')}
+                          </span>
+                          {entry.category && (
+                            <div className="mt-0.5">
+                              <Badge tone="neutral">{entry.category}</Badge>
+                            </div>
+                          )}
+                        </Td>
+                        <Td className="max-w-md text-sm text-slate-700">{entry.description}</Td>
+                        <Td>
+                          <SeverityBadge severity={entry.severity} />
+                          {entry.is_suspicious && (
+                            <div className="mt-1">
+                              <Badge tone="danger">flagged</Badge>
+                            </div>
+                          )}
+                        </Td>
+                        <Td>
+                          {hasDetail && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setExpanded(isOpen ? null : entry.id)}
+                              aria-expanded={isOpen}
+                            >
+                              {isOpen ? 'Hide' : 'Details'}
+                            </Button>
+                          )}
+                        </Td>
+                      </tr>
+
+                      {isOpen && (
+                        <tr className="bg-slate-50/70">
+                          <td colSpan={6} className="px-4 py-4">
+                            <AuditDetail entry={entry} />
+                          </td>
                         </tr>
-
-                        {isOpen && (
-                          <tr className="bg-slate-50/70">
-                            <td colSpan={6} className="px-4 py-4">
-                              <AuditDetail entry={entry} />
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
-                    )
-                  })}
-                </tbody>
-              </table>
+                      )}
+                    </Fragment>
+                  )
+                })}
+              </DataTable>
             </div>
           </Card>
 
           {meta && meta.last_page > 1 && (
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-500">
-                عرض {meta.from}–{meta.to} من أصل {meta.total}
+                Showing {meta.from}–{meta.to} of {meta.total}
               </p>
               <div className="flex gap-2">
                 <Button
@@ -278,7 +268,7 @@ export default function AuditLogPage() {
                   disabled={meta.current_page <= 1}
                   onClick={() => setFilter('page', String(meta.current_page - 1))}
                 >
-                  السابق
+                  Previous
                 </Button>
                 <Button
                   variant="secondary"
@@ -286,7 +276,7 @@ export default function AuditLogPage() {
                   disabled={meta.current_page >= meta.last_page}
                   onClick={() => setFilter('page', String(meta.current_page + 1))}
                 >
-                  التالي
+                  Next
                 </Button>
               </div>
             </div>
@@ -309,13 +299,13 @@ function AuditDetail({ entry }) {
       <div className="grid gap-4 sm:grid-cols-3">
         {entry.ip_address && (
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">عنوان IP</p>
+            <p className="text-xs uppercase tracking-wide text-slate-400">IP address</p>
             <p className="font-mono text-xs text-slate-700">{entry.ip_address}</p>
           </div>
         )}
         {entry.request_method && (
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">الطلب</p>
+            <p className="text-xs uppercase tracking-wide text-slate-400">Request</p>
             <p className="font-mono text-xs text-slate-700">
               {entry.request_method} {entry.request_url}
             </p>
@@ -323,7 +313,7 @@ function AuditDetail({ entry }) {
         )}
         {entry.auditable_type && (
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">الموضوع</p>
+            <p className="text-xs uppercase tracking-wide text-slate-400">Subject</p>
             <p className="font-mono text-xs text-slate-700">
               {entry.auditable_type.split('\\').pop()}#{entry.auditable_id}
             </p>
@@ -334,15 +324,15 @@ function AuditDetail({ entry }) {
       {changedKeys.length > 0 ? (
         <div>
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
-            التغييرات
+            Changes
           </p>
           <div className="overflow-hidden rounded-md border border-slate-200 bg-white">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-start text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-3 py-2 font-medium">الحقل</th>
-                  <th className="px-3 py-2 font-medium">قبل</th>
-                  <th className="px-3 py-2 font-medium">بعد</th>
+                  <th className="px-3 py-2 font-medium">Field</th>
+                  <th className="px-3 py-2 font-medium">Before</th>
+                  <th className="px-3 py-2 font-medium">After</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -365,7 +355,7 @@ function AuditDetail({ entry }) {
         <div className="grid gap-4 sm:grid-cols-2">
           {entry.before && (
             <div>
-              <p className="mb-1 text-xs uppercase tracking-wide text-slate-400">قبل</p>
+              <p className="mb-1 text-xs uppercase tracking-wide text-slate-400">Before</p>
               <pre className="overflow-x-auto rounded-md bg-white p-3 text-xs text-slate-700">
                 {JSON.stringify(entry.before, null, 2)}
               </pre>
@@ -373,7 +363,7 @@ function AuditDetail({ entry }) {
           )}
           {entry.after && (
             <div>
-              <p className="mb-1 text-xs uppercase tracking-wide text-slate-400">بعد</p>
+              <p className="mb-1 text-xs uppercase tracking-wide text-slate-400">After</p>
               <pre className="overflow-x-auto rounded-md bg-white p-3 text-xs text-slate-700">
                 {JSON.stringify(entry.after, null, 2)}
               </pre>
@@ -383,7 +373,7 @@ function AuditDetail({ entry }) {
       ) : null}
 
       {entry.user_agent && (
-        <p className="truncate text-xs text-slate-400">متصفح المستخدم: {entry.user_agent}</p>
+        <p className="truncate text-xs text-slate-400">User agent: {entry.user_agent}</p>
       )}
     </div>
   )
@@ -400,8 +390,7 @@ function Value({ value }) {
 
 function SeverityBadge({ severity }) {
   const tone = { info: 'neutral', warning: 'warning', critical: 'danger' }[severity] ?? 'neutral'
-  const label = { info: 'معلومات', warning: 'تحذير', critical: 'حرج' }[severity] ?? severity ?? 'معلومات'
-  return <Badge tone={tone}>{label}</Badge>
+  return <Badge tone={tone}>{severity ?? 'info'}</Badge>
 }
 
 /** Union of keys that differ between two objects. */

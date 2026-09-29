@@ -93,7 +93,7 @@ class ProjectController extends ApiController
         $student = $request->user()->studentProfile;
 
         if ($student === null) {
-            return $this->fail('الطالب الحاصل على ملف شخصي فقط يمكنه تسجيل مشروع.', 403);
+            return $this->fail('Only a student with a profile may register a project.', 403);
         }
 
         $validated = $request->validate([
@@ -116,7 +116,7 @@ class ProjectController extends ApiController
 
         if ($existing) {
             return $this->fail(
-                "لديك بالفعل مشروع مسجّل بجزء {$validated['psm_part']}.",
+                "You already have a {$validated['psm_part']} project registered.",
                 422
             );
         }
@@ -183,8 +183,8 @@ class ProjectController extends ApiController
         return $this->created([
             'project' => new ProjectResource($project->load('students.user')),
             // The SPA shows this so the student knows what happens next
-            'next_step' => 'أضف مشرفًا ثم قدّم المشروع للموافقة بعد تأكيد العنوان.',
-        ], 'سُجّل المشروع كمسوّدة.');
+            'next_step' => 'Add a supervisor, then submit for approval once your title is confirmed.',
+        ], 'Project registered as a draft.');
     }
 
     /**
@@ -211,8 +211,8 @@ class ProjectController extends ApiController
             && $validated['category'] !== $project->category->value
             && $project->milestones()->exists()) {
             return $this->fail(
-                'لا يمكن تغيير التصنيف بعد إنشاء المعالم. '
-                .'تواصل مع المنسق لإعادة تسجيل المشروع.',
+                'The category cannot be changed once milestones have been generated. '
+                .'Contact the coordinator to re-register the project.',
                 422
             );
         }
@@ -221,13 +221,13 @@ class ProjectController extends ApiController
 
         $this->audit->log(
             action: AuditAction::ProjectUpdated,
-            description: 'تم تحديث تفاصيل المشروع',
+            description: 'Updated project details',
             subject: $project,
             before: $before,
             after: $project->fresh()->getAttributes(),
         );
 
-        return $this->ok(new ProjectResource($project->fresh(['students.user'])), 'تم تحديث المشروع.');
+        return $this->ok(new ProjectResource($project->fresh(['students.user'])), 'Project updated.');
     }
 
     /**
@@ -267,7 +267,7 @@ class ProjectController extends ApiController
 
         return $this->ok(
             new ProjectResource($project->fresh(['milestones', 'students.user'])),
-            'تم تقديم المشروع للموافقة.'
+            'Project submitted for approval.'
         );
     }
 
@@ -279,7 +279,7 @@ class ProjectController extends ApiController
         $this->authorize('approve', $project);
 
         if ($project->status !== 'submitted') {
-            return $this->fail('فقط المشروع المقدَّم يمكن اعتماده.', 422);
+            return $this->fail('Only a submitted project can be approved.', 422);
         }
 
         $before = $project->getAttributes();
@@ -304,7 +304,7 @@ class ProjectController extends ApiController
             actor: $request->user(),
         );
 
-        return $this->ok(new ProjectResource($project->fresh(['milestones'])), 'تم اعتماد المشروع وفتح المعالم.');
+        return $this->ok(new ProjectResource($project->fresh(['milestones'])), 'Project approved and milestones opened.');
     }
 
     /**
@@ -336,7 +336,7 @@ class ProjectController extends ApiController
 
         return $this->ok(
             new ProjectResource($project->fresh()),
-            'أُعيد المشروع إلى الطالب للمراجعة.'
+            'Project returned to the student for revision.'
         );
     }
 
@@ -361,8 +361,8 @@ class ProjectController extends ApiController
         $this->audit->log(
             action: AuditAction::ProfileUpdated,
             description: $validated['opt_out']
-                ? 'اختار عدم الظهور في المعرض العام'
-                : 'اختار الظهور في المعرض العام',
+                ? 'Opted out of the public showcase'
+                : 'Opted in to the public showcase',
             subject: $project,
             before: $before,
             after: $project->fresh()->getAttributes(),
@@ -372,8 +372,8 @@ class ProjectController extends ApiController
         return $this->ok([
             'leaderboard_opt_out' => (bool) $project->fresh()->leaderboard_opt_out,
         ], $validated['opt_out']
-            ? 'لن يظهر مشروعك في المعرض العام.'
-            : 'مشروعك مؤهل للمعرض العام.');
+            ? 'Your project will not appear in the public showcase.'
+            : 'Your project is eligible for the public showcase.');
     }
 
     /**
@@ -400,7 +400,7 @@ class ProjectController extends ApiController
             'code'  => $record->code,
             'title' => $record->title,
             'document_count' => $record->documentCount(),
-        ], 'تمت أرشفة المشروع.');
+        ], 'Project archived.');
     }
 
     /**
@@ -434,7 +434,7 @@ class ProjectController extends ApiController
         $student = $request->user()->studentProfile;
 
         if ($student === null) {
-            return $this->fail('لا يوجد ملف طالب مرتبط بهذا الحساب.', 403);
+            return $this->fail('No student profile is associated with this account.', 403);
         }
 
         $projects = $student->projects()

@@ -88,7 +88,7 @@ class ProfileController extends ApiController
 
         $this->audit->log(
             action: AuditAction::ProfileUpdated,
-            description: 'تحديث الملف الشخصي الخاص',
+            description: 'Updated own profile',
             subject: $user,
             before: $before,
             after: $user->fresh()->getAttributes(),
@@ -100,7 +100,7 @@ class ProfileController extends ApiController
                 'studentProfile.supervisors.user',
                 'supervisorProfile.expertiseAreas',
             ])),
-            'تم تحديث الملف الشخصي.'
+            'Profile updated.'
         );
     }
 
@@ -115,7 +115,7 @@ class ProfileController extends ApiController
         $user = $request->user();
 
         if (! $user->isSupervisor() || $user->supervisorProfile === null) {
-            return $this->fail('المشرف فقط لديه إعداد السعة المتاحة.', 403);
+            return $this->fail('Only a supervisor has an availability setting.', 403);
         }
 
         $validated = $request->validate([
@@ -130,8 +130,8 @@ class ProfileController extends ApiController
         $this->audit->log(
             action: AuditAction::ProfileUpdated,
             description: $validated['is_accepting_students']
-                ? 'ضبط التوفر على استقبال الطلاب'
-                : 'ضبط التوفر على عدم استقبال الطلاب',
+                ? 'Set availability to accepting students'
+                : 'Set availability to not accepting students',
             subject: $profile,
             before: $before,
             after: $profile->fresh()->getAttributes(),
@@ -143,8 +143,8 @@ class ProfileController extends ApiController
             'current_load'          => $profile->currentLoad(),
             'max_supervisees'       => $profile->max_supervisees,
         ], $validated['is_accepting_students']
-            ? 'أنت الآن ظاهر للمنسقين للتكليفات الجديدة.'
-            : 'لن يتم تكليفك بطلاب جدد.');
+            ? 'You are now visible to coordinators for new assignments.'
+            : 'You will not be assigned new students.');
     }
 
     /**
@@ -157,7 +157,7 @@ class ProfileController extends ApiController
         $user = $request->user();
 
         if (! $user->isSupervisor() || $user->supervisorProfile === null) {
-            return $this->fail('المشرف فقط لديه عرض عبء العمل.', 403);
+            return $this->fail('Only a supervisor has a workload view.', 403);
         }
 
         $profile = $user->supervisorProfile;
@@ -230,7 +230,7 @@ class ProfileController extends ApiController
         $user = $request->user();
 
         if (! $user->isSupervisor() || $user->supervisorProfile === null) {
-            return $this->fail('المشرف فقط لديه مجالات خبرة.', 403);
+            return $this->fail('Only a supervisor has expertise areas.', 403);
         }
 
         $validated = $request->validate([
@@ -252,7 +252,7 @@ class ProfileController extends ApiController
 
         $this->audit->log(
             action: AuditAction::ProfileUpdated,
-            description: 'تم تحديث مجالات الخبرة',
+            description: 'Updated expertise areas',
             subject: $profile,
             before: ['expertise_area_ids' => $before],
             after: ['expertise_area_ids' => array_keys($sync)],
@@ -266,7 +266,7 @@ class ProfileController extends ApiController
                 'category'    => $a->category,
                 'proficiency' => (int) $a->pivot->proficiency,
             ]),
-            'تم تحديث مجالات الخبرة.'
+            'Expertise areas updated.'
         );
     }
 }

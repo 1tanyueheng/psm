@@ -13,12 +13,6 @@ import {
 } from '../../lib/format'
 import { StatusBadge } from './ProjectListPage'
 
-const ASSESSOR_TYPE = {
-  supervisor: 'مشرف',
-  examiner: 'ممتحن',
-  coordinator: 'منسق',
-}
-
 /**
  * Project detail — the single page from which a project is understood.
  *
@@ -74,9 +68,9 @@ export default function ProjectDetailPage() {
     load()
   }, [load])
 
-  if (loading) return <Spinner label="جارٍ تحميل المشروع" />
+  if (loading) return <Spinner label="Loading project" />
   if (error) return <ErrorState error={error} />
-  if (!project) return <ErrorState error={{ message: 'المشروع غير موجود.' }} />
+  if (!project) return <ErrorState error={{ message: 'Project not found.' }} />
 
   const isOwner = project.students?.some((s) => s.user_id === user?.id)
   const approved = milestones.filter((m) => m.status === 'approved').length
@@ -101,7 +95,7 @@ export default function ProjectDetailPage() {
         actions={
           <div className="flex gap-2">
             {isOwner && project.status === 'draft' && (
-              <Button onClick={() => navigate(`/projects/${id}/edit`)}>تعديل</Button>
+              <Button onClick={() => navigate(`/projects/${id}/edit`)}>Edit</Button>
             )}
             {isOwner && ['draft', 'registered'].includes(project.status) && (
               <Button
@@ -111,7 +105,7 @@ export default function ProjectDetailPage() {
                   load()
                 }}
               >
-                تقديم للموافقة
+                Submit for approval
               </Button>
             )}
           </div>
@@ -121,7 +115,7 @@ export default function ProjectDetailPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Progress summary */}
         <Card className="lg:col-span-2">
-          <CardHeader title="التقدم" subtitle={`${approved} من ${milestones.length} مراحل معتمدة`} />
+          <CardHeader title="Progress" subtitle={`${approved} of ${milestones.length} milestones approved`} />
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <div className="flex-1">
@@ -130,38 +124,38 @@ export default function ProjectDetailPage() {
                   tone={overdue.length > 0 ? 'danger' : project.progress_percent >= 70 ? 'success' : 'brand'}
                 />
               </div>
-              <span className="w-12 shrink-0 text-end font-semibold tabular-nums text-slate-700">
+              <span className="w-12 shrink-0 text-right font-semibold tabular-nums text-slate-700">
                 {project.progress_percent ?? 0}%
               </span>
             </div>
             {overdue.length > 0 && (
               <p className="text-sm text-rose-600">
-                {overdue.length} {overdue.length === 1 ? 'مرحلة متأخرة' : 'مراحل متأخرة'}
+                {overdue.length} milestone{overdue.length === 1 ? '' : 's'} overdue
               </p>
             )}
             <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-4">
-              <Mini label="البداية" value={formatDate(project.started_at, { fallback: '—' })} />
-              <Mini label="المستهدف" value={formatDate(project.target_end_at, { fallback: '—' })} />
-              <Mini label="الدورة" value={project.academic_session ?? '—'} />
-              <Mini label="آخر تحديث" value={relativeDays(project.updated_at)} />
+              <Mini label="Started" value={formatDate(project.started_at, { fallback: '—' })} />
+              <Mini label="Target" value={formatDate(project.target_end_at, { fallback: '—' })} />
+              <Mini label="Session" value={project.academic_session ?? '—'} />
+              <Mini label="Updated" value={relativeDays(project.updated_at)} />
             </div>
           </div>
         </Card>
 
         {/* People */}
         <Card>
-          <CardHeader title="الأشخاص" />
+          <CardHeader title="People" />
           <div className="space-y-4">
-            <PersonGroup label="الطلاب" people={project.students} showId />
-            <PersonGroup label="المشرفون" people={project.supervisors} />
-            <PersonGroup label="الممتحنون" people={project.examiners} />
+            <PersonGroup label="Students" people={project.students} showId />
+            <PersonGroup label="Supervisors" people={project.supervisors} />
+            <PersonGroup label="Examiners" people={project.examiners} />
           </div>
         </Card>
       </div>
 
       {project.abstract && (
         <Card>
-          <CardHeader title="الملخص" />
+          <CardHeader title="Abstract" />
           <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
             {project.abstract}
           </p>
@@ -181,9 +175,9 @@ export default function ProjectDetailPage() {
       <Card className="p-0">
         <div className="flex overflow-x-auto border-b border-slate-200 px-2">
           {[
-            { key: 'milestones', label: 'المراحل', count: milestones.length },
-            { key: 'evaluations', label: 'التقييمات', count: evaluations.length },
-            { key: 'grade', label: 'الدرجة' },
+            { key: 'milestones', label: 'Milestones', count: milestones.length },
+            { key: 'evaluations', label: 'Assessments', count: evaluations.length },
+            { key: 'grade', label: 'Grade' },
           ].map((t) => (
             <button
               key={t.key}
@@ -198,7 +192,7 @@ export default function ProjectDetailPage() {
             >
               {t.label}
               {t.count != null && (
-                <span className="ms-1.5 rounded-full bg-slate-100 px-1.5 text-xs tabular-nums text-slate-600">
+                <span className="ml-1.5 rounded-full bg-slate-100 px-1.5 text-xs tabular-nums text-slate-600">
                   {t.count}
                 </span>
               )}
@@ -220,8 +214,8 @@ function MilestoneTab({ milestones }) {
   if (milestones.length === 0) {
     return (
       <EmptyState
-        title="لا توجد مراحل بعد"
-        message="تُنشأ المراحل تلقائياً بعد اعتماد المشروع ومطابقة القالب."
+        title="No milestones yet"
+        message="Milestones are generated automatically once the project is approved and a template is matched."
       />
     )
   }
@@ -238,7 +232,7 @@ function MilestoneTab({ milestones }) {
           <li key={milestone.id} className="relative flex gap-4 pb-6">
             {!isLast && (
               <span
-                className="absolute right-3.5 top-8 h-full w-px bg-slate-200"
+                className="absolute left-3.5 top-8 h-full w-px bg-slate-200"
                 aria-hidden="true"
               />
             )}
@@ -271,7 +265,7 @@ function MilestoneTab({ milestones }) {
                   </span>
                 )}
                 {(milestone.revision_count ?? 0) > 0 && (
-                  <Badge tone="warning">المراجعة {milestone.revision_count}</Badge>
+                  <Badge tone="warning">rev {milestone.revision_count}</Badge>
                 )}
               </div>
 
@@ -283,20 +277,20 @@ function MilestoneTab({ milestones }) {
 
               <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
                 <span className={late ? 'font-medium text-rose-600' : ''}>
-                  مستحق {formatDate(due, { fallback: 'بدون تاريخ' })}
-                  {late && ' · متأخر'}
+                  Due {formatDate(due, { fallback: 'no date' })}
+                  {late && ' · overdue'}
                 </span>
-                {milestone.submitted_at && <span>مقدّم {formatDate(milestone.submitted_at)}</span>}
+                {milestone.submitted_at && <span>Submitted {formatDate(milestone.submitted_at)}</span>}
                 {milestone.approved_at && (
-                  <span className="text-emerald-600">معتمد {formatDate(milestone.approved_at)}</span>
+                  <span className="text-emerald-600">Approved {formatDate(milestone.approved_at)}</span>
                 )}
-                {milestone.weight > 0 && <span>الوزن {milestone.weight}%</span>}
+                {milestone.weight > 0 && <span>Weight {milestone.weight}%</span>}
               </div>
             </div>
 
             <Link to={`/milestones/${milestone.id}`}>
               <Button size="sm" variant="secondary">
-                فتح
+                Open
               </Button>
             </Link>
           </li>
@@ -310,22 +304,15 @@ function EvaluationTab({ evaluations }) {
   if (evaluations.length === 0) {
     return (
       <EmptyState
-        title="لا توجد تقييمات بعد"
-        message="تظهر نماذج التقييم عندما يُطلب من المشرفين والممتحنين تصحيح هذا المشروع."
+        title="No assessments yet"
+        message="Assessment forms appear when supervisors and examiners are asked to mark this project."
       />
     )
   }
 
   return (
-    <DataTable
-      columns={[
-        { key: 'assessor', label: 'المقيّم' },
-        { key: 'type', label: 'النوع' },
-        { key: 'status', label: 'الحالة' },
-        { key: 'mark', label: 'العلامة' },
-        { key: 'submitted', label: 'تاريخ التقديم' },
-      ]}
-      render={(ev) => (
+    <DataTable columns={['Assessor', 'Type', 'Status', 'Mark', 'Submitted']}>
+      {evaluations.map((ev) => (
         <tr key={ev.id} className="hover:bg-slate-50/60">
           <Td>
             <div className="text-sm font-medium text-slate-800">
@@ -335,9 +322,7 @@ function EvaluationTab({ evaluations }) {
               <div className="text-xs text-slate-400">{ev.panel_role}</div>
             )}
           </Td>
-          <Td className="text-sm text-slate-600">
-            {ASSESSOR_TYPE[ev.assessor_type] ?? ev.assessor_type}
-          </Td>
+          <Td className="text-sm capitalize text-slate-600">{ev.assessor_type}</Td>
           <Td>
             <Badge tone={ev.status === 'submitted' || ev.status === 'released' ? 'success' : 'warning'}>
               {ev.status}
@@ -350,8 +335,8 @@ function EvaluationTab({ evaluations }) {
             {ev.submitted_at ? formatDateTime(ev.submitted_at) : '—'}
           </Td>
         </tr>
-      )}
-    />
+      ))}
+    </DataTable>
   )
 }
 
@@ -359,8 +344,8 @@ function GradeTab({ grade }) {
   if (!grade || !grade.status) {
     return (
       <EmptyState
-        title="لا توجد درجة بعد"
-        message="تُحتسب الدرجة بعد تقديم عدد كافٍ من المقيّمين لعلاماتهم."
+        title="No grade yet"
+        message="A grade is computed once enough assessors have submitted marks."
       />
     )
   }
@@ -368,8 +353,8 @@ function GradeTab({ grade }) {
   if (grade.status !== 'released') {
     return (
       <EmptyState
-        title="الدرجة غير منشورة"
-        message="تم احتساب درجتك وهي قيد المعايرة. ستظهر هنا بعد نشرها من قبل المنسق."
+        title="Grade not released"
+        message="Your grade has been computed but is being moderated. It will appear here once released by the coordinator."
       />
     )
   }
@@ -378,18 +363,18 @@ function GradeTab({ grade }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-6">
         <div>
-          <p className="text-sm text-slate-500">العلامة النهائية</p>
+          <p className="text-sm text-slate-500">Final mark</p>
           <p className="text-3xl font-semibold tabular-nums text-slate-900">
             {formatMark(grade.final_mark)}
           </p>
         </div>
         <div>
-          <p className="text-sm text-slate-500">الدرجة</p>
+          <p className="text-sm text-slate-500">Grade</p>
           <p className="text-3xl font-semibold text-slate-900">{grade.grade_letter ?? '—'}</p>
         </div>
         {grade.grade_point != null && (
           <div>
-            <p className="text-sm text-slate-500">نقطة الدرجة</p>
+            <p className="text-sm text-slate-500">Grade point</p>
             <p className="text-3xl font-semibold tabular-nums text-slate-900">
               {grade.grade_point.toFixed(2)}
             </p>
@@ -399,20 +384,21 @@ function GradeTab({ grade }) {
 
       {grade.breakdown && Object.keys(grade.breakdown).length > 0 && (
         <div className="border-t border-slate-100 pt-5">
-          <p className="mb-3 text-sm font-medium text-slate-700">التفصيل</p>
+          <p className="mb-3 text-sm font-medium text-slate-700">Breakdown</p>
           <div className="space-y-2">
             {Object.entries(grade.breakdown).map(([key, row]) => (
               <div key={key} className="flex items-center gap-3">
-                <span className="w-40 shrink-0 text-sm text-slate-600">
+                <span className="w-40 shrink-0 text-sm capitalize text-slate-600">
                   {key.replace(/_/g, ' ')}
                 </span>
                 <div className="flex-1">
                   <ProgressBar
                     value={row.mark ?? row.score ?? 0}
+                    max={100}
                     tone="brand"
                   />
                 </div>
-                <span className="w-24 shrink-0 text-end text-sm tabular-nums text-slate-600">
+                <span className="w-24 shrink-0 text-right text-sm tabular-nums text-slate-600">
                   {formatMark(row.mark ?? row.score)}{' '}
                   <span className="text-xs text-slate-400">
                     ×{row.weight ?? 0}%
@@ -430,7 +416,7 @@ function GradeTab({ grade }) {
 function Mini({ label, value }) {
   return (
     <div>
-      <p className="text-xs text-slate-400">{label}</p>
+      <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
       <p className="mt-0.5 text-sm font-medium text-slate-700">{value}</p>
     </div>
   )
@@ -440,9 +426,9 @@ function PersonGroup({ label, people, showId = false }) {
   const list = people ?? []
   return (
     <div>
-      <p className="mb-2 text-xs font-medium text-slate-400">{label}</p>
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
       {list.length === 0 ? (
-        <p className="text-sm text-slate-400">غير معيّن</p>
+        <p className="text-sm text-slate-400">Not assigned</p>
       ) : (
         <ul className="space-y-2">
           {list.map((person) => (

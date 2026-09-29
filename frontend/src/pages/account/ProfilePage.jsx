@@ -86,13 +86,13 @@ export default function ProfilePage() {
       await refresh?.()
     } catch (err) {
       if (err?.errors) setErrors(err.errors)
-      else setSaveError(err?.message ?? 'تعذّر حفظ ملفك الشخصي.')
+      else setSaveError(err?.message ?? 'Could not save your profile.')
     } finally {
       setSaving(false)
     }
   }
 
-  if (loading) return <Spinner label="جارٍ تحميل ملفك الشخصي" />
+  if (loading) return <Spinner label="Loading your profile" />
   if (error) return <ErrorState error={error} />
 
   const p = profile ?? user ?? {}
@@ -101,18 +101,18 @@ export default function ProfilePage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader
-        title="ملفي الشخصي"
-        subtitle="بياناتك وإعدادات حسابك"
+        title="My profile"
+        subtitle="Your details and account settings"
         actions={
           !editing ? (
-            <Button onClick={() => setEditing(true)}>تعديل البيانات</Button>
+            <Button onClick={() => setEditing(true)}>Edit details</Button>
           ) : null
         }
       />
 
       {saved && !editing && (
         <Card className="border-emerald-200 bg-emerald-50/50">
-          <p className="text-sm text-emerald-900">تم تحديث ملفك الشخصي.</p>
+          <p className="text-sm text-emerald-900">Your profile has been updated.</p>
         </Card>
       )}
 
@@ -131,7 +131,7 @@ export default function ProfilePage() {
                 <span className="font-mono text-xs text-slate-500">{p.staff_id}</span>
               )}
               {p.must_change_password && (
-                <Badge tone="warning">يتطلب تغيير كلمة المرور</Badge>
+                <Badge tone="warning">password change required</Badge>
               )}
             </div>
           </div>
@@ -143,11 +143,11 @@ export default function ProfilePage() {
       <form onSubmit={save}>
         <Card>
           <CardHeader
-            title="البيانات الشخصية"
-            subtitle={editing ? undefined : 'للقراءة فقط — اختر «تعديل البيانات» لتغييرها'}
+            title="Personal details"
+            subtitle={editing ? undefined : 'Read-only — choose Edit details to change them'}
           />
           <div className="space-y-5">
-            <Field label="الاسم الكامل" htmlFor="name" required error={errors?.name}>
+            <Field label="Full name" htmlFor="name" required error={errors?.name}>
               <Input
                 id="name"
                 value={form.name}
@@ -158,15 +158,15 @@ export default function ProfilePage() {
             </Field>
 
             <Field
-              label="البريد الإلكتروني"
+              label="Email address"
               htmlFor="email"
-              hint="تواصل مع المنسّق لتغيير البريد المسجّل على حسابك"
+              hint="Contact a coordinator to change the address on your account"
               error={errors?.email}
             >
               <Input id="email" type="email" value={form.email} disabled readOnly />
             </Field>
 
-            <Field label="الهاتف" htmlFor="phone" error={errors?.phone}>
+            <Field label="Phone" htmlFor="phone" error={errors?.phone}>
               <Input
                 id="phone"
                 value={form.phone}
@@ -177,9 +177,9 @@ export default function ProfilePage() {
             </Field>
 
             <Field
-              label="نبذة مختصرة"
+              label="Short bio"
               htmlFor="bio"
-              hint="ظاهرة للمشرفين والممتحنين في صفحات مشروعك"
+              hint="Visible to supervisors and examiners on your project pages"
               error={errors?.bio}
             >
               <Textarea
@@ -188,7 +188,7 @@ export default function ProfilePage() {
                 value={form.bio}
                 onChange={(e) => setForm((prev) => ({ ...prev, bio: e.target.value }))}
                 disabled={!editing}
-                placeholder="جملة أو جملتان عن اهتماماتك…"
+                placeholder="A sentence or two about your interests…"
               />
             </Field>
 
@@ -211,34 +211,34 @@ export default function ProfilePage() {
                   setErrors(null)
                 }}
               >
-                إلغاء
+                Cancel
               </Button>
               <Button type="submit" disabled={saving}>
-                {saving ? 'جارٍ الحفظ…' : 'حفظ التغييرات'}
+                {saving ? 'Saving…' : 'Save changes'}
               </Button>
             </div>
           )}
         </Card>
       </form>
 
-      {/* بيانات التسجيل حسب الدور — للقراءة فقط بالتصميم. */}
+      {/* Role-specific enrolment data — read-only by design. */}
       {role === 'student' && (
         <Card>
           <CardHeader
-            title="البيانات الأكاديمية"
-            subtitle="يحدّثها المنسّق — تواصل معه لتصحيح أي شيء هنا"
+            title="Academic details"
+            subtitle="Maintained by the coordinator — contact them to correct anything here"
           />
           <div className="grid gap-4 sm:grid-cols-3">
-            <ReadOnly label="رقم الطالب" value={p.student_id} mono />
-            <ReadOnly label="البرنامج" value={p.program ?? p.student_profile?.program} />
-            <ReadOnly label="الدفعة" value={p.batch ?? p.student_profile?.batch} />
+            <ReadOnly label="Student ID" value={p.student_id} mono />
+            <ReadOnly label="Programme" value={p.program ?? p.student_profile?.program} />
+            <ReadOnly label="Batch" value={p.batch ?? p.student_profile?.batch} />
             <ReadOnly
-              label="الفصل الدراسي"
+              label="Semester"
               value={p.current_semester ?? p.student_profile?.current_semester}
             />
-            <ReadOnly label="جزء المشروع" value={p.psm_part ?? p.student_profile?.psm_part} />
+            <ReadOnly label="PSM part" value={p.psm_part ?? p.student_profile?.psm_part} />
             <ReadOnly
-              label="تاريخ الالتحاق"
+              label="Enrolled"
               value={formatDate(p.created_at, { fallback: '—' })}
             />
           </div>
@@ -248,30 +248,30 @@ export default function ProfilePage() {
       {['supervisor', 'examiner'].includes(role) && (
         <Card>
           <CardHeader
-            title="بيانات الإشراف"
-            subtitle="يحدّثها المنسّق"
+            title="Supervision details"
+            subtitle="Maintained by the coordinator"
           />
           <div className="grid gap-4 sm:grid-cols-3">
-            <ReadOnly label="رقم الموظف" value={p.staff_id} mono />
+            <ReadOnly label="Staff ID" value={p.staff_id} mono />
             <ReadOnly
-              label="الحد الأقصى للمشرفين عليهم"
+              label="Max supervisees"
               value={p.max_supervisees ?? p.supervisor_profile?.max_supervisees}
             />
             <ReadOnly
-              label="العبء الحالي"
+              label="Current load"
               value={p.current_load ?? p.supervisor_profile?.current_load}
             />
             <ReadOnly
-              label="يقبل طلابًا جددًا"
+              label="Accepting students"
               value={
                 (p.is_accepting_students ?? p.supervisor_profile?.is_accepting_students)
-                  ? 'نعم'
-                  : 'لا'
+                  ? 'Yes'
+                  : 'No'
               }
             />
-            <ReadOnly label="يمكنه الامتحان" value={p.can_examine ? 'نعم' : 'لا'} />
+            <ReadOnly label="Can examine" value={p.can_examine ? 'Yes' : 'No'} />
             <ReadOnly
-              label="الخبرات"
+              label="Expertise"
               value={(p.expertise ?? []).join(', ') || '—'}
             />
           </div>
@@ -279,37 +279,37 @@ export default function ProfilePage() {
       )}
 
       <Card>
-        <CardHeader title="الأمان" />
+        <CardHeader title="Security" />
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-slate-800">كلمة المرور</p>
+              <p className="text-sm font-medium text-slate-800">Password</p>
               <p className="text-sm text-slate-500">
                 {p.password_changed_at
-                  ? `آخر تغيير قبل ${relativeDays(p.password_changed_at)}`
-                  : 'غيّر كلمة المرور بانتظام'}
+                  ? `Last changed ${relativeDays(p.password_changed_at)}`
+                  : 'Change your password regularly'}
               </p>
             </div>
             <Link to="/change-password">
-              <Button variant="secondary">تغيير كلمة المرور</Button>
+              <Button variant="secondary">Change password</Button>
             </Link>
           </div>
 
           {p.last_login_at && (
             <div className="border-t border-slate-100 pt-4">
-              <p className="text-sm font-medium text-slate-800">آخر تسجيل دخول</p>
+              <p className="text-sm font-medium text-slate-800">Last sign-in</p>
               <p className="text-sm text-slate-500">
-                {formatDate(p.last_login_at, { fallback: 'غير معروف' })}
-                {p.last_login_ip && ` من ${p.last_login_ip}`}
+                {formatDate(p.last_login_at, { fallback: 'Unknown' })}
+                {p.last_login_ip && ` from ${p.last_login_ip}`}
               </p>
             </div>
           )}
 
           <div className="border-t border-slate-100 pt-4">
-            <p className="text-sm font-medium text-slate-800">تسجيل الخروج</p>
+            <p className="text-sm font-medium text-slate-800">Sign out</p>
             <p className="text-sm text-slate-500">
-              تسجيل الخروج يلغي الرمز لهذا المتصفح فقط. إذا سجّلت الدخول على جهاز
-              مشترك أو عام، فسجّل الخروج منه كذلك.
+              Signing out revokes the token for this browser only. If you have signed in on
+              a shared or public computer, sign out there too.
             </p>
             <div className="mt-3">
               <SignOutNow />
@@ -321,8 +321,8 @@ export default function ProfilePage() {
       {!p.name && (
         <Card>
           <EmptyState
-            title="ملف شخصي غير مكتمل"
-            message="لا يوجد اسم مسجّل على حسابك. أضف اسمًا ليتمكن المشرفون من التعرّف عليك."
+            title="Profile incomplete"
+            message="Your account has no name recorded. Please add one so supervisors can identify you."
           />
         </Card>
       )}
@@ -363,7 +363,7 @@ function SignOutNow() {
       // screen is discarded rather than left in memory.
       window.location.href = '/login'
     } catch (err) {
-      setError(err?.message ?? 'تعذّر تسجيل خروجك.')
+      setError(err?.message ?? 'Could not sign you out.')
       setBusy(false)
     }
   }
@@ -372,7 +372,7 @@ function SignOutNow() {
     <div className="space-y-2">
       {error && <p className="text-sm text-rose-700">{error}</p>}
       <Button variant="secondary" disabled={busy} onClick={signOut}>
-        {busy ? 'جارٍ تسجيل الخروج…' : 'تسجيل الخروج من هذا المتصفح'}
+        {busy ? 'Signing out…' : 'Sign out of this browser'}
       </Button>
     </div>
   )

@@ -84,7 +84,7 @@ export default function NotificationPage() {
     }
   }
 
-  if (loading) return <Spinner label="جارٍ تحميل الإشعارات" />
+  if (loading) return <Spinner label="Loading notifications" />
   if (error) return <ErrorState error={error} />
 
   const unreadCount = summary?.unread_count ?? items.filter((i) => !i.read_at).length
@@ -92,16 +92,16 @@ export default function NotificationPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="الإشعارات"
+        title="Notifications"
         subtitle={
           unreadCount > 0
-            ? `${unreadCount} غير مقروء`
-            : 'أنت على اطلاعّ بكل ما هو جديد'
+            ? `${unreadCount} unread`
+            : 'You are up to date'
         }
         actions={
           unreadCount > 0 ? (
             <Button variant="secondary" disabled={busy} onClick={markAllRead}>
-              {busy ? 'جارٍ التحديد…' : 'تحديد الكل كمقروء'}
+              {busy ? 'Marking…' : 'Mark all as read'}
             </Button>
           ) : null
         }
@@ -112,19 +112,19 @@ export default function NotificationPage() {
           <Select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            aria-label="تصفية الإشعارات"
+            aria-label="Filter notifications"
           >
-            <option value="unread">غير المقروء</option>
-            <option value="all">الكل</option>
-            <option value="deadline_reminder">تذكيرات المواعيد</option>
-            <option value="status_change">تغييرات الحالة</option>
-            <option value="submission_received">التسليمات</option>
-            <option value="evaluation_assigned">التقييمات</option>
-            <option value="grade_released">الدرجات</option>
+            <option value="unread">Unread</option>
+            <option value="all">All</option>
+            <option value="deadline_reminder">Deadline reminders</option>
+            <option value="status_change">Status changes</option>
+            <option value="submission_received">Submissions</option>
+            <option value="evaluation_assigned">Assessments</option>
+            <option value="grade_released">Grades</option>
           </Select>
           {meta && (
             <span className="text-sm text-slate-500">
-              {meta.total} إشعار{meta.total === 1 ? '' : 'ات'}
+              {meta.total} notification{meta.total === 1 ? '' : 's'}
             </span>
           )}
         </div>
@@ -133,11 +133,11 @@ export default function NotificationPage() {
       {items.length === 0 ? (
         <Card>
           <EmptyState
-            title={filter === 'unread' ? 'لا شيء غير مقروء' : 'لا توجد إشعارات'}
+            title={filter === 'unread' ? 'Nothing unread' : 'No notifications'}
             message={
               filter === 'unread'
-                ? 'قرأت كل شيء. بدّل إلى «الكل» لمراجعة الإشعارات السابقة.'
-                : 'ستظهر هنا إشعارات المواعيد والتسليمات والدرجات.'
+                ? 'You have read everything. Switch to "All" to review previous notifications.'
+                : 'Notifications about deadlines, submissions and grades will appear here.'
             }
           />
         </Card>
@@ -183,7 +183,7 @@ function NotificationRow({ item, onRead }) {
         </p>
       </div>
       {unread && (
-        <span className="shrink-0 self-center text-xs text-slate-400">جديد</span>
+        <span className="shrink-0 self-center text-xs text-slate-400">new</span>
       )}
     </div>
   )
@@ -202,7 +202,7 @@ function NotificationRow({ item, onRead }) {
   // exposed as a button and made keyboard-operable.
   return (
     <li>
-      <button type="button" className="block w-full text-start" onClick={() => onRead(item)}>
+      <button type="button" className="block w-full text-left" onClick={() => onRead(item)}>
         {body}
       </button>
     </li>
@@ -233,14 +233,14 @@ function linkFor(item) {
 
 function typeLabel(type) {
   const labels = {
-    deadline_reminder: 'موعد',
-    status_change: 'حالة',
-    submission_received: 'تسليم',
-    evaluation_assigned: 'تقييم',
-    grade_released: 'درجة',
-    system: 'النظام',
+    deadline_reminder: 'deadline',
+    status_change: 'status',
+    submission_received: 'submission',
+    evaluation_assigned: 'assessment',
+    grade_released: 'grade',
+    system: 'system',
   }
-  return labels[type] ?? (type ?? 'ملاحظة').replace(/_/g, ' ')
+  return labels[type] ?? (type ?? 'notice').replace(/_/g, ' ')
 }
 
 function toneFor(type) {

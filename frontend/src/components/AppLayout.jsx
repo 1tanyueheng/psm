@@ -21,52 +21,52 @@ import { initials } from '../lib/format'
 
 const MENU = [
   {
-    group: 'الرئيسية',
+    group: 'Dashboard',
     items: [
-      { to: '/student/dashboard', label: 'مشروعي', roles: ['student'] },
-      { to: '/supervisor/dashboard', label: 'المشاريع تحت إشرافي', roles: ['supervisor'] },
-      { to: '/coordinator/dashboard', label: 'نظرة عامة على الدفعة', roles: ['coordinator', 'admin'] },
-      { to: '/examiner/dashboard', label: 'تكليفاتي', roles: ['examiner'] },
-      { to: '/admin/dashboard', label: 'نظرة عامة على النظام', roles: ['admin'] },
+      { to: '/student/dashboard', label: 'My Project', roles: ['student'] },
+      { to: '/supervisor/dashboard', label: 'My Supervisees', roles: ['supervisor'] },
+      { to: '/coordinator/dashboard', label: 'Cohort Overview', roles: ['coordinator', 'admin'] },
+      { to: '/examiner/dashboard', label: 'My Assignments', roles: ['examiner'] },
+      { to: '/admin/dashboard', label: 'System Overview', roles: ['admin'] },
     ],
   },
   {
-    group: 'المشاريع',
+    group: 'Projects',
     items: [
-      { to: '/projects', label: 'كل المشاريع', roles: ['student', 'supervisor', 'coordinator', 'examiner', 'admin'] },
-      { to: '/milestones', label: 'المراحل', roles: ['student', 'supervisor', 'coordinator', 'examiner'] },
-      { to: '/assignments', label: 'الإشراف', roles: ['coordinator', 'admin'] },
+      { to: '/projects', label: 'All Projects', roles: ['student', 'supervisor', 'coordinator', 'examiner', 'admin'] },
+      { to: '/milestones', label: 'Milestones', roles: ['student', 'supervisor', 'coordinator', 'examiner'] },
+      { to: '/assignments', label: 'Supervision', roles: ['coordinator', 'admin'] },
     ],
   },
   {
-    group: 'التقييم',
+    group: 'Assessment',
     items: [
-      { to: '/evaluations', label: 'تصحيحاتي', roles: ['supervisor', 'examiner'] },
-      { to: '/grades', label: 'الدرجات والنشر', roles: ['coordinator', 'admin'] },
-      { to: '/rubrics', label: 'سلم التقييم', roles: ['supervisor', 'examiner', 'coordinator', 'admin'] },
+      { to: '/evaluations', label: 'My Marking', roles: ['supervisor', 'examiner'] },
+      { to: '/grades', label: 'Grades & Release', roles: ['coordinator', 'admin'] },
+      { to: '/rubrics', label: 'Rubrics', roles: ['supervisor', 'examiner', 'coordinator', 'admin'] },
     ],
   },
   {
-    group: 'التحليلات',
+    group: 'Insight',
     items: [
-      { to: '/reports', label: 'التقارير', roles: ['coordinator', 'admin'] },
-      { to: '/archive', label: 'الأرشيف', roles: ['student', 'supervisor', 'coordinator', 'examiner', 'admin'] },
-      { to: '/audit', label: 'سجل التدقيق', roles: ['coordinator', 'admin'] },
-      { to: '/users', label: 'حسابات المستخدمين', roles: ['admin'] },
+      { to: '/reports', label: 'Reports', roles: ['coordinator', 'admin'] },
+      { to: '/archive', label: 'Archive', roles: ['student', 'supervisor', 'coordinator', 'examiner', 'admin'] },
+      { to: '/audit', label: 'Audit Log', roles: ['coordinator', 'admin'] },
+      { to: '/users', label: 'User Accounts', roles: ['admin'] },
     ],
   },
   {
-    group: 'التكريم',
+    group: 'Recognition',
     items: [
-      { to: '/leaderboards', label: 'لوحات المتصدرين', roles: ['coordinator', 'admin'] },
-      { to: '/leaderboard', label: 'الصفحة العامة', roles: ['coordinator', 'admin'], external: true },
+      { to: '/leaderboards', label: 'Leaderboards', roles: ['coordinator', 'admin'] },
+      { to: '/leaderboard', label: 'Public Page', roles: ['coordinator', 'admin'], external: true },
     ],
   },
   {
-    group: 'الحساب',
+    group: 'Account',
     items: [
-      { to: '/notifications', label: 'الإشعارات', roles: ['student', 'supervisor', 'coordinator', 'examiner', 'admin'] },
-      { to: '/profile', label: 'ملفي الشخصي', roles: ['student', 'supervisor', 'coordinator', 'examiner', 'admin'] },
+      { to: '/notifications', label: 'Notifications', roles: ['student', 'supervisor', 'coordinator', 'examiner', 'admin'] },
+      { to: '/profile', label: 'My Profile', roles: ['student', 'supervisor', 'coordinator', 'examiner', 'admin'] },
     ],
   },
 ]
@@ -120,18 +120,18 @@ export default function AppLayout() {
           to tab through every item to reach the content. */}
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:right-2 focus:z-50
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50
                    focus:px-3 focus:py-2 focus:bg-white focus:border focus:border-slate-200
                    focus:rounded-lg focus:text-sm"
       >
-        تخطَّ إلى المحتوى
+        Skip to content
       </a>
 
       {/* ---------------- Sidebar ---------------- */}
       <aside
-        className={`fixed inset-y-0 right-0 z-40 w-60 bg-white border-l border-slate-200
+        className={`fixed inset-y-0 left-0 z-40 w-60 bg-white border-r border-slate-200
           flex flex-col transition-transform lg:translate-x-0
-          ${menuOpen ? 'translate-x-0' : 'translate-x-full'}`}
+          ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* Brand */}
         <div className="h-14 flex items-center gap-2.5 px-4 border-b border-slate-200 shrink-0">
@@ -139,8 +139,8 @@ export default function AppLayout() {
             PSM
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-slate-900 leading-tight">نظام PSM</p>
-            <p className="text-[11px] text-slate-500 leading-tight">المشاريع التخرجية</p>
+            <p className="text-sm font-medium text-slate-900 leading-tight">PSM System</p>
+            <p className="text-[11px] text-slate-500 leading-tight">Final Year Projects</p>
           </div>
         </div>
 
@@ -148,7 +148,7 @@ export default function AppLayout() {
         <nav className="flex-1 overflow-y-auto px-2 py-3">
           {sections.map((section) => (
             <div key={section.group} className="mb-4 last:mb-0">
-              <p className="px-3 mb-1 text-[11px] font-medium text-slate-400">
+              <p className="px-3 mb-1 text-[11px] font-medium text-slate-400 uppercase tracking-wide">
                 {section.group}
               </p>
               <ul>
@@ -205,9 +205,9 @@ export default function AppLayout() {
           <button
             type="button"
             onClick={logout}
-            className="w-full text-start px-3 py-1.5 rounded-lg text-xs text-slate-600 hover:bg-slate-100"
+            className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-slate-600 hover:bg-slate-100"
           >
-            تسجيل الخروج
+            Sign out
           </button>
         </div>
       </aside>
@@ -216,27 +216,27 @@ export default function AppLayout() {
       {menuOpen && (
         <button
           type="button"
-          aria-label="إغلاق التنقل"
+          aria-label="Close navigation"
           onClick={() => setMenuOpen(false)}
           className="fixed inset-0 z-30 bg-slate-900/20 lg:hidden"
         />
       )}
 
       {/* ---------------- Main ---------------- */}
-      <div className="lg:pr-60">
+      <div className="lg:pl-60">
         {/* Mobile top bar */}
         <div className="lg:hidden h-14 flex items-center gap-3 px-4 bg-white border-b border-slate-200">
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
-            aria-label="فتح التنقل"
+            aria-label="Open navigation"
             className="p-1.5 rounded-lg hover:bg-slate-100"
           >
             <svg className="w-5 h-5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
             </svg>
           </button>
-          <p className="text-sm font-medium text-slate-900">نظام PSM</p>
+          <p className="text-sm font-medium text-slate-900">PSM System</p>
         </div>
 
         <main id="main" className="p-4 sm:p-6 lg:p-8 max-w-[1400px]">

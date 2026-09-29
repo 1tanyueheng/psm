@@ -31,7 +31,7 @@ class ArchiveService
     {
         if ($project->archivedRecord()->exists()) {
             throw new InvalidArgumentException(
-                "تمت أرشفة المشروع {$project->code} بالفعل."
+                "Project {$project->code} has already been archived."
             );
         }
 
@@ -87,7 +87,7 @@ class ArchiveService
 
             $this->audit->log(
                 action: AuditAction::ProjectArchived,
-                description: "أُرشف {$project->code} ({$project->title})",
+                description: "Archived {$project->code} ({$project->title})",
                 subject: $record,
                 actor: $actor,
             );
@@ -167,7 +167,7 @@ class ArchiveService
     {
         if ($record->project_id && Project::withTrashed()->find($record->project_id)) {
             throw new InvalidArgumentException(
-                'المشروع الأصلي ما زال موجودًا؛ قم بإلغاء أرشفته بدلًا من استعادته.'
+                'The live project still exists; un-archive it instead of restoring it.'
             );
         }
 
@@ -191,7 +191,7 @@ class ArchiveService
 
             $this->audit->log(
                 action: AuditAction::ArchiveRestored,
-                description: "استُعيد {$record->code} من الأرشيف",
+                description: "Restored {$record->code} from archive",
                 subject: $project,
                 actor: $actor,
             );

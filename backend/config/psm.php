@@ -72,16 +72,16 @@ return [
 
     // Module 4 — Grade banding
     'grade_bands' => [
-        ['min' => 80, 'grade' => 'A',  'point' => 4.00, 'label' => 'ممتاز'],
-        ['min' => 75, 'grade' => 'A-', 'point' => 3.67, 'label' => 'جيد جدًا'],
-        ['min' => 70, 'grade' => 'B+', 'point' => 3.33, 'label' => 'جيد'],
-        ['min' => 65, 'grade' => 'B',  'point' => 3.00, 'label' => 'مرضي'],
-        ['min' => 60, 'grade' => 'B-', 'point' => 2.67, 'label' => 'مقبول'],
-        ['min' => 55, 'grade' => 'C+', 'point' => 2.33, 'label' => 'ضعيف'],
-        ['min' => 50, 'grade' => 'C',  'point' => 2.00, 'label' => 'ناجح'],
-        ['min' => 47, 'grade' => 'C-', 'point' => 1.67, 'label' => 'رسوب حدي'],
-        ['min' => 40, 'grade' => 'D',  'point' => 1.00, 'label' => 'راسب'],
-        ['min' => 0,  'grade' => 'F',  'point' => 0.00, 'label' => 'راسب'],
+        ['min' => 80, 'grade' => 'A',  'point' => 4.00, 'label' => 'Excellent'],
+        ['min' => 75, 'grade' => 'A-', 'point' => 3.67, 'label' => 'Very good'],
+        ['min' => 70, 'grade' => 'B+', 'point' => 3.33, 'label' => 'Good'],
+        ['min' => 65, 'grade' => 'B',  'point' => 3.00, 'label' => 'Satisfactory'],
+        ['min' => 60, 'grade' => 'B-', 'point' => 2.67, 'label' => 'Acceptable'],
+        ['min' => 55, 'grade' => 'C+', 'point' => 2.33, 'label' => 'Weak'],
+        ['min' => 50, 'grade' => 'C',  'point' => 2.00, 'label' => 'Pass'],
+        ['min' => 47, 'grade' => 'C-', 'point' => 1.67, 'label' => 'Marginal fail'],
+        ['min' => 40, 'grade' => 'D',  'point' => 1.00, 'label' => 'Fail'],
+        ['min' => 0,  'grade' => 'F',  'point' => 0.00, 'label' => 'Fail'],
     ],
 
     // Module 6 — Reminder schedule

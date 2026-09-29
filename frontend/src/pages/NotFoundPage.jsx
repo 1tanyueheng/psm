@@ -18,12 +18,12 @@ export default function NotFoundPage() {
     <div className="flex min-h-[70vh] items-center justify-center px-4">
       <div className="max-w-md text-center">
         <p className="text-sm font-medium uppercase tracking-widest text-brand-700">
-          الخطأ 404
+          Error 404
         </p>
-        <h1 className="mt-3 text-3xl font-semibold text-slate-900">الصفحة غير موجودة</h1>
+        <h1 className="mt-3 text-3xl font-semibold text-slate-900">Page not found</h1>
         <p className="mt-3 text-slate-600">
-          لم نعثر على أي شيء في هذا العنوان. قد يكون الرابط قديماً، أو قد تكون
-          البيانات مؤرشفة.
+          We could not find anything at that address. The link may be out of date, or the
+          item may have been archived.
         </p>
 
         {location.pathname && location.pathname !== '/' && (
@@ -36,19 +36,19 @@ export default function NotFoundPage() {
           {isAuthenticated ? (
             <>
               <Link to={homeRoute ?? '/dashboard'}>
-                <Button>الانتقال إلى لوحتي</Button>
+                <Button>Go to my dashboard</Button>
               </Link>
               <Link to="/projects">
-                <Button variant="secondary">تصفح المشاريع</Button>
+                <Button variant="secondary">Browse projects</Button>
               </Link>
             </>
           ) : (
             <>
               <Link to="/login">
-                <Button>تسجيل الدخول</Button>
+                <Button>Sign in</Button>
               </Link>
               <Link to="/leaderboard">
-                <Button variant="secondary">عرض نتائج التكريم</Button>
+                <Button variant="secondary">View award results</Button>
               </Link>
             </>
           )}
