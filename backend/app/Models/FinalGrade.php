@@ -133,4 +133,23 @@ class FinalGrade extends Model
     {
         return $query->whereHas('studentProfile', fn ($q) => $q->where('batch', $batch));
     }
+
+    /**
+     * Module 4 — free-text search behind the grade list's search box.
+     *
+     * Matches the student and the project, since a coordinator looking for
+     * "who got the A?" is usually typing one of those two.
+     */
+    public function scopeSearch(Builder $query, string $term): Builder
+    {
+        $like = '%'.$term.'%';
+
+        return $query->where(function (Builder $q) use ($like) {
+            $q->whereHas('project', fn ($p) => $p->where('title', 'like', $like)
+                ->orWhere('code', 'like', $like))
+              ->orWhereHas('studentProfile', fn ($s) => $s->where('student_id', 'like', $like)
+                ->orWhere('program', 'like', $like)
+                ->orWhereHas('user', fn ($u) => $u->where('name', 'like', $like)));
+        });
+    }
 }

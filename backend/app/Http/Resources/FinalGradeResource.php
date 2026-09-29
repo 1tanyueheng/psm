@@ -40,6 +40,10 @@ class FinalGradeResource extends JsonResource
                 'code'  => $this->project->code,
                 'title' => $this->project->title,
                 'batch' => $this->project->batch,
+                // The grade list is sorted and filtered by category, so it has
+                // to travel with the grade rather than cost another request.
+                'category'       => $this->project->category?->value,
+                'category_label' => $this->project->category?->label(),
             ] : null),
 
             // -----------------------------------------------------------------

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { archiveApi } from '../../api/endpoints'
-import { unwrapPaged } from '../../api/client'
+import { unwrap, unwrapPaged } from '../../api/client'
 import {
   Card, PageHeader, Badge, EmptyState, Spinner, ErrorState,
   Button, Input, Select, DataTable, Td,
@@ -22,6 +22,7 @@ export default function ArchivePage() {
   const [rows, setRows] = useState([])
   const [meta, setMeta] = useState(null)
   const [sessions, setSessions] = useState([])
+  const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -42,6 +43,28 @@ export default function ArchivePage() {
     [params, setParams]
   )
 
+  // Filter options come from the API, not from the rows currently on screen:
+  // deriving them from a result set makes the options change as you filter.
+  useEffect(() => {
+    let cancelled = false
+
+    archiveApi
+      .filters()
+      .then((res) => {
+        if (cancelled) return
+        const data = unwrap(res) ?? {}
+        setSessions(data.sessions ?? [])
+        setCategories(data.categories ?? [])
+      })
+      .catch(() => {
+        // The search box still works without the dropdowns.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   useEffect(() => {
     let cancelled = false
 
@@ -49,9 +72,10 @@ export default function ArchivePage() {
       setLoading(true)
       setError(null)
       try {
+        // `search` and `session` are the names the archive endpoint reads.
         const res = await archiveApi.list({
-          q: search || undefined,
-          academic_session: session || undefined,
+          search: search || undefined,
+          session: session || undefined,
           category: category || undefined,
           psm_part: psmPart || undefined,
           page,
@@ -61,12 +85,6 @@ export default function ArchivePage() {
         const { items, meta: pageMeta } = unwrapPaged(res)
         setRows(items)
         setMeta(pageMeta)
-        // Session list rides along on the first response so the filter can be
-        // populated without a second round trip.
-        if (items.length > 0 && sessions.length === 0) {
-          const unique = [...new Set(items.map((r) => r.academic_session).filter(Boolean))]
-          setSessions(unique.sort().reverse())
-        }
       } catch (err) {
         if (!cancelled) setError(err)
       } finally {
@@ -78,7 +96,7 @@ export default function ArchivePage() {
     return () => {
       cancelled = true
     }
-  }, [search, session, category, psmPart, page, sessions.length])
+  }, [search, session, category, psmPart, page])
 
   const hasFilters = Boolean(search || session || category || psmPart)
 
@@ -122,9 +140,9 @@ export default function ArchivePage() {
             aria-label="Filter by category"
           >
             <option value="">All categories</option>
-            {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
+            {categories.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label ?? CATEGORY_LABELS[c.value] ?? c.value}
               </option>
             ))}
           </Select>

@@ -1,4 +1,4 @@
-import api, { unwrap, unwrapPaged } from './client'
+import api, { unwrap, unwrapPaged, saveDownload } from './client'
 
 /**
  * The API surface, grouped to mirror the backend's module layout.
@@ -151,6 +151,11 @@ export const milestoneApi = {
     api.post(`/milestones/${id}/deadline`, { due_at: dueAt, reason }).then(unwrap),
 
   downloadUrl: (fileId) => `/api/submissions/${fileId}/download`,
+  /** Authenticated file download — see reportApi.download for why. */
+  download: (fileId) =>
+    api
+      .get(`/submissions/${fileId}/download`, { responseType: 'blob' })
+      .then((res) => saveDownload(res, `submission-${fileId}`)),
   deleteFile: (fileId) => api.delete(`/submissions/${fileId}`).then(unwrap),
 
   // --- Aliases -----------------------------------------------------------
@@ -255,15 +260,16 @@ export const reportApi = {
     api.get('/reports/milestone-breakdown', { params }).then(unwrap),
 
   /**
-   * CSV download URL.
+   * CSV download.
    *
-   * Points at the API directly so the browser streams the file rather than
-   * axios buffering a large export in memory and re-blobbing it.
+   * Fetched with the bearer token and saved client-side, so the file arrives
+   * with the server's name and a 401 surfaces as an error rather than a
+   * download of JSON.
    */
-  exportUrl: (kind, params = {}) => {
-    const query = new URLSearchParams(params).toString()
-    return `/api/reports/export/${kind}.csv${query ? `?${query}` : ''}`
-  },
+  download: (kind, params = {}) =>
+    api
+      .get(`/reports/export/${kind}.csv`, { params, responseType: 'blob' })
+      .then((res) => saveDownload(res, `psm-${kind}-export.csv`)),
 
   // --- Aliases, mapped onto the real report routes -----------------------
   /** Cohort headline figures for the dashboard. */
@@ -308,15 +314,26 @@ export const archiveApi = {
     return `/api/archive/export.csv${query ? `?${query}` : ''}`
   },
 
+  /** Authenticated CSV download — see reportApi.download for why. */
+  download: (params = {}) =>
+    api
+      .get('/archive/export.csv', { params, responseType: 'blob' })
+      .then((res) => saveDownload(res, 'psm-archive-export.csv')),
+
   // --- Aliases -----------------------------------------------------------
   /** Read one archived record. */
   get: (id) => api.get(`/archive/${id}`).then(unwrap),
+  downloadUrl: (fileId) => `/api/submissions/${fileId}/download`,
   /**
    * A document preserved with an archived project is downloaded through the
    * normal submission-file route, since the archive stores a reference to the
-   * original file rather than a second copy.
+   * original file rather than a second copy. Named `downloadFile` so it does
+   * not collide with the CSV `download` above.
    */
-  downloadUrl: (fileId) => `/api/submissions/${fileId}/download`,
+  downloadFile: (fileId) =>
+    api
+      .get(`/submissions/${fileId}/download`, { responseType: 'blob' })
+      .then((res) => saveDownload(res, `submission-${fileId}`)),
 }
 
 export const auditApi = {

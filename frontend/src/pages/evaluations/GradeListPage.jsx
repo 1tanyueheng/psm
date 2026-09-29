@@ -58,7 +58,9 @@ export default function GradeListPage() {
       const { items, meta: pageMeta } = unwrapPaged(listRes.value)
       setRows(items)
       setMeta(pageMeta)
-      setDistribution(distRes.status === 'fulfilled' ? (unwrap(distRes.value) ?? []) : [])
+      // The distribution endpoint answers with { distribution, by_band, stats,
+      // ... } — the bands are the rows to render, not the raw count map.
+      setDistribution(distRes.status === 'fulfilled' ? unwrap(distRes.value)?.by_band ?? [] : [])
     } catch (err) {
       setError(err)
     } finally {
@@ -70,7 +72,9 @@ export default function GradeListPage() {
     load()
   }, [load])
 
-  const pending = useMemo(() => rows.filter((r) => r.status === 'computed'), [rows])
+  // A grade is either released or still provisional. The API stores nothing
+  // else, so "not yet released" is the only pending state there is.
+  const pending = useMemo(() => rows.filter((r) => r.status !== 'released'), [rows])
 
   async function release(grade) {
     setBusyId(grade.id)
@@ -170,10 +174,8 @@ export default function GradeListPage() {
                 aria-label="Filter by status"
               >
                 <option value="">All statuses</option>
-                <option value="computed">Computed, not released</option>
+                <option value="provisional">Awaiting release</option>
                 <option value="released">Released</option>
-                <option value="pending">Pending assessment</option>
-                <option value="moderated">Moderated</option>
               </Select>
             </div>
           </Card>
@@ -214,23 +216,23 @@ export default function GradeListPage() {
                   </Td>
                   <Td>
                     <div className="flex items-center gap-2">
-                      <Avatar name={grade.project?.students?.[0]?.name ?? '—'} size="sm" />
+                      <Avatar name={grade.student?.name ?? '—'} size="sm" />
                       <div className="min-w-0">
                         <div className="truncate text-sm text-slate-700">
-                          {grade.project?.students?.[0]?.name ?? '—'}
+                          {grade.student?.name ?? '—'}
                         </div>
                         <div className="font-mono text-xs text-slate-400">
-                          {grade.project?.students?.[0]?.student_id}
+                          {grade.student?.student_id}
                         </div>
                       </div>
                     </div>
                   </Td>
                   <Td className="text-sm text-slate-600">
-                    {CATEGORY_LABELS[grade.project?.category] ?? '—'}
+                    {grade.project?.category_label ?? CATEGORY_LABELS[grade.project?.category] ?? '—'}
                   </Td>
                   <Td className="text-center tabular-nums text-slate-600">
                     {grade.assessor_count ?? 0}
-                    {grade.min_assessors != null && grade.assessor_count < grade.min_assessors && (
+                    {grade.status !== 'released' && grade.is_publishable === false && (
                       <span className="ml-1 text-xs text-amber-600">insufficient</span>
                     )}
                   </Td>
@@ -242,15 +244,9 @@ export default function GradeListPage() {
                   </Td>
                   <Td>
                     <Badge
-                      tone={
-                        grade.status === 'released'
-                          ? 'success'
-                          : grade.status === 'computed'
-                            ? 'warning'
-                            : 'neutral'
-                      }
+                      tone={grade.status === 'released' ? 'success' : 'warning'}
                     >
-                      {grade.status === 'computed' ? 'awaiting release' : grade.status}
+                      {grade.status === 'released' ? 'released' : 'awaiting release'}
                     </Badge>
                     {grade.released_at && (
                       <div className="mt-0.5 text-xs text-slate-400">
@@ -259,7 +255,7 @@ export default function GradeListPage() {
                     )}
                   </Td>
                   <Td>
-                    {canRelease && grade.status === 'computed' ? (
+                    {canRelease && grade.status !== 'released' ? (
                       <Button
                         size="sm"
                         disabled={busyId === grade.id || busyId === 'all'}

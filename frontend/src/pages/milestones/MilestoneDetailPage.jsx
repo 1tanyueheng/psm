@@ -201,6 +201,7 @@ function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
   const [uploading, setUploading] = useState(false)
   const [errors, setErrors] = useState(null)
   const [error, setError] = useState(null)
+  const [downloadError, setDownloadError] = useState(null)
 
   const existing = milestone.files ?? []
   const accepts = milestone.accepts_submission
@@ -275,6 +276,8 @@ function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
         }
       />
 
+      {downloadError && <ErrorState error={{ message: downloadError }} />}
+
       {/* Already-submitted files. Always visible, whatever the status. */}
       {existing.length > 0 ? (
         <ul className="mb-5 divide-y divide-slate-100 border-b border-slate-100 pb-4">
@@ -290,7 +293,18 @@ function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
                   {file.uploaded_at && ` · uploaded ${relativeDays(file.uploaded_at)}`}
                 </p>
               </div>
-              <Button size="sm" variant="ghost" onClick={() => window.open(milestoneApi.downloadUrl(file.id), '_blank')}>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setDownloadError(null)
+                  milestoneApi
+                    .download(file.id)
+                    .catch((err) =>
+                      setDownloadError(err?.message ?? 'That file could not be downloaded.')
+                    )
+                }}
+              >
                 Download
               </Button>
             </li>

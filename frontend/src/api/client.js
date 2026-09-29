@@ -124,3 +124,44 @@ export function unwrap(response) {
 
   return response.data?.data ?? null
 }
+
+/**
+ * Saves a binary response as a file download.
+ *
+ * Exports are fetched through the axios instance rather than opened with
+ * `window.open`. The export routes sit behind Sanctum, and a plain navigation
+ * carries no Authorization header, so the browser would be handed a 401 JSON
+ * envelope instead of the CSV.
+ */
+export function saveDownload(response, fallbackName) {
+  const contentType = response.headers?.['content-type'] ?? ''
+
+  // With responseType: 'blob' an error envelope also arrives as a Blob, so a
+  // failed export would otherwise be saved as a file full of JSON.
+  if (contentType.includes('application/json')) {
+    return response.data.text().then((text) => {
+      let message = 'The export could not be generated.'
+      try {
+        message = JSON.parse(text).message ?? message
+      } catch {
+        // Not JSON after all; the fallback message stands.
+      }
+      throw { message }
+    })
+  }
+
+  // Content-Disposition is CORS-exposed, so the server's filename survives.
+  const disposition = response.headers?.['content-disposition'] ?? ''
+  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition)
+  const filename = match ? decodeURIComponent(match[1]) : fallbackName
+
+  const url = URL.createObjectURL(response.data)
+  const link = document.createElement('a')
+
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}

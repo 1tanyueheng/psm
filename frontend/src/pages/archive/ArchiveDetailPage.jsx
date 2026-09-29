@@ -20,6 +20,7 @@ export default function ArchiveDetailPage() {
   const [record, setRecord] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [actionError, setActionError] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -267,6 +268,7 @@ export default function ArchiveDetailPage() {
       {(record.documents ?? []).length > 0 && (
         <Card>
           <CardHeader title="Documents" subtitle="Files preserved with this record" />
+          {actionError && <ErrorState error={{ message: actionError }} />}
           <ul className="divide-y divide-slate-100">
             {record.documents.map((doc) => (
               <li key={doc.id ?? doc.name} className="flex items-center gap-3 py-3">
@@ -279,7 +281,14 @@ export default function ArchiveDetailPage() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => window.open(archiveApi.downloadUrl(doc.id), '_blank')}
+                  onClick={() => {
+                    setActionError(null)
+                    archiveApi
+                      .downloadFile(doc.id)
+                      .catch((err) =>
+                        setActionError(err?.message ?? 'That file could not be downloaded.')
+                      )
+                  }}
                 >
                   Download
                 </Button>

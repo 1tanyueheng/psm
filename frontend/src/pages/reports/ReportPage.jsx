@@ -1,34 +1,58 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { reportApi } from '../../api/endpoints'
 import { unwrap } from '../../api/client'
 import {
   Card, CardHeader, PageHeader, StatCard, Badge, EmptyState, Spinner,
   ErrorState, Button, DataTable, Td, ProgressBar, Select,
 } from '../../components/ui'
-import { formatPercent, formatMark, gradeTone, CATEGORY_LABELS } from '../../lib/format'
+import { formatPercent, formatMark } from '../../lib/format'
 
 /**
  * Reporting & analytics (Module 5).
  *
  * Everything here is aggregated, so the page is organised as a small dashboard
- * rather than a set of tables: cohort health at the top, then the two
- * breakdowns a coordinator actually acts on (by programme and by supervisor),
- * then milestone timeliness, which is the earliest warning signal available.
+ * rather than a set of tables: cohort health at the top, then the breakdowns a
+ * coordinator actually acts on (where the cohort is stuck, and by batch),
+ * then outcomes (grade distribution) and the two operational tables —
+ * milestone completion and supervision load.
  *
- * Export buttons point at the API's CSV endpoints — the browser downloads
- * directly from the API rather than streaming through React, so a large export
- * does not have to fit in memory here.
+ * Every figure below is read from the shape the API actually returns:
+ * `/reports/dashboard` answers with `{ cohort, awaiting_review, at_risk,
+ * grades, categories }`, `cohort-progress` with the bare `cohort` object, and
+ * the workload and milestone endpoints with flat row arrays.
  */
 export default function ReportPage() {
-  const [session, setSession] = useState('')
-  const [sessions, setSessions] = useState([])
-  const [overview, setOverview] = useState(null)
-  const [programmes, setProgrammes] = useState([])
+  const [batch, setBatch] = useState('')
+  const [batches, setBatches] = useState([])
+  const [summary, setSummary] = useState(null)
+  const [cohort, setCohort] = useState(null)
+  const [stages, setStages] = useState([])
+  const [bands, setBands] = useState([])
+  const [breakdown, setBreakdown] = useState([])
   const [workload, setWorkload] = useState([])
-  const [timeliness, setTimeliness] = useState([])
-  const [distribution, setDistribution] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [exportError, setExportError] = useState(null)
+
+  // The batch list has to come from an unfiltered read: a filtered one returns
+  // only the selected batch, which would collapse the dropdown to one option.
+  useEffect(() => {
+    let cancelled = false
+
+    reportApi
+      .cohortProgress()
+      .then((res) => {
+        if (cancelled) return
+        setBatches(unwrap(res)?.by_batch?.map((row) => row.batch).filter(Boolean) ?? [])
+      })
+      .catch(() => {
+        // The filter simply stays empty; the page below still loads.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -37,27 +61,35 @@ export default function ReportPage() {
       setLoading(true)
       setError(null)
       try {
-        const params = session ? { academic_session: session } : {}
+        const params = batch ? { batch } : {}
 
-        const [overviewRes, programmeRes, workloadRes, timelinessRes, distRes] =
+        const [summaryRes, cohortRes, workloadRes, breakdownRes, distRes] =
           await Promise.allSettled([
             reportApi.overview(params),
-            reportApi.byProgramme(params),
-            reportApi.workload(params),
-            reportApi.milestoneTimeliness(params),
+            reportApi.cohortProgress(params),
+            reportApi.supervisorWorkload(params),
+            reportApi.milestoneBreakdown(params),
             reportApi.gradeDistribution(params),
           ])
 
-        if (overviewRes.status === 'rejected') throw overviewRes.reason
+        if (summaryRes.status === 'rejected') throw summaryRes.reason
         if (cancelled) return
 
-        const ov = unwrap(overviewRes.value) ?? {}
-        setOverview(ov)
-        setSessions(ov.available_sessions ?? [])
-        setProgrammes(programmeRes.status === 'fulfilled' ? (unwrap(programmeRes.value) ?? []) : [])
-        setWorkload(workloadRes.status === 'fulfilled' ? (unwrap(workloadRes.value) ?? []) : [])
-        setTimeliness(timelinessRes.status === 'fulfilled' ? (unwrap(timelinessRes.value) ?? []) : [])
-        setDistribution(distRes.status === 'fulfilled' ? (unwrap(distRes.value) ?? []) : [])
+        const overview = unwrap(summaryRes.value) ?? {}
+        const cohortData = unwrap(cohortRes.value) ?? overview.cohort ?? {}
+
+        setSummary(overview)
+        setCohort(cohortData)
+        setStages(
+          Object.entries(cohortData.stages ?? {})
+            .map(([status, stage]) => ({ ...stage, status }))
+            .filter((stage) => stage.count > 0)
+        )
+        setBands(distRes.status === 'fulfilled' ? unwrap(distRes.value)?.by_band ?? [] : [])
+        setBreakdown(
+          breakdownRes.status === 'fulfilled' ? unwrap(breakdownRes.value) ?? [] : []
+        )
+        setWorkload(workloadRes.status === 'fulfilled' ? unwrap(workloadRes.value) ?? [] : [])
       } catch (err) {
         if (!cancelled) setError(err)
       } finally {
@@ -69,19 +101,19 @@ export default function ReportPage() {
     return () => {
       cancelled = true
     }
-  }, [session])
+  }, [batch])
 
-  const kpis = useMemo(() => {
-    const k = overview ?? {}
-    return {
-      projects: k.active_projects ?? 0,
-      students: k.total_students ?? 0,
-      onTrack: k.on_track_percent ?? 0,
-      overdue: k.overdue_milestones ?? 0,
-      completion: k.average_completion ?? 0,
-      graded: k.graded_count ?? 0,
-    }
-  }, [overview])
+  const k = summary ?? {}
+  const grades = k.grades ?? {}
+
+  const kpis = {
+    projects: cohort?.total_projects ?? 0,
+    students: cohort?.total_students ?? 0,
+    awaiting: k.awaiting_review ?? 0,
+    atRisk: k.at_risk ?? 0,
+    passRate: grades.pass_rate ?? 0,
+    mean: grades.stats?.mean ?? null,
+  }
 
   if (loading) return <Spinner label="Building the analytics view" />
   if (error) return <ErrorState error={error} />
@@ -92,157 +124,128 @@ export default function ReportPage() {
         title="Reports & analytics"
         subtitle="Cohort progress, supervision load, and assessment outcomes"
         actions={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select
-              value={session}
-              onChange={(e) => setSession(e.target.value)}
-              aria-label="Academic session"
+              value={batch}
+              onChange={(e) => setBatch(e.target.value)}
+              aria-label="Batch"
             >
-              <option value="">All sessions</option>
-              {sessions.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+              <option value="">All batches</option>
+              {batches.map((b) => (
+                <option key={b} value={b}>
+                  Batch {b}
                 </option>
               ))}
             </Select>
-            <ExportButton label="Export grades" endpoint="grades" session={session} />
-            <ExportButton label="Export projects" endpoint="projects" session={session} />
+            <ExportButton
+              label="Export grades"
+              kind="grades"
+              batch={batch}
+              onError={setExportError}
+            />
+            <ExportButton
+              label="Export projects"
+              kind="projects"
+              batch={batch}
+              onError={setExportError}
+            />
           </div>
         }
       />
 
+      {exportError && <ErrorState error={{ message: exportError }} />}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <StatCard label="Active projects" value={kpis.projects} />
+        <StatCard label="Projects" value={kpis.projects} hint="In the selected cohort" />
         <StatCard label="Students" value={kpis.students} />
         <StatCard
-          label="On track"
-          value={formatPercent(kpis.onTrack, 0)}
-          tone={kpis.onTrack >= 80 ? 'success' : kpis.onTrack >= 60 ? 'warning' : 'danger'}
+          label="Awaiting review"
+          value={kpis.awaiting}
+          hint="Milestones submitted"
+          tone={kpis.awaiting > 0 ? 'warning' : 'success'}
         />
         <StatCard
-          label="Overdue"
-          value={kpis.overdue}
-          tone={kpis.overdue > 0 ? 'danger' : 'success'}
+          label="At risk"
+          value={kpis.atRisk}
+          hint="Overdue or in revision"
+          tone={kpis.atRisk > 0 ? 'danger' : 'success'}
         />
-        <StatCard label="Avg. completion" value={formatPercent(kpis.completion, 0)} />
-        <StatCard label="Graded" value={kpis.graded} />
+        <StatCard
+          label="Pass rate"
+          value={formatPercent(kpis.passRate, 0)}
+          tone={kpis.passRate >= 80 ? 'success' : kpis.passRate >= 50 ? 'warning' : 'danger'}
+        />
+        <StatCard
+          label="Mean mark"
+          value={kpis.mean != null ? formatMark(kpis.mean) : '—'}
+          hint={`${grades.total ?? 0} released`}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader title="By programme" subtitle="Progress and outcomes per programme" />
-          {programmes.length === 0 ? (
-            <EmptyState title="No data" message="No programmes to report on for this session." />
+          <CardHeader
+            title="Where the cohort is stuck"
+            subtitle="Milestones sitting at each stage"
+          />
+          {stages.length === 0 ? (
+            <EmptyState
+              title="No data"
+              message="The stage breakdown appears once the cohort has milestones."
+            />
           ) : (
-            <DataTable columns={['Programme', 'Students', 'Avg. progress', 'Avg. mark']}>
-              {programmes.map((row) => (
-                <tr key={row.program ?? row.name}>
-                  <Td>
-                    <div className="font-medium text-slate-800">{row.program ?? row.name}</div>
-                    {row.batch && (
-                      <div className="text-xs text-slate-400">batch {row.batch}</div>
-                    )}
-                  </Td>
-                  <Td className="tabular-nums">{row.student_count ?? row.count ?? 0}</Td>
-                  <Td>
-                    <div className="flex items-center gap-2">
-                      <div className="w-20">
-                        <ProgressBar
-                          value={row.average_progress ?? 0}
-                          tone={(row.average_progress ?? 0) >= 70 ? 'success' : 'brand'}
-                        />
-                      </div>
-                      <span className="text-xs tabular-nums text-slate-500">
-                        {formatPercent(row.average_progress ?? 0, 0)}
-                      </span>
-                    </div>
-                  </Td>
-                  <Td className="tabular-nums">
-                    {row.average_mark != null ? formatMark(row.average_mark) : '—'}
-                  </Td>
-                </tr>
+            <ul className="space-y-2">
+              {stages.map((stage) => (
+                <li
+                  key={stage.status}
+                  className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
+                >
+                  <Badge tone={STAGE_TONES[stage.status] ?? 'neutral'}>{stage.label}</Badge>
+                  <span className="text-sm font-semibold tabular-nums text-slate-700">
+                    {stage.count}
+                  </span>
+                </li>
               ))}
-            </DataTable>
+            </ul>
           )}
         </Card>
 
         <Card>
-          <CardHeader title="Grade distribution" subtitle="Across all graded projects" />
-          {distribution.length === 0 ? (
+          <CardHeader title="Grade distribution" subtitle="Released grades by band" />
+          {bands.length === 0 ? (
             <EmptyState title="No grades" message="Nothing has been graded yet." />
           ) : (
-            <DistributionBars rows={distribution} />
+            <DistributionBars rows={bands} />
           )}
         </Card>
       </div>
 
       <Card>
-        <CardHeader
-          title="Milestone timeliness"
-          subtitle="Submitted on time versus late, per milestone"
-        />
-        {timeliness.length === 0 ? (
-          <EmptyState title="No data" message="Timeliness appears once milestones are submitted." />
+        <CardHeader title="By batch" subtitle="Project completion per batch" />
+        {(cohort?.by_batch ?? []).length === 0 ? (
+          <EmptyState
+            title="No data"
+            message="No batches to report on for this selection."
+          />
         ) : (
-          <DataTable columns={['Milestone', 'Part', 'Submitted', 'On time', 'Late', 'Timeliness']}>
-            {timeliness.map((row) => {
-              const total = row.submitted_count ?? (row.on_time_count ?? 0) + (row.late_count ?? 0)
-              const rate = total > 0 ? Math.round(((row.on_time_count ?? 0) / total) * 100) : 0
-
-              return (
-                <tr key={`${row.milestone_code}-${row.psm_part}`}>
-                  <Td>
-                    <div className="font-medium text-slate-800">{row.name}</div>
-                    <div className="font-mono text-xs text-slate-400">{row.milestone_code}</div>
-                  </Td>
-                  <Td>
-                    <Badge tone={row.psm_part === 'PSM2' ? 'brand' : 'neutral'}>
-                      {row.psm_part}
-                    </Badge>
-                  </Td>
-                  <Td className="tabular-nums">{total}</Td>
-                  <Td className="tabular-nums text-emerald-700">{row.on_time_count ?? 0}</Td>
-                  <Td className="tabular-nums text-rose-600">{row.late_count ?? 0}</Td>
-                  <Td>
-                    <div className="flex items-center gap-2">
-                      <div className="w-24">
-                        <ProgressBar
-                          value={rate}
-                          tone={rate >= 80 ? 'success' : rate >= 60 ? 'warning' : 'danger'}
-                        />
-                      </div>
-                      <span className="text-xs tabular-nums text-slate-500">{rate}%</span>
-                    </div>
-                  </Td>
-                </tr>
-              )
-            })}
-          </DataTable>
-        )}
-      </Card>
-
-      <Card>
-        <CardHeader title="Supervision load" subtitle="Students per supervisor, with outcomes" />
-        {workload.length === 0 ? (
-          <EmptyState title="No data" message="No supervision activity to report." />
-        ) : (
-          <DataTable
-            columns={['Supervisor', 'Students', 'Primary', 'Co-supervision', 'Completed', 'Avg. mark']}
-          >
-            {workload.map((row) => (
-              <tr key={row.id ?? row.name}>
+          <DataTable columns={['Batch', 'Projects', 'Completed', 'Completion']}>
+            {cohort.by_batch.map((row) => (
+              <tr key={row.batch}>
+                <Td className="font-medium text-slate-800">Batch {row.batch}</Td>
+                <Td className="tabular-nums">{row.projects ?? 0}</Td>
+                <Td className="tabular-nums text-emerald-700">{row.completed ?? 0}</Td>
                 <Td>
-                  <div className="font-medium text-slate-800">{row.name}</div>
-                  {row.staff_id && (
-                    <div className="font-mono text-xs text-slate-400">{row.staff_id}</div>
-                  )}
-                </Td>
-                <Td className="tabular-nums">{row.student_count ?? row.current_load ?? 0}</Td>
-                <Td className="tabular-nums">{row.primary_count ?? '—'}</Td>
-                <Td className="tabular-nums">{row.co_supervision_count ?? '—'}</Td>
-                <Td className="tabular-nums text-emerald-700">{row.completed_count ?? 0}</Td>
-                <Td className="tabular-nums">
-                  {row.average_mark != null ? formatMark(row.average_mark) : '—'}
+                  <div className="flex items-center gap-2">
+                    <div className="w-24">
+                      <ProgressBar
+                        value={row.completion_percent ?? 0}
+                        tone={(row.completion_percent ?? 0) >= 70 ? 'success' : 'brand'}
+                      />
+                    </div>
+                    <span className="text-xs tabular-nums text-slate-500">
+                      {formatPercent(row.completion_percent ?? 0, 0)}
+                    </span>
+                  </div>
                 </Td>
               </tr>
             ))}
@@ -251,30 +254,120 @@ export default function ReportPage() {
       </Card>
 
       <Card>
-        <CardHeader title="By category" subtitle="Project type mix and outcomes" />
-        {(overview?.by_category ?? []).length === 0 ? (
+        <CardHeader title="Milestone completion" subtitle="Which stage is the bottleneck" />
+        {breakdown.length === 0 ? (
+          <EmptyState
+            title="No data"
+            message="Milestone data appears once projects have milestones."
+          />
+        ) : (
+          <DataTable
+            columns={['Milestone', 'Weight', 'Total', 'Approved', 'Submitted', 'Needs work', 'Completion']}
+          >
+            {breakdown.map((row) => (
+              <tr key={row.code}>
+                <Td>
+                  <div className="font-medium text-slate-800">{row.title}</div>
+                  <div className="font-mono text-xs text-slate-400">{row.code}</div>
+                </Td>
+                <Td className="tabular-nums text-slate-600">{formatPercent(row.weight ?? 0, 0)}</Td>
+                <Td className="tabular-nums">{row.total ?? 0}</Td>
+                <Td className="tabular-nums text-emerald-700">{row.approved ?? 0}</Td>
+                <Td className="tabular-nums text-amber-700">{row.submitted ?? 0}</Td>
+                <Td className="tabular-nums text-rose-600">{row.problem ?? 0}</Td>
+                <Td>
+                  <div className="flex items-center gap-2">
+                    <div className="w-24">
+                      <ProgressBar
+                        value={row.completion_percent ?? 0}
+                        tone={(row.completion_percent ?? 0) >= 80 ? 'success' : 'warning'}
+                      />
+                    </div>
+                    <span className="text-xs tabular-nums text-slate-500">
+                      {formatPercent(row.completion_percent ?? 0, 0)}
+                    </span>
+                  </div>
+                </Td>
+              </tr>
+            ))}
+          </DataTable>
+        )}
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Supervision load"
+          subtitle="Students per supervisor, with outcomes"
+        />
+        {workload.length === 0 ? (
+          <EmptyState
+            title="No data"
+            message="No supervision activity to report."
+          />
+        ) : (
+          <DataTable
+            columns={[
+              'Supervisor',
+              'Students',
+              'Capacity',
+              'Utilisation',
+              'Pending reviews',
+              'Avg. mark',
+              'On time',
+            ]}
+          >
+            {workload.map((row) => (
+              <tr key={row.id ?? row.name}>
+                <Td className="font-medium text-slate-800">{row.name}</Td>
+                <Td className="tabular-nums">{row.supervising ?? 0}</Td>
+                <Td className="tabular-nums">{row.capacity || '—'}</Td>
+                <Td>
+                  <div className="flex items-center gap-2">
+                    <div className="w-20">
+                      <ProgressBar
+                        value={row.utilisation ?? 0}
+                        tone={
+                          (row.utilisation ?? 0) >= 100
+                            ? 'danger'
+                            : (row.utilisation ?? 0) >= 80
+                              ? 'warning'
+                              : 'brand'
+                        }
+                      />
+                    </div>
+                    <span className="text-xs tabular-nums text-slate-500">
+                      {formatPercent(row.utilisation ?? 0, 0)}
+                    </span>
+                  </div>
+                </Td>
+                <Td className="tabular-nums text-amber-700">{row.pending_reviews ?? 0}</Td>
+                <Td className="tabular-nums">
+                  {row.avg_mark != null ? formatMark(row.avg_mark) : '—'}
+                </Td>
+                <Td className="tabular-nums">
+                  {row.on_time_rate != null ? formatPercent(row.on_time_rate, 0) : '—'}
+                </Td>
+              </tr>
+            ))}
+          </DataTable>
+        )}
+      </Card>
+
+      <Card>
+        <CardHeader title="By category" subtitle="Project type mix" />
+        {(k.categories ?? []).length === 0 ? (
           <EmptyState title="No data" message="No projects to break down." />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            {overview.by_category.map((row) => (
+            {k.categories.map((row) => (
               <div
                 key={row.category}
                 className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3"
               >
-                <div>
-                  <p className="font-medium text-slate-800">
-                    {CATEGORY_LABELS[row.category] ?? row.category}
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    {row.count ?? 0} project{row.count === 1 ? '' : 's'}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium text-slate-700">
-                    {formatPercent(row.average_progress ?? 0, 0)}
-                  </p>
-                  <p className="text-xs text-slate-400">avg. progress</p>
-                </div>
+                <p className="font-medium text-slate-800">{row.category}</p>
+                <p className="text-sm text-slate-500">
+                  {row.total ?? 0} project{row.total === 1 ? '' : 's'}
+                </p>
               </div>
             ))}
           </div>
@@ -285,17 +378,27 @@ export default function ReportPage() {
 }
 
 /**
- * Downloads go straight from the API to the browser. Fetching through axios
- * and re-blobbing would double the memory cost for a large cohort export.
+ * Downloads go through the API client, not window.open: the export routes are
+ * behind Sanctum, so a plain navigation would be answered with a 401 instead
+ * of the file.
  */
-function ExportButton({ label, endpoint, session }) {
-  const url = reportApi.exportUrl(endpoint, session ? { academic_session: session } : {})
+function ExportButton({ label, kind, batch, onError }) {
+  const [busy, setBusy] = useState(false)
 
   return (
     <Button
       variant="secondary"
-      onClick={() => {
-        window.open(url, '_blank')
+      loading={busy}
+      onClick={async () => {
+        setBusy(true)
+        onError(null)
+        try {
+          await reportApi.download(kind, batch ? { batch } : {})
+        } catch (err) {
+          onError(err?.message ?? 'The export could not be generated.')
+        } finally {
+          setBusy(false)
+        }
       }}
     >
       {label}
@@ -315,7 +418,7 @@ function DistributionBars({ rows }) {
             <span className="w-10 shrink-0 text-sm font-semibold text-slate-700">{grade}</span>
             <div className="h-6 flex-1 overflow-hidden rounded bg-slate-100">
               <div
-                className={`h-full rounded ${toneFor(grade)}`}
+                className={`h-full rounded ${BAR_TONES[bandGroup(grade)] ?? 'bg-slate-400'}`}
                 style={{ width: `${((row.count ?? 0) / max) * 100}%` }}
               />
             </div>
@@ -329,18 +432,31 @@ function DistributionBars({ rows }) {
   )
 }
 
-function toneFor(grade) {
-  const map = {
-    'A+': 'bg-emerald-500',
-    A: 'bg-emerald-500',
-    'A-': 'bg-emerald-400',
-    'B+': 'bg-brand-500',
-    B: 'bg-brand-500',
-    'B-': 'bg-brand-400',
-    'C+': 'bg-amber-500',
-    C: 'bg-amber-500',
-    D: 'bg-orange-500',
-    F: 'bg-rose-500',
-  }
-  return map[grade] ?? gradeTone(grade) ?? 'bg-slate-400'
+const BAR_TONES = {
+  A: 'bg-emerald-500',
+  B: 'bg-sky-500',
+  C: 'bg-amber-500',
+  D: 'bg-orange-500',
+  F: 'bg-rose-500',
+}
+
+/** 'A+' / 'B-' / 'C' → the band letter, which is what the colour map keys on. */
+function bandGroup(grade) {
+  return String(grade ?? '').charAt(0).toUpperCase()
+}
+
+/**
+ * Milestone status → Badge tone.
+ *
+ * The API reports a colour name per status ('emerald', 'amber', 'rose'), which
+ * is not the Badge vocabulary, so it is mapped here rather than passed through.
+ */
+const STAGE_TONES = {
+  pending: 'neutral',
+  open: 'info',
+  submitted: 'warning',
+  reviewed: 'brand',
+  approved: 'success',
+  rejected: 'danger',
+  overdue: 'danger',
 }

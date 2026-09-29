@@ -165,12 +165,16 @@ export function Avatar({ name, size = 'md' }) {
 // States
 // ---------------------------------------------------------------------
 
-export function EmptyState({ title, description, action }) {
+export function EmptyState({ title, description, message, action }) {
+  // `message` is the name the pages actually use; `description` is kept so
+  // either spelling works. Before this, the body copy was silently dropped.
+  const body = description ?? message
+
   return (
     <div className="text-center py-12 px-6">
       <p className="text-sm font-medium text-slate-700">{title}</p>
-      {description && (
-        <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">{description}</p>
+      {body && (
+        <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">{body}</p>
       )}
       {action && <div className="mt-4">{action}</div>}
     </div>
@@ -200,10 +204,18 @@ export function Spinner({ label = 'Loading…' }) {
   )
 }
 
-export function ErrorState({ message, onRetry }) {
+export function ErrorState({ error, message, onRetry }) {
+  // `error` is how pages pass this: either the normalised rejection from the
+  // axios interceptor ({ message, errors, ... }) or a bare string. Accepting
+  // both keeps the actual failure text on screen instead of the fallback.
+  const text =
+    message ??
+    (typeof error === 'string' ? error : error?.message) ??
+    'Something went wrong.'
+
   return (
     <div className="rounded-lg border border-rose-200 bg-rose-50 p-4">
-      <p className="text-sm text-rose-800">{message || 'Something went wrong.'}</p>
+      <p className="text-sm text-rose-800">{text}</p>
       {onRetry && (
         <button
           type="button"

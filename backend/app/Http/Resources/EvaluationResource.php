@@ -26,6 +26,27 @@ class EvaluationResource extends JsonResource
             'project_id' => $this->project_id,
             'psm_part'   => $this->psm_part,
 
+            /**
+             * The project and its frozen roster.
+             *
+             * The list and the marking form both name the student being
+             * assessed, and neither can make a second request for it. The
+             * relation is already eager-loaded by the controllers, so this
+             * costs nothing extra.
+             */
+            'project' => $this->whenLoaded('project', fn () => $this->project ? [
+                'id'    => $this->project->id,
+                'code'  => $this->project->code,
+                'title' => $this->project->title,
+                'batch' => $this->project->batch,
+                'students' => $this->project->students->map(fn ($student) => [
+                    'id'         => $student->id,
+                    'name'       => $student->user?->name,
+                    'student_id' => $student->student_id,
+                    'program'    => $student->program,
+                ])->values()->all(),
+            ] : null),
+
             'assessor_id'   => $this->assessor_id,
             'assessor_type' => $this->assessor_type->value,
             'assessor_type_label' => $this->assessor_type->label(),

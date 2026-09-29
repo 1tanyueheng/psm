@@ -280,6 +280,7 @@ class EvaluationController extends ApiController
 
         $paginator = FinalGrade::query()
             ->with(['project', 'studentProfile.user'])
+            ->when($request->filled('q'), fn ($q) => $q->search(trim($request->input('q'))))
             ->when($request->filled('batch'), fn ($q) => $q->forBatch($request->input('batch')))
             ->when($request->filled('psm_part'), fn ($q) => $q->where('psm_part', $request->input('psm_part')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))

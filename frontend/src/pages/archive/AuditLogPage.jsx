@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { auditApi } from '../../api/endpoints'
-import { unwrapPaged } from '../../api/client'
+import { unwrap, unwrapPaged } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import { can } from '../../lib/permissions'
 import {
@@ -27,6 +27,7 @@ export default function AuditLogPage() {
 
   const [rows, setRows] = useState([])
   const [meta, setMeta] = useState(null)
+  const [actionOptions, setActionOptions] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [expanded, setExpanded] = useState(null)
@@ -50,6 +51,26 @@ export default function AuditLogPage() {
     [params, setParams]
   )
 
+  // The action vocabulary comes from the enum, not from the rows on screen:
+  // deriving it from the current page leaves the dropdown empty as soon as the
+  // list is filtered down, and only ever offers the actions on this page.
+  useEffect(() => {
+    let cancelled = false
+
+    auditApi
+      .filters()
+      .then((res) => {
+        if (!cancelled) setActionOptions(unwrap(res)?.actions ?? {})
+      })
+      .catch(() => {
+        // The table still renders; only the filter list stays short.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   useEffect(() => {
     let cancelled = false
 
@@ -58,10 +79,14 @@ export default function AuditLogPage() {
       setError(null)
       try {
         const res = await auditApi.list({
-          q: search || undefined,
+          // `search` and `suspicious_only` are the names the endpoint reads.
+          // `with_changes` asks for the field-level diff the detail panel
+          // renders; without it the panel would open empty.
+          search: search || undefined,
           action: action || undefined,
           severity: severity || undefined,
-          suspicious: suspicious ? true : undefined,
+          suspicious_only: suspicious ? true : undefined,
+          with_changes: 1,
           page,
           per_page: 25,
         })
@@ -82,12 +107,10 @@ export default function AuditLogPage() {
     }
   }, [search, action, severity, suspicious, page])
 
-  const actions = useMemo(() => {
-    // Derive the action vocabulary from what has actually been logged, rather
-    // than hardcoding a list that will drift from the enum.
-    const set = new Set(rows.map((r) => r.action).filter(Boolean))
-    return [...set].sort()
-  }, [rows])
+  const actions = useMemo(
+    () => Object.entries(actionOptions).sort(([a], [b]) => a.localeCompare(b)),
+    [actionOptions]
+  )
 
   if (!canView) {
     return (
@@ -130,9 +153,9 @@ export default function AuditLogPage() {
             aria-label="Filter by action"
           >
             <option value="">All actions</option>
-            {actions.map((a) => (
-              <option key={a} value={a}>
-                {a.replace(/_/g, ' ')}
+            {actions.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label ?? value.replace(/_/g, ' ')}
               </option>
             ))}
           </Select>
@@ -178,8 +201,13 @@ export default function AuditLogPage() {
               >
                 {rows.map((entry) => {
                   const isOpen = expanded === entry.id
+                  // The API nests the actor, and only sends field diffs when
+                  // `with_changes` was requested.
+                  const changes = entry.changes ?? []
                   const hasDetail =
-                    entry.before || entry.after || entry.changes || entry.ip_address
+                    changes.length > 0 ||
+                    entry.context?.ip_address != null ||
+                    entry.subject != null
 
                   // A keyed Fragment is required here: the row and its detail
                   // panel are siblings in the same <tbody>.
@@ -198,13 +226,13 @@ export default function AuditLogPage() {
                         </Td>
                         <Td>
                           <div className="flex items-center gap-2">
-                            <Avatar name={entry.actor_name ?? 'System'} size="sm" />
+                            <Avatar name={entry.actor?.name ?? 'System'} size="sm" />
                             <div className="min-w-0">
                               <div className="truncate text-sm text-slate-700">
-                                {entry.actor_name ?? 'System'}
+                                {entry.actor?.name ?? 'System'}
                               </div>
-                              {entry.actor_role && (
-                                <div className="text-xs text-slate-400">{entry.actor_role}</div>
+                              {entry.actor?.role && (
+                                <div className="text-xs text-slate-400">{entry.actor.role}</div>
                               )}
                             </div>
                           </div>
@@ -290,38 +318,43 @@ export default function AuditLogPage() {
 /**
  * The forensic detail. Showing before/after side by side is what turns an
  * audit row into evidence.
+ *
+ * The API nests the request metadata under `context` and the affected record
+ * under `subject`, and returns diffs as a flat [{ field, from, to }] list
+ * rather than two objects to compare.
  */
 function AuditDetail({ entry }) {
-  const changedKeys = useMemo(() => diffKeys(entry.before, entry.after), [entry.before, entry.after])
+  const changes = entry.changes ?? []
+  const context = entry.context ?? {}
 
   return (
     <div className="space-y-4 text-sm">
       <div className="grid gap-4 sm:grid-cols-3">
-        {entry.ip_address && (
+        {context.ip_address && (
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-400">IP address</p>
-            <p className="font-mono text-xs text-slate-700">{entry.ip_address}</p>
+            <p className="font-mono text-xs text-slate-700">{context.ip_address}</p>
           </div>
         )}
-        {entry.request_method && (
+        {context.request_method && (
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-400">Request</p>
             <p className="font-mono text-xs text-slate-700">
-              {entry.request_method} {entry.request_url}
+              {context.request_method} {context.request_url}
             </p>
           </div>
         )}
-        {entry.auditable_type && (
+        {entry.subject && (
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-400">Subject</p>
             <p className="font-mono text-xs text-slate-700">
-              {entry.auditable_type.split('\\').pop()}#{entry.auditable_id}
+              {entry.subject.type}#{entry.subject.id}
             </p>
           </div>
         )}
       </div>
 
-      {changedKeys.length > 0 ? (
+      {changes.length > 0 && (
         <div>
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
             Changes
@@ -336,14 +369,14 @@ function AuditDetail({ entry }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {changedKeys.map((key) => (
-                  <tr key={key}>
-                    <td className="px-3 py-2 font-mono text-xs text-slate-600">{key}</td>
+                {changes.map((change) => (
+                  <tr key={change.field}>
+                    <td className="px-3 py-2 font-mono text-xs text-slate-600">{change.field}</td>
                     <td className="px-3 py-2 text-rose-700">
-                      <Value value={entry.before?.[key]} />
+                      <Value value={change.from} />
                     </td>
                     <td className="px-3 py-2 text-emerald-700">
-                      <Value value={entry.after?.[key]} />
+                      <Value value={change.to} />
                     </td>
                   </tr>
                 ))}
@@ -351,29 +384,10 @@ function AuditDetail({ entry }) {
             </table>
           </div>
         </div>
-      ) : entry.before || entry.after ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {entry.before && (
-            <div>
-              <p className="mb-1 text-xs uppercase tracking-wide text-slate-400">Before</p>
-              <pre className="overflow-x-auto rounded-md bg-white p-3 text-xs text-slate-700">
-                {JSON.stringify(entry.before, null, 2)}
-              </pre>
-            </div>
-          )}
-          {entry.after && (
-            <div>
-              <p className="mb-1 text-xs uppercase tracking-wide text-slate-400">After</p>
-              <pre className="overflow-x-auto rounded-md bg-white p-3 text-xs text-slate-700">
-                {JSON.stringify(entry.after, null, 2)}
-              </pre>
-            </div>
-          )}
-        </div>
-      ) : null}
+      )}
 
-      {entry.user_agent && (
-        <p className="truncate text-xs text-slate-400">User agent: {entry.user_agent}</p>
+      {context.user_agent && (
+        <p className="truncate text-xs text-slate-400">User agent: {context.user_agent}</p>
       )}
     </div>
   )
@@ -391,21 +405,4 @@ function Value({ value }) {
 function SeverityBadge({ severity }) {
   const tone = { info: 'neutral', warning: 'warning', critical: 'danger' }[severity] ?? 'neutral'
   return <Badge tone={tone}>{severity ?? 'info'}</Badge>
-}
-
-/** Union of keys that differ between two objects. */
-function diffKeys(before, after) {
-  if (!before && !after) return []
-  const keys = new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])
-  return [...keys].filter((key) => {
-    const a = before?.[key]
-    const b = after?.[key]
-    if (a === b) return false
-    // Objects need a structural comparison; a reference check would report
-    // every object as changed.
-    if (typeof a === 'object' || typeof b === 'object') {
-      return JSON.stringify(a) !== JSON.stringify(b)
-    }
-    return true
-  })
 }

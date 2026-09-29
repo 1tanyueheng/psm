@@ -6,7 +6,7 @@ import {
   Card, CardHeader, PageHeader, StatCard, Badge, ProgressBar,
   EmptyState, Spinner, ErrorState, Button, DataTable, Td,
 } from '../../components/ui'
-import { formatPercent, gradeTone } from '../../lib/format'
+import { formatPercent } from '../../lib/format'
 
 /**
  * Coordinator dashboard — Module 5's cohort view.
@@ -201,10 +201,10 @@ export default function CoordinatorDashboard() {
           <DataTable
             columns={[
               { key: 'name', label: 'Supervisor' },
-              { key: 'expertise', label: 'Expertise' },
-              { key: 'load', label: 'Load' },
+              { key: 'supervising', label: 'Students' },
               { key: 'capacity', label: 'Capacity' },
               { key: 'utilisation', label: 'Utilisation' },
+              { key: 'pending_reviews', label: 'Pending reviews' },
               { key: 'availability', label: 'Availability' },
             ]}
             rows={workload}
@@ -218,11 +218,12 @@ export default function CoordinatorDashboard() {
                 <tr key={row.id ?? row.name}>
                   <Td>
                     <div className="font-medium text-slate-800">{row.name}</div>
-                    {row.staff_id && (
-                      <div className="font-mono text-xs text-slate-400">{row.staff_id}</div>
+                    {row.project_count > 0 && (
+                      <div className="text-xs text-slate-400">
+                        {row.project_count} project{row.project_count === 1 ? '' : 's'}
+                      </div>
                     )}
                   </Td>
-                  <Td className="text-sm text-slate-600">{row.expertise ?? '—'}</Td>
                   <Td className="tabular-nums">{used}</Td>
                   <Td className="tabular-nums">{max || '—'}</Td>
                   <Td>
@@ -236,6 +237,7 @@ export default function CoordinatorDashboard() {
                       <span className="text-xs tabular-nums text-slate-500">{pct}%</span>
                     </div>
                   </Td>
+                  <Td className="tabular-nums text-amber-700">{row.pending_reviews ?? 0}</Td>
                   <Td>
                     {full ? (
                       <Badge tone="danger">At capacity</Badge>
@@ -253,19 +255,17 @@ export default function CoordinatorDashboard() {
   )
 }
 
-/** Conventional Malaysian grade bands → colour. */
+/** Conventional Malaysian grade bands → bar colour. */
+const BAR_TONES = {
+  A: 'bg-emerald-500',
+  B: 'bg-sky-500',
+  C: 'bg-amber-500',
+  D: 'bg-orange-500',
+  F: 'bg-rose-500',
+}
+
 function barTone(grade) {
-  const map = {
-    'A+': 'bg-emerald-500',
-    A: 'bg-emerald-500',
-    'A-': 'bg-emerald-400',
-    'B+': 'bg-brand-500',
-    B: 'bg-brand-500',
-    'B-': 'bg-brand-400',
-    'C+': 'bg-amber-500',
-    C: 'bg-amber-500',
-    D: 'bg-orange-500',
-    F: 'bg-rose-500',
-  }
-  return map[grade] ?? gradeTone(grade) ?? 'bg-slate-400'
+  // gradeTone() is a Badge palette, not a fill colour, so the band letter is
+  // mapped here instead of falling through to a near-transparent class.
+  return BAR_TONES[String(grade ?? '').charAt(0).toUpperCase()] ?? 'bg-slate-400'
 }
