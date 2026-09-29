@@ -207,6 +207,7 @@ export default function CoordinatorDashboard() {
               { key: 'utilisation', label: 'Utilisation' },
               { key: 'availability', label: 'Availability' },
             ]}
+            rows={workload}
             render={(row) => {
               const used = row.supervising ?? 0
               const max = row.capacity ?? 0

@@ -6,6 +6,7 @@
  * the card radius or badge padding lands everywhere at once.
  */
 
+import { Children, cloneElement, isValidElement } from 'react'
 import { initials } from '../lib/format'
 
 // ---------------------------------------------------------------------
@@ -326,11 +327,35 @@ export function Button({
 // ---------------------------------------------------------------------
 
 /**
- * Thin table wrapper. `columns` is [{ key, label, align?, width? }] and
- * `render` is (row) => cells, so screens keep control of cell content.
+ * Thin table wrapper.
+ *
+ * Two supported styles, both rendered into the same <tbody>:
+ *   1. rows as children — <DataTable columns={['A','B']}> <tr>…</tr> </DataTable>
+ *   2. rows + render     — <DataTable columns={[…]} rows={data} render={r => <tr>…</tr>} />
+ *
+ * `columns` is a list of header strings or { key, label, align?, width? }.
+ * `render` must return a full <tr>; the row's cells are its <Td> children.
  */
-export function DataTable({ columns, rows, render, empty, keyField = 'id' }) {
-  if (!rows?.length) {
+export function DataTable({ columns, rows, render, empty, keyField = 'id', children }) {
+  const headerFor = (column) => (typeof column === 'string' ? column : column.label)
+
+  let body = []
+
+  if (children != null) {
+    body = Children.toArray(children)
+  } else if (rows?.length) {
+    body = rows.map((row, index) => {
+      const cell = render ? render(row, index) : null
+
+      if (isValidElement(cell) && cell.key == null) {
+        return cloneElement(cell, { key: row?.[keyField] ?? index })
+      }
+
+      return cell
+    })
+  }
+
+  if (body.length === 0) {
     return empty ?? <EmptyState title="Nothing to show yet" />
   }
 
@@ -339,29 +364,24 @@ export function DataTable({ columns, rows, render, empty, keyField = 'id' }) {
       <table className="w-full text-sm min-w-[640px]">
         <thead>
           <tr className="border-b border-slate-200">
-            {columns.map((column) => (
+            {columns.map((column, index) => (
               <th
-                key={column.key}
+                key={(typeof column === 'string' ? column : column.key) ?? index}
                 className={`px-5 py-2.5 text-xs font-medium text-slate-500 ${
-                  column.align === 'right' ? 'text-right' : 'text-left'
+                  (typeof column === 'object' && column?.align === 'right') ? 'text-right' : 'text-left'
                 }`}
-                style={column.width ? { width: column.width } : undefined}
+                style={
+                  typeof column === 'object' && column?.width
+                    ? { width: column.width }
+                    : undefined
+                }
               >
-                {column.label}
+                {headerFor(column)}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr
-              key={row[keyField]}
-              className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70"
-            >
-              {render(row)}
-            </tr>
-          ))}
-        </tbody>
+        <tbody>{body}</tbody>
       </table>
     </div>
   )
