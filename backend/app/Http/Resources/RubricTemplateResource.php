@@ -41,6 +41,9 @@ class RubricTemplateResource extends JsonResource
             'components' => $this->whenLoaded('components', fn () => $this->components->map(fn ($c) => [
                 'id'             => $c->id,
                 'code'           => $c->code,
+                // Set when the component scores a specific chapter, so the
+                // rubric editor and marking form can line the two up.
+                'milestone_code' => $c->milestone_code,
                 'title'          => $c->title,
                 'description'    => $c->description,
                 'weight_percent' => (float) $c->weight_percent,

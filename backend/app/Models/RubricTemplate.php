@@ -146,11 +146,25 @@ class RubricTemplate extends Model
             'pass_mark'    => (float) $this->pass_mark,
             'components'   => $this->components()->with('criteria')->get()->map(fn (RubricComponent $c) => [
                 'code'          => $c->code,
+                // Carried into the snapshot so a form created now can still be
+                // matched to its chapters after the template is reworked.
+                'milestone_code'=> $c->milestone_code,
                 'title'         => $c->title,
+                'description'   => $c->description,
                 'weight_percent'=> (float) $c->weight_percent,
+                // The stakeholder's "explain a mark below 50%" rule. Frozen into
+                // the snapshot because Evaluation::validationErrors() reads it
+                // from here, so omitting it silently disables the requirement.
+                'requires_comment_below'     => (bool) $c->requires_comment_below,
+                'comment_threshold_percent'  => (float) $c->comment_threshold_percent,
+                // What an excellent answer looks like, per criterion. Frozen
+                // with the rest of the rubric so an assessor marking an old
+                // form is still shown the guidance that applied at the time.
                 'criteria'      => $c->criteria->map(fn (RubricCriterion $cr) => [
                     'code'          => $cr->code,
                     'title'         => $cr->title,
+                    'description'   => $cr->description,
+                    'guidance'      => $cr->guidance,
                     'weight_percent'=> (float) $cr->weight_percent,
                     'max_marks'     => (float) $cr->max_marks,
                 ])->all(),

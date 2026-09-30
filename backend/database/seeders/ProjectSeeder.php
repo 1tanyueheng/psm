@@ -144,6 +144,10 @@ class ProjectSeeder extends Seeder
      * Progress profiles. `milestones` maps a milestone code to the status it
      * should reach; anything not listed stays Pending.
      *
+     * `started_days_ago` is chosen so each profile lands at a realistic point
+     * in the chain relative to the template's milestone offsets (proposal at
+     * day 21 through final report at day 140).
+     *
      * @return array<string, array{started_days_ago:int, milestones:array<string,string>}>
      */
     protected function progressProfiles(): array
@@ -153,14 +157,13 @@ class ProjectSeeder extends Seeder
             'completed' => [
                 'started_days_ago' => 150,
                 'milestones' => [
-                    'proposal'  => 'approved',
-                    'design'    => 'approved',
-                    'litreview' => 'approved',
-                    'methods'   => 'approved',
-                    'implement' => 'approved',
-                    'analysis'  => 'approved',
-                    'testing'   => 'approved',
-                    'report'    => 'approved',
+                    'proposal'     => 'approved',
+                    'chapter_1'    => 'approved',
+                    'chapter_2'    => 'approved',
+                    'chapter_3'    => 'approved',
+                    'chapter_4'    => 'approved',
+                    'chapter_5'    => 'approved',
+                    'final_report' => 'approved',
                 ],
             ],
 
@@ -168,14 +171,13 @@ class ProjectSeeder extends Seeder
             'near_complete' => [
                 'started_days_ago' => 138,
                 'milestones' => [
-                    'proposal'  => 'approved',
-                    'design'    => 'approved',
-                    'litreview' => 'approved',
-                    'methods'   => 'approved',
-                    'implement' => 'approved',
-                    'analysis'  => 'approved',
-                    'testing'   => 'approved',
-                    'report'    => 'submitted',
+                    'proposal'     => 'approved',
+                    'chapter_1'    => 'approved',
+                    'chapter_2'    => 'approved',
+                    'chapter_3'    => 'approved',
+                    'chapter_4'    => 'approved',
+                    'chapter_5'    => 'approved',
+                    'final_report' => 'submitted',
                 ],
             ],
 
@@ -184,10 +186,9 @@ class ProjectSeeder extends Seeder
                 'started_days_ago' => 96,
                 'milestones' => [
                     'proposal'  => 'approved',
-                    'design'    => 'approved',
-                    'litreview' => 'approved',
-                    'methods'   => 'approved',
-                    'implement' => 'submitted',
+                    'chapter_1' => 'approved',
+                    'chapter_2' => 'approved',
+                    'chapter_3' => 'submitted',
                 ],
             ],
 
@@ -195,21 +196,21 @@ class ProjectSeeder extends Seeder
             'early' => [
                 'started_days_ago' => 34,
                 'milestones' => [
-                    'proposal' => 'approved',
-                    'design'   => 'open',
+                    'proposal'  => 'approved',
+                    'chapter_1' => 'open',
                 ],
             ],
 
-            // At risk: one rejection and one overdue milestone, so the
+            // At risk: one rejection and one overdue chapter, so the
             // "students needing intervention" list is populated
             'at_risk' => [
                 'started_days_ago' => 120,
                 'milestones' => [
                     'proposal'  => 'approved',
-                    'design'    => 'approved',
-                    'litreview' => 'approved',
-                    'methods'   => 'rejected',
-                    'implement' => 'overdue',
+                    'chapter_1' => 'approved',
+                    'chapter_2' => 'approved',
+                    'chapter_3' => 'rejected',
+                    'chapter_4' => 'overdue',
                 ],
             ],
         ];
@@ -273,8 +274,9 @@ class ProjectSeeder extends Seeder
             }
 
             if (! $current->status->canTransitionTo($step)) {
-                // The route asked for an impossible hop; skip quietly so a
-                // template difference (design vs litreview) cannot break seeding
+                // The route asked for a hop this status does not allow. Skip
+                // quietly: a demo profile that does not suit the milestone it
+                // lands on must not break the whole seed run.
                 continue;
             }
 
@@ -295,19 +297,18 @@ class ProjectSeeder extends Seeder
     {
         return match ($step) {
             MilestoneStatus::Approved => match ($milestone->code) {
-                'proposal'  => 'Clear problem statement and achievable scope. Proceed.',
-                'design'    => 'Architecture is sound; consider caching for the report list.',
-                'litreview' => 'Good synthesis. Strengthen the gap statement in section 2.4.',
-                'methods'   => 'Methodology is appropriate. Sampling justification is adequate.',
-                'implement' => 'Core features demonstrably working. Well structured code.',
-                'analysis'  => 'Analysis is correctly applied and honestly reported.',
-                'testing'   => 'Coverage is reasonable and defects are logged properly.',
-                'report'    => 'Meets the faculty template. Approved for examination.',
-                default     => 'Approved.',
+                'proposal'     => 'Clear problem statement and achievable scope. Proceed.',
+                'chapter_1'    => 'Introduction is well scoped and the contribution is stated clearly.',
+                'chapter_2'    => 'Requirements are testable and traceable. Good comparison of prior systems.',
+                'chapter_3'    => 'Design is justified and the alternatives you rejected are explained.',
+                'chapter_4'    => 'Core features demonstrably working. Well structured code.',
+                'chapter_5'    => 'Coverage is reasonable and defects are logged properly.',
+                'final_report' => 'Meets the faculty template. Approved for examination.',
+                default        => 'Approved.',
             },
-            MilestoneStatus::Rejected => $milestone->code === 'methods'
-                ? 'The sampling strategy is not justified for the population size. '
-                  .'Please revise section 3.2 and resubmit with a power calculation.'
+            MilestoneStatus::Rejected => $milestone->code === 'chapter_3'
+                ? 'The approach is not justified for the scope you committed to. '
+                  .'Please narrow the claim, revise the design rationale and resubmit.'
                 : 'Insufficient detail. Please revise and resubmit.',
             MilestoneStatus::Submitted => 'Submitted for review.',
             default => null,

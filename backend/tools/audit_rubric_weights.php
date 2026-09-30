@@ -1,76 +1,118 @@
 <?php
+
 /**
  * Weight audit for the seeded rubrics.
  *
  * Run: php tools/audit_rubric_weights.php
  *
- * Kept as a script so the same check can be re-run after any future edit to
- * RubricTemplateSeeder — an unbalanced rubric silently corrupts every mark
- * computed against it, so this is worth being able to verify quickly.
+ * Reads the rubrics that are actually in the database rather than a copy of
+ * them held in this file. An earlier version kept its own hardcoded copy of
+ * the weights, which meant it happily reported "balanced" while the real
+ * templates were wrong — and went silently out of date the moment the
+ * chapter-aligned v2 rubrics replaced the v1 ones.
+ *
+ * An unbalanced rubric silently corrupts every mark computed against it, so
+ * this stays worth being able to re-run after any edit to the seeders.
+ *
+ * Checks, per template:
+ *   - component weights total 100
+ *   - each component's criterion weights total 100
+ *   - each component's criterion max_marks sum to the component's own
+ *     share of the template's total_marks
+ *   - a milestone-scoped component points at a milestone code the milestone
+ *     templates actually define
  */
 
-$templates = [
-    'supervisor/system' => [
-        'process'         => ['planning' => 30, 'meetings' => 30, 'documentation' => 20, 'independence' => 20],
-        'requirements'    => ['elicitation' => 35, 'architecture' => 35, 'data_model' => 30],
-        'implementation'  => ['functionality' => 40, 'code_quality' => 30, 'robustness' => 30],
-        'professionalism' => ['ethics' => 35, 'testing' => 35, 'reflection' => 30],
-    ],
-    'supervisor/research' => [
-        'process'     => ['planning' => 30, 'meetings' => 30, 'recordkeeping' => 20, 'independence' => 20],
-        'literature'  => ['coverage' => 30, 'criticality' => 40, 'gap' => 30],
-        'method'      => ['design' => 30, 'sampling' => 25, 'analysis' => 25, 'validity' => 20],
-        'academic'    => ['argument' => 35, 'referencing' => 35, 'ethics' => 30],
-    ],
-    'examiner/both' => [
-        'report'   => ['structure' => 30, 'clarity' => 35, 'evidence' => 35],
-        'artefact' => ['completeness' => 35, 'technical' => 35, 'usability' => 30],
-        'defence'  => ['presentation' => 30, 'defence_qa' => 45, 'contribution' => 25],
-    ],
-    'coordinator/both' => [
-        'compliance' => ['milestones' => 40, 'supervision' => 30, 'format' => 30],
-        'standards'  => ['level' => 40, 'consistency' => 35, 'integrity' => 25],
-    ],
-];
+use App\Models\MilestoneTemplateItem;
+use App\Models\RubricTemplate;
 
-$componentWeights = [
-    'supervisor/system'   => ['process' => 25, 'requirements' => 25, 'implementation' => 30, 'professionalism' => 20],
-    'supervisor/research' => ['process' => 25, 'literature' => 25, 'method' => 30, 'academic' => 20],
-    'examiner/both'       => ['report' => 35, 'artefact' => 40, 'defence' => 25],
-    'coordinator/both'    => ['compliance' => 40, 'standards' => 60],
-];
+define('LARAVEL_START', microtime(true));
+require __DIR__.'/../vendor/autoload.php';
+
+$app = require_once __DIR__.'/../bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+/** Every milestone code any template defines, across all versions. */
+$knownMilestoneCodes = MilestoneTemplateItem::query()
+    ->distinct()
+    ->pluck('code')
+    ->all();
 
 $fail = 0;
 
-foreach ($templates as $name => $components) {
-    $sum = array_sum($componentWeights[$name]);
+$templates = RubricTemplate::query()
+    ->with(['components.criteria'])
+    ->orderBy('version')
+    ->orderBy('assessor_type')
+    ->get();
 
-    printf("%-22s components = %5.2f%%  %s\n", $name, $sum, abs($sum - 100) < 0.01 ? 'OK' : 'FAIL');
-    if (abs($sum - 100) >= 0.01) {
+if ($templates->isEmpty()) {
+    fwrite(STDERR, "No rubrics found — run `php artisan migrate:fresh --seed` first.\n");
+    exit(1);
+}
+
+foreach ($templates as $template) {
+    $label = "v{$template->version} {$template->name} [{$template->assessor_type->value}]";
+    $components = $template->components;
+
+    $componentSum = (float) $components->sum('weight_percent');
+    $componentOk = abs($componentSum - 100.0) < 0.01;
+
+    printf("%s\n", $label);
+    printf("   %-40s components = %6.2f%%  %s\n", '(total)', $componentSum, $componentOk ? 'OK' : 'FAIL');
+
+    if (! $componentOk) {
         $fail++;
     }
 
-    foreach ($components as $code => $criteria) {
-        $total = array_sum($criteria);
-        $declared = $componentWeights[$name][$code] ?? 0;
-        // Absolute marks for this component, then the criteria split of it.
-        $marks = round(100 * ($declared / 100), 2);
-        $split = 0.0;
+    foreach ($components as $component) {
+        $criteria = $component->criteria;
+        $criteriaSum = (float) $criteria->sum('weight_percent');
 
-        foreach ($criteria as $weight) {
-            $split += round($marks * ($weight / 100), 2);
+        // The component's own slice of the template's absolute marks.
+        $expectedMarks = round((float) $template->total_marks * ((float) $component->weight_percent / 100), 2);
+        $actualMarks = (float) $criteria->sum('max_marks');
+
+        $marksOk = abs($actualMarks - $expectedMarks) < 0.05;
+        $weightsOk = abs($criteriaSum - 100.0) < 0.01;
+
+        $problems = [];
+        if (! $weightsOk) {
+            $problems[] = sprintf('criterion weights %.2f%% != 100%%', $criteriaSum);
+        }
+        if (! $marksOk) {
+            $problems[] = sprintf('max_marks %.2f != %.2f', $actualMarks, $expectedMarks);
         }
 
-        $ok = abs($total - 100) < 0.01 && abs($split - $marks) < 0.05;
-        printf("   %-16s criteria = %5.2f%%  marks = %6.2f  %s\n", $code, $total, $split, $ok ? 'OK' : 'FAIL');
+        // A chapter component must point at a chapter the templates define,
+        // or the marking form has nothing to show beside the mark.
+        if ($component->milestone_code !== null
+            && ! in_array($component->milestone_code, $knownMilestoneCodes, true)) {
+            $problems[] = sprintf('milestone_code "%s" is not a known milestone', $component->milestone_code);
+        }
+
+        $ok = ! $problems;
+        printf(
+            "   %-40s criteria = %6.2f%%  marks = %6.2f/%.2f  chapter=%-12s %s%s\n",
+            $component->title,
+            $criteriaSum,
+            $actualMarks,
+            $expectedMarks,
+            $component->milestone_code ?? '-',
+            $ok ? 'OK' : 'FAIL',
+            $ok ? '' : ' — '.implode('; ', $problems)
+        );
+
         if (! $ok) {
             $fail++;
         }
     }
+
+    echo "\n";
 }
 
 echo $fail === 0
-    ? "\nAll rubric weights balanced.\n"
-    : "\n{$fail} problem(s) found.\n";
+    ? 'All rubric weights balanced.'.PHP_EOL
+    : "{$fail} problem(s) found.".PHP_EOL;
 
 exit($fail === 0 ? 0 : 1);

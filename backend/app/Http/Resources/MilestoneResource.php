@@ -28,6 +28,18 @@ class MilestoneResource extends JsonResource
             'sequence'       => $this->sequence,
             'weight_percent' => (float) $this->weight_percent,
 
+            /**
+             * How far this chapter has got, and what it is worth.
+             *
+             * `completion_percent` is the chapter's own progress; the
+             * contribution is how many points of the project-wide percentage
+             * this chapter is currently adding. Resolved here rather than in
+             * the SPA so the chapter breakdown a supervisor reads always sums
+             * to the project's headline progress figure.
+             */
+            'completion_percent'    => $this->completionPercent(),
+            'progress_contribution' => $this->progressContribution(),
+
             'status'       => $this->status->value,
             'status_label' => $this->status->label(),
             'status_tone'  => $this->status->tone(),
@@ -61,6 +73,62 @@ class MilestoneResource extends JsonResource
                 'id'   => $this->reviewer->id,
                 'name' => $this->reviewer->name,
             ] : null),
+
+            /**
+             * The owning project.
+             *
+             * The cross-project milestone worklist renders the project on every
+             * row, and that screen cannot issue a second request per row to
+             * resolve it.
+             */
+            'project' => $this->whenLoaded('project', fn () => $this->project ? [
+                'id'          => $this->project->id,
+                'code'        => $this->project->code,
+                'title'       => $this->project->title,
+                'psm_part'    => $this->project->psm_part,
+                'batch'       => $this->project->batch,
+                'category'    => $this->project->category->value,
+                'category_label' => $this->project->category->label(),
+
+                'students' => $this->project->relationLoaded('students')
+                    ? $this->project->students->map(fn ($student) => [
+                        'id'         => $student->id,
+                        'student_id' => $student->student_id,
+                        'name'       => $student->user?->name,
+                        // Needed by the UI to decide whether the signed-in
+                        // student owns this milestone.
+                        'user_id'    => $student->user_id,
+                    ])->values()->all()
+                    : null,
+
+                /**
+                 * Everyone who supervises this project, derived from its
+                 * students' active supervision assignments. The detail screen
+                 * needs this to show who may act on the submission.
+                 */
+                'supervisors' => $this->project->relationLoaded('students')
+                    ? $this->project->students
+                        ->flatMap(fn ($student) => $student->activeSupervisions)
+                        ->map(fn ($assignment) => $assignment->supervisorProfile?->user)
+                        ->filter()
+                        ->unique('id')
+                        ->map(fn ($user) => [
+                            'id'   => $user->id,
+                            'name' => $user->name,
+                        ])->values()->all()
+                    : null,
+            ] : null),
+
+            /**
+             * What a good submission looks like, copied from the template item
+             * at instantiation. Lives on the template rather than the milestone
+             * row so the wording can be corrected for future projects without
+             * rewriting history for ones already under way.
+             */
+            'deliverable_expectation' => $this->whenLoaded(
+                'templateItem',
+                fn () => $this->templateItem?->deliverable_expectation,
+            ),
 
             // Deadline override audit (Module 7)
             'deadline_override_reason' => $this->deadline_override_reason,

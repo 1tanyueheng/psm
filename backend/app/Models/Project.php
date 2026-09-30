@@ -155,6 +155,13 @@ class Project extends Model
      * Overall milestone completion, 0–100, using each milestone's
      * weight_percent. This is the number Module 5 shows on the cohort
      * progress bar and Module 8 can optionally rank by.
+     *
+     * Each chapter contributes its own weight in proportion to how far it has
+     * got, so approving a 15%-weight chapter moves this figure by 15. The
+     * per-status factors come from MilestoneStatus::progressFactor(), the
+     * same source Milestone::completionPercent() uses, which is what
+     * guarantees the chapter breakdown shown to a supervisor sums to this
+     * total rather than merely resembling it.
      */
     public function milestoneProgressPercent(): float
     {
@@ -175,13 +182,9 @@ class Project extends Model
             return round(($approved / $milestones->count()) * 100, 2);
         }
 
-        $earned = $milestones->sum(fn (Milestone $m) => match ($m->status) {
-            MilestoneStatus::Approved  => (float) $m->weight_percent,
-            // Partial credit: submitted/reviewed work is underway
-            MilestoneStatus::Reviewed  => (float) $m->weight_percent * 0.75,
-            MilestoneStatus::Submitted => (float) $m->weight_percent * 0.5,
-            default                    => 0.0,
-        });
+        $earned = $milestones->sum(
+            fn (Milestone $m) => (float) $m->weight_percent * $m->status->progressFactor()
+        );
 
         return round(($earned / $totalWeight) * 100, 2);
     }

@@ -27,6 +27,11 @@ use Illuminate\Database\Seeder;
  * `max_marks` is stored on every criterion because the weighted contribution
  * shown to an assessor is computed from it. Without persistence, editing a
  * template later would silently change how an old assessment reads.
+ *
+ * The supervisor rubric (version 2) is structured one component per chapter,
+ * matching the Proposal / Chapter 1-5 / Final Report submission chain. Each
+ * component stores the milestone code it scores, which is what lets the
+ * marking form show a chapter's submission status beside its mark.
  */
 class RubricTemplateSeeder extends Seeder
 {
@@ -70,7 +75,7 @@ class RubricTemplateSeeder extends Seeder
                 'category'      => $category->value,
                 'psm_part'      => 'BOTH',
                 'assessor_type' => $type->value,
-                'version'       => 1,
+                'version'       => 2,
             ],
             [
                 'name'         => sprintf('%s — %s Rubric', $category->label(), $type->label()),
@@ -91,7 +96,7 @@ class RubricTemplateSeeder extends Seeder
     // -----------------------------------------------------------------
 
     /**
-     * @param  array{code:string, title:string, weight:float, description:string,
+     * @param  array{code:string, milestone_code?:string, title:string, weight:float, description:string,
      *               comment_below?:bool, criteria:array<int,array{code:string,title:string,weight:float,guidance:string}>}  $definition
      */
     protected function createComponentWithCriteria(RubricTemplate $template, array $definition, int $sequence): RubricComponent
@@ -102,6 +107,7 @@ class RubricTemplateSeeder extends Seeder
                 'code'               => $definition['code'],
             ],
             [
+                'milestone_code'            => $definition['milestone_code'] ?? null,
                 'title'                     => $definition['title'],
                 'description'               => $definition['description'],
                 'weight_percent'            => $definition['weight'],
@@ -145,129 +151,179 @@ class RubricTemplateSeeder extends Seeder
     protected function componentsFor(ProjectCategory $category, AssessorType $type): array
     {
         return match ($type) {
-            AssessorType::Supervisor => $category === ProjectCategory::System
-                ? $this->supervisorSystem()
-                : $this->supervisorResearch(),
-            AssessorType::Examiner => $this->examinerRubric($category),
+            AssessorType::Supervisor => $this->supervisorChapters($category),
+            AssessorType::Examiner   => $this->examinerRubric($category),
             AssessorType::Coordinator => $this->coordinatorRubric(),
         };
     }
 
     /**
-     * Supervisor rubric, system-development category.
-     * Emphasis on sustained process: a good demo built in the last fortnight
-     * should not out-score twelve weeks of disciplined engineering.
+     * Supervisor rubric.
+     *
+     * Structured one component per chapter, because that is how the work
+     * actually arrives: the student submits Proposal, Chapters 1-5 and the
+     * Final Report separately, and the supervisor marks them separately as
+     * they are approved. Each component carries the milestone code it scores,
+     * so the marking form can show that chapter's submission status beside
+     * the mark being given for it.
+     *
+     * Chapter weights (85% in total) follow the milestone weights — the
+     * middle chapters carry the most, the proposal least — with the remaining
+     * 15% on supervision and professional practice, which is not attributable
+     * to any single chapter. A good demo built in the last fortnight should
+     * not out-score twelve weeks of disciplined supervision.
      */
-    protected function supervisorSystem(): array
+    protected function supervisorChapters(ProjectCategory $category): array
+    {
+        $scaffolding = [
+            ['code' => 'proposal',     'milestone_code' => 'proposal',     'title' => 'Proposal',                    'weight' => 8.00],
+            ['code' => 'chapter_1',    'milestone_code' => 'chapter_1',    'title' => 'Chapter 1 — Introduction',    'weight' => 13.00],
+            ['code' => 'chapter_2',    'milestone_code' => 'chapter_2',    'title' => 'Chapter 2 — Review & Requirements', 'weight' => 13.00],
+            ['code' => 'chapter_3',    'milestone_code' => 'chapter_3',    'title' => 'Chapter 3 — Design',          'weight' => 13.00],
+            ['code' => 'chapter_4',    'milestone_code' => 'chapter_4',    'title' => 'Chapter 4 — Implementation',  'weight' => 13.00],
+            ['code' => 'chapter_5',    'milestone_code' => 'chapter_5',    'title' => 'Chapter 5 — Testing & Evaluation', 'weight' => 10.00],
+            ['code' => 'final_report', 'milestone_code' => 'final_report', 'title' => 'Final Report',                'weight' => 15.00],
+        ];
+
+        $criteria = $category === ProjectCategory::System
+            ? $this->chapterCriteriaSystem()
+            : $this->chapterCriteriaResearch();
+
+        $descriptions = $category === ProjectCategory::System
+            ? $this->chapterDescriptionsSystem()
+            : $this->chapterDescriptionsResearch();
+
+        $components = [];
+
+        foreach ($scaffolding as $item) {
+            $components[] = [
+                'code'          => $item['code'],
+                'milestone_code'=> $item['milestone_code'],
+                'title'         => $item['title'],
+                'weight'        => $item['weight'],
+                'description'   => $descriptions[$item['code']],
+                'comment_below' => true,
+                'criteria'      => $criteria[$item['code']],
+            ];
+        }
+
+        // Supervision is assessed across the whole project rather than
+        // against any one chapter, so this component carries no milestone code.
+        $components[] = [
+            'code'          => 'supervision',
+            'milestone_code'=> null,
+            'title'         => 'Supervision & Professional Practice',
+            'weight'        => 15.00,
+            'description'   => 'Engagement across the whole project, and the professional standard of the work.',
+            'criteria'      => [
+                ['code' => 'planning',    'title' => 'Planning and record keeping', 'weight' => 35.00, 'guidance' => 'A realistic plan exists, is kept current as work develops, and slip is acknowledged rather than hidden.'],
+                ['code' => 'meetings',    'title' => 'Supervision engagement',      'weight' => 35.00, 'guidance' => 'Attends prepared, brings specific questions, acts on agreed actions before the next meeting.'],
+                ['code' => 'initiative',  'title' => 'Initiative and integrity',    'weight' => 30.00, 'guidance' => 'Solves problems before escalating, proposes options rather than waiting for instructions, and acknowledges limits honestly.'],
+            ],
+        ];
+
+        return $components;
+    }
+
+    /** @return array<string, array<int, array{code:string,title:string,weight:float,guidance:string}>> */
+    protected function chapterCriteriaSystem(): array
     {
         return [
-            [
-                'code'        => 'process',
-                'title'       => 'Project Process & Management',
-                'weight'      => 25.00,
-                'description' => 'Consistency of engagement across the whole project, not just at deadlines.',
-                'comment_below' => true,
-                'criteria'    => [
-                    ['code' => 'planning',    'title' => 'Planning and scheduling',   'weight' => 30.00, 'guidance' => 'A realistic plan exists, is kept current, and slip is acknowledged rather than hidden.'],
-                    ['code' => 'meetings',    'title' => 'Supervision engagement',    'weight' => 30.00, 'guidance' => 'Attends prepared, brings specific questions, acts on agreed actions before the next meeting.'],
-                    ['code' => 'documentation','title' => 'Working documentation',   'weight' => 20.00, 'guidance' => 'Notes, decisions and design changes are recorded as they happen.'],
-                    ['code' => 'independence','title' => 'Independence and initiative','weight' => 20.00, 'guidance' => 'Solves problems before escalating; proposes options rather than waiting for instructions.'],
-                ],
+            'proposal' => [
+                ['code' => 'objectives', 'title' => 'Objectives and scope',      'weight' => 50.00, 'guidance' => 'Aims and objectives are stated so precisely that the chapters that follow can be checked against them, and the boundaries of the build are explicit.'],
+                ['code' => 'feasibility','title' => 'Feasibility and plan',      'weight' => 50.00, 'guidance' => 'The approach is achievable in the time available, and the plan shows realistic sequencing rather than an idealised one.'],
             ],
-            [
-                'code'        => 'requirements',
-                'title'       => 'Requirements & Design Quality',
-                'weight'      => 25.00,
-                'description' => 'Whether the right problem was understood and the design answers it.',
-                'comment_below' => true,
-                'criteria'    => [
-                    ['code' => 'elicitation', 'title' => 'Requirement elicitation',  'weight' => 35.00, 'guidance' => 'Requirements trace to real stakeholder needs and are testable.'],
-                    ['code' => 'architecture','title' => 'Architecture and design',  'weight' => 35.00, 'guidance' => 'Structure is justified against alternatives; separation of concerns is visible in the code.'],
-                    ['code' => 'data_model',  'title' => 'Data modelling',           'weight' => 30.00, 'guidance' => 'Schema is normalised appropriately, constraints enforce the domain rules.'],
-                ],
+            'chapter_1' => [
+                ['code' => 'framing',    'title' => 'Problem framing',          'weight' => 50.00, 'guidance' => 'The problem is established from evidence of need, not asserted, and the contribution is stated in terms a reader unfamiliar with the project can judge.'],
+                ['code' => 'clarity',    'title' => 'Clarity and scope',         'weight' => 50.00, 'guidance' => 'Precise technical writing, and the scope stated here is the scope actually delivered.'],
             ],
-            [
-                'code'        => 'implementation',
-                'title'       => 'Implementation',
-                'weight'      => 30.00,
-                'description' => 'Quality of the working system actually delivered.',
-                'comment_below' => true,
-                'criteria'    => [
-                    ['code' => 'functionality','title' => 'Functional completeness','weight' => 40.00, 'guidance' => 'The agreed scope works end to end without hand-holding during the demo.'],
-                    ['code' => 'code_quality', 'title' => 'Code quality',           'weight' => 30.00, 'guidance' => 'Readable, consistently structured, no dead code or copy-paste blocks.'],
-                    ['code' => 'robustness',   'title' => 'Robustness',             'weight' => 30.00, 'guidance' => 'Handles invalid input and failure states without crashing; errors are informative.'],
-                ],
+            'chapter_2' => [
+                ['code' => 'criticality','title' => 'Review of prior systems',  'weight' => 50.00, 'guidance' => 'Comparable systems are compared against each other on stated criteria rather than described one after another.'],
+                ['code' => 'requirements','title' => 'Requirement quality',     'weight' => 50.00, 'guidance' => 'Requirements trace to a real stakeholder need and are written so they can be tested — and so chapter 5 can be checked against them.'],
             ],
-            [
-                'code'        => 'professionalism',
-                'title'       => 'Professional Practice',
-                'weight'      => 20.00,
-                'description' => 'Working as a computing professional, not just completing an assignment.',
-                'criteria'    => [
-                    ['code' => 'ethics',   'title' => 'Ethical and security awareness','weight' => 35.00, 'guidance' => 'Considers data protection, user privacy and access control explicitly.'],
-                    ['code' => 'testing',  'title' => 'Verification discipline',      'weight' => 35.00, 'guidance' => 'Tests are purposeful and cover edge cases; failures are investigated, not ignored.'],
-                    ['code' => 'reflection','title' => 'Critical reflection',         'weight' => 30.00, 'guidance' => 'Can articulate what they would do differently and why.'],
-                ],
+            'chapter_3' => [
+                ['code' => 'justification','title' => 'Design justification',   'weight' => 50.00, 'guidance' => 'Structural decisions are argued from constraints and requirements, with the alternatives rejected explained rather than ignored.'],
+                ['code' => 'completeness', 'title' => 'Design completeness',     'weight' => 50.00, 'guidance' => 'Architecture, data model and interface are all specified at a level chapter 4 could be built from without inventing anything.'],
+            ],
+            'chapter_4' => [
+                ['code' => 'functionality','title' => 'Functional completeness','weight' => 50.00, 'guidance' => 'The agreed scope works end to end without hand-holding during the demonstration.'],
+                ['code' => 'code_quality', 'title' => 'Code quality',            'weight' => 50.00, 'guidance' => 'Readable, consistently structured, no dead code or copy-paste blocks, and errors are surfaced informatively.'],
+            ],
+            'chapter_5' => [
+                ['code' => 'adequacy',   'title' => 'Test adequacy',            'weight' => 50.00, 'guidance' => 'Test cases map back to the chapter 2 requirements and cover failure paths, not only the happy path.'],
+                ['code' => 'defects',     'title' => 'Defect handling and evaluation','weight' => 50.00, 'guidance' => 'Defects are logged with severity and resolution, and any user evaluation is reported honestly including what did not work.'],
+            ],
+            'final_report' => [
+                ['code' => 'coherence',  'title' => 'Structure and coherence',  'weight' => 50.00, 'guidance' => 'Follows the faculty template, and the argument holds together from problem statement through to conclusion.'],
+                ['code' => 'evidence',   'title' => 'Evidence and referencing', 'weight' => 50.00, 'guidance' => 'Claims are supported by results, citations or reasoning; sources verifiable and consistently referenced.'],
             ],
         ];
     }
 
-    /**
-     * Supervisor rubric, research category.
-     * The equivalent weight sits on methodological rigour instead of build quality.
-     */
-    protected function supervisorResearch(): array
+    /** @return array<string, array<int, array{code:string,title:string,weight:float,guidance:string}>> */
+    protected function chapterCriteriaResearch(): array
     {
         return [
-            [
-                'code'        => 'process',
-                'title'       => 'Project Process & Management',
-                'weight'      => 25.00,
-                'description' => 'Consistency of engagement across the whole research project.',
-                'comment_below' => true,
-                'criteria'    => [
-                    ['code' => 'planning',    'title' => 'Research planning',        'weight' => 30.00, 'guidance' => 'A research timetable exists and is revised sensibly as the work develops.'],
-                    ['code' => 'meetings',    'title' => 'Supervision engagement',   'weight' => 30.00, 'guidance' => 'Prepared for supervision; acts on methodological feedback.'],
-                    ['code' => 'recordkeeping','title' => 'Research record keeping', 'weight' => 20.00, 'guidance' => 'Data, decisions and analysis steps are logged reproducibly.'],
-                    ['code' => 'independence','title' => 'Independent scholarship',  'weight' => 20.00, 'guidance' => 'Drives the enquiry; reads beyond the reading list.'],
-                ],
+            'proposal' => [
+                ['code' => 'questions',  'title' => 'Research questions',       'weight' => 50.00, 'guidance' => 'The questions are explicit, answerable, and specific enough that chapter 4 can be read as a direct answer to them.'],
+                ['code' => 'feasibility','title' => 'Feasibility and plan',      'weight' => 50.00, 'guidance' => 'The design is achievable within the time and access constraints, and the plan reflects realistic data collection.'],
             ],
-            [
-                'code'        => 'literature',
-                'title'       => 'Literature Review',
-                'weight'      => 25.00,
-                'description' => 'Depth and criticality of engagement with existing work.',
-                'comment_below' => true,
-                'criteria'    => [
-                    ['code' => 'coverage',   'title' => 'Breadth of sources',       'weight' => 30.00, 'guidance' => 'Sufficient peer-reviewed material, current and relevant to the question.'],
-                    ['code' => 'criticality','title' => 'Critical synthesis',       'weight' => 40.00, 'guidance' => 'Sources are compared and contrasted thematically, not listed one after another.'],
-                    ['code' => 'gap',        'title' => 'Identification of the gap','weight' => 30.00, 'guidance' => 'The specific gap this study addresses is stated and defended.'],
-                ],
+            'chapter_1' => [
+                ['code' => 'framing',    'title' => 'Problem framing',          'weight' => 50.00, 'guidance' => 'The problem is grounded in evidence of need, and the significance of answering it is argued rather than assumed.'],
+                ['code' => 'clarity',    'title' => 'Clarity and boundaries',    'weight' => 50.00, 'guidance' => 'Precise technical writing, with the boundaries of the study stated so the findings are not over-claimed.'],
             ],
-            [
-                'code'        => 'method',
-                'title'       => 'Methodology & Rigour',
-                'weight'      => 30.00,
-                'description' => 'Whether the method can actually answer the research question.',
-                'comment_below' => true,
-                'criteria'    => [
-                    ['code' => 'design',     'title' => 'Research design',          'weight' => 30.00, 'guidance' => 'Design is appropriate and justified against alternatives.'],
-                    ['code' => 'sampling',   'title' => 'Sampling and instruments', 'weight' => 25.00, 'guidance' => 'Population, sample and instruments are described and defensible.'],
-                    ['code' => 'analysis',   'title' => 'Analysis technique',       'weight' => 25.00, 'guidance' => 'Chosen analysis fits the data type and the question asked.'],
-                    ['code' => 'validity',   'title' => 'Validity and limitations', 'weight' => 20.00, 'guidance' => 'Threats to validity are acknowledged honestly, not glossed over.'],
-                ],
+            'chapter_2' => [
+                ['code' => 'sources',    'title' => 'Breadth and currency of sources','weight' => 30.00, 'guidance' => 'Sufficient peer-reviewed material, current and genuinely relevant to the question.'],
+                ['code' => 'synthesis',  'title' => 'Critical synthesis',       'weight' => 40.00, 'guidance' => 'Sources are compared and contrasted thematically, converging on a position, not listed one after another.'],
+                ['code' => 'gap',        'title' => 'Identification of the gap','weight' => 30.00, 'guidance' => 'The specific gap this study addresses is stated and defended against the work already done.'],
             ],
-            [
-                'code'        => 'academic',
-                'title'       => 'Academic Writing & Scholarship',
-                'weight'      => 20.00,
-                'description' => 'Conventions of the discipline.',
-                'criteria'    => [
-                    ['code' => 'argument',   'title' => 'Argument and coherence',  'weight' => 35.00, 'guidance' => 'A clear thread runs from question to conclusion.'],
-                    ['code' => 'referencing','title' => 'Citation and referencing', 'weight' => 35.00, 'guidance' => 'Consistent style, sources verifiable, no uncited borrowing.'],
-                    ['code' => 'ethics',     'title' => 'Research ethics',          'weight' => 30.00, 'guidance' => 'Consent, anonymity and data handling are addressed where human subjects are involved.'],
-                ],
+            'chapter_3' => [
+                ['code' => 'design',     'title' => 'Research design',          'weight' => 40.00, 'guidance' => 'The design is appropriate to the question and justified against the alternatives available.'],
+                ['code' => 'sampling',   'title' => 'Sampling and instruments', 'weight' => 30.00, 'guidance' => 'Population, sample and instruments are described and defensible for the claims being made.'],
+                ['code' => 'validity',   'title' => 'Validity, ethics and limitations','weight' => 30.00, 'guidance' => 'Threats to validity are acknowledged honestly, and consent, anonymity and data handling are addressed.'],
             ],
+            'chapter_4' => [
+                ['code' => 'analysis',   'title' => 'Analytical soundness',     'weight' => 40.00, 'guidance' => 'The analysis technique fits the data type, is applied correctly, and the reported results follow from it.'],
+                ['code' => 'presentation','title' => 'Presentation of findings','weight' => 30.00, 'guidance' => 'Findings are presented with appropriate tables or figures and can be followed without the raw data in hand.'],
+                ['code' => 'answers',    'title' => 'Answer to the questions',  'weight' => 30.00, 'guidance' => 'Each research question from chapter 1 is answered explicitly, including where the answer is inconclusive.'],
+            ],
+            'chapter_5' => [
+                ['code' => 'interpretation','title' => 'Interpretation against the literature','weight' => 40.00, 'guidance' => 'Findings are interpreted in light of prior work, and where they contradict it, that is addressed rather than avoided.'],
+                ['code' => 'limitations','title' => 'Limitations',             'weight' => 30.00, 'guidance' => 'Limitations are acknowledged honestly, with their likely effect on the conclusions stated.'],
+                ['code' => 'conclusion', 'title' => 'Conclusion and implications','weight' => 30.00, 'guidance' => 'Conclusions are traceable to the evidence gathered, and implications are neither overstated nor vague.'],
+            ],
+            'final_report' => [
+                ['code' => 'coherence',  'title' => 'Structure and coherence',  'weight' => 50.00, 'guidance' => 'Follows the faculty template, and the argument holds together from research question through to conclusion.'],
+                ['code' => 'evidence',   'title' => 'Evidence and referencing', 'weight' => 50.00, 'guidance' => 'Claims are supported by results, citations or reasoning; sources verifiable and consistently referenced.'],
+            ],
+        ];
+    }
+
+    /** @return array<string, string> */
+    protected function chapterDescriptionsSystem(): array
+    {
+        return [
+            'proposal'     => 'The agreed scope of the build, and whether it was realistic when first proposed.',
+            'chapter_1'    => 'Whether the problem and the claimed contribution are framed convincingly.',
+            'chapter_2'    => 'Awareness of prior work, and the quality of the requirements derived from it.',
+            'chapter_3'    => 'Quality of the design decisions and how completely they were specified.',
+            'chapter_4'    => 'Quality of the working system actually delivered, and the code behind it.',
+            'chapter_5'    => 'Verification discipline and honesty about what the evaluation found.',
+            'final_report' => 'The consolidated document as submitted for examination.',
+        ];
+    }
+
+    /** @return array<string, string> */
+    protected function chapterDescriptionsResearch(): array
+    {
+        return [
+            'proposal'     => 'The agreed scope of the study, and whether it was realistic when first proposed.',
+            'chapter_1'    => 'Whether the problem, the questions and the significance are framed convincingly.',
+            'chapter_2'    => 'Depth and criticality of engagement with existing work.',
+            'chapter_3'    => 'Whether the method could actually answer the research questions.',
+            'chapter_4'    => 'Whether the analysis is sound and the findings are reported faithfully.',
+            'chapter_5'    => 'How the findings were interpreted, and how honestly their limits are stated.',
+            'final_report' => 'The consolidated document as submitted for examination.',
         ];
     }
 
@@ -427,8 +483,8 @@ class RubricTemplateSeeder extends Seeder
     {
         return match ($type) {
             AssessorType::Supervisor => $category === ProjectCategory::System
-                ? 'Marks the supervised process, design quality and the delivered system across the whole project.'
-                : 'Marks the supervised research process, literature engagement and methodological rigour.',
+                ? 'Marks each submitted chapter of a system-development project in turn, plus supervision and professional practice across the whole project.'
+                : 'Marks each submitted chapter of a research project in turn, plus supervision and professional practice across the whole project.',
             AssessorType::Examiner => $category === ProjectCategory::System
                 ? 'Independent assessment of the written report, the delivered system and the oral defence.'
                 : 'Independent assessment of the written report, the study as conducted and the oral defence.',
@@ -453,7 +509,7 @@ class RubricTemplateSeeder extends Seeder
         TXT;
 
         return match ($type) {
-            AssessorType::Supervisor => $shared."\n\nAs supervisor you mark the process and the whole arc of the project, not only the final artefact.",
+            AssessorType::Supervisor => $shared."\n\nAs supervisor you mark each chapter as it is submitted and approved, then form an overall judgement of the project. Where a chapter has not yet been submitted, leave it unmarked rather than scoring a guess — the form cannot be submitted until every component is marked.",
             AssessorType::Examiner   => $shared."\n\nAs examiner you mark what is in front of you. Judge the submission on its own merits, independent of the supervisor's view.",
             AssessorType::Coordinator => $shared."\n\nThis rubric is for moderation. If you are changing an assessor's mark, the reason must be recorded.",
         };

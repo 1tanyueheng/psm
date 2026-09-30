@@ -5,7 +5,7 @@ import {
   Card, CardHeader, PageHeader, Badge, EmptyState, Spinner, ErrorState,
   Button, Field, Textarea, FieldErrors, Avatar, ProgressBar,
 } from '../../components/ui'
-import { formatDate, formatDateTime, formatMark, relativeDays, EVALUATION_STATUS, statusMeta } from '../../lib/format'
+import { formatDate, formatDateTime, formatMark, formatPercent, relativeDays, EVALUATION_STATUS, statusMeta } from '../../lib/format'
 
 /**
  * Rubric marking form — Module 4's core screen.
@@ -44,11 +44,12 @@ export default function EvaluationFormPage() {
       const data = await evaluationApi.get(id)
       setEvaluation(data)
 
-      // Seed local state from whatever was previously saved.
+      // Seed local state from whatever was previously saved. The API returns
+      // `marks_awarded`, not `mark`.
       const initialMarks = {}
       const initialComments = {}
       for (const score of data.scores ?? []) {
-        initialMarks[score.criterion_code] = score.mark ?? ''
+        initialMarks[score.criterion_code] = score.marks_awarded ?? ''
         if (score.comment) initialComments[score.criterion_code] = score.comment
       }
       setMarks(initialMarks)
@@ -65,17 +66,21 @@ export default function EvaluationFormPage() {
     load()
   }, [load])
 
-  const readOnly = evaluation ? !['draft', 'in_progress'].includes(evaluation.status) : true
+  // The status enum is the authority on whether a form can still be marked;
+  // `is_editable` comes from it rather than being re-derived here.
+  const readOnly = evaluation ? !evaluation.is_editable : true
 
   const payloadFor = useCallback(
-    () => ({
+    (overrides = {}) => ({
+      // `marks` and `comment` are the names the endpoint validates against.
       marks: Object.entries(marks)
         .filter(([, value]) => value !== '' && value != null && !Number.isNaN(Number(value)))
         .map(([criterion_code, mark]) => ({
           criterion_code,
-          mark: Number(mark),
+          marks: Number(mark),
           comment: comments[criterion_code]?.trim() || undefined,
         })),
+      ...overrides,
     }),
     [marks, comments]
   )
@@ -121,6 +126,16 @@ export default function EvaluationFormPage() {
   }
 
   const totals = useMemo(() => computeTotals(evaluation, marks), [evaluation, marks])
+
+  /**
+   * Chapter status keyed by milestone code, so a chapter-scoped component can
+   * show how that chapter is progressing while it is being marked.
+   */
+  const milestonesByCode = useMemo(() => {
+    const map = {}
+    for (const m of evaluation?.milestones ?? []) map[m.code] = m
+    return map
+  }, [evaluation])
 
   async function handleSubmit() {
     setSubmitting(true)
@@ -190,10 +205,10 @@ export default function EvaluationFormPage() {
           {components.map((component) => (
             <Card key={component.code}>
               <CardHeader
-                title={component.name}
+                title={component.title}
                 subtitle={
-                  component.weight != null
-                    ? `Weighted ${component.weight}% of the final mark`
+                  component.weight_percent != null
+                    ? `Weighted ${formatPercent(component.weight_percent, 0)} of the final mark`
                     : undefined
                 }
                 action={
@@ -203,6 +218,16 @@ export default function EvaluationFormPage() {
                   />
                 }
               />
+
+              {component.description && (
+                <p className="mb-3 text-sm text-slate-600">{component.description}</p>
+              )}
+
+              {/* Chapter-scoped components carry the milestone they score, so
+                  the supervisor can see its submission state while marking. */}
+              {component.milestone_code && milestonesByCode[component.milestone_code] && (
+                <ChapterStatus milestone={milestonesByCode[component.milestone_code]} />
+              )}
 
               <ul className="divide-y divide-slate-100">
                 {(component.criteria ?? []).map((criterion) => (
@@ -222,7 +247,7 @@ export default function EvaluationFormPage() {
           ))}
 
           {/* Overall comment — a single narrative summary alongside the rubric. */}
-          {evaluation.overall_comment != null || !readOnly ? (
+          {evaluation.comment != null || !readOnly ? (
             <Card>
               <CardHeader title="Overall comment" subtitle="Visible with your marks once released" />
               <Field label="Summary" htmlFor="overall" hint="Optional but strongly encouraged">
@@ -230,13 +255,13 @@ export default function EvaluationFormPage() {
                   id="overall"
                   rows={5}
                   disabled={readOnly}
-                  defaultValue={evaluation.overall_comment ?? ''}
+                  defaultValue={evaluation.comment ?? ''}
                   onBlur={(e) => {
                     if (readOnly) return
                     const value = e.target.value
-                    if (value !== (evaluation.overall_comment ?? '')) {
+                    if (value !== (evaluation.comment ?? '')) {
                       evaluationApi
-                        .saveMarks(id, { ...payloadFor(), overall_comment: value })
+                        .saveMarks(id, payloadFor({ comment: value }))
                         .then(() => setSavedAt(new Date()))
                         .catch((err) => setSaveError(err?.message ?? 'Could not save the comment.'))
                     }
@@ -282,7 +307,7 @@ export default function EvaluationFormPage() {
                 <ul className="space-y-2 border-t border-slate-100 pt-3">
                   {totals.byComponent.map((row) => (
                     <li key={row.code} className="flex items-center justify-between text-sm">
-                      <span className="truncate text-slate-600">{row.name}</span>
+                      <span className="truncate text-slate-600">{row.title}</span>
                       <span className="shrink-0 tabular-nums text-slate-800">
                         {formatMark(row.score)}
                         <span className="ml-1 text-xs text-slate-400">/{row.max}</span>
@@ -365,22 +390,23 @@ function CriterionRow({ criterion, component, mark, comment, readOnly, onMark, o
       <div className="flex flex-wrap items-start gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="font-medium text-slate-800">{criterion.name}</p>
+            <p className="font-medium text-slate-800">{criterion.title}</p>
             <span className="text-xs text-slate-400">
-              {component.weight != null && `${component.weight}% · `}
+              {component.weight_percent != null &&
+                `${formatPercent(component.weight_percent, 0)} · `}
               {max} marks
             </span>
           </div>
           {criterion.description && (
             <p className="mt-1 text-sm text-slate-600">{criterion.description}</p>
           )}
-          {criterion.grading_guide && (
+          {criterion.guidance && (
             <details className="mt-2">
               <summary className="cursor-pointer text-xs font-medium text-brand-700 hover:underline">
-                Show band descriptors
+                What excellent looks like
               </summary>
               <div className="mt-2 whitespace-pre-line rounded-md bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600">
-                {criterion.grading_guide}
+                {criterion.guidance}
               </div>
             </details>
           )}
@@ -388,7 +414,7 @@ function CriterionRow({ criterion, component, mark, comment, readOnly, onMark, o
 
         <div className="w-28 shrink-0">
           <label className="sr-only" htmlFor={`mark-${criterion.code}`}>
-            Mark for {criterion.name}
+            Mark for {criterion.title}
           </label>
           <div className="relative">
             <input
@@ -435,6 +461,29 @@ function CriterionRow({ criterion, component, mark, comment, readOnly, onMark, o
   )
 }
 
+/**
+ * The chapter's submission state, shown above the criteria it is marked on.
+ * Answers "is this chapter actually submitted yet?" at the moment of marking.
+ */
+function ChapterStatus({ milestone }) {
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-3 rounded-md bg-slate-50 px-3 py-2">
+      <Badge tone={milestone.status_tone ?? 'neutral'}>
+        {milestone.status_label ?? milestone.status}
+      </Badge>
+      <div className="min-w-32 flex-1">
+        <ProgressBar value={milestone.completion_percent ?? 0} tone={milestone.status_tone ?? 'brand'} />
+      </div>
+      <span className="text-xs text-slate-500">
+        chapter {formatPercent(milestone.completion_percent ?? 0)} complete
+      </span>
+      <span className="text-xs text-slate-400">
+        due {formatDate(milestone.effective_due_at ?? milestone.due_at)}
+      </span>
+    </div>
+  )
+}
+
 function ComponentScore({ component, marks }) {
   const { score, max } = scoreComponent(component, marks)
   return (
@@ -458,18 +507,19 @@ function scoreComponent(component, marks) {
   if (criteria.length === 0) return { score: 0, max: 0 }
 
   // Criteria weights inside a component sum to 100.
-  const criterionWeightTotal = criteria.reduce((sum, c) => sum + (c.weight ?? 0), 0) || 100
+  const criterionWeightTotal =
+    criteria.reduce((sum, c) => sum + (c.weight_percent ?? 0), 0) || 100
   const componentMax = criteria.reduce((sum, c) => sum + (c.max_marks ?? 0), 0)
 
   let earned = 0
   for (const criterion of criteria) {
     const raw = marks[criterion.code]
-    if (raw === '' || raw == null || raw === '') continue
+    if (raw === '' || raw == null) continue
     const value = Number(raw)
     if (Number.isNaN(value)) continue
 
     const max = criterion.max_marks ?? 100
-    const criterionShare = (criterion.weight ?? 0) / criterionWeightTotal
+    const criterionShare = (criterion.weight_percent ?? 0) / criterionWeightTotal
     earned += (value / max) * criterionShare * componentMax
   }
 
@@ -480,17 +530,17 @@ function computeTotals(evaluation, marks) {
   const components = evaluation?.rubric_snapshot?.components ?? []
   const totalMarks = evaluation?.rubric_snapshot?.total_marks ?? 100
 
-  const weightTotal = components.reduce((sum, c) => sum + (c.weight ?? 0), 0)
+  const weightTotal = components.reduce((sum, c) => sum + (c.weight_percent ?? 0), 0)
   const byComponent = components.map((component) => {
     const { score, max } = scoreComponent(component, marks)
     // If the rubric's weights do not sum to 100 the server rescales; match it.
     const scale = weightTotal > 0 ? 100 / weightTotal : 1
-    const weighted = (score / (max || 1)) * (component.weight ?? 0) * scale
+    const weighted = (score / (max || 1)) * (component.weight_percent ?? 0) * scale
 
     return {
       code: component.code,
-      name: component.name,
-      score: round2((score / (max || 1)) * (component.max_marks ?? max) || score),
+      title: component.title,
+      score: round2(score),
       max: round2(max),
       weighted,
     }

@@ -109,7 +109,9 @@ class EvaluationController extends ApiController
         }
 
         return $this->created(
-            new EvaluationResource($evaluation->load('scores', 'assessor', 'rubricTemplate')),
+            new EvaluationResource(
+                $evaluation->load('scores', 'assessor', 'rubricTemplate', 'project.milestones')
+            ),
             'Evaluation form ready.'
         );
     }
@@ -148,7 +150,7 @@ class EvaluationController extends ApiController
             return $this->fail($e->getMessage(), 422);
         }
 
-        $updated->load('scores', 'assessor', 'rubricTemplate');
+        $updated->load('scores', 'assessor', 'rubricTemplate', 'project.milestones');
 
         return $this->ok(new EvaluationResource($updated), 'Marks saved.');
     }
@@ -169,7 +171,7 @@ class EvaluationController extends ApiController
         }
 
         return $this->ok(
-            new EvaluationResource($submitted->load('scores', 'assessor', 'rubricTemplate')),
+            new EvaluationResource($submitted->load('scores', 'assessor', 'rubricTemplate', 'project.milestones')),
             'Marks submitted and locked. A coordinator can now moderate them.'
         );
     }
@@ -202,7 +204,7 @@ class EvaluationController extends ApiController
         }
 
         return $this->ok(
-            new EvaluationResource($moderated->load('scores', 'assessor', 'rubricTemplate', 'moderatedBy')),
+            new EvaluationResource($moderated->load('scores', 'assessor', 'rubricTemplate', 'moderatedBy', 'project.milestones')),
             'Marks moderated. The change is recorded in the audit trail.'
         );
     }

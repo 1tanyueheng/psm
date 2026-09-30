@@ -47,6 +47,26 @@ class EvaluationResource extends JsonResource
                 ])->values()->all(),
             ] : null),
 
+            /**
+             * The project's chapters and how far each has got.
+             *
+             * A supervisor marks one component per chapter, so the form needs
+             * the matching chapter's status and completion to sit beside the
+             * mark being given. Keyed by the same milestone code the rubric
+             * component carries.
+             *
+             * Both relations are checked explicitly rather than through
+             * `whenLoaded('project.milestones')`, which does not fire for a
+             * nested path and silently dropped the whole key.
+             */
+            'milestones' => $this->when(
+                $this->relationLoaded('project')
+                    && $this->project->relationLoaded('milestones'),
+                fn () => MilestoneResource::collection(
+                    $this->project->milestones->sortBy('sequence')->values()
+                )
+            ),
+
             'assessor_id'   => $this->assessor_id,
             'assessor_type' => $this->assessor_type->value,
             'assessor_type_label' => $this->assessor_type->label(),

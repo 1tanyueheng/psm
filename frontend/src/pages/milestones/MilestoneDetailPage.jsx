@@ -4,11 +4,11 @@ import { milestoneApi } from '../../api/endpoints'
 import { useAuth } from '../../context/AuthContext'
 import {
   Card, CardHeader, PageHeader, Badge, EmptyState, Spinner, ErrorState,
-  Button, Field, Textarea, FieldErrors, Avatar,
+  Button, Field, Textarea, FieldErrors, Avatar, ProgressBar,
 } from '../../components/ui'
 import { can } from '../../lib/permissions'
 import {
-  formatDate, formatDateTime, formatBytes, relativeDays, isOverdue,
+  formatDate, formatDateTime, formatBytes, relativeDays, isOverdue, formatPercent,
   MILESTONE_STATUS, statusMeta,
 } from '../../lib/format'
 
@@ -66,7 +66,7 @@ export default function MilestoneDetailPage() {
 
   const meta = statusMeta(MILESTONE_STATUS, milestone.status)
   const due = milestone.effective_due_at ?? milestone.due_at
-  const late = milestone.status !== 'approved' && isOverdue(due)
+  const late = milestone.status !== 'approved' && isOverdue(due, milestone.status)
   const student = milestone.project?.students?.[0]
 
   // The status machine is the authority; these are just its UI consequences.
@@ -77,14 +77,16 @@ export default function MilestoneDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={milestone.name}
+        title={milestone.title}
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
-            <Badge tone={meta?.tone ?? 'neutral'}>{meta?.label ?? milestone.status}</Badge>
+            <Badge tone={milestone.status_tone ?? 'neutral'}>
+              {milestone.status_label ?? meta?.label ?? milestone.status}
+            </Badge>
             {late && <Badge tone="danger">Overdue</Badge>}
             {milestone.revision_count > 0 && <Badge tone="warning">Revision {milestone.revision_count}</Badge>}
-            {milestone.milestone_code && (
-              <span className="font-mono text-xs">{milestone.milestone_code}</span>
+            {milestone.code && (
+              <span className="font-mono text-xs">{milestone.code}</span>
             )}
           </span>
         }
@@ -94,6 +96,30 @@ export default function MilestoneDetailPage() {
             : { to: '/milestones', label: 'All milestones' }
         }
       />
+
+      {/* How far this chapter has got, and what it is worth toward the
+          project total. */}
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm font-medium text-slate-800">
+            {milestone.title} progress
+          </p>
+          <div className="flex items-center gap-4 text-sm text-slate-600">
+            <span className="tabular-nums">
+              {formatPercent(milestone.completion_percent ?? 0)} complete
+            </span>
+            <span className="tabular-nums text-slate-400">
+              worth {formatPercent(milestone.weight_percent ?? 0, 0)}
+            </span>
+          </div>
+        </div>
+        <div className="mt-3">
+          <ProgressBar
+            value={milestone.completion_percent ?? 0}
+            tone={milestone.status_tone ?? 'brand'}
+          />
+        </div>
+      </Card>
 
       {actionError && <ErrorState error={{ message: actionError }} />}
 
@@ -114,8 +140,8 @@ export default function MilestoneDetailPage() {
               )}
 
               <dl className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-4">
-                <Detail label="Due" value={formatDate(due, { fallback: 'No date set' })} />
-                <Detail label="Weight" value={milestone.weight ? `${milestone.weight}%` : '—'} />
+                <Detail label="Due" value={formatDate(due)} />
+                <Detail label="Weight" value={formatPercent(milestone.weight_percent ?? 0, 0)} />
                 <Detail
                   label="Files"
                   value={
@@ -424,7 +450,9 @@ function ReviewCard({ milestone, busy, onRun }) {
     )
   }
 
-  const canReview = ['submitted', 'under_review'].includes(milestone.status)
+  // `reviewed` is the real backend status; there is no `under_review`. A
+  // milestone already in `reviewed` can still be approved or sent back.
+  const canReview = ['submitted', 'reviewed'].includes(milestone.status)
 
   if (!canReview) {
     return (

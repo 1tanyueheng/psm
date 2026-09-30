@@ -42,7 +42,7 @@ class MilestoneController extends ApiController
         $this->authorize('view', $project);
 
         $milestones = $project->milestones()
-            ->with(['currentFiles.uploader', 'reviewer'])
+            ->with(['currentFiles.uploader', 'reviewer', 'templateItem'])
             ->orderBy('sequence')
             ->get();
 
@@ -66,7 +66,9 @@ class MilestoneController extends ApiController
 
         $paginator = Milestone::query()
             ->whereHas('project', fn ($q) => $q->visibleTo($user))
-            ->with(['currentFiles.uploader', 'reviewer', 'project'])
+            // `templateItem` carries the deliverable expectation, which the
+            // worklist shows per row alongside the chapter's progress.
+            ->with(['currentFiles.uploader', 'reviewer', 'project', 'templateItem'])
             ->when(
                 $request->filled('status'),
                 fn ($q) => $q->where('status', $request->input('status'))
@@ -106,7 +108,11 @@ class MilestoneController extends ApiController
             'files.uploader',
             'events.actor',
             'reviewer',
+            'templateItem',
+            // The detail screen shows who owns the work and who may review it,
+            // so both the students and their supervisors are needed up front.
             'project.students.user',
+            'project.students.activeSupervisions.supervisorProfile.user',
         ]);
 
         return $this->ok(new MilestoneResource($milestone));
@@ -157,6 +163,16 @@ class MilestoneController extends ApiController
         }
 
         $files = DB::transaction(function () use ($milestone, $validated, $request) {
+            /**
+             * The revision number has to be read across *every* attempt, before
+             * the previous one is superseded.
+             *
+             * `currentFiles()` is scoped to `is_current`, so once the old rows
+             * are flipped below it returns nothing and every resubmission would
+             * be numbered 1 — erasing the chapter's revision history.
+             */
+            $revisionNo = ((int) $milestone->files()->max('revision_no')) + 1;
+
             $isResubmission = $milestone->submitted_at !== null
                 || $milestone->revision_count > 0;
 
@@ -168,8 +184,6 @@ class MilestoneController extends ApiController
                     'superseded_by' => $request->user()->id,
                 ]);
             }
-
-            $revisionNo = $milestone->currentFiles()->max('revision_no') + 1 ?: 1;
 
             $created = [];
 

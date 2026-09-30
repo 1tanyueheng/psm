@@ -234,4 +234,34 @@ class Milestone extends Model
     {
         return (float) $this->weight_percent;
     }
+
+    // -----------------------------------------------------------------
+    // Module 3 — progress contribution
+    // -----------------------------------------------------------------
+
+    /**
+     * How complete this chapter is on its own terms, 0–100.
+     *
+     * Driven entirely by status: approved is complete, submitted and reviewed
+     * are work-in-progress. A supervisor looking at Chapter 3 sees one figure
+     * that answers "how far through is this chapter", independent of how much
+     * of the project it represents.
+     */
+    public function completionPercent(): float
+    {
+        return round($this->status->progressFactor() * 100, 2);
+    }
+
+    /**
+     * The percentage points this chapter contributes to the project's overall
+     * progress figure.
+     *
+     * Summing these across a project's milestones reproduces
+     * Project::milestoneProgressPercent() exactly, which is what lets the UI
+     * show a chapter breakdown that adds up to the headline number.
+     */
+    public function progressContribution(): float
+    {
+        return round($this->weightOrZero() * $this->status->progressFactor(), 2);
+    }
 }

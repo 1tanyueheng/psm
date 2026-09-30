@@ -81,6 +81,28 @@ enum MilestoneStatus: string
         return in_array($this, [self::Submitted, self::Reviewed, self::Approved], true);
     }
 
+    /**
+     * How much of a milestone counts as complete, as a fraction of 1.
+     *
+     * This is the single definition of "progress" in the system. Both the
+     * per-chapter figure a supervisor sees
+     * (Milestone::completionPercent()) and the overall project figure
+     * (Project::milestoneProgressPercent()) are derived from it, so the two
+     * can never disagree — a chapter showing 75% must add exactly its
+     * weighted 75% to the project total.
+     */
+    public function progressFactor(): float
+    {
+        return match ($this) {
+            self::Approved  => 1.0,
+            // Partial credit: submitted/reviewed work is underway but not yet
+            // accepted, so it cannot be worth the full weight.
+            self::Reviewed  => 0.75,
+            self::Submitted => 0.5,
+            default          => 0.0,
+        };
+    }
+
     public function isFinal(): bool
     {
         return $this === self::Approved;

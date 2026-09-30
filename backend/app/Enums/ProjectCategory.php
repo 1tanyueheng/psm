@@ -29,25 +29,35 @@ enum ProjectCategory: string
         };
     }
 
-    /** Default milestone chain seeded by MilestoneTemplateSeeder. */
+    /**
+     * Default milestone chain seeded by MilestoneTemplateSeeder.
+     *
+     * The chain is deliberately identical for both categories: a PSM project
+     * is assessed as a written document that is built up chapter by chapter,
+     * and a system-development project and a research project are marked
+     * against the same chapter structure. What differs between the two is the
+     * *content* expected inside a chapter, not the shape of the submission
+     * chain — that lives in the per-chapter guidance below and in the rubric.
+     *
+     * Each weight is also the milestone's share of overall project progress,
+     * so a chapter worth 15% moves the progress bar by 15% once it is
+     * approved. See Project::milestoneProgressPercent().
+     */
     public function defaultMilestones(): array
     {
-        return match ($this) {
-            self::System => [
-                ['code' => 'proposal',   'title' => 'Proposal',        'weight' => 10.0, 'offset_days' => 21],
-                ['code' => 'design',     'title' => 'System Design',   'weight' => 15.0, 'offset_days' => 49],
-                ['code' => 'implement',  'title' => 'Implementation',  'weight' => 30.0, 'offset_days' => 91],
-                ['code' => 'testing',    'title' => 'Testing',         'weight' => 25.0, 'offset_days' => 119],
-                ['code' => 'report',     'title' => 'Final Report',    'weight' => 20.0, 'offset_days' => 140],
-            ],
-            self::Research => [
-                ['code' => 'proposal',   'title' => 'Proposal',        'weight' => 10.0, 'offset_days' => 21],
-                ['code' => 'litreview',  'title' => 'Literature Review','weight' => 20.0, 'offset_days' => 49],
-                ['code' => 'methods',    'title' => 'Methodology',     'weight' => 20.0, 'offset_days' => 77],
-                ['code' => 'analysis',   'title' => 'Data Analysis',   'weight' => 30.0, 'offset_days' => 119],
-                ['code' => 'report',     'title' => 'Final Report',    'weight' => 20.0, 'offset_days' => 140],
-            ],
-        };
+        $chain = [
+            ['code' => 'proposal',     'title' => 'Proposal',     'weight' => 10.0, 'offset_days' => 21],
+            ['code' => 'chapter_1',    'title' => 'Chapter 1',    'weight' => 15.0, 'offset_days' => 42],
+            ['code' => 'chapter_2',    'title' => 'Chapter 2',    'weight' => 15.0, 'offset_days' => 63],
+            ['code' => 'chapter_3',    'title' => 'Chapter 3',    'weight' => 15.0, 'offset_days' => 84],
+            ['code' => 'chapter_4',    'title' => 'Chapter 4',    'weight' => 15.0, 'offset_days' => 105],
+            ['code' => 'chapter_5',    'title' => 'Chapter 5',    'weight' => 10.0, 'offset_days' => 119],
+            ['code' => 'final_report', 'title' => 'Final Report', 'weight' => 20.0, 'offset_days' => 140],
+        ];
+
+        // One chain, both categories. `description()` explains the difference
+        // in what a chapter is expected to contain.
+        return $chain;
     }
 
     public static function options(): array

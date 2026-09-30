@@ -324,13 +324,13 @@ class EvaluationSeeder extends Seeder
     }
 
     /**
-     * An examiner is meaningful once there is a submission to examine —
-     * implementation submitted, or the final report in.
+     * An examiner is meaningful once there is something final to examine —
+     * the implementation chapters under review, or the final report in.
      */
     protected function isExaminable(Project $project): bool
     {
         return $project->milestones()
-            ->whereIn('code', ['implement', 'testing', 'report'])
+            ->whereIn('code', ['chapter_4', 'chapter_5', 'final_report'])
             ->whereIn('status', [
                 MilestoneStatus::Submitted->value,
                 MilestoneStatus::Reviewed->value,

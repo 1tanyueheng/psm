@@ -98,6 +98,24 @@ const BADGE_TONES = {
   danger: 'bg-rose-50 text-rose-700 border-rose-200',
   info: 'bg-sky-50 text-sky-700 border-sky-200',
   brand: 'bg-brand-50 text-brand-700 border-brand-200',
+
+  // Colour-name aliases.
+  //
+  // Every enum in the API exposes `tone()` as a colour token intended for this
+  // component (MilestoneStatus, EvaluationStatus, ProjectStatus, …), and those
+  // are named after colours — slate, blue, amber, violet, emerald, rose, red.
+  // Without these aliases such a token falls through to `?? tone` and is
+  // emitted as a bare class name, so the badge silently loses its colour.
+  slate: 'bg-slate-100 text-slate-700 border-slate-200',
+  blue: 'bg-sky-50 text-sky-700 border-sky-200',
+  sky: 'bg-sky-50 text-sky-700 border-sky-200',
+  amber: 'bg-amber-50 text-amber-700 border-amber-200',
+  violet: 'bg-violet-50 text-violet-700 border-violet-200',
+  purple: 'bg-violet-50 text-violet-700 border-violet-200',
+  emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  green: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  rose: 'bg-rose-50 text-rose-700 border-rose-200',
+  red: 'bg-rose-50 text-rose-700 border-rose-200',
 }
 
 export function Badge({ children, tone = 'neutral' }) {
@@ -120,6 +138,19 @@ const BAR_TONES = {
   danger: 'bg-rose-500',
   info: 'bg-sky-500',
   neutral: 'bg-slate-400',
+
+  // Colour-name aliases, matching BADGE_TONES, so a `status_tone` straight
+  // from the API colours a progress bar too. See the note above.
+  slate: 'bg-slate-400',
+  blue: 'bg-sky-500',
+  sky: 'bg-sky-500',
+  amber: 'bg-amber-500',
+  violet: 'bg-violet-500',
+  purple: 'bg-violet-500',
+  emerald: 'bg-emerald-500',
+  green: 'bg-emerald-500',
+  rose: 'bg-rose-500',
+  red: 'bg-rose-500',
 }
 
 /** A weighted milestone/progress bar. `value` is 0–100. */

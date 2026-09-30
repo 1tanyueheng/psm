@@ -8,7 +8,7 @@ import {
   Spinner, ErrorState, Button, DataTable, Td,
 } from '../../components/ui'
 import {
-  formatDate, formatDateTime, formatMark, relativeDays, isOverdue,
+  formatDate, formatDateTime, formatMark, formatPercent, relativeDays, isOverdue,
   CATEGORY_LABELS, MILESTONE_STATUS, statusMeta,
 } from '../../lib/format'
 import { StatusBadge } from './ProjectListPage'
@@ -75,7 +75,7 @@ export default function ProjectDetailPage() {
   const isOwner = project.students?.some((s) => s.user_id === user?.id)
   const approved = milestones.filter((m) => m.status === 'approved').length
   const overdue = milestones.filter(
-    (m) => m.status !== 'approved' && isOverdue(m.effective_due_at ?? m.due_at)
+    (m) => m.status !== 'approved' && isOverdue(m.effective_due_at ?? m.due_at, m.status)
   )
 
   return (
@@ -225,7 +225,7 @@ function MilestoneTab({ milestones }) {
       {milestones.map((milestone, index) => {
         const meta = statusMeta(MILESTONE_STATUS, milestone.status)
         const due = milestone.effective_due_at ?? milestone.due_at
-        const late = milestone.status !== 'approved' && isOverdue(due)
+        const late = milestone.status !== 'approved' && isOverdue(due, milestone.status)
         const isLast = index === milestones.length - 1
 
         return (
@@ -256,12 +256,14 @@ function MilestoneTab({ milestones }) {
                   to={`/milestones/${milestone.id}`}
                   className="font-medium text-slate-800 hover:text-brand-700"
                 >
-                  {milestone.name}
+                  {milestone.title}
                 </Link>
-                <Badge tone={meta?.tone ?? 'neutral'}>{meta?.label ?? milestone.status}</Badge>
-                {milestone.sequence > 0 && (
+                <Badge tone={milestone.status_tone ?? 'neutral'}>
+                  {milestone.status_label ?? meta?.label ?? milestone.status}
+                </Badge>
+                {milestone.code && (
                   <span className="font-mono text-xs text-slate-400">
-                    {milestone.milestone_code}
+                    {milestone.code}
                   </span>
                 )}
                 {(milestone.revision_count ?? 0) > 0 && (
@@ -275,16 +277,26 @@ function MilestoneTab({ milestones }) {
                 </p>
               )}
 
+              {/* Per-chapter progress, and the points it adds to the project
+                  total — these contributions sum to `project.milestone_progress`. */}
+              <div className="mt-2 max-w-sm">
+                <ProgressBar
+                  value={milestone.completion_percent ?? 0}
+                  tone={milestone.status_tone ?? 'brand'}
+                  showLabel
+                />
+              </div>
+
               <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
                 <span className={late ? 'font-medium text-rose-600' : ''}>
-                  Due {formatDate(due, { fallback: 'no date' })}
+                  Due {formatDate(due)}
                   {late && ' · overdue'}
                 </span>
                 {milestone.submitted_at && <span>Submitted {formatDate(milestone.submitted_at)}</span>}
                 {milestone.approved_at && (
                   <span className="text-emerald-600">Approved {formatDate(milestone.approved_at)}</span>
                 )}
-                {milestone.weight > 0 && <span>Weight {milestone.weight}%</span>}
+                <span>Worth {formatPercent(milestone.weight_percent ?? 0, 0)}</span>
               </div>
             </div>
 

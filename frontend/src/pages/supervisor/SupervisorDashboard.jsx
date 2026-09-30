@@ -133,7 +133,7 @@ export default function SupervisorDashboard() {
                       to={`/milestones/${milestone.id}`}
                       className="truncate font-medium text-slate-900 hover:text-brand-700"
                     >
-                      {milestone.name}
+                      {milestone.title}
                     </Link>
                     <Badge tone="info">Submitted</Badge>
                   </div>
@@ -143,7 +143,7 @@ export default function SupervisorDashboard() {
                 </div>
                 <div className="text-right text-sm">
                   <p className="text-slate-700">
-                    {formatDate(milestone.submitted_at, { fallback: '—' })}
+                    {formatDate(milestone.submitted_at)}
                   </p>
                   <p className="text-xs text-slate-400">
                     {relativeDays(milestone.submitted_at)}

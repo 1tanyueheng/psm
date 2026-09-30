@@ -3,9 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { milestoneApi, projectApi } from '../../api/endpoints'
 import { unwrapPaged } from '../../api/client'
 import {
-  Card, PageHeader, Badge, EmptyState, Spinner, ErrorState, Button, Select,
+  Card, PageHeader, Badge, EmptyState, Spinner, ErrorState, Button, Select, ProgressBar,
 } from '../../components/ui'
-import { formatDate, relativeDays, isOverdue, MILESTONE_STATUS, statusMeta } from '../../lib/format'
+import {
+  formatDate, relativeDays, isOverdue, formatPercent, MILESTONE_STATUS, statusMeta,
+} from '../../lib/format'
 
 /**
  * Milestone worklist — "what needs doing across everything I can see".
@@ -66,6 +68,7 @@ export default function MilestoneListPage() {
   if (error) return <ErrorState error={error} />
 
   const groups = groupByUrgency(rows)
+  const overall = overallProgress(rows, projectId, status)
 
   return (
     <div className="space-y-6">
@@ -73,6 +76,30 @@ export default function MilestoneListPage() {
         title="Milestones"
         subtitle={`${rows.length} milestone${rows.length === 1 ? '' : 's'}`}
       />
+
+      {overall && (
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-slate-800">
+                Overall progress
+                {overall.title && (
+                  <span className="ml-2 font-normal text-slate-500">{overall.title}</span>
+                )}
+              </p>
+              <p className="text-xs text-slate-500">
+                {overall.approved} of {overall.total} chapters approved
+              </p>
+            </div>
+            <p className="text-2xl font-medium tabular-nums text-slate-800">
+              {formatPercent(overall.percent)}
+            </p>
+          </div>
+          <div className="mt-3">
+            <ProgressBar value={overall.percent} tone={overall.percent >= 100 ? 'success' : 'brand'} />
+          </div>
+        </Card>
+      )}
 
       <Card>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -149,9 +176,8 @@ export default function MilestoneListPage() {
 }
 
 function MilestoneRow({ milestone }) {
-  const meta = statusMeta(MILESTONE_STATUS, milestone.status)
   const due = milestone.effective_due_at ?? milestone.due_at
-  const late = milestone.status !== 'approved' && isOverdue(due)
+  const late = milestone.status !== 'approved' && isOverdue(due, milestone.status)
 
   return (
     <li className="flex flex-wrap items-center gap-3 py-3">
@@ -161,31 +187,47 @@ function MilestoneRow({ milestone }) {
             to={`/milestones/${milestone.id}`}
             className="font-medium text-slate-800 hover:text-brand-700"
           >
-            {milestone.name}
+            {milestone.title}
           </Link>
-          <Badge tone={meta?.tone ?? 'neutral'}>{meta?.label ?? milestone.status}</Badge>
+          <Badge tone={milestone.status_tone ?? 'neutral'}>
+            {milestone.status_label ?? statusMeta(MILESTONE_STATUS, milestone.status).label}
+          </Badge>
           {(milestone.revision_count ?? 0) > 0 && (
             <Badge tone="warning">rev {milestone.revision_count}</Badge>
           )}
         </div>
         <p className="mt-0.5 truncate text-sm text-slate-500">
-          {milestone.project?.title}
-          {milestone.milestone_code && (
-            <span className="ml-2 font-mono text-xs text-slate-400">
-              {milestone.milestone_code}
-            </span>
+          {milestone.project?.title ?? '—'}
+          {milestone.code && (
+            <span className="ml-2 font-mono text-xs text-slate-400">{milestone.code}</span>
           )}
         </p>
+        {/* Per-chapter progress: how complete this chapter is, and what it is
+            worth toward the project total. */}
+        <div className="mt-2 max-w-xs">
+          <ProgressBar
+            value={milestone.completion_percent ?? 0}
+            tone={progressTone(milestone.status)}
+            showLabel
+          />
+        </div>
       </div>
 
       <div className="text-right text-sm">
         <p className={late ? 'font-medium text-rose-600' : 'text-slate-700'}>
-          {formatDate(due, { fallback: 'no date' })}
+          {formatDate(due)}
         </p>
         <p className="text-xs text-slate-400">
           {milestone.approved_at
             ? `approved ${relativeDays(milestone.approved_at)}`
             : relativeDays(due)}
+        </p>
+      </div>
+
+      <div className="text-right text-xs text-slate-500">
+        <p>worth {formatPercent(milestone.weight_percent ?? 0, 0)}</p>
+        <p className="text-slate-400">
+          +{formatPercent(milestone.progress_contribution ?? 0, 1)} earned
         </p>
       </div>
 
@@ -196,6 +238,38 @@ function MilestoneRow({ milestone }) {
       </Link>
     </li>
   )
+}
+
+/** Bar colour that matches how far the chapter has actually got. */
+function progressTone(status) {
+  if (status === 'approved') return 'success'
+  if (status === 'reviewed' || status === 'submitted') return 'warning'
+  if (status === 'rejected' || status === 'overdue') return 'danger'
+  return 'neutral'
+}
+
+/**
+ * Overall progress for a single project, derived from the chapters in hand.
+ *
+ * The server sends each chapter's `progress_contribution`, which by
+ * definition sums to the project's own progress figure, so adding them up
+ * here reproduces the headline number rather than approximating it. Only
+ * shown when a single project is selected — summing across projects would
+ * produce a meaningless figure — and only while no status filter is narrowing
+ * the rows, since a filtered sum counts the chapters that happen to match
+ * rather than the project as a whole.
+ */
+function overallProgress(rows, projectId, statusFilter) {
+  if (!projectId || statusFilter || rows.length === 0) return null
+
+  const percent = rows.reduce((sum, m) => sum + (m.progress_contribution ?? 0), 0)
+
+  return {
+    title: rows[0]?.project?.title ?? '',
+    percent: Math.round(percent * 100) / 100,
+    approved: rows.filter((m) => m.status === 'approved').length,
+    total: rows.length,
+  }
 }
 
 /**
@@ -215,8 +289,9 @@ function groupByUrgency(rows) {
       continue
     }
     const due = m.effective_due_at ?? m.due_at
-    if (isOverdue(due)) overdue.push(m)
-    else if (m.status === 'submitted' || m.status === 'under_review') dueSoon.push(m)
+    if (isOverdue(due, m.status)) overdue.push(m)
+    // `reviewed` is the real backend status; there is no `under_review`.
+    else if (m.status === 'submitted' || m.status === 'reviewed') dueSoon.push(m)
     else open.push(m)
   }
 

@@ -151,6 +151,9 @@ class Evaluation extends Model
 
                 return [$component['code'] => [
                     'title'    => $component['title'] ?? $component['code'],
+                    // Echoed from the snapshot so a chapter-scoped subtotal can
+                    // be shown next to that chapter's submission status.
+                    'milestone_code' => $component['milestone_code'] ?? null,
                     'weight'   => (float) ($component['weight_percent'] ?? 0),
                     'obtained' => round($obtained, 2),
                     'max'      => round($max, 2),

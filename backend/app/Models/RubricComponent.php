@@ -17,6 +17,7 @@ class RubricComponent extends Model
     protected $fillable = [
         'rubric_template_id',
         'code',
+        'milestone_code',
         'title',
         'description',
         'weight_percent',
@@ -48,6 +49,17 @@ class RubricComponent extends Model
     public function scores(): HasMany
     {
         return $this->hasMany(EvaluationScore::class);
+    }
+
+    /**
+     * Whether this component is scored against one project milestone.
+     *
+     * True for the supervisor's chapter components, false for components that
+     * are not tied to a single submission — an exam defence, say.
+     */
+    public function isMilestoneScoped(): bool
+    {
+        return $this->milestone_code !== null;
     }
 
     /** Criteria weights must sum to 100 inside every component. */
