@@ -192,9 +192,6 @@ export default function ArchiveDetailPage() {
                     return (
                       <li key={name} className="text-sm text-slate-700">
                         {name}
-                        {typeof s !== 'string' && s.role && s.role !== 'primary' && (
-                          <span className="ml-1.5 text-xs text-slate-400">{s.role}</span>
-                        )}
                       </li>
                     )
                   })

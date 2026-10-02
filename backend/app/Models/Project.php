@@ -30,10 +30,11 @@ class Project extends Model
         'category',
         'psm_part',
         'academic_session',
-        'batch',
-        'program',
-        'status',
-        'created_by',
+            'batch',
+            'program',
+            'status',
+            'agreement_id',
+            'created_by',
         'approved_by',
         'submitted_at',
         'approved_at',
@@ -88,6 +89,15 @@ class Project extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /**
+     * The Lampiran A agreement this project was created from (if it came via
+     * the Lampiran B flow). Null if the project predates that flow.
+     */
+    public function agreement(): BelongsTo
+    {
+        return $this->belongsTo(SupervisorAgreement::class, 'agreement_id');
     }
 
     /** Module 3 — instantiated milestones, in order. */

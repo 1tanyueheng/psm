@@ -3,156 +3,38 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lampiran H - Borang Penilaian Laporan Kemajuan</title>
+  <title>Lampiran H - Borang Penilaian Laporan Kemajuan PSM 2</title>
   <style>
     :root {
       --primary-color: #003366;
       --border-color: #ccc;
       --bg-light: #f9f9f9;
+      --accent-color: #eef4fb;
     }
-
-    body {
-      font-family: Arial, sans-serif;
-      line-height: 1.5;
-      color: #333;
-      margin: 0;
-      padding: 20px;
-      background-color: #f4f6f9;
-    }
-
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-      background: #fff;
-      padding: 30px;
-      border-radius: 8px;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .header {
-      text-align: center;
-      border-bottom: 2px solid var(--primary-color);
-      padding-bottom: 15px;
-      margin-bottom: 20px;
-    }
-
-    .header h2, .header h3, .header h4 {
-      margin: 4px 0;
-      color: var(--primary-color);
-    }
-
-    .doc-ref {
-      text-align: right;
-      font-size: 0.85em;
-      font-weight: bold;
-    }
-
-    .section-title {
-      background-color: var(--primary-color);
-      color: #fff;
-      padding: 8px 12px;
-      font-weight: bold;
-      margin-top: 25px;
-      margin-bottom: 15px;
-      border-radius: 4px;
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 15px;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .form-group label {
-      font-weight: bold;
-      margin-bottom: 5px;
-      font-size: 0.9em;
-    }
-
-    .form-group input, .form-group select, .form-group textarea {
-      padding: 8px 10px;
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      font-size: 0.95em;
-    }
-
-    .checkbox-group {
-      display: flex;
-      gap: 20px;
-      align-items: center;
-      margin: 10px 0;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-      font-size: 0.9em;
-    }
-
-    table, th, td {
-      border: 1px solid var(--border-color);
-    }
-
-    th, td {
-      padding: 10px;
-      text-align: left;
-    }
-
-    th {
-      background-color: var(--bg-light);
-    }
-
-    .scale-table th, .scale-table td {
-      text-align: center;
-    }
-
-    .score-options {
-      display: flex;
-      justify-content: space-around;
-    }
-
-    .signature-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
-      margin-top: 20px;
-    }
-
-    .signature-box {
-      border: 1px dashed var(--border-color);
-      height: 100px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #888;
-      background-color: var(--bg-light);
-    }
-
-    .btn-container {
-      margin-top: 30px;
-      text-align: center;
-    }
-
-    .btn {
-      background-color: var(--primary-color);
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      font-size: 1em;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    .btn:hover {
-      opacity: 0.9;
-    }
-
+    body { font-family: Arial, sans-serif; line-height: 1.4; color: #333; margin: 0; padding: 20px; background-color: #f4f6f9; }
+    .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .header { text-align: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 15px; margin-bottom: 20px; }
+    .header h2, .header h3, .header h4 { margin: 4px 0; color: var(--primary-color); }
+    .doc-ref { text-align: right; font-size: 0.85em; font-weight: bold; }
+    .section-title { background-color: var(--primary-color); color: #fff; padding: 8px 12px; font-weight: bold; margin-top: 25px; margin-bottom: 15px; border-radius: 4px; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group label { font-weight: bold; margin-bottom: 5px; font-size: 0.9em; }
+    .form-group input, .form-group select, .form-group textarea { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.95em; }
+    .report-type-box { display: flex; justify-content: center; gap: 30px; background: var(--accent-color); padding: 12px; border: 1px solid var(--primary-color); border-radius: 6px; margin-bottom: 20px; font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
+    table, th, td { border: 1px solid var(--border-color); }
+    th, td { padding: 8px; text-align: left; }
+    th { background-color: var(--bg-light); }
+    .scale-table th, .scale-table td { text-align: center; }
+    .score-options { display: flex; justify-content: space-around; }
+    .total-row { background-color: var(--accent-color); font-weight: bold; }
+    .total-score-box { font-size: 1.1em; color: var(--primary-color); text-align: center; font-weight: bold; }
+    .signature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px; }
+    .signature-box { border: 1px dashed var(--border-color); height: 90px; display: flex; align-items: center; justify-content: center; color: #888; background-color: var(--bg-light); }
+    .btn-container { margin-top: 30px; text-align: center; }
+    .btn { background-color: var(--primary-color); color: white; border: none; padding: 12px 24px; font-size: 1em; border-radius: 4px; cursor: pointer; }
+    .btn:hover { opacity: 0.9; }
     @media print {
       body { background-color: #fff; padding: 0; }
       .container { box-shadow: none; max-width: 100%; padding: 0; }
@@ -173,18 +55,16 @@
     <em>Progress Report Evaluation Form for Supervisor</em></p>
   </div>
 
-  <form id="evaluationForm">
-    
-    <!-- LAPORAN SELECTION & SESSION -->
-    <div class="checkbox-group">
-      <strong>Laporan Kemajuan:</strong>
-      <label><input type="radio" name="laporan_num" value="1" required> 1</label>
-      <label><input type="radio" name="laporan_num" value="2"> 2</label>
+  <form id="formH">
+    <!-- LAPORAN KEMAJUAN SELECTOR -->
+    <div class="report-type-box">
+      <label><input type="radio" name="reportType" value="1" required> LAPORAN KEMAJUAN 1</label>
+      <label><input type="radio" name="reportType" value="2"> LAPORAN KEMAJUAN 2</label>
     </div>
 
     <div class="form-group" style="margin-bottom: 20px;">
       <label for="session">Sesi/Semester (Session/Semester):</label>
-      <input type="text" id="session" name="session" placeholder="e.g. 2024/2025 Semester II" required>
+      <input type="text" id="session" name="session" placeholder="e.g. 2025/2026 Semester II" required>
     </div>
 
     <!-- BAHAGIAN A -->
@@ -201,7 +81,7 @@
       <div class="form-group">
         <label for="programme">Program (Programme):</label>
         <select id="programme" name="programme" required>
-          <option value="">-- Sila Pilih / Select --</option>
+          <option value="">-- Pilih / Select --</option>
           <option value="BIT">BIT</option>
           <option value="BIS">BIS</option>
           <option value="BIP">BIP</option>
@@ -210,7 +90,7 @@
         </select>
       </div>
       <div class="form-group">
-        <label for="yearStudy">Tahun Pengajian Semasa (Current Year):</label>
+        <label for="yearStudy">Tahun Pengajian Semasa (Current Year of Study):</label>
         <input type="text" id="yearStudy" name="yearStudy" required>
       </div>
       <div class="form-group">
@@ -218,8 +98,9 @@
         <input type="text" id="supervisorName" name="supervisorName" required>
       </div>
       <div class="form-group">
-        <label for="category">Kategori Projek (Proj. Category):</label>
-        <select id="category" name="category" required>
+        <label for="projCategory">Kategori Projek (Proj. Category):</label>
+        <select id="projCategory" name="projCategory" required>
+          <option value="">-- Pilih / Select --</option>
           <option value="Pembangunan">Pembangunan (Development)</option>
           <option value="Kajian">Kajian (Research)</option>
         </select>
@@ -227,17 +108,13 @@
     </div>
 
     <!-- BAHAGIAN B -->
-    <div class="section-title">BAHAGIAN B: PENILAIAN LAPORAN KEMAJUAN (5%) / PART B: PROGRESS REPORT EVALUATION</div>
-    
+    <div class="section-title">BAHAGIAN B: PENILAIAN LAPORAN KEMAJUAN / PART B: PROGRESS REPORT EVALUATION</div>
+
+    <!-- SKALA PENILAIAN -->
     <p><strong>Skala Penilaian (Evaluation Scale):</strong></p>
     <table class="scale-table">
       <tr>
-        <th>0</th>
-        <th>1</th>
-        <th>2</th>
-        <th>3</th>
-        <th>4</th>
-        <th>5</th>
+        <th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
       </tr>
       <tr>
         <td>Tiada Data<br><em>(No Data)</em></td>
@@ -249,79 +126,53 @@
       </tr>
     </table>
 
-    <br>
-
+    <!-- TABLE EVALUATION -->
+    <h4 style="color: var(--primary-color); margin-top: 20px;">PROGRESS REPORT (TOTAL: 5%)</h4>
     <table>
       <thead>
         <tr>
           <th style="width: 5%;">Bil</th>
           <th style="width: 45%;">Item Penilaian (Assessment Item)</th>
-          <th style="width: 25%;">Skor Penilaian (Evaluation Score)</th>
-          <th style="width: 10%;">Pemberat (Weight)</th>
-          <th style="width: 15%;">Jumlah (Total)</th>
+          <th style="width: 25%;">Skor Penilaian (0 - 5)</th>
+          <th style="width: 10%; text-align: center;">Pemberat<br>(Weightage)</th>
+          <th style="width: 15%; text-align: center;">Jumlah Markah<br>(Weighted Mark)</th>
         </tr>
       </thead>
       <tbody>
         <tr>
           <td>1.</td>
           <td>Pencapaian Penanda Aras<br><em>(Milestone Achievement)</em></td>
-          <td>
-            <div class="score-options">
-              <label><input type="radio" name="q1" value="0" onclick="calculateTotal()" required> 0</label>
-              <label><input type="radio" name="q1" value="1" onclick="calculateTotal()"> 1</label>
-              <label><input type="radio" name="q1" value="2" onclick="calculateTotal()"> 2</label>
-              <label><input type="radio" name="q1" value="3" onclick="calculateTotal()"> 3</label>
-              <label><input type="radio" name="q1" value="4" onclick="calculateTotal()"> 4</label>
-              <label><input type="radio" name="q1" value="5" onclick="calculateTotal()"> 5</label>
-            </div>
-          </td>
-          <td>1.65</td>
-          <td id="total_q1">0.00</td>
+          <td><div class="score-options"><script>document.write(renderRadiosH('q_h_1'));</script></div></td>
+          <td style="text-align: center;">1.65</td>
+          <td id="m_h_1" style="text-align: center; font-weight: bold;">0.00 / 1.65</td>
         </tr>
         <tr>
           <td>2.</td>
           <td>Kemajuan Projek seperti dirancang<br><em>(Project Progressed as Planned)</em></td>
-          <td>
-            <div class="score-options">
-              <label><input type="radio" name="q2" value="0" onclick="calculateTotal()" required> 0</label>
-              <label><input type="radio" name="q2" value="1" onclick="calculateTotal()"> 1</label>
-              <label><input type="radio" name="q2" value="2" onclick="calculateTotal()"> 2</label>
-              <label><input type="radio" name="q2" value="3" onclick="calculateTotal()"> 3</label>
-              <label><input type="radio" name="q2" value="4" onclick="calculateTotal()"> 4</label>
-              <label><input type="radio" name="q2" value="5" onclick="calculateTotal()"> 5</label>
-            </div>
-          </td>
-          <td>1.65</td>
-          <td id="total_q2">0.00</td>
+          <td><div class="score-options"><script>document.write(renderRadiosH('q_h_2'));</script></div></td>
+          <td style="text-align: center;">1.65</td>
+          <td id="m_h_2" style="text-align: center; font-weight: bold;">0.00 / 1.65</td>
         </tr>
         <tr>
           <td>3.</td>
           <td>Peningkatan di dalam Pengetahuan dan Kemahiran<br><em>(Increased in Knowledge and Skills)</em></td>
-          <td>
-            <div class="score-options">
-              <label><input type="radio" name="q3" value="0" onclick="calculateTotal()" required> 0</label>
-              <label><input type="radio" name="q3" value="1" onclick="calculateTotal()"> 1</label>
-              <label><input type="radio" name="q3" value="2" onclick="calculateTotal()"> 2</label>
-              <label><input type="radio" name="q3" value="3" onclick="calculateTotal()"> 3</label>
-              <label><input type="radio" name="q3" value="4" onclick="calculateTotal()"> 4</label>
-              <label><input type="radio" name="q3" value="5" onclick="calculateTotal()"> 5</label>
-            </div>
-          </td>
-          <td>1.70</td>
-          <td id="total_q3">0.00</td>
+          <td><div class="score-options"><script>document.write(renderRadiosH('q_h_3'));</script></div></td>
+          <td style="text-align: center;">1.70</td>
+          <td id="m_h_3" style="text-align: center; font-weight: bold;">0.00 / 1.70</td>
         </tr>
-        <tr>
-          <td colspan="4" style="text-align: right; font-weight: bold;">JUMLAH (TOTAL):</td>
-          <td id="grandTotal" style="font-weight: bold; color: var(--primary-color);">0.00 / 25</td>
+        <tr class="total-row">
+          <td colspan="3" style="text-align: right;">JUMLAH KESELURUHAN (TOTAL WEIGHTED SCORE):</td>
+          <td style="text-align: center;">5.00</td>
+          <td id="m_h_total" class="total-score-box">0.00 / 5.00</td>
         </tr>
       </tbody>
     </table>
 
     <!-- BAHAGIAN C -->
     <div class="section-title">BAHAGIAN C: LAPORAN PENYELIA / PART C: SUPERVISOR REPORT</div>
-    <div class="form-group">
+    <div class="form-group" style="margin-bottom: 15px;">
       <label for="comments">Ulasan / Komen Penyelia (Review / Comments from Supervisor):</label>
-      <textarea id="comments" name="comments" rows="4" placeholder="Masukkan ulasan di sini..."></textarea>
+      <textarea id="comments" name="comments" rows="4" placeholder="Masukkan ulasan atau komen di sini..."></textarea>
     </div>
 
     <div class="signature-grid">
@@ -330,11 +181,11 @@
         <input type="date" id="evalDate" name="evalDate">
       </div>
       <div class="form-group">
-        <label>Tandatangan (Signature):</label>
+        <label>Tandatangan Penyelia (Signature):</label>
         <div class="signature-box">[ Ruang Tandatangan ]</div>
       </div>
       <div class="form-group">
-        <label>Cop Rasmi (Official Stamp):</label>
+        <label>Cop Rasmi Penyelia (Official Stamp):</label>
         <div class="signature-box">[ Ruang Cop ]</div>
       </div>
     </div>
@@ -342,27 +193,39 @@
     <div class="btn-container">
       <button type="button" class="btn" onclick="window.print()">Cetak / Simpan PDF</button>
     </div>
-
   </form>
 </div>
 
 <script>
-  function calculateTotal() {
+  function renderRadiosH(name) {
+    let html = '';
+    for (let i = 0; i <= 5; i++) {
+      html += `<label><input type="radio" name="${name}" value="${i}" onchange="calculateFormH()"> ${i}</label>`;
+    }
+    return html;
+  }
+
+  function calculateFormH() {
     const weights = [1.65, 1.65, 1.70];
-    let grandTotal = 0;
+    let total = 0;
 
     for (let i = 1; i <= 3; i++) {
-      const selected = document.querySelector(`input[name="q${i}"]:checked`);
+      const selected = document.querySelector(`input[name="q_h_${i}"]:checked`);
+      const weight = weights[i - 1];
       if (selected) {
-        const val = parseFloat(selected.value);
-        const itemTotal = val * weights[i - 1];
-        document.getElementById(`total_q${i}`).innerText = itemTotal.toFixed(2);
-        grandTotal += itemTotal;
+        const score = parseFloat(selected.value);
+        const mark = (score / 5) * weight;
+        document.getElementById(`m_h_${i}`).innerText = mark.toFixed(2) + ' / ' + weight.toFixed(2);
+        total += mark;
+      } else {
+        document.getElementById(`m_h_${i}`).innerText = '0.00 / ' + weight.toFixed(2);
       }
     }
 
-    document.getElementById('grandTotal').innerText = grandTotal.toFixed(2) + " / 25";
+    document.getElementById('m_h_total').innerText = total.toFixed(2) + ' / 5.00';
   }
+
+  calculateFormH();
 </script>
 
 </body>

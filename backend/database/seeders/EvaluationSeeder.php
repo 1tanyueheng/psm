@@ -197,8 +197,13 @@ class EvaluationSeeder extends Seeder
             $fraction = max(0.0, min(1.0, $band + $offset));
             $value    = round($max * $fraction, 2);
 
-            // Keep marks to a sensible granularity for a 0-100 rubric
-            $value = round($value * 2) / 2;
+            // Granularity follows the criterion. Half a mark reads naturally on a
+            // 0-100 chapter rubric, but an official form's small items (Lampiran
+            // H is 1.65 / 1.65 / 1.70) need a finer step or an entire band
+            // collapses onto a single value.
+            $step = $max >= 10.0 ? 0.5 : 0.05;
+
+            $value = round(round($value / $step) * $step, 2);
             $value = max(0.0, min($max, $value));
 
             $marks[] = [

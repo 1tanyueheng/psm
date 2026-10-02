@@ -42,6 +42,7 @@ class AppServiceProvider extends ServiceProvider
         Evaluation::class            => EvaluationPolicy::class,
         FinalGrade::class            => FinalGradePolicy::class,
         SupervisionAssignment::class => SupervisionPolicy::class,
+        \App\Models\SupervisorAgreement::class => \App\Policies\SupervisorAgreementPolicy::class,
         Leaderboard::class           => LeaderboardPolicy::class,
         ArchivedProject::class       => ArchivePolicy::class,
     ];

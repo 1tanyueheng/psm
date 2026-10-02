@@ -205,6 +205,9 @@ export const evaluationApi = {
   list: (params) => api.get('/evaluations', { params }).then(unwrapPaged),
   show: (id) => api.get(`/evaluations/${id}`).then(unwrap),
   create: (payload) => api.post('/evaluations', payload).then(unwrap),
+  /** Lampiran H — the supervisor's PSM 2 progress report (1 or 2). */
+  createProgressReport: (payload) =>
+    api.post('/evaluations/progress-report', payload).then(unwrap),
   saveMarks: (id, payload) => api.put(`/evaluations/${id}/marks`, payload).then(unwrap),
   submit: (id) => api.post(`/evaluations/${id}/submit`).then(unwrap),
   moderate: (id, newPercent, reason) =>

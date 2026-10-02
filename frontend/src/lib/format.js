@@ -97,6 +97,23 @@ export function formatPercent(value, digits = 1) {
   return Number.isNaN(number) ? '—' : `${number.toFixed(digits)}%`
 }
 
+/**
+ * 'Lampiran G', or 'Lampiran H — Progress Report 2' for the second Lampiran H
+ * sitting on a PSM 2 project. Returns null for the legacy chapter rubrics, so
+ * callers can simply skip rendering a badge.
+ */
+export function formLabel(evaluation) {
+  const code = evaluation?.form_code
+
+  if (!code) return null
+
+  if (code === 'H' && evaluation?.form_instance?.startsWith('laporan_')) {
+    return `Lampiran H — Progress Report ${evaluation.form_instance.split('_')[1]}`
+  }
+
+  return `Lampiran ${code}`
+}
+
 /** '1.2 MB' — used in the submission file list. */
 export function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return '—'

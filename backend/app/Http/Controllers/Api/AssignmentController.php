@@ -102,7 +102,11 @@ class AssignmentController extends ApiController
             'student_profile_id'    => ['required', 'integer', 'exists:student_profiles,id'],
             'supervisor_profile_id' => ['required', 'integer', 'exists:supervisor_profiles,id'],
             'psm_part'              => ['sometimes', Rule::in(['PSM1', 'PSM2', 'BOTH'])],
-            'role'                  => ['sometimes', Rule::in(['primary', 'co', 'advisor'])],
+            // Primary-only: the co-supervisor role was removed, so anything
+            // other than 'primary' is refused with a 422 rather than silently
+            // stored. The key stays optional so existing clients that send
+            // role: 'primary' keep working.
+            'role'                  => ['sometimes', Rule::in([SupervisionAssignment::ROLE_PRIMARY])],
             'responsibility_percent'=> ['sometimes', 'numeric', 'min:0', 'max:100'],
             'note'                  => ['nullable', 'string', 'max:1000'],
         ]);
@@ -115,7 +119,7 @@ class AssignmentController extends ApiController
             supervisor: $supervisor,
             actor: $request->user(),
             psmPart: $validated['psm_part'] ?? 'BOTH',
-            role: $validated['role'] ?? 'primary',
+            role: $validated['role'] ?? SupervisionAssignment::ROLE_PRIMARY,
             responsibility: isset($validated['responsibility_percent'])
                 ? (float) $validated['responsibility_percent']
                 : null,

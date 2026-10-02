@@ -5,7 +5,7 @@ import {
   Card, CardHeader, PageHeader, Badge, EmptyState, Spinner, ErrorState,
   Button, Field, Textarea, FieldErrors, Avatar, ProgressBar,
 } from '../../components/ui'
-import { formatDate, formatDateTime, formatMark, formatPercent, relativeDays, EVALUATION_STATUS, statusMeta } from '../../lib/format'
+import { formatDate, formatDateTime, formatMark, formatPercent, formLabel, relativeDays, EVALUATION_STATUS, statusMeta } from '../../lib/format'
 
 /**
  * Rubric marking form — Module 4's core screen.
@@ -180,6 +180,7 @@ export default function EvaluationFormPage() {
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <Badge tone={meta?.tone ?? 'neutral'}>{meta?.label ?? evaluation.status}</Badge>
+            {formLabel(evaluation) && <Badge tone="brand">{formLabel(evaluation)}</Badge>}
             <Badge tone="neutral">{evaluation.assessor_type}</Badge>
             {evaluation.panel_role && <Badge tone="neutral">{evaluation.panel_role}</Badge>}
             {evaluation.due_at && <span className="text-xs">due {formatDate(evaluation.due_at)}</span>}

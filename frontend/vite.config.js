@@ -15,6 +15,11 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '0.0.0.0',
       port: 5173,
+      // The source tree is bind-mounted into the container, so inotify events
+      // never reach the watcher and edited modules keep being served from the
+      // stale module graph (the page then renders the old code). Polling is
+      // cheap here and makes edits take effect without restarting the service.
+      watch: { usePolling: true, interval: 300 },
       proxy: {
         '/api': {
           target: env.VITE_PROXY_TARGET || 'http://localhost:8000',
@@ -24,10 +29,7 @@ export default defineConfig(({ mode }) => {
     },
 
     build: {
-      // Output to frontend/dist. Vercel expects this default location for the
-      // build output. The Docker image overrides the same value with
-      // `--outDir dist` in its assets stage and copies the result into
-      // public/build for nginx, so both hosts agree on where assets land.
+      base: '/build/',
       outDir: 'dist',
       emptyOutDir: true,
       sourcemap: false,

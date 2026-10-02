@@ -65,8 +65,11 @@ operation. `Project::scopeVisibleTo()` expresses what each role may list.
 - *`suggestSupervisors()`* ranks by expertise overlap against remaining
   capacity — the coordinator still decides, but starts from a shortlist rather
   than an alphabetical list of eight names.
-- *Co-supervisors carry 30% responsibility.* `responsibility_percent` is
-  recorded per assignment so a weighted aggregation can honour it.
+- *One supervisor per student, and that supervisor is primary.* Co-supervision
+  does not exist in this system: the request layer accepts only `role=primary`
+  and `SupervisionAssignment::creating()` refuses anything else, so the rule
+  survives a console call or a future endpoint just as it does the UI.
+  `responsibility_percent` therefore stays at 100.
 
 **Screens.** `pages/assignments/AssignmentPage.jsx` — the unassigned queue
 beside a live capacity panel. A supervisor at capacity is not offered in the

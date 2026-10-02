@@ -13,7 +13,7 @@ R1 is **out of scope** until its usage is confirmed.
 | **E** | Penilaian PSM 1 bagi Penyelia | Supervisor | PSM1 | 35 | 35% |
 | **I** | Penilaian Seminar 1 bagi Penilai | Examiner | PSM1 | 30 | 30% |
 | **G** | Penilaian PSM 2 bagi Penyelia | Supervisor | PSM2 | 50 | 50% |
-| **H** | Penilaian Laporan Kemajuan bagi Penyelia | Supervisor | PSM2 | 25 (raw) | 5% |
+| **H** | Penilaian Laporan Kemajuan bagi Penyelia | Supervisor | PSM2 | 5 | 5% |
 | **J** | Penilaian Seminar Akhir bagi Penilai | Examiner | PSM2 | 40 | 40% |
 
 Two assessor roles: **supervisor** (Penyelia) and **examiner** (Penilai). Each form exists in two
@@ -62,13 +62,15 @@ category.
 | C(i) · Product *(Development)* | 25 | System Analysis 4.19 · System Design 4.19 · Translation of Development 4.19 · Implementation 4.19 · Testing & Validation 4.12 · Commercial Value 4.12 |
 | C(ii) · Product *(Research)* | 25 | Analysis 4.19 · Design / Algorithm 4.19 · Translation of Methodology 4.19 · Implementation / Simulation 4.19 · Testing & Validation 4.12 · Commercial Value 4.12 |
 
-### Lampiran H — PSM 2 Progress Report, Supervisor (raw max 25 · labelled 5%)
+### Lampiran H — PSM 2 Progress Report, Supervisor (max 5)
 
 | Component | Max | Items (weight) |
 |-----------|-----|----------------|
-| Progress Report (1 or 2) | 25 | Milestone Achievement 1.65 · Progressed as Planned 1.65 · Increased Knowledge & Skills 1.70 |
+| Progress Report (1 or 2) | 5 | Milestone Achievement 1.65 · Progressed as Planned 1.65 · Increased Knowledge & Skills 1.70 |
 
 > The form has a **Laporan Kemajuan 1 / 2** selector, so it is filled twice per student.
+> Weights 1.65 + 1.65 + 1.70 = 5.00, and the form's own script computes
+> `(score / 5) × weight` for the total — the same rule as every other form.
 
 ### Lampiran J — PSM 2 Examiner (max 40)
 
@@ -135,38 +137,68 @@ Coordinator moderates and releases. A supervisor may not examine their own stude
 
 ---
 
-## 6. Open questions — please confirm before I build
+## 6. Decisions taken (previously open questions)
 
-1. **Weights do not sum to 100.**
-   PSM1 = E(35) + I(30) = **65**. PSM2 = G(50) + H(5) + J(40) = **95**.
-   How is the final mark produced — normalise to 100, or is a component missing?
+1. **Weights not summing to 100 — left as-is.** The official forms do not sum to 100
+   (PSM1 = 65, PSM2 = 95), and no aggregation has been configured. `grade_schemes` keeps
+   its previous behaviour; producing a final mark from E/I/G/J/H is a later piece of work.
 
-2. **Lampiran H scaling.** Raw max is 25 but it is labelled **5%**. Is it scaled
-   `(raw / 25) × 5`, and is it submitted **twice** (Laporan Kemajuan 1 and 2, each 5%)?
+2. **Lampiran H is a progress report, taken twice.** `laporan_num` 1 and 2 each get their own
+   evaluation on the same project, both against the H template. Its form total is **5.00**
+   (weights 1.65 / 1.65 / 1.70), matching the 5% label — no scaling is needed anywhere.
 
-3. **G vs H collide.** Both are `(PSM2, supervisor)`, which breaks the rubric template's unique
-   key. Proposal: add a `form_code` column (`E/I/G/H/J`) to `rubric_templates` and include it in
-   the unique key.
+3. **G vs H are separated by `form_code`.** `rubric_templates.form_code` (`E/I/G/H/J`, null
+   for the legacy chapter rubrics) is part of the unique key, so `(PSM2, supervisor)` can
+   legitimately carry both G and H.
 
-4. **Multiple examiners.** If two examiners each fill I/J, how do their marks combine — simple
-   mean, or weighted? (`grade_schemes.aggregation` supports mean / weighted_mean / max / min.)
+4. **Multiple examiners — unresolved.** Each examiner's form is stored independently; nothing
+   yet combines them beyond the pre-existing `grade_schemes.aggregation` options.
 
-5. **Category variant.** C(i)/B(i) vs C(ii)/B(ii) is chosen automatically from the project's
-   category (system → (i), research → (ii)). Confirm.
+5. **Category variant — confirmed automatic.** system → item set (i), research → (ii).
 
-6. **Supervisor vs examiner split.** What are the official weights — PSM1 `supervisor 35 : examiner 30`
-   and PSM2 `supervisor 55 : examiner 40` (H counted inside supervisor)?
+6. **Supervisor/examiner split — not applied.** No weights were configured for it.
 
 ---
 
-## 7. Implementation plan (once confirmed)
+## 7. As built
 
-1. Add `form_code` to `rubric_templates` (resolves §6.3).
-2. Seed the 10 rubric templates with components, criteria and normalised weights.
+- `rubric_templates.form_code` + `RubricTemplate::CONTEXT_FORMS` — the form is chosen from
+  `(psm_part, assessor_type)`, so PSM1 supervisor → E, PSM1 examiner → I, PSM2 supervisor → G,
+  PSM2 examiner → J. `resolveFor()` takes an optional `formCode` to override the context.
+- `evaluations.form_instance` (`default`, `laporan_1`, `laporan_2`) — needed because one
+  `(project, assessor)` pair holds two Lampiran H forms. Existing rows backfilled to `default`.
+- `POST /api/evaluations/progress-report` — allocates Lampiran H. Coordinator/admin only,
+  matching `EvaluationPolicy::create` ("assessors do not self-allocate"). Idempotent: repeating
+  the same `laporan_num` returns the existing form. PSM 1 projects are rejected with 422.
+- `evaluations.form_code` is exposed by `EvaluationResource` (and `form_code` by
+  `RubricTemplateResource`) so the UI can label each form "Lampiran G" / "Lampiran H — Laporan
+  Kemajuan 2".
+- **Marks are stored already weighted.** A criterion mark is the assessor's
+  `(score / 5) × weight` figure — bounded by the criterion's `max_marks` — and the form total is
+  the plain sum of them. Weight percentages are *not* applied a second time: they are derived
+  from the marks (1.65 of 5 is 33%). A rubric whose `total_marks` is 100 (the legacy chapter
+  rubrics) is the opposite case and still uses the percentage chain, so `EvaluationService`
+  branches on the rubric total. Lampiran H: 1.65 + 0.99 + 1.36 = **4.00 / 5.00 = 80%**.
+- MySQL note: the `form_code` migration narrows `category`/`psm_part`/`assessor_type` first,
+  because the unique key would otherwise exceed the 3072-byte `innodb_large_prefix` limit.
+
+**Still not done:** the marking UI uses a bounded number input per criterion rather than the
+forms' 0–5 radio scale, and there is no final-grade aggregation over the official forms.
+
+---
+
+---
+
+## 9. Implementation plan (superseded — see §7 for what was built)
+
+1. ~~Add `form_code` to `rubric_templates` (resolves §6.3)~~ — done.
+2. ~~Seed the 10 rubric templates with components, criteria and normalised weights~~ — done.
 3. Reuse the rubric-driven `EvaluationController` + `EvaluationFormPage` to render each form —
-   the 0–5 radio scale maps directly onto criterion marking.
-4. Configure `grade_schemes` per PSM part with the confirmed weights/aggregation.
-5. Add the form list + submission flow for supervisors/examiners.
+   partially done: the form is chosen per context, but the 0–5 radio scale is still a number
+   input.
+4. Configure `grade_schemes` per PSM part — deferred by decision.
+5. ~~Add the form list + submission flow for supervisors/examiners~~ — allocation is an API
+   call; there is still no create-form screen in the UI.
 
 ---
 

@@ -74,7 +74,7 @@ return new class extends Migration
 
             // Denormalised participant roster (names survive account deletion)
             $table->json('students');          // [{name, student_id, program}]
-            $table->json('supervisors');       // [{name, staff_no, role}]
+            $table->json('supervisors');       // [{name, staff_no}]
             $table->json('examiners');         // [{name, staff_no}]
 
             // Final outcomes

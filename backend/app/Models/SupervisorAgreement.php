@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -83,6 +84,17 @@ class SupervisorAgreement extends Model
     public function supervisionAssignment(): BelongsTo
     {
         return $this->belongsTo(SupervisionAssignment::class);
+    }
+
+    /**
+     * The project this agreement produced, if Lampiran B has been submitted.
+     *
+     * Reverse of Project::agreement(); at most one project per agreement
+     * because one Lampiran A is one proposed title under one supervisor.
+     */
+    public function project(): HasOne
+    {
+        return $this->hasOne(Project::class, 'agreement_id');
     }
 
     // -----------------------------------------------------------------

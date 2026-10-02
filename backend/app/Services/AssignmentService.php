@@ -35,21 +35,32 @@ class AssignmentService
     /**
      * Pair a supervisor with a student.
      *
+     * Every pairing is a primary supervision: the system has no co-supervisor
+     * role, so a non-primary request is refused before anything is written.
+     *
      * Enforces, in order:
-     *   1. the supervisor is accepting students
-     *   2. the supervisor has spare capacity
-     *   3. the student has spare supervisor slots
-     *   4. this exact pairing is not already active for this PSM part
+     *   1. the requested role is primary
+     *   2. the supervisor is accepting students
+     *   3. the supervisor has spare capacity
+     *   4. the student has spare supervisor slots
+     *   5. this exact pairing is not already active for this PSM part
      */
     public function assignSupervisor(
         StudentProfile $student,
         SupervisorProfile $supervisor,
         User $actor,
         string $psmPart = 'BOTH',
-        string $role = 'primary',
+        string $role = SupervisionAssignment::ROLE_PRIMARY,
         ?float $responsibility = null,
         ?string $note = null,
     ): SupervisionAssignment {
+        if ($role !== SupervisionAssignment::ROLE_PRIMARY) {
+            throw new InvalidArgumentException(
+                'Only a primary supervisor can be assigned; this system has no '
+                ."co-supervisor role (received '{$role}')."
+            );
+        }
+
         if (! $supervisor->is_accepting_students) {
             throw new InvalidArgumentException(
                 "{$supervisor->label()} is not currently accepting new students."
@@ -126,7 +137,7 @@ class AssignmentService
                     NotificationType::SupervisorAssigned,
                     [
                         'title'      => 'Supervisor assigned',
-                        'body'       => "{$supervisor->label()} has been assigned as your {$role} supervisor for {$psmPart}.",
+                        'body'       => "{$supervisor->label()} has been assigned as your primary supervisor for {$psmPart}.",
                         'action_url' => '/profile',
                     ],
                     $assignment,
@@ -287,23 +298,18 @@ class AssignmentService
     // -----------------------------------------------------------------
 
     /**
-     * Split responsibility evenly among a student's supervisors of the same
-     * role, so the percentages always sum to 100.
+     * A student's only supervisor carries the full responsibility.
+     *
+     * This used to split 100% across every active supervisor, which only ever
+     * produced a fraction once a co-supervisor existed. With primary-only
+     * supervision the answer is always 100.
      */
     protected function defaultResponsibility(
         StudentProfile $student,
         SupervisorProfile $supervisor,
         string $psmPart,
     ): float {
-        $existing = SupervisionAssignment::query()
-            ->where('student_profile_id', $student->id)
-            ->where('is_active', true)
-            ->whereIn('psm_part', [$psmPart, 'BOTH'])
-            ->count();
-
-        $total = $existing + 1;
-
-        return round(100 / max($total, 1), 2);
+        return 100.0;
     }
 
     /**

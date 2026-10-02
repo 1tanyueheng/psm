@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { assignmentApi } from '../../api/endpoints'
 import { unwrapPaged } from '../../api/client'
 import {
-  Card, CardHeader, PageHeader, Badge, Avatar, EmptyState, Spinner,
+  Card, CardHeader, PageHeader, Avatar, EmptyState, Spinner,
   ErrorState, Button, Select, Input, DataTable, Td, ProgressBar,
 } from '../../components/ui'
 import { formatDate } from '../../lib/format'
@@ -66,14 +66,14 @@ export default function AssignmentPage() {
     )
   }, [unassigned, search])
 
-  async function assign(student, supervisorId, role = 'primary') {
+  async function assign(student, supervisorId) {
     setBusyId(student.id)
     setActionError(null)
     try {
       await assignmentApi.assign({
-        student_id: student.id ?? student.student_id,
-        supervisor_id: supervisorId,
-        role,
+        student_profile_id: student.id,
+        supervisor_profile_id: supervisorId,
+        psm_part: 'BOTH',
       })
       await load()
     } catch (err) {
@@ -282,7 +282,7 @@ export default function AssignmentPage() {
           ) : (
             <div className="overflow-x-auto">
               <DataTable
-                columns={['Student', 'Programme', 'Supervisor', 'Role', 'Assigned', '']}
+                columns={['Student', 'Programme', 'Supervisor', 'Assigned', '']}
               >
                 {pairs.map((pair) => (
                   <tr key={pair.id} className="hover:bg-slate-50/60">
@@ -307,11 +307,6 @@ export default function AssignmentPage() {
                           {pair.supervisor?.name ?? '—'}
                         </span>
                       </div>
-                    </Td>
-                    <Td>
-                      <Badge tone={pair.role === 'primary' ? 'brand' : 'neutral'}>
-                        {pair.role}
-                      </Badge>
                     </Td>
                     <Td className="text-sm text-slate-500">
                       {formatDate(pair.assigned_at, { fallback: '—' })}

@@ -58,9 +58,15 @@ every assignment path consults before pairing.
 
 ### supervision_assignments
 `student_profile_id →`, `supervisor_profile_id →`, `psm_part` (PSM1/PSM2/BOTH),
-`role` (primary/co/advisor), `responsibility_percent`, `is_active` (idx),
+`role` (always `primary`), `responsibility_percent` (always 100), `is_active` (idx),
 `assigned_by → users`, `assignment_note`, `effective_from`, `effective_until`,
 `ended_at`, `end_reason`.
+
+A student has exactly one supervisor. Co-supervision was removed, so `role` and
+`responsibility_percent` are constants kept for the archive rather than choices;
+`SupervisionAssignment::creating()` refuses any other role. Migration
+`2026_01_04_000001_remove_co_supervisor_assignments` deleted the rows that the
+old seeder had created.
 
 Composite index `(student_profile_id, supervisor_profile_id, psm_part, is_active)`
 — this is the hot lookup for "who supervises this student".

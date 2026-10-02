@@ -31,58 +31,75 @@ def read(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
+def strip_php_comments(src: str) -> str:
+    """Drop // and /* */ comments so prose cannot look like code.
+
+    A $fillable list that documents its own values ("'laporan_1' is for the
+    first progress report") otherwise reports phantom missing columns.
+    """
+    src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
+    return re.sub(r"//[^\n]*", "", src)
+
+
 def schema_columns() -> dict[str, set[str]]:
     """Map table name -> set of column names, from every migration."""
     tables: dict[str, set[str]] = {}
 
+    # Column-declaring Blueprint methods, shared by the create and alter scans.
+    column_methods = (
+        r"\$table->(?:"
+        r"id|increments|bigIncrements|"
+        r"string|char|text|mediumText|longText|"
+        r"enum|set|"
+        r"boolean|"
+        r"integer|tinyInteger|smallInteger|mediumInteger|bigInteger|"
+        r"unsignedInteger|unsignedTinyInteger|unsignedSmallInteger|"
+        r"unsignedMediumInteger|unsignedBigInteger|"
+        r"decimal|float|double|"
+        r"date|dateTime|timestamp|time|year|"
+        r"json|jsonb|"
+        r"binary|uuid|ulid|foreignUlid|foreignUuid|foreignId|"
+        r"ipAddress|macAddress|userAgent|rememberToken|softDeletes"
+        r")\s*\(\s*'([a-z_0-9]+)'"
+    )
+
+    def columns_in(block: str) -> set[str]:
+        cols: set[str] = set()
+
+        for cm in re.finditer(column_methods, block):
+            cols.add(cm.group(1))
+
+        # ->constrained()/->nullable() wrappers add no column
+        if "$table->id()" in block:
+            cols.add("id")
+        if "$table->timestamps()" in block:
+            cols |= {"created_at", "updated_at"}
+        if "$table->softDeletes()" in block:
+            cols.add("deleted_at")
+        if "$table->rememberToken()" in block:
+            cols.add("remember_token")
+
+        # ->json('x') chained on foreignId is caught above; also catch bare calls
+        for cm in re.finditer(r"->(?:json|text|string)\s*\(\s*'([a-z_0-9]+)'\s*\)", block):
+            cols.add(cm.group(1))
+
+        return cols
+
     for path in MIGRATIONS.glob("*.php"):
         src = read(path)
+
         # Split on Schema::create so each block belongs to one table
         for block in re.split(r"Schema::create\(", src)[1:]:
             m = re.match(r"\s*'([a-z_]+)'", block)
-            if not m:
-                continue
-            table = m.group(1)
-            cols: set[str] = set()
+            if m:
+                tables.setdefault(m.group(1), set()).update(columns_in(block))
 
-            # $table->string('name', ...) / ->foreignId('x') / ->enum('y', ...)
-            # The type list must cover every column-declaring method actually
-            # used in the migrations, or columns are missed and reported as
-            # phantom mismatches.
-            for cm in re.finditer(
-                r"\$table->(?:"
-                r"id|increments|bigIncrements|"
-                r"string|char|text|mediumText|longText|"
-                r"enum|set|"
-                r"boolean|"
-                r"integer|tinyInteger|smallInteger|mediumInteger|bigInteger|"
-                r"unsignedInteger|unsignedTinyInteger|unsignedSmallInteger|"
-                r"unsignedMediumInteger|unsignedBigInteger|"
-                r"decimal|float|double|"
-                r"date|dateTime|timestamp|time|year|"
-                r"json|jsonb|"
-                r"binary|uuid|ulid|foreignUlid|foreignUuid|foreignId|"
-                r"ipAddress|macAddress|userAgent|rememberToken|softDeletes"
-                r")\s*\(\s*'([a-z_0-9]+)'",
-                block,
-            ):
-                cols.add(cm.group(1))
-
-            # ->constrained()/->nullable() wrappers add no column
-            if "$table->id()" in block:
-                cols.add("id")
-            if "$table->timestamps()" in block:
-                cols |= {"created_at", "updated_at"}
-            if "$table->softDeletes()" in block:
-                cols.add("deleted_at")
-            if "$table->rememberToken()" in block:
-                cols.add("remember_token")
-
-            # ->json('x') chained on foreignId is caught above; also catch bare calls
-            for cm in re.finditer(r"->(?:json|text|string)\s*\(\s*'([a-z_0-9]+)'\s*\)", block):
-                cols.add(cm.group(1))
-
-            tables.setdefault(table, set()).update(cols)
+        # Columns added later by a follow-up migration. Without this, every
+        # column introduced by Schema::table reads as a phantom mismatch.
+        for block in re.split(r"Schema::table\(", src)[1:]:
+            m = re.match(r"\s*'([a-z_]+)'", block)
+            if m:
+                tables.setdefault(m.group(1), set()).update(columns_in(block))
 
     return tables
 
@@ -148,7 +165,7 @@ def check_fillable_against_schema(tables: dict[str, set[str]]) -> None:
         if not fm:
             continue
 
-        fillable = re.findall(r"'([a-z_0-9]+)'", fm.group(1))
+        fillable = re.findall(r"'([a-z_0-9]+)'", strip_php_comments(fm.group(1)))
         if not fillable:
             continue
 
@@ -213,7 +230,11 @@ def check_seeder_writes(tables: dict[str, set[str]]) -> None:
             # Only inspect the association array (the outer [...] block)
             model_src = read(MODELS / f"{model}.php")
             fm = re.search(r"protected \$fillable = \[(.*?)\];", model_src, re.S)
-            fillable = set(re.findall(r"'([a-z_0-9]+)'", fm.group(1))) if fm else set()
+            fillable = (
+                set(re.findall(r"'([a-z_0-9]+)'", strip_php_comments(fm.group(1))))
+                if fm
+                else set()
+            )
 
             if not fillable:
                 continue

@@ -25,12 +25,14 @@ return new class extends Migration
             // can legitimately have different supervisors.
             $table->string('psm_part')->default('BOTH');
 
-            // primary = main supervisor; co = co-supervisor
+            // Every pairing is a primary supervision. Co-supervision was removed
+            // (see 2026_01_04_000001), so this column is now a constant that
+            // stays for the archive rather than a choice at pairing time.
             $table->string('role')->default('primary');
 
             // Share of the supervision mark this supervisor is responsible for.
-            // The sum per (student, psm_part) should be 100 — enforced in the
-            // AssignmentService, not by the DB, because partial states are valid.
+            // A student has one supervisor, so this is always 100 — kept for
+            // the archived record of past pairings.
             $table->decimal('responsibility_percent', 5, 2)->default(100.00);
 
             $table->boolean('is_active')->default(true)->index();

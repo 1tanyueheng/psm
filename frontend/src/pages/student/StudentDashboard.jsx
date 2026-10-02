@@ -297,17 +297,7 @@ export default function StudentDashboard() {
                         <p className="text-xs text-slate-500">{supervisor.staff_no}</p>
                       )}
                     </div>
-                    {supervisor.pivot?.role && (
-                      <Badge
-                        tone={
-                          supervisor.pivot.role === 'primary'
-                            ? 'bg-brand-50 text-brand-700 border-brand-200'
-                            : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }
-                      >
-                        {supervisor.pivot.role}
-                      </Badge>
-                    )}
+                    <Badge tone="bg-brand-50 text-brand-700 border-brand-200">Primary</Badge>
                   </li>
                 ))}
               </ul>

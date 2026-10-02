@@ -25,6 +25,10 @@ class RubricTemplateResource extends JsonResource
             'category_label' => $this->category->label(),
             'psm_part'       => $this->psm_part,
 
+            // The Lampiran letter for an official marking form; null for the
+            // legacy chapter rubrics.
+            'form_code' => $this->form_code,
+
             'assessor_type'       => $this->assessor_type->value,
             'assessor_type_label' => $this->assessor_type->label(),
 

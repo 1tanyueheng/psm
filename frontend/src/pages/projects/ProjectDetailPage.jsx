@@ -451,9 +451,6 @@ function PersonGroup({ label, people, showId = false }) {
                 {showId && person.student_id && (
                   <p className="font-mono text-xs text-slate-400">{person.student_id}</p>
                 )}
-                {person.role && person.role !== 'primary' && (
-                  <p className="text-xs text-slate-400">{person.role}</p>
-                )}
               </div>
             </li>
           ))}

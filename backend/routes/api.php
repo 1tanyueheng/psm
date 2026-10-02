@@ -191,6 +191,7 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
         Route::get('/', [ProjectController::class, 'index'])->name('index');
         Route::get('options', [ProjectController::class, 'options'])->name('options');
         Route::get('summary', [ProjectController::class, 'summary'])->name('summary');
+        Route::get('registration-meta', [ProjectController::class, 'registrationMeta'])->name('registration-meta');
 
         Route::post('/', [ProjectController::class, 'store'])
             ->middleware('role:student')
@@ -255,6 +256,11 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
         Route::post('/', [EvaluationController::class, 'store'])
             ->middleware('role:admin,coordinator')
             ->name('store');
+
+        // Lampiran H — the supervisor's PSM 2 progress report, taken twice.
+        Route::post('progress-report', [EvaluationController::class, 'storeProgressReport'])
+            ->middleware('role:admin,coordinator')
+            ->name('progress-report');
 
         Route::get('{evaluation}', [EvaluationController::class, 'show'])->name('show');
         Route::put('{evaluation}/marks', [EvaluationController::class, 'saveMarks'])->name('marks');

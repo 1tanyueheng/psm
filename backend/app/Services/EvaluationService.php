@@ -44,15 +44,65 @@ class EvaluationService
     /**
      * Create a draft evaluation form for an assessor on a project.
      * Idempotent: calling twice returns the existing form.
+     *
+     * The rubric is the official Lampiran form for the project's PSM part and
+     * the assessor's role (PSM1 -> E / I, PSM2 -> G / J), so the form an
+     * assessor fills is determined by the project rather than chosen from a
+     * list of every published rubric.
      */
     public function createForm(Project $project, User $assessor, AssessorType $assessorType): Evaluation
     {
-        $rubric = RubricTemplate::resolveFor($project->category, $project->psm_part, $assessorType);
+        return $this->createEvaluation(
+            project: $project,
+            assessor: $assessor,
+            assessorType: $assessorType,
+            formCode: RubricTemplate::formCodeFor($project->psm_part, $assessorType),
+            formInstance: 'default',
+        );
+    }
+
+    /**
+     * Lampiran H — the PSM 2 progress report, taken once for Laporan Kemajuan 1
+     * and again for Laporan Kemajuan 2, each by the supervisor.
+     *
+     * Kept apart from createForm() because H shares (PSM2, supervisor) with
+     * Lampiran G and is never the form a supervisor fills by default.
+     */
+    public function createProgressReportForm(Project $project, User $supervisor, int $laporanNum): Evaluation
+    {
+        if (! in_array($laporanNum, [1, 2], true)) {
+            throw new InvalidArgumentException('Laporan Kemajuan must be 1 or 2.');
+        }
+
+        return $this->createEvaluation(
+            project: $project,
+            assessor: $supervisor,
+            assessorType: AssessorType::Supervisor,
+            formCode: 'H',
+            formInstance: 'laporan_'.$laporanNum,
+        );
+    }
+
+    protected function createEvaluation(
+        Project $project,
+        User $assessor,
+        AssessorType $assessorType,
+        ?string $formCode,
+        string $formInstance,
+    ): Evaluation {
+        $rubric = RubricTemplate::resolveFor(
+            $project->category,
+            $project->psm_part,
+            $assessorType,
+            $formCode
+        );
 
         if ($rubric === null) {
             throw new InvalidArgumentException(
                 "No published rubric for category [{$project->category->value}], "
-                ."part [{$project->psm_part}], assessor [{$assessorType->value}]."
+                ."part [{$project->psm_part}], assessor [{$assessorType->value}]"
+                .($formCode !== null ? ", form [{$formCode}]" : '')
+                .'.'
             );
         }
 
@@ -63,12 +113,13 @@ class EvaluationService
             );
         }
 
-        return DB::transaction(function () use ($project, $assessor, $assessorType, $rubric) {
+        return DB::transaction(function () use ($project, $assessor, $assessorType, $rubric, $formInstance) {
             $evaluation = Evaluation::firstOrCreate(
                 [
                     'project_id'         => $project->id,
                     'assessor_id'        => $assessor->id,
                     'rubric_template_id' => $rubric->id,
+                    'form_instance'      => $formInstance,
                 ],
                 [
                     'assessor_type'   => $assessorType,
@@ -144,6 +195,24 @@ class EvaluationService
             $snapshot = $evaluation->rubric_snapshot ?? [];
             $criteriaWeights = $this->criteriaWeightMap($snapshot);
 
+            /**
+             * Two kinds of rubric live side by side, and they total differently.
+             *
+             * A rubric that totals 100 is percentage-driven (the chapter
+             * rubrics): a criterion's mark is out of its own max, and the
+             * component/criterion percentages carry it onto the 100-point
+             * total.
+             *
+             * The official forms total their own raw marks — E 35, I 30, G 50,
+             * H 5, J 40 — and their weight percentages are *derived* from those
+             * marks (1.65 of 5 is 33%). Applying the percentages again would
+             * count the weight twice and report roughly a tenth of the mark
+             * actually earned, so there the mark is already its own
+             * contribution.
+             */
+            $maxMarks = (float) ($snapshot['total_marks'] ?? $evaluation->max_score ?? 100.0);
+            $percentageDriven = abs($maxMarks - 100.0) < 0.001;
+
             $markLookup = collect($marks)->keyBy('criterion_code');
 
             foreach ($evaluation->scores as $score) {
@@ -168,10 +237,10 @@ class EvaluationService
 
                 // Contribution to the rubric total, for transparent totalling
                 $weight = $criteriaWeights[$score->criterion_code] ?? ['component' => 0, 'criterion' => 0];
-                $score->weighted_contribution = round(
-                    $value * ($weight['component'] / 100) * ($weight['criterion'] / 100),
-                    4
-                );
+
+                $score->weighted_contribution = $percentageDriven
+                    ? round($value * ($weight['component'] / 100) * ($weight['criterion'] / 100), 4)
+                    : round($value, 4);
 
                 $score->save();
             }

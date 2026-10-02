@@ -120,6 +120,7 @@ class UserSeeder extends Seeder
                     'staff_no'         => $staffNo,
                     'academic_title'   => $title,
                     'max_supervisees'  => $capacity,
+                    'is_accepting_students' => true,
                     'office_location'  => 'Block C, Level 3',
                     'bio'              => "{$title} {$name} supervises PSM projects in ".implode(', ', $areas).'.',
                 ]
@@ -279,8 +280,10 @@ class UserSeeder extends Seeder
         // -----------------------------------------------------------------
         // Module 2 — Supervision pairings
         // -----------------------------------------------------------------
-        // Distributed across supervisors so the workload report shows a
-        // realistic spread, including one supervisor near capacity.
+        // Each student gets exactly one primary supervisor. This system has no
+        // co-supervisor role, so pairings are distributed round-robin purely
+        // so the workload report shows a realistic spread, including one
+        // supervisor near capacity.
         $paired = 0;
 
         foreach ($students as $index => $student) {
@@ -309,29 +312,6 @@ class UserSeeder extends Seeder
             );
 
             $paired++;
-
-            // Give every third student a co-supervisor for realism
-            if ($index % 3 === 0) {
-                $co = $supervisors[($index + 3) % count($supervisors)];
-
-                if ($co->id !== $supervisor->id && $co->hasCapacity()) {
-                    SupervisionAssignment::updateOrCreate(
-                        [
-                            'student_profile_id'    => $student->id,
-                            'supervisor_profile_id' => $co->id,
-                            'psm_part'              => 'BOTH',
-                        ],
-                        [
-                            'role'                   => 'co',
-                            'responsibility_percent' => 30,
-                            'is_active'              => true,
-                            'assigned_by'            => $coordinator->id,
-                            'assignment_note'        => 'Co-supervisor for the technical component.',
-                            'effective_from'         => now()->subMonths(3)->toDateString(),
-                        ]
-                    );
-                }
-            }
         }
 
         $this->command->line("  Supervision pairings: {$paired} (".(count($students) - $paired).' unassigned)');

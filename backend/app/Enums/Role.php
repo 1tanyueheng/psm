@@ -60,7 +60,7 @@ enum Role: string
     /** Roles with unrestricted archive + audit access (Module 7). */
     public function canAccessArchive(): bool
     {
-        return in_array($this, [self::Admin, self::Coordinator], true);
+        return in_array($this, [self::Admin, self::Coordinator, self::Supervisor, self::Examiner, self::Student], true);
     }
 
     /** Roles permitted to manage accounts and assignments (Module 2). */

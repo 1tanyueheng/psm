@@ -117,6 +117,53 @@ class EvaluationController extends ApiController
     }
 
     /**
+     * POST /api/evaluations/progress-report
+     *
+     * Lampiran H — the PSM 2 progress report, taken by the supervisor for
+     * Laporan Kemajuan 1 and then again for Laporan Kemajuan 2. It has its own
+     * endpoint because H shares (PSM2, supervisor) with Lampiran G and is never
+     * the form an assessor creates by default.
+     *
+     * Allocated by a coordinator like any other form — assessors do not
+     * self-allocate (EvaluationPolicy::create).
+     */
+    public function storeProgressReport(Request $request): JsonResponse
+    {
+        $this->authorize('create', Evaluation::class);
+
+        $validated = $request->validate([
+            'project_id'  => ['required', 'integer', 'exists:projects,id'],
+            'assessor_id' => ['required', 'integer', 'exists:users,id'],
+            'laporan_num' => ['required', 'integer', Rule::in([1, 2])],
+        ]);
+
+        $project = Project::findOrFail($validated['project_id']);
+
+        if ($project->psm_part !== 'PSM2') {
+            return $this->fail('The progress report only applies to PSM 2 projects.', 422);
+        }
+
+        $supervisor = User::findOrFail($validated['assessor_id']);
+
+        try {
+            $evaluation = $this->evaluations->createProgressReportForm(
+                $project,
+                $supervisor,
+                $validated['laporan_num'],
+            );
+        } catch (InvalidArgumentException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
+
+        return $this->created(
+            new EvaluationResource(
+                $evaluation->load('scores', 'assessor', 'rubricTemplate', 'project.milestones')
+            ),
+            "Laporan Kemajuan {$validated['laporan_num']} form ready."
+        );
+    }
+
+    /**
      * PUT /api/evaluations/{evaluation}/marks
      *
      * Saves a batch of criterion marks. The form stays a draft until submitted.

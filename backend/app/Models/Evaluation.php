@@ -29,6 +29,9 @@ class Evaluation extends Model
         'rubric_snapshot',
         'assessor_type',
         'psm_part',
+        // 'default', or 'laporan_1' / 'laporan_2' for Lampiran H, which is
+        // taken twice per student.
+        'form_instance',
         'status',
         'raw_score',
         'max_score',

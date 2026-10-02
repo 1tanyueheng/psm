@@ -26,6 +26,7 @@ class RegistrationService
 {
     public function __construct(
         protected AssignmentService $assignments,
+        protected MilestoneService $milestones,
         protected AuditLogger $audit,
         protected NotificationDispatcher $notifications,
     ) {
@@ -184,6 +185,12 @@ class RegistrationService
      * Create the project record for an approved agreement. Project type maps
      * to ProjectCategory, which in turn selects the milestone and rubric
      * templates (see MilestoneService::instantiateFor()).
+     *
+     * One agreement produces exactly one project. The agreement is the pairing
+     * record, so a second Lampiran B is either a double-tap or a stale tab — not
+     * a new project — and it is refused rather than silently returning the first
+     * one, so the student is told which project to look at instead of watching
+     * two identical projects appear.
      */
     public function submitTitleProposal(
         SupervisorAgreement $agreement,
@@ -192,6 +199,22 @@ class RegistrationService
     ): Project {
         if (! $agreement->isApproved()) {
             throw new InvalidArgumentException('Lampiran A must be approved before Lampiran B can be submitted.');
+        }
+
+        // Portable across drivers: a JSON path comparison in the WHERE clause is
+        // spelled differently on MySQL and Postgres, and the candidate set (one
+        // PSM part, one session) is small enough to filter in PHP.
+        $existing = Project::query()
+            ->where('psm_part', $agreement->psm_part)
+            ->where('academic_session', $agreement->session)
+            ->get(['id', 'code', 'metadata'])
+            ->first(fn (Project $p) => data_get($p->metadata, 'agreement_id') === $agreement->id);
+
+        if ($existing) {
+            throw new InvalidArgumentException(sprintf(
+                'Lampiran B has already been submitted for this agreement as project %s.',
+                $existing->code
+            ));
         }
 
         $student = $agreement->studentProfile;
@@ -234,6 +257,12 @@ class RegistrationService
                 'is_leader'            => true,
                 'contribution_percent' => 100.00,
             ]);
+
+            // Lampiran B *is* the project submission, so the milestone chain is
+            // generated here rather than waiting for ProjectController::submit()
+            // — the project is already in 'submitted' status and that endpoint
+            // is not part of this flow.
+            $this->milestones->instantiateFor($project, now());
 
             $this->audit->log(
                 action: AuditAction::ProjectCreated,

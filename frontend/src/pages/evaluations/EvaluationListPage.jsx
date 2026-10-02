@@ -7,7 +7,7 @@ import {
   Card, CardHeader, PageHeader, Badge, Avatar, EmptyState, Spinner,
   ErrorState, Button, Select, DataTable, Td, ProgressBar,
 } from '../../components/ui'
-import { formatDate, formatMark, relativeDays, EVALUATION_STATUS, statusMeta } from '../../lib/format'
+import { formatDate, formatMark, formLabel, relativeDays, EVALUATION_STATUS, statusMeta } from '../../lib/format'
 
 /**
  * Assessment list — every evaluation form this user can see.
@@ -170,7 +170,12 @@ export default function EvaluationListPage() {
                     </div>
                   </Td>
                   <Td className="text-sm text-slate-600">{row.assessor?.name ?? '—'}</Td>
-                  <Td className="text-sm capitalize text-slate-600">{row.assessor_type}</Td>
+                  <Td>
+                    <div className="text-sm capitalize text-slate-600">{row.assessor_type}</div>
+                    {formLabel(row) && (
+                      <div className="text-xs text-slate-400">{formLabel(row)}</div>
+                    )}
+                  </Td>
                   <Td>
                     <Badge tone={m?.tone ?? 'neutral'}>{m?.label ?? row.status}</Badge>
                   </Td>
@@ -208,6 +213,7 @@ function EvaluationRow({ row, actionLabel }) {
             {row.project?.title ?? `Evaluation #${row.id}`}
           </Link>
           <Badge tone="neutral">{row.assessor_type}</Badge>
+          {formLabel(row) && <Badge tone="brand">{formLabel(row)}</Badge>}
           {row.has_conflict && <Badge tone="danger">Conflict</Badge>}
         </div>
         {row.rubric_completion_percent != null && (

@@ -164,9 +164,13 @@ POST /api/assignments/supervisions
   "psm_part": "BOTH",
   "role": "primary",
   "responsibility_percent": 100,
-  "assignment_note": "Topic overlap in machine learning"
+  "note": "Topic overlap in machine learning"
 }
 ```
+
+`role` is optional and only accepts `primary` — there is no co-supervisor role in
+this system, so any other value is a `422`. `responsibility_percent` is optional
+too and always resolves to 100 for a student's single supervisor.
 
 A `422` comes back if the supervisor is at capacity, already supervises this
 student for this part, or is removing themselves from availability. All three

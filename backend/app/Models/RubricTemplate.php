@@ -112,23 +112,58 @@ class RubricTemplate extends Model
     }
 
     /**
+     * The official Lampiran form that applies to a PSM part and assessor role.
+     *
+     * PSM1 -> supervisor E, examiner I. PSM2 -> supervisor G, examiner J.
+     * Lampiran H (PSM2 progress report) is deliberately absent: it is a separate
+     * submission taken twice per student, so it is requested explicitly via
+     * EvaluationService::createProgressReportForm() rather than resolved from
+     * context. Without this mapping a PSM2 supervisor evaluation matched both G
+     * and H and `resolveFor()` returned whichever row came first.
+     *
+     * @var array<string, array<string, string>>
+     */
+    private const CONTEXT_FORMS = [
+        'PSM1' => ['supervisor' => 'E', 'examiner' => 'I'],
+        'PSM2' => ['supervisor' => 'G', 'examiner' => 'J'],
+    ];
+
+    /** Lampiran letter for a PSM part + assessor role, or null if not mapped. */
+    public static function formCodeFor(string $psmPart, AssessorType|string $assessorType): ?string
+    {
+        $type = $assessorType instanceof AssessorType ? $assessorType->value : $assessorType;
+
+        return self::CONTEXT_FORMS[$psmPart][$type] ?? null;
+    }
+
+    /**
      * Resolve the rubric to use for a given assessment context.
-     * Prefers a part-specific published rubric, then a BOTH-part one.
+     *
+     * Pass $formCode to pin an official form; without it the part-specific /
+     * BOTH-part fallback below applies, which is how the legacy chapter rubrics
+     * (form_code IS NULL) are still reached.
      */
     public static function resolveFor(
         ProjectCategory|string $category,
         string $psmPart,
-        AssessorType|string $assessorType
+        AssessorType|string $assessorType,
+        ?string $formCode = null
     ): ?self {
         $cat = $category instanceof ProjectCategory ? $category->value : $category;
         $ast = $assessorType instanceof AssessorType ? $assessorType->value : $assessorType;
 
-        return static::query()
+        $query = static::query()
             ->where('category', $cat)
             ->where('assessor_type', $ast)
             ->where('is_active', true)
             ->where('is_published', true)
-            ->whereIn('psm_part', [$psmPart, 'BOTH'])
+            ->whereIn('psm_part', [$psmPart, 'BOTH']);
+
+        if ($formCode !== null) {
+            $query->where('form_code', $formCode);
+        }
+
+        return $query
             // See MilestoneTemplate::resolveFor — CASE instead of MySQL's
             // FIELD() so this resolves on PostgreSQL too.
             ->orderByRaw('CASE WHEN psm_part = ? THEN 0 ELSE 1 END', [$psmPart])

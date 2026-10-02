@@ -27,6 +27,14 @@ class EvaluationResource extends JsonResource
             'psm_part'   => $this->psm_part,
 
             /**
+             * Which official form this is, so the UI can title the page
+             * "Lampiran G" or "Lampiran H — Laporan Kemajuan 2" instead of
+             * showing an internal template name.
+             */
+            'form_code'     => $this->rubricTemplate?->form_code,
+            'form_instance' => $this->form_instance,
+
+            /**
              * The project and its frozen roster.
              *
              * The list and the marking form both name the student being

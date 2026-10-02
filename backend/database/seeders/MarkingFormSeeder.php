@@ -17,9 +17,9 @@ use Illuminate\Database\Seeder;
  * the Lampiran letter and is what keeps G and H (both PSM2/supervisor) apart.
  *
  * Weights are taken straight from the official forms. Every item is marked on
- * the 0–5 scale; an item's weight is its maximum contribution — except
- * Lampiran H, whose form multiplies the raw score by the weight (max = 5 × w),
- * so its item maxima are 8.25 / 8.25 / 8.50.
+ * the 0–5 scale and every form computes its weighted mark the same way,
+ * `(score / 5) × weight`, so an item's weight is its maximum contribution.
+ * Lampiran H follows that rule too: weights 1.65 / 1.65 / 1.70, form total 5.00.
  *
  * R1 is intentionally not seeded (usage to be confirmed).
  */
@@ -278,7 +278,7 @@ class MarkingFormSeeder extends Seeder
     }
 
     // -----------------------------------------------------------------
-    // Lampiran H — PSM 2 Progress Report (max 25)
+    // Lampiran H — PSM 2 Progress Report (max 5, taken twice per student)
     // -----------------------------------------------------------------
 
     protected function formH(): array
@@ -287,14 +287,12 @@ class MarkingFormSeeder extends Seeder
             [
                 'code'        => 'progress',
                 'title'       => 'Progress Report Evaluation',
-                'max'         => 25.00,
+                'max'         => 5.00,
                 'description' => 'Progress achieved at the point this report was submitted.',
                 'items'       => [
-                    // H multiplies the raw 0–5 score by the weight, so the maxima
-                    // are 5 × weight.
-                    ['code' => 'H1', 'title' => 'Milestone Achievement', 'max' => 8.25, 'guidance' => 'Benchmarks set for this period were met.'],
-                    ['code' => 'H2', 'title' => 'Project Progressed as Planned', 'max' => 8.25, 'guidance' => 'Work advanced in line with the agreed plan.'],
-                    ['code' => 'H3', 'title' => 'Increased Knowledge and Skills', 'max' => 8.50, 'guidance' => 'Demonstrable growth in knowledge and skills.'],
+                    ['code' => 'H1', 'title' => 'Milestone Achievement', 'max' => 1.65, 'guidance' => 'Benchmarks set for this period were met.'],
+                    ['code' => 'H2', 'title' => 'Project Progressed as Planned', 'max' => 1.65, 'guidance' => 'Work advanced in line with the agreed plan.'],
+                    ['code' => 'H3', 'title' => 'Increased Knowledge and Skills', 'max' => 1.70, 'guidance' => 'Demonstrable growth in knowledge and skills.'],
                 ],
             ],
         ];
@@ -420,8 +418,8 @@ class MarkingFormSeeder extends Seeder
           5  Sangat Baik             — Very good
 
         Item contribution = (score ÷ 5) × item weight, summed to the component
-        and form totals. Lampiran H is the exception: its form multiplies the
-        raw score by the weight.
+        and form totals. This is how every official form computes its weighted
+        mark, Lampiran H included.
         TXT;
     }
 }
