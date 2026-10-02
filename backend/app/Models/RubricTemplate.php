@@ -22,6 +22,10 @@ class RubricTemplate extends Model
         'category',
         'psm_part',
         'assessor_type',
+        // Lampiran letter (E/I/G/H/J). Required so G and H — both PSM2 /
+        // supervisor — stay distinct; without it they collide on the template
+        // unique key.
+        'form_code',
         'version',
         'is_active',
         'is_published',
