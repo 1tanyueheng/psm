@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lampiran A - Borang Persetujuan Penyelia PSM</title>
+  <style>
+    :root {
+      --primary-color: #003366;
+      --border-color: #ccc;
+      --bg-light: #f9f9f9;
+    }
+    body { font-family: Arial, sans-serif; line-height: 1.4; color: #333; margin: 0; padding: 20px; background-color: #f4f6f9; }
+    .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .header { text-align: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 15px; margin-bottom: 20px; }
+    .header h2, .header h3, .header h4 { margin: 4px 0; color: var(--primary-color); }
+    .doc-ref { text-align: right; font-size: 0.85em; font-weight: bold; }
+    .instruction-box { background-color: #eef4fb; border-left: 4px solid var(--primary-color); padding: 10px 15px; margin-bottom: 20px; font-size: 0.9em; }
+    .section-title { background-color: var(--primary-color); color: #fff; padding: 8px 12px; font-weight: bold; margin-top: 25px; margin-bottom: 15px; border-radius: 4px; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group label { font-weight: bold; margin-bottom: 5px; font-size: 0.9em; }
+    .form-group input, .form-group select, .form-group textarea { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.95em; }
+    .checkbox-item { display: flex; align-items: flex-start; gap: 8px; font-size: 0.9em; margin-top: 15px; background: var(--bg-light); padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; }
+    .signature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px; }
+    .signature-box { border: 1px dashed var(--border-color); height: 90px; display: flex; align-items: center; justify-content: center; color: #888; background-color: var(--bg-light); }
+    .jkpsm-box { border: 2px solid var(--primary-color); padding: 15px; border-radius: 6px; background-color: #f0f4f8; margin-top: 25px; }
+    .btn-container { margin-top: 30px; text-align: center; }
+    .btn { background-color: var(--primary-color); color: white; border: none; padding: 12px 24px; font-size: 1em; border-radius: 4px; cursor: pointer; }
+    .btn:hover { opacity: 0.9; }
+    @media print {
+      body { background-color: #fff; padding: 0; }
+      .container { box-shadow: none; max-width: 100%; padding: 0; }
+      .btn-container { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="doc-ref">UTHM.FSKTM/UA-11/2017 Pin. 2<br>LAMPIRAN A</div>
+  
+  <div class="header">
+    <h2>UNIVERSITI TUN HUSSEIN ONN MALAYSIA</h2>
+    <h3>FAKULTI SAINS KOMPUTER DAN TEKNOLOGI MAKLUMAT</h3>
+    <h4>PROJEK SARJANA MUDA</h4>
+    <p><strong>BORANG PERSETUJUAN PENYELIA PSM</strong><br>
+    <em>PSM Supervisor Agreement Form</em></p>
+  </div>
+
+  <div class="instruction-box">
+    <strong>Arahan:</strong> Sila lengkapkan Bahagian A, B dan C, kemudian serahkan borang kepada JKPSM pada masa yang ditetapkan.<br>
+    <em><strong>Instruction:</strong> Please complete Part A, B and C, then submit the form to the PSM Committee at the designated time.</em>
+  </div>
+
+  <form id="formA">
+    <div class="form-group" style="margin-bottom: 20px;">
+      <label for="session">Sesi/Semester (Session/Semester):</label>
+      <input type="text" id="session" name="session" placeholder="e.g. 2025/2026 Semester I" required>
+    </div>
+
+    <!-- BAHAGIAN A -->
+    <div class="section-title">BAHAGIAN A: MAKLUMAT PELAJAR / PART A: STUDENT INFORMATION</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="studentName">Nama (Name):</label>
+        <input type="text" id="studentName" name="studentName" required>
+      </div>
+      <div class="form-group">
+        <label for="matricNum">No. Matrik (Matric Num):</label>
+        <input type="text" id="matricNum" name="matricNum" required>
+      </div>
+      <div class="form-group">
+        <label for="yearStudy">Tahun Pengajian Semasa (Current Year of Study):</label>
+        <input type="text" id="yearStudy" name="yearStudy" required>
+      </div>
+      <div class="form-group">
+        <label for="programme">Program (Programme):</label>
+        <select id="programme" name="programme" required>
+          <option value="">-- Pilih / Select --</option>
+          <option value="BIT">BIT</option>
+          <option value="BIS">BIS</option>
+          <option value="BIP">BIP</option>
+          <option value="BIW">BIW</option>
+          <option value="BIM">BIM</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="icNum">No. KP (IC Num):</label>
+        <input type="text" id="icNum" name="icNum">
+      </div>
+      <div class="form-group">
+        <label for="passportNum">No. Passport (Passport Num):</label>
+        <input type="text" id="passportNum" name="passportNum">
+      </div>
+      <div class="form-group">
+        <label for="mobileNum">No. Tel (Mobile Num):</label>
+        <input type="tel" id="mobileNum" name="mobileNum" required>
+      </div>
+      <div class="form-group">
+        <label for="email">E-mel (E-mail):</label>
+        <input type="email" id="email" name="email" required>
+      </div>
+    </div>
+
+    <!-- BAHAGIAN B -->
+    <div class="section-title">BAHAGIAN B: TAJUK CADANGAN / PART B: PROPOSED TITLE</div>
+    <div class="form-group" style="margin-bottom: 12px;">
+      <label for="title1">Tajuk 1 (Title 1):</label>
+      <input type="text" id="title1" name="title1" required>
+    </div>
+    <div class="form-group" style="margin-bottom: 12px;">
+      <label for="title2">Tajuk 2 (Title 2):</label>
+      <input type="text" id="title2" name="title2">
+    </div>
+    <div class="form-group" style="margin-bottom: 12px;">
+      <label for="title3">Tajuk 3 (Title 3):</label>
+      <input type="text" id="title3" name="title3">
+    </div>
+
+    <div class="checkbox-item">
+      <input type="checkbox" id="englishReport" name="englishReport">
+      <label for="englishReport">Laporan projek akan ditulis dalam Bahasa Inggeris (Tandakan jika berkaitan).<br><em>The project report will be written in English (Tick if applicable).</em></label>
+    </div>
+
+    <p style="font-size: 0.9em; margin-top: 15px;">
+      Saya dengan ini mengemukakan dan bersetuju dengan tajuk-tajuk yang dicadangkan di atas.<br>
+      <em>(I hereby submit and agree to the proposed title(s) above.)</em>
+    </p>
+
+    <div class="signature-grid">
+      <div class="form-group">
+        <label for="studentDate">Tarikh (Date):</label>
+        <input type="date" id="studentDate" name="studentDate">
+      </div>
+      <div class="form-group" style="grid-column: span 2;">
+        <label>Tandatangan Pelajar (Signature):</label>
+        <div class="signature-box">[ Ruang Tandatangan Pelajar ]</div>
+      </div>
+    </div>
+
+    <!-- BAHAGIAN C -->
+    <div class="section-title">BAHAGIAN C: PENERIMAAN PENYELIA / PART C: SUPERVISOR'S ACKNOWLEDGMENT</div>
+    <div class="form-group" style="margin-bottom: 12px;">
+      <label for="supervisorName">Nama Penyelia (Supervisor Name):</label>
+      <input type="text" id="supervisorName" name="supervisorName" required>
+    </div>
+    <p style="font-size: 0.9em;">
+      bersetuju untuk menyelia pelajar ini bagi projek bertajuk <em>(agreed to supervise this student for the project entitled)</em>:
+    </p>
+    <div class="form-group" style="margin-bottom: 12px;">
+      <input type="text" id="acceptedTitle" name="acceptedTitle" placeholder="Masukkan tajuk yang dipersetujui / Enter agreed title">
+    </div>
+
+    <div class="signature-grid">
+      <div class="form-group">
+        <label for="supervisorDate">Tarikh (Date):</label>
+        <input type="date" id="supervisorDate" name="supervisorDate">
+      </div>
+      <div class="form-group">
+        <label>Tandatangan Penyelia (Signature):</label>
+        <div class="signature-box">[ Ruang Tandatangan ]</div>
+      </div>
+      <div class="form-group">
+        <label>Cop Rasmi (Official Stamp):</label>
+        <div class="signature-box">[ Ruang Cop ]</div>
+      </div>
+    </div>
+
+    <!-- BAHAGIAN D -->
+    <div class="jkpsm-box">
+      <div style="font-weight: bold; color: var(--primary-color); margin-bottom: 10px;">
+        BAHAGIAN D: UNTUK KEGUNAAN JKPSM / PART D: FOR JKPSM USE ONLY
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="jkpsmDate">Tarikh diterima (Date received):</label>
+          <input type="date" id="jkpsmDate" name="jkpsmDate">
+        </div>
+        <div class="form-group">
+          <label>Tandatangan (Signature):</label>
+          <div class="signature-box" style="height: 60px;">[ Ruang Tandatangan JKPSM ]</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-container">
+      <button type="button" class="btn" onclick="window.print()">Cetak / Simpan PDF</button>
+    </div>
+  </form>
+</div>
+
+</body>
+</html>

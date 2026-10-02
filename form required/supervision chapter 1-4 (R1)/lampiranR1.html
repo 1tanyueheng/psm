@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lampiran R1 - Borang Penyerahan dan Semakan PSM 1</title>
+  <style>
+    :root {
+      --primary-color: #003366;
+      --border-color: #ccc;
+      --bg-light: #f9f9f9;
+    }
+    body { font-family: Arial, sans-serif; line-height: 1.4; color: #333; margin: 0; padding: 20px; background-color: #f4f6f9; }
+    .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .header { text-align: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 15px; margin-bottom: 20px; }
+    .header h2, .header h3, .header h4 { margin: 4px 0; color: var(--primary-color); }
+    .doc-ref { text-align: right; font-size: 0.85em; font-weight: bold; }
+    .section-title { background-color: var(--primary-color); color: #fff; padding: 8px 12px; font-weight: bold; margin-top: 25px; margin-bottom: 15px; border-radius: 4px; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group label { font-weight: bold; margin-bottom: 5px; font-size: 0.9em; }
+    .form-group input, .form-group select, .form-group textarea { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.95em; }
+    .checkbox-group { display: flex; flex-wrap: wrap; gap: 15px; background: var(--bg-light); padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; }
+    .checkbox-item { display: flex; align-items: center; gap: 8px; font-size: 0.9em; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
+    table, th, td { border: 1px solid var(--border-color); }
+    th, td { padding: 8px; text-align: left; }
+    th { background-color: var(--bg-light); }
+    .scale-table th, .scale-table td { text-align: center; }
+    .score-options { display: flex; justify-content: space-around; }
+    .signature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px; }
+    .signature-box { border: 1px dashed var(--border-color); height: 90px; display: flex; align-items: center; justify-content: center; color: #888; background-color: var(--bg-light); }
+    .btn-container { margin-top: 30px; text-align: center; }
+    .btn { background-color: var(--primary-color); color: white; border: none; padding: 12px 24px; font-size: 1em; border-radius: 4px; cursor: pointer; }
+    .btn:hover { opacity: 0.9; }
+    .ack-option { margin-bottom: 8px; display: flex; align-items: flex-start; gap: 8px; font-size: 0.9em; }
+    @media print {
+      body { background-color: #fff; padding: 0; }
+      .container { box-shadow: none; max-width: 100%; padding: 0; }
+      .btn-container { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="doc-ref">UTHM.FSKTM/UA-31/2025<br>LAMPIRAN R1</div>
+  
+  <div class="header">
+    <h2>UNIVERSITI TUN HUSSEIN ONN MALAYSIA</h2>
+    <h3>FAKULTI SAINS KOMPUTER DAN TEKNOLOGI MAKLUMAT</h3>
+    <h4>PROJEK SARJANA MUDA 1</h4>
+    <p><strong>BORANG PENYERAHAN DAN SEMAKAN BAB DALAM LAPORAN, KERTAS PROSIDING & PROTOTAIP SISTEM/KERANGKA PENYELIDIKAN</strong><br>
+    <em>Report Chapter, Proceeding Paper & System Prototype/ Research Framework Submission and Reviewing Form</em></p>
+  </div>
+
+  <form id="formR1">
+    <div class="form-group" style="margin-bottom: 20px;">
+      <label for="session">Sesi/Semester (Session/Semester):</label>
+      <input type="text" id="session" name="session" placeholder="e.g. 2025/2026 Semester I" required>
+    </div>
+
+    <!-- BAHAGIAN A -->
+    <div class="section-title">BAHAGIAN A: MAKLUMAT PELAJAR / PART A: STUDENT INFORMATION</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="studentName">Nama (Name):</label>
+        <input type="text" id="studentName" name="studentName" required>
+      </div>
+      <div class="form-group">
+        <label for="matricNum">No. Matrik (Matric Num):</label>
+        <input type="text" id="matricNum" name="matricNum" required>
+      </div>
+      <div class="form-group">
+        <label for="programme">Program (Programme):</label>
+        <select id="programme" name="programme" required>
+          <option value="">-- Pilih / Select --</option>
+          <option value="BIT">BIT</option>
+          <option value="BIS">BIS</option>
+          <option value="BIP">BIP</option>
+          <option value="BIW">BIW</option>
+          <option value="BIM">BIM</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="yearStudy">Tahun Pengajian Semasa (Current Year of Study):</label>
+        <input type="text" id="yearStudy" name="yearStudy" required>
+      </div>
+      <div class="form-group" style="grid-column: 1 / -1;">
+        <label for="projectTitle">Tajuk Projek (Project Title):</label>
+        <input type="text" id="projectTitle" name="projectTitle" required>
+      </div>
+      <div class="form-group">
+        <label for="submissionDate">Tarikh Penyerahan (Date):</label>
+        <input type="date" id="submissionDate" name="submissionDate">
+      </div>
+    </div>
+
+    <!-- ITEM DISEMAK CHECKBOXES / RADIOS -->
+    <div style="margin-top: 15px;">
+      <label style="font-weight: bold; font-size: 0.9em;">Sila tandakan pada ITEM YANG DISEMAK (Tick on the REVIEWED ITEM):</label>
+      <div class="checkbox-group" style="margin-top: 5px;">
+        
+        <!-- SINGLE-OPTION FOR CHAPTER (RADIO BUTTONS) -->
+        <div class="checkbox-item">
+          <strong>Bab (Chapter):</strong>
+          <label><input type="radio" name="chapter" value="1" onchange="toggleSectionsR1()"> 1</label>
+          <label><input type="radio" name="chapter" value="2" onchange="toggleSectionsR1()"> 2</label>
+          <label><input type="radio" name="chapter" value="3" onchange="toggleSectionsR1()"> 3</label>
+          <label><input type="radio" name="chapter" value="4" onchange="toggleSectionsR1()"> 4</label>
+        </div>
+
+        <div class="checkbox-item" style="border-left: 1px solid #ccc; padding-left: 12px;">
+          <label><input type="checkbox" name="proceeding" id="proceeding" onchange="toggleSectionsR1()"> <strong>Kertas Prosiding (Proceeding Paper)</strong></label>
+        </div>
+        
+        <div class="checkbox-item" style="border-left: 1px solid #ccc; padding-left: 12px;">
+          <label><input type="checkbox" name="prototype" id="prototype" onchange="toggleSectionsR1()"> <strong>Prototaip Sistem / Kerangka Penyelidikan (System Prototype / Research Framework)</strong></label>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- BAHAGIAN B -->
+    <div class="section-title">BAHAGIAN B: AKUAN SEMAKAN OLEH PENYELIA / PART B: SUPERVISOR REVIEW ACKNOWLEDGMENT</div>
+    <div class="form-group" style="margin-bottom: 12px;">
+      <label for="supervisorName">Nama Penyelia (Supervisor Name):</label>
+      <input type="text" id="supervisorName" name="supervisorName" placeholder="Nama Penyelia">
+    </div>
+
+    <p style="font-size: 0.9em; font-weight: bold;">Mengesahkan / Menolak bahawa saya telah (confirm / decline that I have):</p>
+    <div class="ack-option">
+      <input type="checkbox" id="ack_received" name="ack_received">
+      <label for="ack_received">menerima item projek pelajar (seperti yang ditandakan di atas) untuk semakan <em>(received student's project item (as indicated above) for review)</em></label>
+    </div>
+    <div class="ack-option">
+      <input type="checkbox" id="ack_reviewed" name="ack_reviewed">
+      <label for="ack_reviewed">menyemak item projek pelajar (seperti yang ditandakan di atas) untuk penambahbaikan <em>(reviewed student's project item (as indicated above) for improvement)</em></label>
+    </div>
+
+    <!-- SKALA SEMAKAN -->
+    <p style="margin-top: 20px;"><strong>Skala Semakan (Reviewing Scale):</strong></p>
+    <table class="scale-table">
+      <tr>
+        <th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+      </tr>
+      <tr>
+        <td>Tiada Data<br><em>(No Data)</em></td>
+        <td>Sangat Kurang Memuaskan<br><em>(Very Unsatisfactory)</em></td>
+        <td>Kurang Memuaskan<br><em>(Unsatisfactory)</em></td>
+        <td>Sederhana<br><em>(Moderate)</em></td>
+        <td>Baik<br><em>(Good)</em></td>
+        <td>Sangat Baik<br><em>(Very Good)</em></td>
+      </tr>
+    </table>
+
+    <!-- KUALITI ITEM: BAB / PROSIDING -->
+    <div id="sectionReportQuality">
+      <h4 style="color: var(--primary-color); margin-top: 20px;">
+        KUALITI ITEM - LENGKAPKAN BAHAGIAN INI UNTUK SEMAKAN BAB DALAM LAPORAN ATAU PROSIDING SAHAJA<br>
+        <small style="font-weight: normal; font-size: 0.8em;">(ITEM QUALITY - COMPLETE THIS SECTION FOR REVIEW ON THE CHAPTER OR PROCEEDING ONLY)</small>
+      </h4>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 8%;">Bil</th>
+            <th style="width: 52%;">Item Semakan (Review Item)</th>
+            <th style="width: 40%;">Skor / Score (0 - 5)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1.</td>
+            <td>Kandungan (Content)</td>
+            <td><div class="score-options"><script>document.write(renderRadios('q_report_1'));</script></div></td>
+          </tr>
+          <tr>
+            <td>2.</td>
+            <td>Format Laporan (Writing Format)</td>
+            <td><div class="score-options"><script>document.write(renderRadios('q_report_2'));</script></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- KUALITI ITEM: PROTOTAIP / KERANGKA -->
+    <div id="sectionPrototypeQuality">
+      <h4 style="color: var(--primary-color); margin-top: 20px;">
+        KUALITI ITEM - LENGKAPKAN BAHAGIAN INI UNTUK SEMAKAN PROTOTAIP SISTEM ATAU KERANGKA PENYELIDIKAN SAHAJA<br>
+        <small style="font-weight: normal; font-size: 0.8em;">(ITEM QUALITY - COMPLETE THIS SECTION FOR REVIEW ON THE SYSTEM PROTOTYPE OR RESEARCH FRAMEWORK ONLY)</small>
+      </h4>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 8%;">Bil</th>
+            <th style="width: 52%;">Item Semakan (Review Item)</th>
+            <th style="width: 40%;">Skor / Score (0 - 5)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1.</td>
+            <td>Analisis & Spesifikasi / Alat, Data, Kajian Kes<br><em>(Analysis & Specifications / Tool, Data, Case Studies)</em></td>
+            <td><div class="score-options"><script>document.write(renderRadios('q_proto_1'));</script></div></td>
+          </tr>
+          <tr>
+            <td>2.</td>
+            <td>Antara Muka Pengguna & Kefungsian / Teknik, Metrik Prestasi<br><em>(User Interface & Functionality / Technique, Performance Metric)</em></td>
+            <td><div class="score-options"><script>document.write(renderRadios('q_proto_2'));</script></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PENGESAHAN PENYELIA -->
+    <div class="signature-grid">
+      <div class="form-group">
+        <label for="reviewDate">Tarikh (Date):</label>
+        <input type="date" id="reviewDate" name="reviewDate">
+      </div>
+      <div class="form-group">
+        <label>Tandatangan Penyelia (Supervisor Signature):</label>
+        <div class="signature-box">[ Ruang Tandatangan ]</div>
+      </div>
+      <div class="form-group">
+        <label>Cop Rasmi Penyelia (Official Stamp):</label>
+        <div class="signature-box">[ Ruang Cop ]</div>
+      </div>
+    </div>
+
+    <div class="btn-container">
+      <button type="button" class="btn" onclick="window.print()">Cetak / Simpan PDF</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  function renderRadios(name) {
+    let html = '';
+    for (let i = 0; i <= 5; i++) {
+      html += `<label><input type="radio" name="${name}" value="${i}"> ${i}</label>`;
+    }
+    return html;
+  }
+
+  function toggleSectionsR1() {
+    const isChapterSelected = document.querySelector('input[name="chapter"]:checked') !== null;
+    const isProceedingSelected = document.getElementById('proceeding').checked;
+    const isReportItem = isChapterSelected || isProceedingSelected;
+    const isProtoSelected = document.getElementById('prototype').checked;
+
+    const reportSec = document.getElementById('sectionReportQuality');
+    const protoSec = document.getElementById('sectionPrototypeQuality');
+
+    if (isReportItem || !isProtoSelected) {
+      reportSec.style.opacity = '1';
+      reportSec.querySelectorAll('input').forEach(e => e.disabled = false);
+    } else {
+      reportSec.style.opacity = '0.4';
+      reportSec.querySelectorAll('input').forEach(e => e.disabled = true);
+    }
+
+    if (isProtoSelected || !isReportItem) {
+      protoSec.style.opacity = '1';
+      protoSec.querySelectorAll('input').forEach(e => e.disabled = false);
+    } else {
+      protoSec.style.opacity = '0.4';
+      protoSec.querySelectorAll('input').forEach(e => e.disabled = true);
+    }
+  }
+
+  toggleSectionsR1();
+</script>
+
+</body>
+</html>

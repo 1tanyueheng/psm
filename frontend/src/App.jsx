@@ -29,6 +29,9 @@ const UserListPage = lazy(() => import('./pages/admin/UserListPage'))
 const ProjectListPage = lazy(() => import('./pages/projects/ProjectListPage'))
 const ProjectDetailPage = lazy(() => import('./pages/projects/ProjectDetailPage'))
 const ProjectRegisterPage = lazy(() => import('./pages/projects/ProjectRegisterPage'))
+const RegistrationListPage = lazy(() => import('./pages/registrations/RegistrationListPage'))
+const LampiranAFormPage = lazy(() => import('./pages/registrations/LampiranAFormPage'))
+const RegistrationDetailPage = lazy(() => import('./pages/registrations/RegistrationDetailPage'))
 const MilestoneListPage = lazy(() => import('./pages/milestones/MilestoneListPage'))
 const MilestoneDetailPage = lazy(() => import('./pages/milestones/MilestoneDetailPage'))
 
@@ -162,6 +165,18 @@ export default function AppRoutes() {
           />
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
           <Route path="/projects/:id/edit" element={<ProjectDetailPage />} />
+
+          {/* --- Module 2/3: registration flow (Lampiran A & B) --- */}
+          <Route path="/registrations" element={<RegistrationListPage />} />
+          <Route
+            path="/registrations/new"
+            element={
+              <RequireRole roles={['student']}>
+                <LampiranAFormPage />
+              </RequireRole>
+            }
+          />
+          <Route path="/registrations/:id" element={<RegistrationDetailPage />} />
 
           {/* --- Module 3: milestones --- */}
           <Route path="/milestones" element={<MilestoneListPage />} />

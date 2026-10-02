@@ -24,6 +24,9 @@ class DatabaseSeeder extends Seeder
             // Module 3 & 4 — templates that projects and rubrics depend on
             MilestoneTemplateSeeder::class,
             RubricTemplateSeeder::class,
+            // Official marking forms (Lampiran E, G, H, I, J) — one template
+            // per form per project category.
+            MarkingFormSeeder::class,
 
             // Module 3 — projects, memberships, instantiated milestones
             ProjectSeeder::class,

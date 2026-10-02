@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\MilestoneController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ProjectController;
+use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\PublicApi\LeaderboardController as PublicLeaderboardController;
@@ -148,6 +149,39 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
     Route::get('assignments/expertise-areas', [AssignmentController::class, 'expertiseAreas'])
         ->middleware('role:admin,coordinator,supervisor')
         ->name('assignments.expertise-areas');
+
+    // -----------------------------------------------------------------
+    // Module 2/3 — Registration flow (Lampiran A & B)
+    // -----------------------------------------------------------------
+    // Lampiran A drives the supervisor<->student pairing; Lampiran B turns an
+    // approved agreement into a project. The pairing is only registered when
+    // JKPSM approves, which is why approve/reject sit behind coordinator roles.
+    Route::prefix('registrations')->name('registrations.')->group(function () {
+        Route::get('agreements', [RegistrationController::class, 'indexAgreements'])
+            ->name('agreements.index');
+
+        Route::post('agreements', [RegistrationController::class, 'storeAgreement'])
+            ->middleware('role:student')
+            ->name('agreements.store');
+
+        Route::get('agreements/{agreement}', [RegistrationController::class, 'showAgreement'])
+            ->name('agreements.show');
+
+        Route::post('agreements/{agreement}/acknowledge', [RegistrationController::class, 'acknowledge'])
+            ->middleware('role:supervisor')
+            ->name('agreements.acknowledge');
+
+        Route::post('agreements/{agreement}/title-proposal', [RegistrationController::class, 'storeTitleProposal'])
+            ->middleware('role:student')
+            ->name('agreements.title-proposal');
+
+        Route::middleware('role:admin,coordinator')->group(function () {
+            Route::post('agreements/{agreement}/approve', [RegistrationController::class, 'approve'])
+                ->name('agreements.approve');
+            Route::post('agreements/{agreement}/reject', [RegistrationController::class, 'reject'])
+                ->name('agreements.reject');
+        });
+    });
 
     // -----------------------------------------------------------------
     // Module 3 — Projects

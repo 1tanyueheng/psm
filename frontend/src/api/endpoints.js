@@ -90,6 +90,33 @@ export const assignmentApi = {
 }
 
 // =====================================================================
+// Module 2/3 — registration flow (Lampiran A & B)
+// =====================================================================
+export const registrationApi = {
+  /** Agreements visible to the signed-in user (scoped by role server-side). */
+  agreements: (params) => api.get('/registrations/agreements', { params }).then(unwrap),
+  agreement: (id) => api.get(`/registrations/agreements/${id}`).then(unwrap),
+
+  /** Student submits Lampiran A (supervisor agreement). */
+  submitAgreement: (payload) => api.post('/registrations/agreements', payload).then(unwrap),
+
+  /** Supervisor acknowledges Part C and picks the agreed title. */
+  acknowledge: (id, agreedTitle) =>
+    api
+      .post(`/registrations/agreements/${id}/acknowledge`, { agreed_title: agreedTitle })
+      .then(unwrap),
+
+  /** JKPSM/coordinator approves — this registers the pairing. */
+  approve: (id) => api.post(`/registrations/agreements/${id}/approve`).then(unwrap),
+  reject: (id, reason) =>
+    api.post(`/registrations/agreements/${id}/reject`, { reason }).then(unwrap),
+
+  /** Student submits Lampiran B against an approved agreement. */
+  submitTitleProposal: (id, payload) =>
+    api.post(`/registrations/agreements/${id}/title-proposal`, payload).then(unwrap),
+}
+
+// =====================================================================
 // Module 3 — projects, milestones, submissions
 // =====================================================================
 export const projectApi = {

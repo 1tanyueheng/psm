@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lampiran G - Borang Penilaian PSM 2 Bagi Penyelia</title>
+  <style>
+    :root {
+      --primary-color: #003366;
+      --border-color: #ccc;
+      --bg-light: #f9f9f9;
+    }
+    body { font-family: Arial, sans-serif; line-height: 1.4; color: #333; margin: 0; padding: 20px; background-color: #f4f6f9; }
+    .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .header { text-align: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 15px; margin-bottom: 20px; }
+    .header h2, .header h3, .header h4 { margin: 4px 0; color: var(--primary-color); }
+    .doc-ref { text-align: right; font-size: 0.85em; font-weight: bold; }
+    .section-title { background-color: var(--primary-color); color: #fff; padding: 8px 12px; font-weight: bold; margin-top: 25px; margin-bottom: 15px; border-radius: 4px; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group label { font-weight: bold; margin-bottom: 5px; font-size: 0.9em; }
+    .form-group input, .form-group select, .form-group textarea { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.95em; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
+    table, th, td { border: 1px solid var(--border-color); }
+    th, td { padding: 8px; text-align: left; }
+    th { background-color: var(--bg-light); }
+    .scale-table th, .scale-table td { text-align: center; }
+    .score-options { display: flex; justify-content: space-around; }
+    .signature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px; }
+    .signature-box { border: 1px dashed var(--border-color); height: 90px; display: flex; align-items: center; justify-content: center; color: #888; background-color: var(--bg-light); }
+    .btn-container { margin-top: 30px; text-align: center; }
+    .btn { background-color: var(--primary-color); color: white; border: none; padding: 12px 24px; font-size: 1em; border-radius: 4px; cursor: pointer; }
+    .btn:hover { opacity: 0.9; }
+    .total-highlight { font-weight: bold; color: var(--primary-color); }
+    @media print {
+      body { background-color: #fff; padding: 0; }
+      .container { box-shadow: none; max-width: 100%; padding: 0; }
+      .btn-container { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="doc-ref">UTHM.FSKTM/UA-17/2024 Pin 1<br>LAMPIRAN G</div>
+  
+  <div class="header">
+    <h2>UNIVERSITI TUN HUSSEIN ONN MALAYSIA</h2>
+    <h3>FAKULTI SAINS KOMPUTER DAN TEKNOLOGI MAKLUMAT</h3>
+    <h4>PROJEK SARJANA MUDA 2</h4>
+    <p><strong>BORANG PENILAIAN PSM 2 BAGI PENYELIA</strong><br>
+    <em>PSM 2 Evaluation Form for Supervisor</em></p>
+  </div>
+
+  <form id="formG">
+    <div class="form-group" style="margin-bottom: 20px;">
+      <label for="session">Sesi/Semester (Session/Semester):</label>
+      <input type="text" id="session" name="session" placeholder="e.g. 2024/2025 Semester II" required>
+    </div>
+
+    <!-- BAHAGIAN A -->
+    <div class="section-title">BAHAGIAN A: MAKLUMAT PELAJAR / PART A: STUDENT INFORMATION</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="studentName">Nama Pelajar (Student Name):</label>
+        <input type="text" id="studentName" name="studentName" required>
+      </div>
+      <div class="form-group">
+        <label for="matricNum">No. Matrik (Matric Num):</label>
+        <input type="text" id="matricNum" name="matricNum" required>
+      </div>
+      <div class="form-group">
+        <label for="yearProg">Tahun Pengajian Semasa dan Program (Year & Programme):</label>
+        <input type="text" id="yearProg" name="yearProg" placeholder="e.g. 4 BIT" required>
+      </div>
+      <div class="form-group">
+        <label for="category">Kategori Projek (Category):</label>
+        <select id="category" name="category" onchange="toggleCategoryG()" required>
+          <option value="Pembangunan">Pembangunan (Development)</option>
+          <option value="Kajian">Kajian (Research)</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column: 1 / -1;">
+        <label for="projectTitle">Tajuk Projek (Project Title):</label>
+        <input type="text" id="projectTitle" name="projectTitle" required>
+      </div>
+    </div>
+
+    <!-- BAHAGIAN B -->
+    <div class="section-title">BAHAGIAN B: PENILAIAN PSM 2 (50%) / PART B: PSM 2 EVALUATION</div>
+    <p style="font-size: 0.85em; color: #555;">
+      <strong>ARAHAN:</strong> Bagi kategori projek Pembangunan, sila lengkapkan komponen penilaian A, B dan C(i). Manakala bagi kategori Kajian, sila lengkapkan komponen penilaian A, B dan C(ii).
+    </p>
+
+    <p><strong>Skala Penilaian (Evaluation Scale):</strong></p>
+    <table class="scale-table">
+      <tr>
+        <th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+      </tr>
+      <tr>
+        <td>Tiada Data<br><em>(No Data)</em></td>
+        <td>Sangat Kurang Memuaskan<br><em>(Very Unsatisfactory)</em></td>
+        <td>Kurang Memuaskan<br><em>(Unsatisfactory)</em></td>
+        <td>Sederhana<br><em>(Moderate)</em></td>
+        <td>Baik<br><em>(Good)</em></td>
+        <td>Sangat Baik<br><em>(Very Good)</em></td>
+      </tr>
+    </table>
+
+    <!-- KOMPONEN A -->
+    <h4>KOMPONEN A: Buku Log (5%) / Component A: Logbook</h4>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 5%;">Bil</th>
+          <th style="width: 50%;">Item Penilaian (Assessment Item)</th>
+          <th style="width: 25%;">Skor (0 - 5)</th>
+          <th style="width: 10%;">Pemberat</th>
+          <th style="width: 10%;">Jumlah</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1.</td><td>Perancangan Pelaksanaan PSM (PSM Implementation Planning)</td><td><div class="score-options"><script>document.write(renderRadios('gA_1'));</script></div></td><td>1.25</td><td id="tot_gA_1">0.00</td></tr>
+        <tr><td>2.</td><td>Interaksi dengan Penyelia dan Disiplin (Interaction with Supervisor)</td><td><div class="score-options"><script>document.write(renderRadios('gA_2'));</script></div></td><td>1.25</td><td id="tot_gA_2">0.00</td></tr>
+        <tr><td>3.</td><td>Aktiviti Mingguan / Lampiran Kerja (Weekly Activities / Attachments)</td><td><div class="score-options"><script>document.write(renderRadios('gA_3'));</script></div></td><td>1.25</td><td id="tot_gA_3">0.00</td></tr>
+        <tr><td>4.</td><td>Perbincangan Laporan Kemajuan Projek (Progress Report Discussion)</td><td><div class="score-options"><script>document.write(renderRadios('gA_4'));</script></div></td><td>1.25</td><td id="tot_gA_4">0.00</td></tr>
+        <tr>
+          <td colspan="4" style="text-align: right; font-weight: bold;">JUMLAH KOMPONEN A:</td>
+          <td id="subtotalGA" class="total-highlight">0.00 / 5</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- KOMPONEN B -->
+    <h4>KOMPONEN B: Laporan PSM 2 (20%) / Component B: PSM 2 Report</h4>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 5%;">Bil</th>
+          <th style="width: 50%;">Item Penilaian (Assessment Item)</th>
+          <th style="width: 25%;">Skor (0 - 5)</th>
+          <th style="width: 10%;">Pemberat</th>
+          <th style="width: 10%;">Jumlah</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1.</td><td>Abstrak (Abstract)</td><td><div class="score-options"><script>document.write(renderRadios('gB_1'));</script></div></td><td>1.15</td><td id="tot_gB_1">0.00</td></tr>
+        <tr><td>2.</td><td>Pengenalan (Introduction)</td><td><div class="score-options"><script>document.write(renderRadios('gB_2'));</script></div></td><td>2.20</td><td id="tot_gB_2">0.00</td></tr>
+        <tr><td>3.</td><td>Kajian Literatur (Literature Review)</td><td><div class="score-options"><script>document.write(renderRadios('gB_3'));</script></div></td><td>3.30</td><td id="tot_gB_3">0.00</td></tr>
+        <tr><td>4.</td><td>Metodologi (Methodology)</td><td><div class="score-options"><script>document.write(renderRadios('gB_4'));</script></div></td><td>2.20</td><td id="tot_gB_4">0.00</td></tr>
+        <tr><td>5.</td><td>Analisis dan Rekabentuk (Analysis and Design)</td><td><div class="score-options"><script>document.write(renderRadios('gB_5'));</script></div></td><td>3.30</td><td id="tot_gB_5">0.00</td></tr>
+        <tr><td>6.</td><td>Hasil Kajian / Dapatan / Output (Results / Findings)</td><td><div class="score-options"><script>document.write(renderRadios('gB_6'));</script></div></td><td>4.50</td><td id="tot_gB_6">0.00</td></tr>
+        <tr><td>7.</td><td>Kesimpulan dan Cadangan (Conclusion and Suggestion)</td><td><div class="score-options"><script>document.write(renderRadios('gB_7'));</script></div></td><td>1.15</td><td id="tot_gB_7">0.00</td></tr>
+        <tr><td>8.</td><td>Format Laporan (Report Formatting)</td><td><div class="score-options"><script>document.write(renderRadios('gB_8'));</script></div></td><td>2.20</td><td id="tot_gB_8">0.00</td></tr>
+        <tr>
+          <td colspan="4" style="text-align: right; font-weight: bold;">JUMLAH KOMPONEN B:</td>
+          <td id="subtotalGB" class="total-highlight">0.00 / 20</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- KOMPONEN C(i) - PEMBANGUNAN -->
+    <div id="sectionGC1">
+      <h4>KOMPONEN C(i): Produk PSM 2 (25%) - Kategori Pembangunan</h4>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 5%;">Bil</th>
+            <th style="width: 50%;">Item Penilaian (Assessment Item)</th>
+            <th style="width: 25%;">Skor (0 - 5)</th>
+            <th style="width: 10%;">Pemberat</th>
+            <th style="width: 10%;">Jumlah</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1.</td><td>Analisa Sistem (System Analysis)</td><td><div class="score-options"><script>document.write(renderRadios('gC1_1'));</script></div></td><td>4.19</td><td id="tot_gC1_1">0.00</td></tr>
+          <tr><td>2.</td><td>Rekabentuk Sistem (System Design)</td><td><div class="score-options"><script>document.write(renderRadios('gC1_2'));</script></div></td><td>4.19</td><td id="tot_gC1_2">0.00</td></tr>
+          <tr><td>3.</td><td>Terjemahan Pembangunan (Translation of Development)</td><td><div class="score-options"><script>document.write(renderRadios('gC1_3'));</script></div></td><td>4.19</td><td id="tot_gC1_3">0.00</td></tr>
+          <tr><td>4.</td><td>Implementasi (Implementation)</td><td><div class="score-options"><script>document.write(renderRadios('gC1_4'));</script></div></td><td>4.19</td><td id="tot_gC1_4">0.00</td></tr>
+          <tr><td>5.</td><td>Pengujian, verifikasi dan validasi (Testing & Validation)</td><td><div class="score-options"><script>document.write(renderRadios('gC1_5'));</script></div></td><td>4.12</td><td id="tot_gC1_5">0.00</td></tr>
+          <tr><td>6.</td><td>Kreatif, inovatif dan bercirikan komersial (Commercial Value)</td><td><div class="score-options"><script>document.write(renderRadios('gC1_6'));</script></div></td><td>4.12</td><td id="tot_gC1_6">0.00</td></tr>
+          <tr>
+            <td colspan="4" style="text-align: right; font-weight: bold;">JUMLAH KOMPONEN C(i):</td>
+            <td id="subtotalGC1" class="total-highlight">0.00 / 25</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- KOMPONEN C(ii) - KAJIAN -->
+    <div id="sectionGC2" style="display: none;">
+      <h4>KOMPONEN C(ii): Produk PSM 2 (25%) - Kategori Kajian</h4>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 5%;">Bil</th>
+            <th style="width: 50%;">Item Penilaian (Assessment Item)</th>
+            <th style="width: 25%;">Skor (0 - 5)</th>
+            <th style="width: 10%;">Pemberat</th>
+            <th style="width: 10%;">Jumlah</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1.</td><td>Analisa (Analysis)</td><td><div class="score-options"><script>document.write(renderRadios('gC2_1'));</script></div></td><td>4.19</td><td id="tot_gC2_1">0.00</td></tr>
+          <tr><td>2.</td><td>Rekabentuk / Teknik / Algoritma (Design / Algorithm)</td><td><div class="score-options"><script>document.write(renderRadios('gC2_2'));</script></div></td><td>4.19</td><td id="tot_gC2_2">0.00</td></tr>
+          <tr><td>3.</td><td>Terjemahan Metodologi (Translation of Methodology)</td><td><div class="score-options"><script>document.write(renderRadios('gC2_3'));</script></div></td><td>4.19</td><td id="tot_gC2_3">0.00</td></tr>
+          <tr><td>4.</td><td>Implementasi / Simulasi (Implementation / Simulation)</td><td><div class="score-options"><script>document.write(renderRadios('gC2_4'));</script></div></td><td>4.19</td><td id="tot_gC2_4">0.00</td></tr>
+          <tr><td>5.</td><td>Pengujian, verifikasi dan validasi (Testing & Validation)</td><td><div class="score-options"><script>document.write(renderRadios('gC2_5'));</script></div></td><td>4.12</td><td id="tot_gC2_5">0.00</td></tr>
+          <tr><td>6.</td><td>Kreatif, inovatif dan bercirikan komersial (Commercial Value)</td><td><div class="score-options"><script>document.write(renderRadios('gC2_6'));</script></div></td><td>4.12</td><td id="tot_gC2_6">0.00</td></tr>
+          <tr>
+            <td colspan="4" style="text-align: right; font-weight: bold;">JUMLAH KOMPONEN C(ii):</td>
+            <td id="subtotalGC2" class="total-highlight">0.00 / 25</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- GRAND TOTAL -->
+    <table style="margin-top: 20px; background-color: #eef4fb;">
+      <tr>
+        <td style="font-size: 1.1em; font-weight: bold; text-align: right; padding: 12px;">
+          JUMLAH KESELURUHAN KOMPONEN (GRAND TOTAL OF COMPONENTS: A + B + C):
+        </td>
+        <td id="grandTotalG" style="font-size: 1.2em; font-weight: bold; color: var(--primary-color); width: 20%; text-align: center;">
+          0.00 / 50
+        </td>
+      </tr>
+    </table>
+
+    <div class="signature-grid">
+      <div class="form-group">
+        <label for="evalDate">Tarikh (Date):</label>
+        <input type="date" id="evalDate" name="evalDate">
+      </div>
+      <div class="form-group">
+        <label>Tandatangan (Signature):</label>
+        <div class="signature-box">[ Ruang Tandatangan ]</div>
+      </div>
+      <div class="form-group">
+        <label>Cop Rasmi (Official Stamp):</label>
+        <div class="signature-box">[ Ruang Cop ]</div>
+      </div>
+    </div>
+
+    <div class="btn-container">
+      <button type="button" class="btn" onclick="window.print()">Cetak / Simpan PDF</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  function renderRadios(name) {
+    let html = '';
+    for (let i = 0; i <= 5; i++) {
+      html += `<label><input type="radio" name="${name}" value="${i}" onclick="calculateScoreG()"> ${i}</label>`;
+    }
+    return html;
+  }
+
+  function toggleCategoryG() {
+    const cat = document.getElementById('category').value;
+    if (cat === 'Pembangunan') {
+      document.getElementById('sectionGC1').style.display = 'block';
+      document.getElementById('sectionGC2').style.display = 'none';
+    } else {
+      document.getElementById('sectionGC1').style.display = 'none';
+      document.getElementById('sectionGC2').style.display = 'block';
+    }
+    calculateScoreG();
+  }
+
+  function getItemScore(name, weight) {
+    const selected = document.querySelector(`input[name="${name}"]:checked`);
+    if (selected) {
+      const val = parseFloat(selected.value);
+      return (val / 5) * weight;
+    }
+    return 0;
+  }
+
+  function calculateScoreG() {
+    // Comp A
+    const wA = [1.25, 1.25, 1.25, 1.25];
+    let totA = 0;
+    wA.forEach((w, i) => {
+      const s = getItemScore(`gA_${i+1}`, w);
+      document.getElementById(`tot_gA_${i+1}`).innerText = s.toFixed(2);
+      totA += s;
+    });
+    document.getElementById('subtotalGA').innerText = totA.toFixed(2) + " / 5";
+
+    // Comp B
+    const wB = [1.15, 2.20, 3.30, 2.20, 3.30, 4.50, 1.15, 2.20];
+    let totB = 0;
+    wB.forEach((w, i) => {
+      const s = getItemScore(`gB_${i+1}`, w);
+      document.getElementById(`tot_gB_${i+1}`).innerText = s.toFixed(2);
+      totB += s;
+    });
+    document.getElementById('subtotalGB').innerText = totB.toFixed(2) + " / 20";
+
+    // Comp C
+    const cat = document.getElementById('category').value;
+    let totC = 0;
+    if (cat === 'Pembangunan') {
+      const wC1 = [4.19, 4.19, 4.19, 4.19, 4.12, 4.12];
+      wC1.forEach((w, i) => {
+        const s = getItemScore(`gC1_${i+1}`, w);
+        document.getElementById(`tot_gC1_${i+1}`).innerText = s.toFixed(2);
+        totC += s;
+      });
+      document.getElementById('subtotalGC1').innerText = totC.toFixed(2) + " / 25";
+    } else {
+      const wC2 = [4.19, 4.19, 4.19, 4.19, 4.12, 4.12];
+      wC2.forEach((w, i) => {
+        const s = getItemScore(`gC2_${i+1}`, w);
+        document.getElementById(`tot_gC2_${i+1}`).innerText = s.toFixed(2);
+        totC += s;
+      });
+      document.getElementById('subtotalGC2').innerText = totC.toFixed(2) + " / 25";
+    }
+
+    const grand = totA + totB + totC;
+    document.getElementById('grandTotalG').innerText = grand.toFixed(2) + " / 50";
+  }
+</script>
+
+</body>
+</html>
