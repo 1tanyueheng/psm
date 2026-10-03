@@ -42,8 +42,18 @@ const RubricListPage = lazy(() => import('./pages/evaluations/RubricListPage'))
 
 const AssignmentPage = lazy(() => import('./pages/assignments/AssignmentPage'))
 const ReportPage = lazy(() => import('./pages/reports/ReportPage'))
+const ArchivePage = lazy(() => import('./pages/archive/ArchivePage'))
+const ArchiveDetailPage = lazy(() => import('./pages/archive/ArchiveDetailPage'))
+const AuditLogPage = lazy(() => import('./pages/archive/AuditLogPage'))
+
+const LeaderboardAdminPage = lazy(() => import('./pages/leaderboards/LeaderboardAdminPage'))
+const LeaderboardBuilderPage = lazy(() => import('./pages/leaderboards/LeaderboardBuilderPage'))
+
 const NotificationPage = lazy(() => import('./pages/account/NotificationPage'))
 const ProfilePage = lazy(() => import('./pages/account/ProfilePage'))
+
+// Module 8 — public, no authentication, no app shell
+const PublicLeaderboardPage = lazy(() => import('./pages/public/PublicLeaderboardPage'))
 
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
@@ -61,7 +71,11 @@ export default function AppRoutes() {
       <Routes>
         {/* ---------------- Public ---------------- */}
 
-        
+        {/* Module 8 — genuinely public. Outside RequireAuth and outside the
+            app shell, because a visitor has no account and should not be
+            shown a signed-in layout. */}
+        <Route path="/leaderboard" element={<PublicLeaderboardPage />} />
+        <Route path="/leaderboard/:slug" element={<PublicLeaderboardPage />} />
 
         {/* ---------------- Auth ---------------- */}
         <Route
@@ -211,7 +225,35 @@ export default function AppRoutes() {
             }
           />
 
-          
+          {/* --- Module 7: archive and audit --- */}
+          <Route path="/archive" element={<ArchivePage />} />
+          <Route path="/archive/:id" element={<ArchiveDetailPage />} />
+          <Route
+            path="/audit"
+            element={
+              <RequireCapability capability="viewAuditLog">
+                <AuditLogPage />
+              </RequireCapability>
+            }
+          />
+
+          {/* --- Module 8: staff-side leaderboard management --- */}
+          <Route
+            path="/leaderboards"
+            element={
+              <RequireCapability capability="manageLeaderboard">
+                <LeaderboardAdminPage />
+              </RequireCapability>
+            }
+          />
+          <Route
+            path="/leaderboards/:id"
+            element={
+              <RequireCapability capability="manageLeaderboard">
+                <LeaderboardBuilderPage />
+              </RequireCapability>
+            }
+          />
 
           {/* --- Module 6 and account --- */}
           <Route path="/notifications" element={<NotificationPage />} />

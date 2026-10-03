@@ -50,7 +50,16 @@ const MENU = [
     group: 'Insight',
     items: [
       { to: '/reports', label: 'Reports', roles: ['coordinator', 'admin'] },
+      { to: '/archive', label: 'Archive', roles: ['student', 'supervisor', 'coordinator', 'examiner', 'admin'] },
+      { to: '/audit', label: 'Audit Log', roles: ['coordinator', 'admin'] },
       { to: '/users', label: 'User Accounts', roles: ['admin'] },
+    ],
+  },
+  {
+    group: 'Recognition',
+    items: [
+      { to: '/leaderboards', label: 'Leaderboards', roles: ['coordinator', 'admin'] },
+      { to: '/leaderboard', label: 'Public Page', roles: ['coordinator', 'admin'], external: true },
     ],
   },
   {
