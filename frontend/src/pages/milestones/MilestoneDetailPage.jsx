@@ -319,20 +319,40 @@ function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
                   {file.uploaded_at && ` · uploaded ${relativeDays(file.uploaded_at)}`}
                 </p>
               </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setDownloadError(null)
-                  milestoneApi
-                    .download(file.id)
-                    .catch((err) =>
-                      setDownloadError(err?.message ?? 'That file could not be downloaded.')
-                    )
-                }}
-              >
-                Download
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setDownloadError(null)
+                    milestoneApi
+                      .download(file.id)
+                      .catch((err) =>
+                        setDownloadError(err?.message ?? 'That file could not be downloaded.')
+                      )
+                  }}
+                >
+                  Download
+                </Button>
+                {canSubmit && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    tone="danger"
+                    onClick={async () => {
+                      if (!window.confirm('Delete this submission file? It will remain in the audit trail but will no longer be available for review.')) return
+                      try {
+                        await milestoneApi.deleteFile(file.id)
+                        await load()
+                      } catch (err) {
+                        setActionError(err?.message ?? 'Could not delete file.')
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                )}
+              </div>
             </li>
           ))}
         </ul>
