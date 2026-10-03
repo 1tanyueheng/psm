@@ -69,9 +69,6 @@ export default function AdminDashboard() {
             <Link to="/audit">
               <Button variant="secondary">Audit log</Button>
             </Link>
-            <Link to="/leaderboards">
-              <Button>Pixel-It awards</Button>
-            </Link>
           </div>
         }
       />
@@ -165,11 +162,7 @@ export default function AdminDashboard() {
             title="Rubric templates"
             description="Publish new versions for future cohorts"
           />
-          <AdminLink
-            to="/archive"
-            title="Project archive"
-            description="Browse and release historic projects"
-          />
+          
           <AdminLink
             to="/audit"
             title="Audit trail"
