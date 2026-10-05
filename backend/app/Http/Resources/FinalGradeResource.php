@@ -46,11 +46,27 @@ class FinalGradeResource extends JsonResource
             ] : null),
 
             // -----------------------------------------------------------------
-            // The released mark
+            // The published mark
             // -----------------------------------------------------------------
-            'final_mark'        => $this->final_mark !== null ? (float) $this->final_mark : null,
-            'aggregate_percent' => $this->aggregate_percent !== null ? (float) $this->aggregate_percent : null,
-            'milestone_score'   => $this->milestone_score !== null ? (float) $this->milestone_score : null,
+            /**
+             * Withheld from students.
+             *
+             * `final_mark` / `aggregate_percent` are the weighted form subtotals
+             * **rescaled onto 0-100**, because the system holds only part of the
+             * official assessment (PSM 1: 65 of it, PSM 2: 95; the remainder is
+             * marked outside the system). That rescaling makes the number a fair
+             * comparator between students, but it is not a mark anybody awarded
+             * — so sending it to a student put an 80.8 next to a breakdown that
+             * read "40.4 / 95" and made the page contradict itself.
+             *
+             * A student reads their Lampiran totals from the mark-breakdown
+             * endpoint instead, which returns the awarded marks and the part's
+             * own denominator. Staff still see this, because ranking a cohort is
+             * precisely what the rescaled figure is for.
+             */
+            'final_mark'        => $this->when($seesBreakdown, fn () => $this->final_mark !== null ? (float) $this->final_mark : null),
+            'aggregate_percent' => $this->when($seesBreakdown, fn () => $this->aggregate_percent !== null ? (float) $this->aggregate_percent : null),
+            'milestone_score'   => $this->when($seesBreakdown, fn () => $this->milestone_score !== null ? (float) $this->milestone_score : null),
 
             // -----------------------------------------------------------------
             // Per-assessor subtotals. Shown to staff only: a student seeing

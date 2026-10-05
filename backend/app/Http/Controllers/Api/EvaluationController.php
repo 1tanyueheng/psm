@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\EvaluationService;
 use App\Services\MarkSubmissionService;
+use App\Services\SemesterService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -30,6 +31,7 @@ class EvaluationController extends ApiController
     public function __construct(
         protected EvaluationService $evaluations,
         protected MarkSubmissionService $submissions,
+        protected SemesterService $semesters,
         protected AuditLogger $audit,
     ) {
     }
@@ -349,9 +351,14 @@ class EvaluationController extends ApiController
             $paginator,
             fn (FinalGrade $g) => (new \App\Http\Resources\FinalGradeResource($g))->resolve($request),
             [
-                'semester_id'         => $semesterId,
-                'semester_released'   => $semesterId !== null
-                    ? (bool) AcademicSemester::find($semesterId)?->is_marks_released
+                'semester_id' => $semesterId,
+                // How far the term's marking has got, read from the submissions.
+                // This replaces `semester_released`, which reported a flag the
+                // mark list used to gate its Release button on. Nothing is
+                // gated any more, so what the screen needs is the completeness
+                // picture rather than a publishable/not-publishable switch.
+                'semester_marks' => $semesterId !== null
+                    ? $this->semesters->marksState(AcademicSemester::findOrFail($semesterId))
                     : null,
             ]
         );
@@ -397,7 +404,7 @@ class EvaluationController extends ApiController
             ->where('psm_part', $project->psm_part)
             ->first();
 
-        $released = $grade !== null && $grade->status === 'released';
+        $released = $grade !== null && $grade->isReleased();
 
         if (! $released && ! $isStaff) {
             return $this->ok([
@@ -410,17 +417,18 @@ class EvaluationController extends ApiController
 
         $forms = $this->evaluations->componentBreakdown($project);
 
-        // Totals over the forms actually returned, in the Lampiran's own units.
-        $awarded = array_values(array_filter(
-            array_column($forms, 'marks'),
-            fn ($mark) => $mark !== null
-        ));
-        $max = array_sum(array_column($forms, 'max'));
+        // The total as the Lampiran prints it, plus the "out of" figure for the
+        // part. Deliberately *not* the rescaled aggregate from `final_grades`:
+        // that number exists for ranking students against each other and is not
+        // a mark anybody awarded. See `EvaluationService::markShare()`.
+        $share = $this->evaluations->markShare($project);
 
         return $this->ok([
             'released'    => $released,
-            'total_marks' => $awarded === [] ? null : round(array_sum($awarded), 2),
-            'total_max'   => round((float) $max, 2),
+            'total_marks' => $share['total_marks'],
+            'total_max'   => $share['total_max'],
+            'out_of'      => $share['out_of'],
+            'by_assessor'=> $share['by_assessor'],
             'forms'       => $forms,
         ]);
     }
@@ -484,45 +492,18 @@ class EvaluationController extends ApiController
     }
 
     /**
-     * POST /api/grades/{grade}/release
+     * POST /api/grades/{grade}/release and
+     * POST /api/projects/{project}/grades/release-all — REMOVED.
+     *
+     * Both were coordinator publish controls. A mark now publishes itself the
+     * moment its supervisor's form arrives (`MarkVisibilityService`), so there
+     * is nothing for a coordinator to release and no button to offer. Their
+     * routes are gone too.
+     *
+     * `EvaluationService::releaseGrade()` survives as a service-level repair
+     * path for grades written before the automatic release existed; it is not
+     * reachable over HTTP, which is the point — see the note on that method.
      */
-    public function releaseGrade(Request $request, FinalGrade $grade): JsonResponse
-    {
-        $this->authorize('release', $grade);
-
-        $released = $this->evaluations->releaseGrade($grade, $request->user());
-
-        return $this->ok(
-            new \App\Http\Resources\FinalGradeResource($released->load('studentProfile.user', 'project')),
-            'Mark released to the student.'
-        );
-    }
-
-    /**
-     * POST /api/projects/{project}/grades/release-all
-     */
-    public function releaseAll(Request $request, Project $project): JsonResponse
-    {
-        $this->authorize('approve', $project);
-
-        $released = 0;
-        $skipped  = 0;
-
-        foreach ($project->finalGrades()->get() as $grade) {
-            if ($grade->isReleased()) {
-                $skipped++;
-                continue;
-            }
-
-            $this->evaluations->releaseGrade($grade, $request->user());
-            $released++;
-        }
-
-        return $this->ok(
-            ['released' => $released, 'skipped' => $skipped],
-            "{$released} grade(s) released."
-        );
-    }
 
     /**
      * PUT /api/projects/{project}/grade-scheme

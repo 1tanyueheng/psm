@@ -88,6 +88,31 @@ class AssessmentWindowController extends ApiController
 
         $semester = AcademicSemester::findOrFail($validated['academic_semester_id']);
 
+        /**
+         * A window may only be opened for the term that is running.
+         *
+         * Without this, the Term dropdown offered every semester the faculty had
+         * ever created, and a coordinator could create a window against a term
+         * that had already closed — or one that had not started and held no
+         * students at all. The window would then faithfully list whatever
+         * projects that term happened to contain, so a window *named* "PSM 2"
+         * could show a PSM 1 cohort and nothing on the screen would contradict
+         * the name. That is the bug this check closes: the roster is filtered by
+         * part, so the only way to see the wrong batch is to create the window
+         * against the wrong term.
+         */
+        if (! $semester->is_active) {
+            return $this->fail(
+                "Marking can only be opened for the current semester. {$semester->name} is not "
+                .'the active semester — marking it now would let assessors file marks against a '
+                .'term nobody is enrolled in.',
+                422,
+                ['academic_semester_id' => [
+                    "Only the active semester can be marked. {$semester->name} is not active.",
+                ]]
+            );
+        }
+
         // One window per (term, part): two would leave two answers to "is
         // marking open?".
         if (AssessmentWindow::query()
@@ -108,7 +133,14 @@ class AssessmentWindowController extends ApiController
             'created_by'       => $request->user()->id,
         ]);
 
-        return $this->ok($this->present($window), 'Assessment window created. Open it when marking should begin.');
+        // Name the batch in the message. A coordinator who mis-picked the batch
+        // finds out here rather than from a roster that looks like the other
+        // one, which is how the mixed-up windows were created in the first place.
+        return $this->ok(
+            $this->present($window),
+            "{$validated['psm_part']} assessment window created for {$semester->name}. "
+                .'Open it when marking should begin.'
+        );
     }
 
     /**

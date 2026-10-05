@@ -65,6 +65,17 @@ enum AuditAction: string
     case EvaluationModerated = 'evaluation.moderated';
     case GradeReleased     = 'grade.released';
     case GradeRecalculated = 'grade.recalculated';
+    // A mark that goes back down. Distinct from `GradeReleased` because it is
+    // the alarming direction: a student who has already read a number needs to
+    // be able to find out why it disappeared.
+    case GradeWithheld     = 'grade.withheld';
+    // The coordinator's attestation that every expected form came back.
+    case MarkSubmissionLocked       = 'mark_submission.locked';
+    // The same attestation, made by the system the moment the last form landed.
+    // Kept apart from the manual lock so the trail can still answer "did a human
+    // sign this off, or did it close itself?".
+    case MarkSubmissionAutoLocked   = 'mark_submission.auto_locked';
+    case MarkSubmissionUnlocked     = 'mark_submission.unlocked';
 
     // Reporting (Module 5)
     case ReportExported    = 'report.exported';
@@ -125,6 +136,10 @@ enum AuditAction: string
             self::EvaluationModerated   => 'Moderated marks',
             self::GradeReleased         => 'Released mark',
             self::GradeRecalculated     => 'Recalculated mark',
+            self::GradeWithheld         => 'Withheld mark',
+            self::MarkSubmissionLocked     => 'Locked mark submission',
+            self::MarkSubmissionAutoLocked => 'Auto-locked mark submission',
+            self::MarkSubmissionUnlocked   => 'Unlocked mark submission',
             self::ReportExported        => 'Exported report',
             self::ReportViewed          => 'Viewed report',
             self::LeaderboardPublished  => 'Published leaderboard',
@@ -152,7 +167,8 @@ enum AuditAction: string
             str_starts_with($this->value, 'project.'),
             str_starts_with($this->value, 'milestone.')   => 'Projects & Milestones',
             str_starts_with($this->value, 'evaluation.'),
-            str_starts_with($this->value, 'grade.')       => 'Evaluation & Grading',
+            str_starts_with($this->value, 'grade.'),
+            str_starts_with($this->value, 'mark_submission.') => 'Evaluation & Grading',
             str_starts_with($this->value, 'report.')      => 'Reporting',
             str_starts_with($this->value, 'leaderboard.') => 'Recognitions',
             str_starts_with($this->value, 'semester.')    => 'Semesters',
@@ -176,6 +192,7 @@ enum AuditAction: string
             self::PasswordReset,
             self::PasswordChanged,
             self::GradeReleased,
+            self::GradeWithheld,
             self::SemesterGradesReleased => 'critical',
 
             default => 'info',

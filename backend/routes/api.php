@@ -159,8 +159,9 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
 
             Route::post('{semester}/registration', [SemesterController::class, 'registration'])
                 ->name('registration');
-            Route::post('{semester}/release-marks', [SemesterController::class, 'releaseMarks'])
-                ->name('release-marks');
+            // There is no `release-marks` route. A mark is published by the
+            // submission that completes it (MarkVisibilityService), so a
+            // coordinator has nothing to release. See SemesterController.
         });
 
         Route::get('{semester}', [SemesterController::class, 'show'])->name('show');
@@ -411,7 +412,8 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
     Route::prefix('grades')->name('grades.')->middleware('role:admin,coordinator')->group(function () {
         Route::get('/', [EvaluationController::class, 'grades'])->name('index');
         Route::post('{grade}/recompute', [EvaluationController::class, 'recompute'])->name('recompute');
-        Route::post('{grade}/release', [EvaluationController::class, 'releaseGrade'])->name('release');
+        // No `{grade}/release`. Marks publish themselves; see
+        // MarkVisibilityService. The coordinator's grade list is read-only.
     });
 
     Route::get('projects/{project}/grades', [EvaluationController::class, 'projectGrades'])->name('projects.grades');
@@ -420,9 +422,7 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
     // The controller scopes a student to their own roster entry.
     Route::get('projects/{project}/students/{student}/mark-breakdown', [EvaluationController::class, 'markBreakdown'])
         ->name('projects.students.mark-breakdown');
-    Route::post('projects/{project}/grades/release-all', [EvaluationController::class, 'releaseAll'])
-        ->middleware('role:admin,coordinator')
-        ->name('projects.grades.release-all');
+    // No `grades/release-all` either — same reason as `{grade}/release`.
     Route::put('projects/{project}/grade-scheme', [EvaluationController::class, 'updateGradeScheme'])
         ->middleware('role:admin,coordinator')
         ->name('projects.grade-scheme');

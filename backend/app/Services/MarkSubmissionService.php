@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\AssessorType;
+use App\Enums\AuditAction;
 use App\Enums\MarkSubmissionStatus;
 use App\Models\AcademicSemester;
 use App\Models\Evaluation;
@@ -34,6 +35,7 @@ class MarkSubmissionService
 {
     public function __construct(
         private EvaluationService $evaluations,
+        private AuditLogger $audit,
     ) {}
 
     /**
@@ -199,7 +201,91 @@ class MarkSubmissionService
                 'locked_by'     => $actor->id,
             ]);
 
+            $this->audit->log(
+                action: AuditAction::MarkSubmissionLocked,
+                description: "Mark submission locked for {$submission->project?->code}",
+                subject: $submission,
+                actor: $actor,
+            );
+
             return $submission->fresh()->load('finalGrade');
+        });
+    }
+
+    /**
+     * Lock the submission if — and only if — every expected form is in.
+     *
+     * This is the automatic counterpart to `lock()`, called after each
+     * submission so the attestation happens the moment it becomes true rather
+     * than waiting for a coordinator to press a button. It is the reason the
+     * lock can be trusted as "the batch is complete": nobody has to remember to
+     * record it.
+     *
+     * Deliberately silent where `lock()` throws. The caller is an assessor
+     * filing a form, not a coordinator asking "may I lock this?" — and the
+     * answer to that question, mid-batch, is routinely "not yet". It returns
+     * null to mean "nothing to do", which is not an error.
+     *
+     * `$actor` is the person whose action completed the set. It is recorded on
+     * `locked_by` for provenance, but the audit action is
+     * `MarkSubmissionAutoLocked` so the trail still distinguishes a system lock
+     * from a coordinator's signed-off one.
+     */
+    public function autoLockIfReady(MarkSubmission $submission, ?User $actor = null): ?MarkSubmission
+    {
+        if ($submission->status === MarkSubmissionStatus::Locked) {
+            return null;
+        }
+
+        if (! $submission->isReadyToLock()) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($submission, $actor) {
+            // Re-read under a lock: two assessors can submit the last two forms
+            // at the same moment, and both would have seen "not ready" a moment
+            // ago.
+            $fresh = MarkSubmission::query()
+                ->whereKey($submission->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if ($fresh === null || $fresh->status === MarkSubmissionStatus::Locked) {
+                return null;
+            }
+
+            if (! $fresh->isReadyToLock()) {
+                return null;
+            }
+
+            $finalGrade = $this->evaluations->computeFinalGrade(
+                $fresh->project,
+                $fresh->student_profile_id,
+            );
+
+            $fresh->update([
+                'status'         => MarkSubmissionStatus::Locked,
+                'locked_by'      => $actor?->id,
+                'locked_at'      => now(),
+                'final_grade_id' => $finalGrade->id,
+            ]);
+
+            $finalGrade->update([
+                'status'    => 'locked',
+                'locked_at' => now(),
+                'locked_by' => $actor?->id,
+            ]);
+
+            $this->audit->log(
+                action: AuditAction::MarkSubmissionAutoLocked,
+                description: $actor === null
+                    ? "Mark submission closed automatically for {$fresh->project?->code}"
+                    : "Mark submission closed automatically for {$fresh->project?->code} — completed by {$actor->name}",
+                subject: $fresh,
+                actor: $actor,
+            );
+
+            return $fresh->fresh()->load('finalGrade');
         });
     }
 
@@ -242,6 +328,18 @@ class MarkSubmissionService
                     'locked_by' => null,
                 ]);
             }
+
+            // Unlocking does not re-hide the mark on its own — that follows from
+            // the forms, and is reconciled by MarkVisibilityService after the
+            // coordinator stands an examiner down or a conflict is declared.
+            // Recorded here regardless, because "who reopened this and why" is
+            // the question an appeal turns on.
+            $this->audit->log(
+                action: AuditAction::MarkSubmissionUnlocked,
+                description: "Mark submission unlocked for {$submission->project?->code}: ".trim($reason),
+                subject: $submission,
+                actor: $actor instanceof User ? $actor : null,
+            );
 
             return $submission->fresh();
         });

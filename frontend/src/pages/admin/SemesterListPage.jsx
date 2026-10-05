@@ -326,30 +326,29 @@ export default function SemesterListPage() {
                     </div>
                   </Td>
 
-                  <Td>
-                    {row.is_marks_released ? (
-                      <Badge tone="success">Released</Badge>
+                  {/*
+                    Read-only. There is no Release/Withhold control any more:
+                    a mark publishes itself the moment its supervisor's form
+                    arrives, so a term has nothing to release. What a
+                    coordinator needs from this column is progress towards
+                    closing the term, which is the completeness count.
+                  */}
+                  <Td className="tabular-nums">
+                    {row.marks ? (
+                      <>
+                        <div className="text-slate-800">
+                          {row.marks.complete} / {row.marks.total}
+                        </div>
+                        <div className="text-xs text-slate-400">submissions complete</div>
+                        {row.marks.outstanding > 0 && (
+                          <div className="text-xs text-amber-600">
+                            {row.marks.outstanding} awaiting a form
+                          </div>
+                        )}
+                      </>
                     ) : (
-                      <Badge tone="warning">Withheld</Badge>
+                      <span className="text-xs text-slate-400">—</span>
                     )}
-                    <div className="mt-1">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        loading={busy}
-                        onClick={() =>
-                          run(
-                            row.id,
-                            () => semesterApi.setMarkRelease(row.id, !row.is_marks_released),
-                            row.is_marks_released
-                              ? `Marks withheld for ${row.name}.`
-                              : `Marks released for ${row.name}.`
-                          )
-                        }
-                      >
-                        {row.is_marks_released ? 'Withhold' : 'Release'}
-                      </Button>
-                    </div>
                   </Td>
 
                   <Td>

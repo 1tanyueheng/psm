@@ -10,13 +10,20 @@ import { formatMark } from '../lib/format'
  * Every total here is the Lampiran's own mark — never rescaled onto a 0-100
  * scale. The system scores only part of the assessment (PSM 1: E 35 + I 30;
  * PSM 2: G 50 + H 5 + J 40), so a percentage of its own share would misstate
- * the student's result.
+ * the student's result. That rescaled figure still exists on the grade row for
+ * ranking students against each other, but it is not a mark anybody awarded and
+ * is never shown to the student.
+ *
+ * The denominator is the *part's* total (`out_of`), which does not move as
+ * forms arrive, so a total that grows from 30 to 65 is read against a stable 65
+ * rather than against whatever has been filed so far.
  *
  * A Lampiran with no returned form still appears, with its headings and an
  * "awaiting assessment" badge, so the student can see what is still to come.
  */
 export default function MarkBreakdown({ breakdown, emptyMessage }) {
   const forms = breakdown?.forms ?? []
+  const outOf = breakdown?.out_of ?? breakdown?.total_max
 
   if (forms.length === 0) {
     return <p className="text-sm text-slate-500">{emptyMessage}</p>
@@ -74,11 +81,16 @@ export default function MarkBreakdown({ breakdown, emptyMessage }) {
 export function MarkTotal({ breakdown }) {
   if (breakdown?.total_marks == null) return null
 
+  // Show the part's full total while the panel is still filing, so the student
+  // can see how much of the assessment is still outstanding rather than
+  // thinking 35 was the whole thing.
+  const denominator = breakdown.out_of ?? breakdown.total_max
+
   return (
     <span className="text-xl font-semibold tabular-nums text-slate-900">
       {formatMark(breakdown.total_marks)}
       <span className="text-sm font-normal text-slate-400">
-        {' '}/ {formatMark(breakdown.total_max)}
+        {' '}/ {formatMark(denominator)}
       </span>
     </span>
   )

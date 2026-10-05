@@ -26,7 +26,7 @@ import { formatDateTime } from '../../lib/format'
  */
 export default function AssessmentWindowPage() {
   const { user } = useAuth()
-  const { semesters, selectedId: termId } = useSemesters()
+  const { semesters, selectedId: termId, active } = useSemesters()
   const [searchParams] = useSearchParams()
 
   /**
@@ -129,7 +129,7 @@ export default function AssessmentWindowPage() {
       {showCreate && (
         <CreateWindowForm
           semesters={semesters}
-          defaultSemesterId={scopedSemesterId ?? termId}
+          activeSemester={active}
           defaultPart={scopedPart}
           onCreated={async (created) => {
             setShowCreate(false)
@@ -247,7 +247,18 @@ export default function AssessmentWindowPage() {
                 </Card>
 
                 <Card className="overflow-hidden p-0">
-                  <CardHeader title="Students" subtitle="Who has been marked, and who has not" />
+                  <CardHeader
+                    title="Students"
+                    subtitle={
+                      <>
+                        <Badge tone={PSM_PART_BADGE_TONES[detail.psm_part] ?? 'neutral'}>
+                          {partLabel(detail.psm_part)}
+                        </Badge>{' '}
+                        only — of {detail.semester ?? detail.academic_session}. Who has been
+                        marked, and who has not.
+                      </>
+                    }
+                  />
                   <div className="overflow-x-auto">
                     <DataTable columns={['Student', 'Project', 'Lampiran', 'Filed', '']}>
                       {(detail.roster ?? []).map((row) => (
@@ -305,10 +316,14 @@ export default function AssessmentWindowPage() {
   )
 }
 
-function CreateWindowForm({ semesters, defaultSemesterId, defaultPart, onCreated, onError }) {
+function CreateWindowForm({ semesters, activeSemester, defaultPart, onCreated, onError }) {
   const [form, setForm] = useState({
     name: '',
-    academic_semester_id: defaultSemesterId ?? '',
+    // Always the running term. The server refuses anything else — a window
+    // opened against a closed or not-yet-started term lists whatever projects
+    // that term happens to hold, which is how a window named "PSM 2" ended up
+    // showing a PSM 1 cohort with nothing on screen to contradict it.
+    academic_semester_id: activeSemester?.id ?? '',
     // Defaults to the batch the coordinator arrived from, and to PSM 1
     // otherwise — the batch whose marking opens first in a term.
     psm_part: defaultPart || 'PSM1',
@@ -343,6 +358,19 @@ function CreateWindowForm({ semesters, defaultSemesterId, defaultPart, onCreated
     }
   }
 
+  if (!activeSemester) {
+    return (
+      <Card>
+        <CardHeader title="New assessment window" />
+        <p className="text-sm text-amber-800">
+          No semester is active, so marking cannot be opened. Activate a semester
+          on the Semesters screen first — a window has to belong to the term the
+          students are actually enrolled in.
+        </p>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader
@@ -356,25 +384,23 @@ function CreateWindowForm({ semesters, defaultSemesterId, defaultPart, onCreated
           <Input
             value={form.name}
             onChange={set('name')}
-            placeholder="e.g. PSM 1 Assessment — Semester I 2025/2026"
+            placeholder={`e.g. PSM 1 Assessment — ${activeSemester.name}`}
             required
           />
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
+          {/*
+            The term is shown, not chosen. It is always the active semester,
+            because that is the only term the server will accept: a window on
+            any other term would list that term's projects, which is how the
+            wrong cohort ends up under the wrong batch heading.
+          */}
           <Field
             label="Term"
-            required
-            hint="The semester the students are enrolled in — not the academic session. A session (2025/2026) holds two terms."
+            hint="Fixed to the active semester — marking can only be opened for the term students are enrolled in"
           >
-            <Select value={form.academic_semester_id} onChange={set('academic_semester_id')} required>
-              <option value="">-- Select --</option>
-              {semesters.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
+            <Input value={activeSemester.name} readOnly disabled />
           </Field>
 
           <Field
@@ -409,12 +435,8 @@ function CreateWindowForm({ semesters, defaultSemesterId, defaultPart, onCreated
 
         <p className="rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
           Opening this window will allocate forms to every live student in{' '}
-          <b>{partLabel(form.psm_part)}</b> of{' '}
-          <b>
-            {semesters.find((s) => String(s.id) === String(form.academic_semester_id))?.name ??
-              'the selected term'}
-          </b>
-          . Lampiran E goes to each student's supervisor and Lampiran I to both panel examiners.
+          <b>{partLabel(form.psm_part)}</b> of <b>{activeSemester.name}</b>.
+          Lampiran E goes to each student's supervisor and Lampiran I to both panel examiners.
           A term and batch with no students will allocate nothing.
         </p>
 

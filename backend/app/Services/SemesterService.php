@@ -3,10 +3,12 @@
 namespace App\Services;
 
 use App\Enums\AuditAction;
+use App\Enums\MarkSubmissionStatus;
 use App\Enums\PsmPart;
 use App\Models\AcademicSemester;
 use App\Models\AssessmentWindow;
 use App\Models\FinalGrade;
+use App\Models\MarkSubmission;
 use App\Models\Project;
 use App\Models\SupervisorAgreement;
 use App\Models\User;
@@ -97,7 +99,6 @@ class SemesterService
                 // grades.
                 'is_active'             => (bool) ($data['is_active'] ?? false),
                 'is_registration_open'  => (bool) ($data['is_registration_open'] ?? false),
-                'is_marks_released'    => false,
                 'metadata'              => $data['metadata'] ?? null,
             ]);
 
@@ -169,10 +170,6 @@ class SemesterService
                 $open = (bool) $data['is_registration_open'];
                 $semester->is_registration_open = $open;
                 $semester->registration_opened_at = $open ? ($semester->registration_opened_at ?? now()) : null;
-            }
-
-            if (array_key_exists('is_marks_released', $data)) {
-                $this->setMarkRelease($semester, (bool) $data['is_marks_released'], $actor);
             }
 
             $semester->save();
@@ -317,64 +314,77 @@ class SemesterService
     }
 
     // -----------------------------------------------------------------
-    // Grade release (requirement §4.2 — per semester, not per session)
+    // Mark status — derived, never set
     // -----------------------------------------------------------------
 
     /**
-     * Release or withhold a term's results.
+     * How far the term's marking has got, read from the submissions themselves.
      *
-     * Scoped by `academic_semester_id`, which is the whole point: the previous
-     * behaviour keyed on `academic_session` and published both batches at once.
-     * Projects with no term (legacy rows) are deliberately left alone — they
-     * belong to no term and must not be swept in by a term-level action.
+     * This replaces the `is_marks_released` flag and its Release/Withhold
+     * control. That flag was a second source of truth for something the data
+     * already knew: a mark is visible as soon as its supervisor form is in, so
+     * "have this term's marks gone out?" is not a decision anybody makes any
+     * more. Storing it would let the flag drift out of step with the marks it
+     * claimed to describe — which is exactly what happened on the live data,
+     * where a term read as released while all twelve of its submissions still
+     * sat open.
+     *
+     * `complete` counts submissions where every expected form is in. That is the
+     * number a coordinator actually needs: it answers "can I close this term?"
+     * without them adding up PSM 1 and PSM 2 in their head.
+     *
+     * `marks_released` is kept in the payload under its old name so existing
+     * screens keep working; it now means "some mark in this term is readable"
+     * rather than "a coordinator published the term".
+     *
+     * @return array{
+     *     total:int, complete:int, outstanding:int, published:int,
+     *     marks_released:bool, by_part:array<string, array{total:int, complete:int, published:int}>
+     * }
      */
-    public function setMarkRelease(
-        AcademicSemester $semester,
-        bool $released,
-        User $actor
-    ): AcademicSemester {
-        $projectIds = Project::query()
-            ->where('academic_semester_id', $semester->id)
-            ->pluck('id');
+    public function marksState(AcademicSemester $semester): array
+    {
+        $byPart = [];
+        $total = 0;
+        $complete = 0;
+        $published = 0;
 
-        if ($released) {
-            FinalGrade::query()
-                ->whereIn('project_id', $projectIds)
-                ->whereNull('released_at')
-                ->update([
-                    'released_at' => now(),
-                    'updated_at'  => now(),
-                ]);
-        } else {
-            FinalGrade::query()
-                ->whereIn('project_id', $projectIds)
-                ->whereNotNull('released_at')
-                ->update([
-                    'released_at' => null,
-                    'updated_at'  => now(),
-                ]);
+        foreach (PsmPart::deliverables() as $part) {
+            $submissions = MarkSubmission::query()
+                ->where('academic_semester_id', $semester->id)
+                ->where('psm_part', $part->value)
+                ->get();
+
+            $partComplete = $submissions->where('status', MarkSubmissionStatus::Locked)->count();
+
+            // A submission counts as published when its grade is readable. The
+            // grade is the authority: a submission can be locked with its mark
+            // still withheld if the forms that backed it were retired.
+            $partPublished = FinalGrade::query()
+                ->whereIn('project_id', $submissions->pluck('project_id'))
+                ->whereIn('status', ['released', 'locked'])
+                ->distinct()
+                ->count('student_profile_id');
+
+            $byPart[$part->value] = [
+                'total'     => $submissions->count(),
+                'complete'  => $partComplete,
+                'published' => $partPublished,
+            ];
+
+            $total += $submissions->count();
+            $complete += $partComplete;
+            $published += $partPublished;
         }
 
-        $semester->update([
-            'is_marks_released' => $released,
-            'marks_released_at' => $released ? now() : null,
-        ]);
-
-        $this->audit->log(
-            action: $released
-                ? AuditAction::SemesterGradesReleased
-                : AuditAction::SemesterUpdated,
-            description: sprintf(
-                'Grades %s for %s (%d project(s))',
-                $released ? 'released' : 'withheld',
-                $semester->name,
-                $projectIds->count()
-            ),
-            subject: $semester,
-            actor: $actor,
-        );
-
-        return $semester->fresh();
+        return [
+            'total'          => $total,
+            'complete'       => $complete,
+            'outstanding'    => max(0, $total - $complete),
+            'published'      => $published,
+            'marks_released' => $published > 0,
+            'by_part'        => $byPart,
+        ];
     }
 
     // -----------------------------------------------------------------
@@ -492,6 +502,10 @@ class SemesterService
         return [
             'total_projects' => $projects->count(),
             'by_part'        => $byPart,
+            // Attached here rather than fetched separately by the semester
+            // screen: the screen already calls this for the per-batch columns,
+            // and one extra request per row would be a request per term.
+            'marks'          => $this->marksState($semester),
         ];
     }
 

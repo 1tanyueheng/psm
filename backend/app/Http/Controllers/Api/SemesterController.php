@@ -134,17 +134,13 @@ class SemesterController extends ApiController
     /**
      * PATCH /api/semesters/{semester}
      *
-     * Grade release is split out behind its own gate. Patching
-     * `is_marks_released` publishes every mark in the term, and that is not an
-     * ability a caller should pick up incidentally by holding `update`.
+     * Dates, flags and metadata. Grade release deliberately has no route here
+     * any more — a mark is published by the submission that completes it, not
+     * by a coordinator, so there is no release to authorise.
      */
     public function update(Request $request, AcademicSemester $semester): JsonResponse
     {
-        if ($request->has('is_marks_released')) {
-            $this->authorize('releaseMarks', $semester);
-        } else {
-            $this->authorize('update', $semester);
-        }
+        $this->authorize('update', $semester);
 
         $validated = $request->validate([
             'name'                 => ['sometimes', 'string', 'max:64'],
@@ -154,7 +150,6 @@ class SemesterController extends ApiController
             'ends_at'              => ['nullable', 'date', 'after_or_equal:starts_at'],
             'is_active'            => ['nullable', 'boolean'],
             'is_registration_open' => ['nullable', 'boolean'],
-            'is_marks_released'   => ['nullable', 'boolean'],
             'metadata'             => ['nullable', 'array'],
             'metadata.coordinator_id' => ['nullable', 'integer', 'exists:users,id'],
         ]);
@@ -254,34 +249,20 @@ class SemesterController extends ApiController
     }
 
     /**
-     * POST /api/semesters/{semester}/release-marks
+     * POST /api/semesters/{semester}/release-marks — REMOVED.
      *
-     * Requirement §4.2 — release is per semester, so this is an explicit action
-     * rather than a field edit. The response reports how many projects it
-     * touched, because a coordinator publishing a term's results needs to know
-     * whether that was the twelve projects they expected.
+     * A term-level release was the wrong shape once marks publish themselves.
+     * It offered two ways to publish — this and the per-grade button — and one
+     * way to retract, and the two could disagree: withholding a term still left
+     * a per-grade release sitting in the UI, and pressing it published a result
+     * the faculty had decided to withhold.
+     *
+     * The endpoint, its route and the `releaseMarks` ability are gone. A mark is
+     * published by `MarkVisibilityService` the moment the supervisor's form
+     * arrives, and `SemesterService::marksState()` reports how far a term's
+     * marking has got by reading the submissions, so nothing has to be recorded
+     * separately for the semester screen to show.
      */
-    public function releaseMarks(Request $request, AcademicSemester $semester): JsonResponse
-    {
-        $this->authorize('releaseMarks', $semester);
-
-        $validated = $request->validate([
-            'is_marks_released' => ['required', 'boolean'],
-        ]);
-
-        $released = (bool) $validated['is_marks_released'];
-
-        $updated = $this->semesters->setMarkRelease($semester, $released, $request->user());
-
-        $this->attachStats($updated, $request);
-
-        return $this->ok(
-            AcademicSemesterResource::make($updated)->resolve(),
-            $released
-                ? "Marks released for {$updated->name}. Students in both batches can now see their results."
-                : "Marks withheld for {$updated->name}."
-        );
-    }
 
     // -----------------------------------------------------------------
     // Internals
@@ -312,12 +293,6 @@ class SemesterController extends ApiController
      */
     protected function changeMessage(AcademicSemester $semester, array $validated): string
     {
-        if (array_key_exists('is_marks_released', $validated)) {
-            return $semester->is_marks_released
-                ? "Marks released for {$semester->name}."
-                : "Marks withheld for {$semester->name}.";
-        }
-
         if (array_key_exists('is_registration_open', $validated)) {
             return $semester->is_registration_open
                 ? "Registration is open for {$semester->name}."

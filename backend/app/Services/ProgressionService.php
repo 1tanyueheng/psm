@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\AuditAction;
+use App\Enums\PsmPart;
 use App\Models\AcademicSemester;
 use App\Models\ExaminerAssignment;
 use App\Models\Project;
@@ -32,15 +33,17 @@ use InvalidArgumentException;
  * examined on, and would leave the PSM 2 project unrelated to the PSM 1 one it
  * continues.
  *
- * **Trigger:** the PSM 1 marks must have been released. Progressing earlier
- * would enrol the student in PSM 2 while PSM 1 is still unresolved, and the
- * released mark is what the archived PSM 1 record is supposed to carry.
+ * **Trigger:** every PSM 1 mark in the source term must be in. This used to test
+ * the term's `is_marks_released` flag; marks now publish themselves, so the gate
+ * reads the submissions instead — the same condition the semester-close gate
+ * uses, so "PSM 1 is finished" has one definition rather than two.
  */
 class ProgressionService
 {
     public function __construct(
         protected MilestoneService $milestones,
         protected ArchiveService $archive,
+        protected SemesterService $semesters,
         protected AuditLogger $audit,
     ) {
     }
@@ -82,10 +85,10 @@ class ProgressionService
             );
         }
 
-        if (! $sourceTerm->is_marks_released) {
+        if (! $this->termMarkingIsComplete($sourceTerm)) {
             throw new InvalidArgumentException(
-                "Marks have not been released for {$sourceTerm->name}. Release them before "
-                ."progressing {$student->student_id} to PSM 2."
+                "Marking for {$sourceTerm->name} is not finished. Every student's PSM 1 forms must be "
+                ."in before {$student->student_id} can be progressed to PSM 2."
             );
         }
 
@@ -186,6 +189,27 @@ class ProgressionService
 
             return $project->fresh(['milestones', 'members', 'agreement']);
         });
+    }
+
+    /**
+     * Has every PSM 1 mark in this term come in?
+     *
+     * The gate this replaces tested the term's `is_marks_released` flag, which
+     * is no longer written: marks publish themselves, so a term-level release
+     * is not a decision anybody makes. What progression actually needs to know
+     * is whether the PSM 1 batch is finished — and "every submission is locked"
+     * is the same question the semester-close gate asks, so both read it from
+     * `SemesterService::marksState()` rather than each defining "finished".
+     *
+     * A term with no PSM 1 submissions at all reports zero outstanding and so
+     * passes. That is deliberate: a term whose students were all enrolled
+     * elsewhere has nothing to wait for, and refusing would strand them.
+     */
+    protected function termMarkingIsComplete(AcademicSemester $term): bool
+    {
+        $marks = $this->semesters->marksState($term);
+
+        return ($marks['by_part'][PsmPart::Psm1->value]['outstanding'] ?? 0) === 0;
     }
 
     /** The student's live PSM 2 project, if they already have one. */

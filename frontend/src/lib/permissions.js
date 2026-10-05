@@ -37,8 +37,7 @@ const CAPABILITIES = {
   manageUsers: ['admin'],
   accessArchive: ['student', 'supervisor', 'coordinator', 'admin'],
   assignSupervisors: ['coordinator', 'admin'],
-  releaseMarks: ['coordinator', 'admin'],
-  /** Create terms, open/close registration, set per-term mark release. */
+  /** Create terms, open/close registration. */
   manageSemesters: ['coordinator', 'admin'],
   manageMilestones: ['supervisor', 'coordinator', 'admin'],
   manageTemplates: ['admin'],

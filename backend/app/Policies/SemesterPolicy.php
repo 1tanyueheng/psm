@@ -70,17 +70,14 @@ class SemesterPolicy
     }
 
     /**
-     * Publishing or withholding results for a whole term.
+     * Publishing or withholding a whole term's results — REMOVED.
      *
-     * Held separately from `update` rather than folded in because it is the
-     * irreversible one: students see released marks, and a coordinator who
-     * fat-fingers a flag should not be able to unpublish a term's results by
-     * editing its name.
+     * There is no such ability any more. A mark is published by the submission
+     * that completes it, and no coordinator action can publish or retract a
+     * term. The ability used to exist to keep an incidental `PATCH` from
+     * publishing a cohort; with no term-level release to authorise, leaving it
+     * in place would only be a hook nobody remembers is dead.
      */
-    public function releaseMarks(User $actor, AcademicSemester $semester): bool
-    {
-        return $actor->hasRole('admin', 'coordinator');
-    }
 
     public function close(User $actor, AcademicSemester $semester): bool
     {

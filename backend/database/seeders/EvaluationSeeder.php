@@ -14,6 +14,7 @@ use App\Models\Project;
 use App\Models\StudentProfile;
 use App\Models\User;
 use App\Services\EvaluationService;
+use App\Services\MarkVisibilityService;
 use App\Services\SemesterService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
@@ -376,60 +377,39 @@ public function __construct(
     {
         $count = 0;
 
-        // Which terms actually have a releasable grade? Opening a term that has
-        // nothing to release would leave a needless "results released" flag
-        // lying around on the demo data.
+        // Marks publish themselves now, so there is no term-level release to
+        // flip and no per-grade button to press. What the demo data needs is for
+        // every grade's visibility to be reconciled against the forms that back
+        // it — which is exactly what `MarkVisibilityService` does, and it is the
+        // only path the running application has. Driving the seeder through it
+        // keeps the invariant the project holds everywhere else: a demo must
+        // never display a state the app could not have produced.
         //
-        // Driven from `projects` rather than a join off `final_grades`: both
-        // tables carry a `status` column, so a hand-rolled join makes the
-        // where clauses ambiguous and MySQL rejects the query outright.
-        $termIds = Project::query()
-            ->where('status', 'completed')
-            ->whereNotNull('academic_semester_id')
-            ->whereHas('finalGrades', fn ($q) => $q
-                ->where('status', 'provisional')
-                ->whereNotNull('final_mark'))
-            ->pluck('academic_semester_id')
-            ->unique();
+        // A grade whose forms are all in also auto-locks here, so the demo shows
+        // the same "complete" picture a real term would.
+        $visibility = app(MarkVisibilityService::class);
 
-        foreach ($termIds as $termId) {
-            $semester = AcademicSemester::find($termId);
+        $published = FinalGrade::query()
+            ->with('project.students')
+            ->whereIn('status', ['provisional', 'released', 'locked'])
+            ->get();
 
-            if ($semester === null || $semester->is_marks_released) {
+        foreach ($published as $grade) {
+            $project = $grade->project;
+
+            if ($project === null || $project->status !== 'completed') {
                 continue;
             }
 
-            $this->semesters->setMarkRelease($semester, true, $coordinator);
-        }
+            // Reconcile as the system, not as the coordinator: nobody attests
+            // an automatic publication, and passing the coordinator here would
+            // write their name onto a decision they did not make.
+            $result = $visibility->syncFor($project, $grade->student_profile_id);
 
-        FinalGrade::query()
-            ->with('project')
-            ->where('status', 'provisional')
-            ->get()
-            ->each(function (FinalGrade $grade) use (&$count, $coordinator) {
-                $project = $grade->project;
-
-                if ($project === null) {
-                    return;
-                }
-
-                // Only release when the course is over and enough assessors
-                // have reported — the same condition the real workflow uses.
-                if ($project->status !== 'completed') {
-                    return;
-                }
-
-                if ($grade->assessor_count < 2) {
-                    return;
-                }
-
-                if ($grade->final_mark === null) {
-                    return;
-                }
-
-                $this->evaluations->releaseGrade($grade, $coordinator);
+            if ($result['visible']) {
                 $count++;
-            });
+            }
+        }
 
         return $count;
     }

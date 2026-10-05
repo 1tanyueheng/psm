@@ -381,6 +381,12 @@ function MarkTab({ project, mark }) {
   const own = roster.find((s) => s.user_id === user?.id)
   const studentId = (own ?? roster[0])?.id ?? null
 
+  // `mark` is the whole project-grades payload, not one grade: rows live under
+  // `final_grades`. Guarding on `mark.final_mark` read a key that never exists
+  // on this shape, so the tab reported "no mark yet" even when one was out.
+  const grades = mark?.final_grades ?? []
+  const grade = grades[0] ?? null
+
   useEffect(() => {
     if (!project || studentId == null) return undefined
 
@@ -406,13 +412,19 @@ function MarkTab({ project, mark }) {
     }
   }, [project, studentId])
 
-  // `mark` exists as soon as a grade row does, which can be before anything has
-  // been marked — so check for the number, not just the object.
-  if (!mark || mark.final_mark == null) {
+  // A grade row can exist before anything has been marked, and the server
+  // withholds the total entirely from a student until there is something true
+  // to show — so trust the breakdown's own `released` flag when we have it.
+  const hasNumber = breakdown?.released
+    ? breakdown.total_marks != null
+    : grade != null && grade.final_mark != null
+
+  if (!hasNumber) {
     return (
       <EmptyState
         title="No mark yet"
-        message="The mark will appear once the panel's forms are in and the coordinator releases it."
+        message="The mark appears automatically as each assessor submits, starting with
+                 the supervisor. Nothing has to be released."
       />
     )
   }

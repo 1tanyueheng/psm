@@ -68,9 +68,12 @@ export default function StudentDashboard() {
           const detail = await projectApi.milestones(project.id)
           if (!cancelled) setMilestones(detail?.milestones ?? detail ?? [])
 
-          // Only worth asking once the mark is out — the server withholds it
-          // before release, so this is a no-op on an unreleased project.
-          if (project.final_grade?.status === 'released') {
+          // The mark is published automatically as soon as each assessor files,
+          // so it is worth asking for whenever a grade row exists at all. The
+          // server withholds the total until there is something true to show
+          // and answers `{ released: false }` otherwise, so calling this
+          // speculatively is safe.
+          if (project.final_grade) {
             const own = (project.students ?? []).find((s) => s.user_id === user?.id)
 
             if (own) {
@@ -335,19 +338,22 @@ export default function StudentDashboard() {
             </Card>
           )}
 
-          {/* Mark, once released — broken down to the level it was awarded.
-              Totals are the Lampiran's own marks, never a 0-100 percentage. */}
-          {selected.final_grade?.status === 'released' && (
+          {/* The mark in the Lampiran's own units — never the rescaled 0-100
+              aggregate, which is a comparator between students rather than a
+              mark anybody awarded. Each half appears as its assessor files, so
+              the total grows from the supervisor's 35 to the full 65 as the
+              panel returns. */}
+          {breakdown?.released && (
             <Card>
               <CardHeader
-                title="Released mark"
-                subtitle="Released by the coordinator"
+                title="Your mark"
+                subtitle="Lampiran marks, as awarded. It fills in as your assessors submit."
                 action={<MarkTotal breakdown={breakdown} />}
               />
-              {selected.final_grade.final_mark == null ? (
+              {breakdown.total_marks == null ? (
                 <p className="text-sm text-slate-500">
-                  No mark yet — your panel has not returned its forms. This will
-                  fill in as soon as they do.
+                  No mark yet — your assessors have not returned their forms. This
+                  will fill in as soon as they do.
                 </p>
               ) : (
                 <MarkBreakdown

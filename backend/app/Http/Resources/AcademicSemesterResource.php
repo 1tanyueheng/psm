@@ -37,7 +37,27 @@ class AcademicSemesterResource extends JsonResource
 
             'is_active'             => $isActive,
             'is_registration_open'  => (bool) $this->is_registration_open,
-            'is_marks_released'    => (bool) $this->is_marks_released,
+
+            /**
+             * Derived, not stored.
+             *
+             * The `is_marks_released` column still exists but nothing writes or
+             * reads it: a mark publishes itself the moment its supervisor form
+             * arrives, so there is no term-level release left to record. The
+             * flag is echoed here so existing screens keep rendering, and it now
+             * means "some mark in this term is readable", read from the grades
+             * themselves.
+             *
+             * Null when stats were not loaded — the caller then has no
+             * permission to see cohort figures, and this is a cohort figure.
+             */
+            'is_marks_released'     => $this->relationLoaded('stats')
+                ? (bool) ($this->stats['marks']['marks_released'] ?? false)
+                : null,
+            'marks'                 => $this->when(
+                $this->relationLoaded('stats'),
+                fn () => $this->stats['marks'] ?? null
+            ),
 
             // The gate, resolved. A student hitting a closed registration window
             // needs the reason, not a boolean they cannot act on.
@@ -48,7 +68,6 @@ class AcademicSemesterResource extends JsonResource
             'marks_released_at'    => $this->marks_released_at?->toIso8601String(),
             'registration_opened_at'=> $this->registration_opened_at?->toIso8601String(),
             'closed_at'             => $this->closed_at?->toIso8601String(),
-
             'coordinator_id'        => $this->resource->coordinatorId(),
             'metadata'              => $this->metadata,
 

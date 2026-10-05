@@ -66,17 +66,9 @@ export const semesterApi = {
    */
   setRegistration: (id, isOpen) =>
     api.post(`/semesters/${id}/registration`, { is_registration_open: Boolean(isOpen) }).then(unwrap),
-  /**
-   * `{ is_marks_released: boolean }` — publishes or withholds this term's marks.
-   *
-   * This is per *term*, not per part: one call covers both PSM 1 and PSM 2, and
-   * the response says how many projects it touched so the coordinator can check
-   * it against what they expected.
-   */
-  setMarkRelease: (id, isReleased) =>
-    api
-      .post(`/semesters/${id}/release-marks`, { is_marks_released: Boolean(isReleased) })
-      .then(unwrap),
+  // There is no `setMarkRelease`. A mark publishes itself the moment its
+  // supervisor's form arrives, so a term has no release to set. How far a
+  // term's marking has got comes back on `stats.marks` from `show`/`list`.
 }
 
 // =====================================================================
@@ -250,12 +242,13 @@ export const projectApi = {
   /**
    * One student's mark broken down by form and component.
    *
-   * Withheld by the server until the mark is released, so this is safe to call
-   * speculatively — an unreleased mark comes back as `{ released: false }`.
+   * Returns the Lampiran's own marks and the part's total (`out_of`), which is
+   * what the student is shown — never the rescaled 0-100 aggregate. Withheld by
+   * the server until the mark is readable, so calling it speculatively is safe:
+   * an unpublished mark comes back as `{ released: false }`.
    */
   markBreakdown: (projectId, studentId) =>
     api.get(`/projects/${projectId}/students/${studentId}/mark-breakdown`).then(unwrap),
-  releaseAllGrades: (id) => api.post(`/projects/${id}/grades/release-all`).then(unwrap),
   updateGradeScheme: (id, payload) =>
     api.put(`/projects/${id}/grade-scheme`, payload).then(unwrap),
 
@@ -436,7 +429,9 @@ export const rubricApi = {
 export const markApi = {
   list: (params) => api.get('/grades', { params }).then(unwrapPaged),
   recompute: (id) => api.post(`/grades/${id}/recompute`).then(unwrap),
-  release: (id) => api.post(`/grades/${id}/release`).then(unwrap),
+  // No `release`: a mark publishes itself when its supervisor form arrives.
+  // `recompute` survives as the repair path for marks whose forms predate the
+  // automatic release.
 
   // --- Aliases -----------------------------------------------------------
   /** Marks for one project. Scoped to the project, not the mark list. */

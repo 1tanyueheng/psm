@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { markApi } from '../../api/endpoints'
 import { unwrapPaged } from '../../api/client'
-import { useAuth } from '../../context/AuthContext'
 import { useSemesters } from '../../context/SemesterContext'
-import { can } from '../../lib/permissions'
 import {
   Card, PageHeader, Badge, Avatar, EmptyState, Spinner,
   ErrorState, Button, Select, DataTable, Td, Input,
@@ -13,15 +11,18 @@ import { formatMark, formatDate, CATEGORY_LABELS } from '../../lib/format'
 import { PSM_PARTS, partLabel, PSM_PART_BADGE_TONES } from '../../lib/psmPart'
 
 /**
- * Mark list — the release surface (Module 4 tail end).
+ * Mark list — read-only oversight (Module 4 tail end).
  *
- * Coordinator and admin staff come here to do one job: check computed marks
- * and release them. The page therefore leads with the "pending release" count
- * and offers bulk release, since releasing one at a time across a cohort of
- * dozens is the kind of friction that stops a process being followed.
+ * This page used to be a release surface: coordinators came here to check
+ * computed marks and publish them one at a time or in bulk. Marks now publish
+ * themselves the moment a supervisor's form arrives, so there is nothing to
+ * release and no button to offer.
+ *
+ * What a coordinator still needs from this screen is the *completeness*
+ * picture — which students' forms are all in and which are not — because that
+ * is what gates closing the semester. The lock column answers that.
  */
 export default function MarkListPage() {
-  const { user } = useAuth()
   const { selectedId, selectSemester, semesters } = useSemesters()
   const [params, setParams] = useSearchParams()
 
@@ -29,13 +30,10 @@ export default function MarkListPage() {
   const [meta, setMeta] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [busyId, setBusyId] = useState(null)
-  const [actionError, setActionError] = useState(null)
 
   const status = params.get('status') ?? ''
   const search = params.get('q') ?? ''
   const part = params.get('psm_part') ?? ''
-  const canRelease = can(user?.role, 'releaseMarks')
 
   const setFilter = (key, value) => {
     const next = new URLSearchParams(params)
@@ -72,49 +70,17 @@ export default function MarkListPage() {
     load()
   }, [load])
 
-  // A mark is either released or still provisional. The API stores nothing
-  // else, so "not yet released" is the only pending state there is.
-  const pending = useMemo(() => rows.filter((r) => r.status !== 'released'), [rows])
-
-  async function release(mark) {
-    setBusyId(mark.id)
-    setActionError(null)
-    try {
-      await markApi.release(mark.id)
-      await load()
-    } catch (err) {
-      setActionError(err?.message ?? 'Could not release that mark.')
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  async function releaseAll() {
-    setBusyId('all')
-    setActionError(null)
-    try {
-      // Release pending marks one by one so a single failure does not block
-      // the rest — the API has no bulk endpoint by design, since each release
-      // writes its own audit entry.
-      for (const mark of pending) {
-        await markApi.release(mark.id)
-      }
-      await load()
-    } catch (err) {
-      setActionError(err?.message ?? 'Some marks could not be released.')
-      await load()
-    } finally {
-      setBusyId(null)
-    }
-  }
-
   if (loading) return <Spinner label="Loading marks" />
   if (error) return <ErrorState error={error} />
+
+  // How far the term's marking has got, computed server-side from the
+  // submissions rather than from a flag a coordinator set.
+  const marks = meta?.semester_marks
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Marks & Release"
+        title="Marks"
         subtitle={meta ? `${meta.total} computed` : undefined}
         action={
           <div className="flex flex-wrap items-center gap-2">
@@ -150,8 +116,8 @@ export default function MarkListPage() {
               aria-label="Status"
             >
               <option value="">All statuses</option>
-              <option value="released">Released</option>
-              <option value="draft">Draft</option>
+              <option value="released">Published</option>
+              <option value="draft">Provisional</option>
             </Select>
             <Input
               type="search"
@@ -161,28 +127,30 @@ export default function MarkListPage() {
               className="w-64"
               aria-label="Search"
             />
-            {canRelease && pending.length > 0 ? (
-              <Button onClick={releaseAll} disabled={busyId === 'all'}>
-                {busyId === 'all' ? 'Releasing…' : `Release all ${pending.length}`}
-              </Button>
-            ) : null}
           </div>
         }
       />
 
-      {actionError && <ErrorState error={{ message: actionError }} />}
-
-      {canRelease && pending.length > 0 && (
-        <Card className="border-amber-200 bg-amber-50/50">
-          <p className="text-sm text-amber-900">
-            <span className="font-semibold">{pending.length}</span>{' '}
-            mark{pending.length === 1 ? '' : 's'} computed but not yet visible to students.
-            Releasing publishes the mark and writes an audit entry per project.
+      {marks && (
+        <Card>
+          <p className="text-sm text-slate-600">
+            <span className="font-semibold text-slate-800">{marks.complete}</span> of{' '}
+            <span className="font-semibold text-slate-800">{marks.total}</span> mark
+            submissions are complete
+            {marks.outstanding > 0 && (
+              <>
+                {' — '}
+                <span className="text-amber-700">
+                  {marks.outstanding} still waiting on a form
+                </span>
+              </>
+            )}
+            . Marks are published to students automatically as soon as each form is
+            filed; nothing here needs releasing.
           </p>
         </Card>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-4">
       {rows.length === 0 ? (
         <Card>
           <EmptyState
@@ -238,18 +206,25 @@ export default function MarkListPage() {
                   </Td>
                   <Td className="text-center tabular-nums text-slate-600">
                     {mark.assessor_count ?? 0}
-                    {mark.status !== 'released' && mark.is_publishable === false && (
-                      <span className="ml-1 text-xs text-amber-600">insufficient</span>
-                    )}
                   </Td>
-                  <Td className="font-semibold tabular-nums">
-                    {mark.final_mark != null ? formatMark(mark.final_mark) : '—'}
+                  <Td className="tabular-nums">
+                    {/*
+                      The internal aggregate, deliberately labelled as a
+                      comparator rather than a mark. It is the weighted
+                      subtotals rescaled onto 0-100 because the system holds
+                      only part of the assessment; the number a student is
+                      actually shown is the Lampiran total out of 65 or 95.
+                      Showing this unlabelled is what made the student page look
+                      like it disagreed with itself.
+                    */}
+                    <div className="font-semibold text-slate-800">
+                      {mark.final_mark != null ? formatMark(mark.final_mark) : '—'}
+                    </div>
+                    <div className="text-xs text-slate-400">internal scale</div>
                   </Td>
                   <Td>
-                    <Badge
-                      tone={mark.status === 'released' ? 'success' : 'warning'}
-                    >
-                      {mark.status === 'released' ? 'released' : 'awaiting release'}
+                    <Badge tone={mark.is_released ? 'success' : 'warning'}>
+                      {mark.is_released ? 'published' : 'provisional'}
                     </Badge>
                     {mark.released_at && (
                       <div className="mt-0.5 text-xs text-slate-400">
@@ -258,21 +233,11 @@ export default function MarkListPage() {
                     )}
                   </Td>
                   <Td>
-                    {canRelease && mark.status !== 'released' ? (
-                      <Button
-                        size="sm"
-                        disabled={busyId === mark.id || busyId === 'all'}
-                        onClick={() => release(mark)}
-                      >
-                        {busyId === mark.id ? 'Releasing…' : 'Release'}
+                    <Link to={`/projects/${mark.project_id}`}>
+                      <Button size="sm" variant="ghost">
+                        View
                       </Button>
-                    ) : (
-                      <Link to={`/projects/${mark.project_id}`}>
-                        <Button size="sm" variant="ghost">
-                          View
-                        </Button>
-                      </Link>
-                    )}
+                    </Link>
                   </Td>
                 </tr>
               ))}
@@ -281,6 +246,5 @@ export default function MarkListPage() {
         </Card>
       )}
     </div>
-  </div>
-)
+  )
 }

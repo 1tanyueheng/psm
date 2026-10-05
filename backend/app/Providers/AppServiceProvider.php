@@ -33,6 +33,7 @@ use App\Services\ExaminerPairingService;
 use App\Services\LeaderboardService;
 use App\Services\AssessmentWindowService;
 use App\Services\MarkSubmissionService;
+use App\Services\MarkVisibilityService;
 use App\Services\MilestoneService;
 use App\Services\NotificationDispatcher;
 use App\Services\ProposalReviewService;
@@ -76,6 +77,7 @@ class AppServiceProvider extends ServiceProvider
             MilestoneService::class,
             EvaluationService::class,
             MarkSubmissionService::class,
+            MarkVisibilityService::class,
             AssignmentService::class,
             ReportingService::class,
             LeaderboardService::class,

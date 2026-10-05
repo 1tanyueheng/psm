@@ -167,19 +167,46 @@ class ProjectResource extends JsonResource
 
                 $viewer = request()->user();
                 $isStaff = $viewer !== null && $viewer->hasRole('admin', 'coordinator');
-                $released = $grade->status === 'released';
+                // `isReleased()` covers both published statuses; a locked mark is
+                // a released mark that has been attested complete, and must stay
+                // readable.
+                $released = $grade->isReleased();
 
                 if (! $isStaff && ! $released) {
                     return null;
                 }
 
                 return [
-                    // `(float) null` is 0.0 — a student whose panel has not
-                    // returned a form yet has no mark, not a mark of zero.
-                    'final_mark'        => $grade->final_mark !== null ? (float) $grade->final_mark : null,
-                    'aggregate_percent' => $grade->aggregate_percent !== null ? (float) $grade->aggregate_percent : null,
-                    'milestone_score'   => $grade->milestone_score !== null ? (float) $grade->milestone_score : null,
+                    /**
+                     * The mark itself is withheld from students.
+                     *
+                     * `final_mark` and `aggregate_percent` are the weighted
+                     * subtotals **rescaled onto 0-100**, because the system
+                     * holds only part of the official assessment (PSM 1: 65 of
+                     * it, PSM 2: 95). Useful for comparing students; not a mark
+                     * anybody awarded. A student reads their Lampiran totals
+                     * from the mark-breakdown endpoint, which carries the real
+                     * denominator and reads "40.4 / 95" rather than "80.8".
+                     *
+                     * `status` and `is_released` still travel, because the
+                     * student screen needs to know *whether* a mark is out
+                     * before it asks for the breakdown. Withholding the number
+                     * is the point; withholding the fact that one exists is not.
+                     *
+                     * `(float) null` is 0.0 — a student whose panel has not
+                     * returned a form yet has no mark, not a mark of zero.
+                     */
+                    'final_mark'        => $isStaff && $grade->final_mark !== null
+                        ? (float) $grade->final_mark
+                        : null,
+                    'aggregate_percent' => $isStaff && $grade->aggregate_percent !== null
+                        ? (float) $grade->aggregate_percent
+                        : null,
+                    'milestone_score'   => $isStaff && $grade->milestone_score !== null
+                        ? (float) $grade->milestone_score
+                        : null,
                     'status'            => $grade->status,
+                    'is_released'       => $released,
                     'assessor_count'    => $grade->assessor_count,
                     'released_at'       => $grade->released_at?->toIso8601String(),
                 ];

@@ -76,9 +76,31 @@ class FinalGrade extends Model
         return $this->belongsTo(User::class, 'released_by');
     }
 
+    /**
+     * Has this mark been published — is it readable by its student?
+     *
+     * Two statuses answer yes, and the distinction matters:
+     *
+     *   released — published automatically, the moment the supervisor's form
+     *              arrived. Nobody attested it; `released_by` is null.
+     *   locked   — published *and* every expected form has come back, so the
+     *              mark is now frozen. The lock does not hide anything.
+     *
+     * A `provisional` grade is the only one a student may not read. Before the
+     * automatic release existed there was no difference between "published" and
+     * "final", so every gate tested for `'released'` literally; once the lock
+     * became a separate step that test silently withdrew the student's mark at
+     * the exact moment the batch completed.
+     */
     public function isReleased(): bool
     {
-        return $this->status === 'released';
+        return in_array($this->status, ['released', 'locked'], true);
+    }
+
+    /** Is the mark frozen as well as published? */
+    public function isLocked(): bool
+    {
+        return $this->status === 'locked';
     }
 
     /**
@@ -99,12 +121,14 @@ class FinalGrade extends Model
 
     public function scopeReleased(Builder $query): Builder
     {
-        return $query->where('status', 'released');
+        // Both published statuses: a locked mark is a released mark that has
+        // also been attested complete.
+        return $query->whereIn('status', ['released', 'locked']);
     }
 
     public function scopePublishable(Builder $query): Builder
     {
-        return $query->where('status', 'released')->where('is_publishable', true);
+        return $query->whereIn('status', ['released', 'locked'])->where('is_publishable', true);
     }
 
     /** Module 5 — mark distribution report. */

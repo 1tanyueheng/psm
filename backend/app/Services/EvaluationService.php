@@ -322,12 +322,23 @@ class EvaluationService
                 actor: $actor,
             );
 
-            // Recompute the project's aggregate with the new input
-            foreach ($fresh->project->students as $student) {
-                $this->computeFinalGrade($fresh->project, $student->id);
-            }
+            // Publish the mark, then say so.
+            //
+            // This used to recompute the aggregate and stop there, leaving the
+            // number provisional until a coordinator pressed Release. The
+            // student now sees it as soon as there is something true to show:
+            // MarkVisibilityService recomputes *and* reconciles visibility in
+            // one step, so the aggregate and the flag that exposes it can never
+            // be changed separately.
+            //
+            // Resolved through the container rather than injected. The two
+            // services are mutually recursive by nature — visibility needs the
+            // aggregate, and the aggregate is triggered by a submission — and a
+            // constructor cycle would make the graph unbuildable. Only this one
+            // direction needs the lookup.
+            $published = app(MarkVisibilityService::class)->syncProject($fresh->project, $actor);
 
-            // Tell the coordinator that moderation is now possible
+            // Tell the coordinator that the batch moved
             $coordinators = User::query()
                 ->withRole(\App\Enums\Role::Coordinator)
                 ->active()
@@ -344,8 +355,71 @@ class EvaluationService
                 $fresh,
             );
 
+            $this->notifyStudentsOfNewMark($fresh, $published);
+
             return $fresh->fresh();
         });
+    }
+
+    /**
+     * Tell the students whose mark just became readable.
+     *
+     * Fires on every submission that *changes what the student can see*, not
+     * once per project: the supervisor's form publishes the first half of the
+     * mark, and the panel's forms complete it. A student who is told only at
+     * the end would see an unexplained number appear earlier with no notice; a
+     * student told on every submission would be mailed about forms that changed
+     * nothing they can see.
+     *
+     * Reuses `GradeReleased` — the mark genuinely is available now, it is just
+     * no longer a coordinator's decision.
+     *
+     * @param  array<int, array{student_profile_id:int, visible:bool, became_visible:bool}>  $published
+     */
+    protected function notifyStudentsOfNewMark(Evaluation $evaluation, array $published): void
+    {
+        $newlyVisible = collect($published)->where('became_visible', true);
+
+        if ($newlyVisible->isEmpty()) {
+            return;
+        }
+
+        $students = $evaluation->project->students
+            ->whereIn('id', $newlyVisible->pluck('student_profile_id'))
+            ->pluck('user')
+            ->filter();
+
+        if ($students->isEmpty()) {
+            return;
+        }
+
+        $project = $evaluation->project;
+
+        // Worded for the half that is actually out. The supervisor's Lampiran is
+        // filed before the panel's, so "the panel has not returned its forms
+        // yet" is the common case and says why the total will still move.
+        $complete = $evaluation->project->evaluations()
+            ->where('psm_part', $project->psm_part)
+            ->where('assessor_type', AssessorType::Examiner->value)
+            ->whereIn('status', [
+                EvaluationStatus::Submitted->value,
+                EvaluationStatus::Released->value,
+            ])
+            ->count() >= (int) config('psm.examiner_panel_size', 2);
+
+        $this->notifications->notify(
+            $students,
+            NotificationType::GradeReleased,
+            [
+                'title'      => 'Your mark is available',
+                'body'       => $complete
+                    ? "Your mark for {$project->title} is now on your dashboard."
+                    : "Your supervisor's mark for {$project->title} is now on your dashboard. "
+                        .'Your examiners have not both submitted yet, so the total will still change.',
+                'action_url' => '/dashboard',
+            ],
+            $evaluation,
+        );
     }
 
     /**
@@ -603,27 +677,24 @@ class EvaluationService
     }
 
     /**
-     * Release a grade so the student can see it and Module 8 may rank it.
+     * Release a grade by hand — retained only as a repair path.
      *
-     * Gated on the academic term's own release flag (requirement §4.2,
-     * acceptance criterion #7). Releasing a single grade used to be an entirely
-     * independent path from `POST /semesters/{id}/release-marks`, which left
-     * two ways to publish results and one way to retract them: a coordinator
-     * could withhold a term's results at the term level and still have a
-     * per-grade release sitting in the UI — and pressing it would publish a
-     * result the faculty had decided not to publish.
+     * Marks publish themselves now: `MarkVisibilityService` reconciles a
+     * grade's visibility against the forms every time one is filed, so the
+     * ordinary route to a visible mark involves nobody pressing anything. The
+     * coordinator-facing Release buttons are gone with the term-level flag.
      *
-     * Withholding the term is therefore authoritative, and the per-grade button
-     * only works once the term is open for release. Projects belonging to no
-     * term (legacy rows) are released the old way, so pre-semester records
-     * remain administrable.
+     * What remains is the case the automatic path cannot reach: a grade whose
+     * forms were filed *before* the automatic release existed, so nothing has
+     * run to reconcile it. The `grade.release` route is kept for that backfill,
+     * and it no longer consults the term — there is no term-level release left
+     * to gate on, and `assertTermAllowsRelease()` went with it.
      *
-     * @throws InvalidArgumentException
+     * Anything that reaches here still records `released_by`, which is the
+     * difference between this and an automatic publication.
      */
     public function releaseGrade(FinalGrade $grade, User $actor): FinalGrade
     {
-        $this->assertTermAllowsRelease($grade);
-
         $before = $grade->getAttributes();
 
         $minAssessors = (int) config('psm.leaderboard.min_assessors', 2);
@@ -741,6 +812,68 @@ class EvaluationService
         }
 
         return $forms;
+    }
+
+    /**
+     * The mark as the Lampiran forms print it: a total against the marks those
+     * forms actually carry.
+     *
+     * This is the figure a student is shown, and it is deliberately **not**
+     * `final_mark`. `computeFinalGrade()` rescales the weighted subtotals onto a
+     * 0-100 scale, because the system holds only part of the official
+     * assessment — PSM 1's forms carry 65 marks (E 35 + I 30) and PSM 2's carry
+     * 95 (G 50 + H 5 + J 40), with the remainder marked outside the system. A
+     * rescaled 70% is a fair comparator between students but is not a mark
+     * anybody awarded, and showing it next to a breakdown that reads "45.52 /
+     * 65" makes the page contradict itself.
+     *
+     * The two figures also diverge while forms are still arriving: a form that
+     * is marked but withheld (one of two panel members) contributes to the
+     * rescaled aggregate but not here, so the total grows as the panel files.
+     *
+     * @return array{
+     *     total_marks: ?float,
+     *     total_max: float,
+     *     out_of: float,
+     *     by_assessor: array<string, ?float>
+     * }
+     */
+    public function markShare(Project $project): array
+    {
+        $forms = $this->componentBreakdown($project);
+
+        $outOf = (float) GradeScheme::expectedWeightTotal($project->psm_part);
+
+        if ($outOf <= 0.0) {
+            $outOf = round(array_sum(array_column($forms, 'max')), 2);
+        }
+
+        $awarded = [];
+        $byAssessor = [];
+
+        foreach ($forms as $form) {
+            // Null while the form is outstanding, or while its marks are held
+            // back because the panel is incomplete — so the student's total
+            // cannot include a half a panel average.
+            $marks = $form['marks'] ?? null;
+
+            if ($marks === null) {
+                continue;
+            }
+
+            $awarded[] = (float) $marks;
+
+            $type = $form['assessor_type'] ?? 'other';
+            $byAssessor[$type] = round(($byAssessor[$type] ?? 0.0) + (float) $marks, 2);
+        }
+
+        return [
+            'total_marks' => $awarded === [] ? null : round(array_sum($awarded), 2),
+            'total_max'   => round(array_sum(array_column($forms, 'max')), 2),
+            // The denominator that does not move as forms arrive: "out of 65".
+            'out_of'      => $outOf,
+            'by_assessor' => $byAssessor,
+        ];
     }
 
     /**
@@ -917,29 +1050,6 @@ class EvaluationService
     // -----------------------------------------------------------------
     // Internals
     // -----------------------------------------------------------------
-
-    /**
-     * Refuse a per-grade release when the term has not released its results.
-     *
-     * Reads the term through the project, which is where a grade's enrolment
-     * lives — see FinalGrade::scopeForSemester for why it is not the student's
-     * own enrolment.
-     *
-     * @throws InvalidArgumentException
-     */
-    protected function assertTermAllowsRelease(FinalGrade $grade): void
-    {
-        $semester = $grade->project?->academicSemester;
-
-        if ($semester === null || $semester->is_marks_released) {
-            return;
-        }
-
-        throw new InvalidArgumentException(
-            "Results for {$semester->name} have not been released yet. "
-            .'Release the semester from Manage Semesters, then release individual grades.'
-        );
-    }
 
     /**
      * Combine several evaluations of the same assessor type into one subtotal.
