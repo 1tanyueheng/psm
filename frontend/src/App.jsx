@@ -210,7 +210,7 @@ export default function AppRoutes() {
           <Route
             path="/assessment"
             element={
-              <RequireCapability capability="releaseMarks">
+              <RequireCapability capability="reviewMarks">
                 <AssessmentWindowPage />
               </RequireCapability>
             }
@@ -219,7 +219,7 @@ export default function AppRoutes() {
           <Route
             path="/marks"
             element={
-              <RequireCapability capability="releaseMarks">
+              <RequireCapability capability="reviewMarks">
                 <MarkListPage />
               </RequireCapability>
             }

@@ -504,6 +504,54 @@ def main() -> int:
                     )
 
     # ---------------------------------------------------------------------
+    # Capability names must exist in permissions.js.
+    #
+    # `can()` returns False for a name it does not know, and
+    # `RequireCapability` redirects to the home route on False — so a
+    # capability that has been renamed or deleted is an *invisible lockout*:
+    # the nav item still renders, the route still exists, and clicking it
+    # bounces the user back to their dashboard with no error anywhere.
+    #
+    # This shipped once. Removing the `releaseMarks` capability along with the
+    # buttons it gated left `/assessment` and `/marks` unreachable for every
+    # role, including the admin who could have fixed it, and nothing — not the
+    # module graph, not ESLint, not the build — noticed.
+    # ---------------------------------------------------------------------
+    perms_path = None
+    for path in parsed:
+        if path.replace("\\", "/").endswith("src/lib/permissions.js"):
+            perms_path = path
+            break
+
+    if perms_path is None:
+        warnings.append("src/lib/permissions.js not found — cannot validate capabilities")
+    else:
+        perms_text = parsed[perms_path][0]
+
+        # Keys of the CAPABILITIES map: identifiers followed by `: [`.
+        declared_caps = set(re.findall(r"^\s{2}(\w+):\s*\[", perms_text, re.M))
+
+        if not declared_caps:
+            warnings.append(
+                "no capabilities found in src/lib/permissions.js — the "
+                "capability check cannot run"
+            )
+        else:
+            for path in parsed:
+                text = parsed[path][0]
+
+                used = set(re.findall(r'capability="(\w+)"', text))
+                used |= set(re.findall(r"""can\(\s*(?:[\w.]+\s*,\s*)?['"](\w+)['"]""", text))
+
+                for cap in sorted(used - declared_caps):
+                    problems.append(
+                        f"{rel(path)}: requires capability {cap!r}, which "
+                        f"permissions.js does not declare — can() returns False for "
+                        f"an unknown name, so this denies access to every role "
+                        f"rather than failing loudly"
+                    )
+
+    # ---------------------------------------------------------------------
     print()
     if problems:
         print(f"FAIL: {len(problems)} problem(s)")

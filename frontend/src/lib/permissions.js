@@ -37,6 +37,17 @@ const CAPABILITIES = {
   manageUsers: ['admin'],
   accessArchive: ['student', 'supervisor', 'coordinator', 'admin'],
   assignSupervisors: ['coordinator', 'admin'],
+  /**
+   * Reading a cohort's marks, and the coordinator's control over marking.
+   *
+   * Gates `/marks` and `/assessment`. It replaced a `releaseMarks` capability
+   * that only existed to drive the Release buttons — when those went, so did
+   * the capability, and anything still testing for it silently denied access
+   * rather than failing loudly. `can()` returns false for an unknown name, and
+   * `RequireCapability` redirects on false, so a deleted capability is an
+   * invisible lockout.
+   */
+  reviewMarks: ['coordinator', 'admin'],
   /** Create terms, open/close registration. */
   manageSemesters: ['coordinator', 'admin'],
   manageMilestones: ['supervisor', 'coordinator', 'admin'],
