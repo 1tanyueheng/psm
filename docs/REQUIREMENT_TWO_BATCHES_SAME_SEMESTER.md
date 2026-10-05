@@ -151,7 +151,27 @@ term from the dominant term across its assigned projects, falling back to the th
 
 ## 4. API — As Built
 
-### 4.1 New endpoints (`SemesterController`, `routes/api.php`)
+> **Superseded in part.** The two release routes below were removed when marks
+> began publishing themselves — see `PLAN_AUTO_MARK_RELEASE.md`. Kept here as the
+> record of what this requirement built; the current surface is:
+>
+> ```
+> GET    /api/semesters                      list semesters
+> POST   /api/semesters                      create a semester
+> GET    /api/semesters/current              the active semester
+> GET    /api/semesters/{id}                 detail with cohort stats
+> GET    /api/semesters/{id}/students        who this term enrolled   ← ADDED
+> PATCH  /api/semesters/{id}                 update dates/flags
+> POST   /api/semesters/{id}/close           close the term (refused while marks are outstanding)
+> POST   /api/semesters/{id}/registration    open/close registration
+> ```
+>
+> `POST /{id}/release-marks` is **gone**: a mark publishes itself the moment its
+> supervisor's form arrives, so a term has nothing to release. `POST
+> /{id}/close` also now refuses while any mark submission in the term is
+> incomplete, because closing freezes the term.
+
+### 4.1 New endpoints (`SemesterController`, `routes/api.php`) — as originally built
 
 ```
 GET    /api/semesters                      list semesters

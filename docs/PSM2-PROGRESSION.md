@@ -11,7 +11,7 @@ title**:
 | Deliverables | Proposal, Chapters 1–4 | Chapters 5–7, consolidated report |
 | Supervisor | allocated here | carried over |
 | Examiner panel | allocated here | carried over |
-| Ends with | title defence, project, marks released | final report, examination |
+| Ends with | project, marking complete, semester closed | final report, examination |
 
 **Only PSM 1 registers a title.** There is no second Lampiran A, no second title
 defence and no re-allocation: PSM 2 continues the project the student was already
@@ -19,19 +19,33 @@ examined on.
 
 ## How the system implements it
 
-`ProgressionService::progress()` — reached from
-`POST /api/projects/{project}/progress-to-psm2`, or the **Progress to PSM 2**
-button on a PSM 1 project's detail page (coordinator/admin only).
+Two routes, one rule set:
+
+- `POST /api/projects/{project}/progress-to-psm2` — one student, from the
+  **Progress to PSM 2** button on a PSM 1 project's detail page.
+- `GET|POST /api/projects/rollover` — the **batch** form, driven by the
+  `/rollover` screen (admin/coordinator). The admin ticks who moves;
+  `ProgressionService::progressBatch()` applies the same per-student rules one at
+  a time and reports who did not qualify rather than refusing the whole batch.
+  Partial success is the expected outcome, and re-running is safe — a student who
+  already moved is refused rather than duplicated.
 
 **Preconditions**, each with its own refusal message:
 
 1. The project is `psm_part = PSM1` and not already archived.
 2. It has a student on record.
 3. It carries an academic term, so the next term can be derived.
-4. **The PSM 1 marks have been released.** Progressing earlier would enrol the
-   student in PSM 2 while PSM 1 is still unresolved, and the released mark is
-   what the archived PSM 1 record is meant to carry.
-5. The student has no other live PSM 2 project.
+4. **The source term is closed.** Progression is a rollover *between* terms, so
+   moving a student while their PSM 1 term is still running would place them in
+   two live terms at once and leave the PSM 1 mark they were progressed on still
+   being written.
+5. **Every PSM 1 mark submission in that term is locked.** This is the same
+   condition `SemesterService::close()` enforces, read from
+   `SemesterService::marksState()`, so "PSM 1 is finished" has one definition.
+   It replaced a test of the term's `is_marks_released` flag, which no longer
+   exists — marks publish themselves now, so there is no term-level release to
+   wait for.
+6. The student has no other live PSM 2 project.
 
 **In one transaction it:**
 
@@ -88,10 +102,15 @@ two chapters. **These are a faculty weighting decision and should be confirmed.*
 
 ## Not covered
 
-- There is no bulk progression ("progress this whole batch"). It is one student
-  at a time, deliberately: the preconditions are per-student and a batch action
-  would have to decide what to do about the ones that fail.
 - `SemesterService::currentFor($student)` returns the student's own term when it
   is active. Now that the enrolment advances, this resolves correctly for a
   progressed student — but a student whose term is *inactive* still falls back to
   the faculty's active term, which may not be theirs.
+- **A batch can only be rolled over once its term is closed and fully marked.**
+  That is deliberate and was the explicit requirement, but it means the tick-list
+  is unusable in the seeded demo data: term 2 holds 21 submissions and 0 are
+  locked. Marking the cohort through the normal assessor flow is what unblocks
+  it. There is no bypass.
+- The target term is derived, not chosen: `ProgressionService` takes the next
+  recorded semester (`psm.progression_term_gap`, default 0). A faculty that skips
+  a term raises the gap rather than picking a target per run.

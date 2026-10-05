@@ -1,21 +1,21 @@
-# Plan — automatic mark visibility, and the assessment-window scope fix
+# Plan â€” automatic mark visibility, and the assessment-window scope fix
 
-> **STATUS — implemented and verified, commit `fe210aa`.** Restore point is
+> **STATUS â€” implemented and verified, commit `fe210aa`.** Restore point is
 > `e3b253f`. See "As-built notes" at the end for what diverged from this plan,
 > what the verification actually proved, and what is still outstanding.
 
 Scope agreed with the user: **the three marking/window items only.** The
-semester-close gate, the PSM 1 → PSM 2 rollover and the admin-add-student
+semester-close gate, the PSM 1 â†’ PSM 2 rollover and the admin-add-student
 intake are deliberately deferred to a later pass.
 
 Decisions taken (six questions answered):
 
 | # | Decision |
 |---|---|
-| 1 | Marks become visible **as soon as each form is submitted** — no coordinator release step anywhere. |
+| 1 | Marks become visible **as soon as each form is submitted** â€” no coordinator release step anywhere. |
 | 2 | The mark submission **auto-locks** by itself once every expected form is in; the lock becomes a system-recorded fact, not a button. |
 | 3 | `academic_semesters.is_marks_released` is **left in the schema but stops being read**. The "marks live" indicator is derived from the locks. No migration. |
-| 4 | PSM 1 → PSM 2 progression becomes an **admin tick-list** — the admin manually chooses which students move. (Deferred, but the gate is designed here so it is ready.) |
+| 4 | PSM 1 â†’ PSM 2 progression becomes an **admin tick-list** â€” the admin manually chooses which students move. (Deferred, but the gate is designed here so it is ready.) |
 | 5 | Marks are shown **in the Lampiran's own units** (PSM 1: 35 supervisor + 30 examiner = 65). **No 0-100 conversion** anywhere a student looks. |
 | 6 | Coordinator screens become **read-only oversight**: lists stay, release buttons go. |
 | 7 | Partial marks: the supervisor's half is shown **as soon as it lands**; the examiner component is withheld until the full panel has returned its forms. |
@@ -47,7 +47,7 @@ percentage*, while `config/psm.php` L204-207 holds the real marks:
 `MarkTotal` in `frontend/src/components/MarkBreakdown.jsx` **already** renders
 the correct raw figure (`breakdown.total_marks / total_max`), and
 `EvaluationController::markBreakdown()` already sums it correctly at L414-423.
-The student dashboard simply does not use it — `StudentDashboard.jsx` L340-357
+The student dashboard simply does not use it â€” `StudentDashboard.jsx` L340-357
 gates on `final_grade.status` and passes `finalMark` around instead.
 
 **So this is mostly a display-layer fix, not a scoring rewrite.** The rescaled
@@ -58,7 +58,7 @@ number is actually wanted.
 
 `AssessmentWindowService::projects()` (L182-191) filters on **both** part and
 term, and the DB carries a unique key on `(academic_semester_id, psm_part)`.
-The filter is therefore correct — which means the window row's own `psm_part`
+The filter is therefore correct â€” which means the window row's own `psm_part`
 is not what its name claims.
 
 The cause is `CreateWindowForm` (`AssessmentWindowPage.jsx` L364-392): the
@@ -76,7 +76,7 @@ Two independent faults, one shape:
 
 ## 2. Backend changes
 
-### 2.1 New — `App\Services\MarkVisibilityService`
+### 2.1 New â€” `App\Services\MarkVisibilityService`
 
 A single deep module answering "is this student's mark out, and what is it?".
 Both the auto-release path and the coordinator's completeness checklist go
@@ -95,11 +95,11 @@ syncFor(Project, ?int $studentProfileId, ?User $actor): FinalGrade
 - `syncFor()` is the new orchestrator: compute the grade, set `status` /
   `released_at` when the supervisor form is in, and mirror onto the evaluation
   rows.
-- `?User $actor` is nullable because **nobody** attests an automatic release —
+- `?User $actor` is nullable because **nobody** attests an automatic release â€”
   that has to be visible in the payload, so `released_by` stays null and the
   resource says "released automatically".
 
-### 2.2 `EvaluationService::submit()` — the trigger
+### 2.2 `EvaluationService::submit()` â€” the trigger
 
 Today, L325-328 recomputes the aggregate for every student on the project.
 Replace that loop with a call to `MarkVisibilityService::syncFor()`, which:
@@ -107,24 +107,24 @@ Replace that loop with a call to `MarkVisibilityService::syncFor()`, which:
 1. recomputes the aggregate, passing the **expected panel size** so the
    examiner component is withheld until the full panel is in. The `?int
    $expectedPanelSize` parameter and its documented rule already exist on
-   `computeFinalGrade()` (L391-394) but are **never passed** by any caller —
+   `computeFinalGrade()` (L391-394) but are **never passed** by any caller â€”
    switching it on is what delivers decision #7;
 2. releases the grade (`status = 'released'`, `released_at = now()`,
    `released_by = null`) as soon as the supervisor form is present;
 3. mirrors `EvaluationStatus::Released` onto the submitted evaluation rows,
-   preserving the existing `final_grades` → `evaluations` coupling at L639-642;
+   preserving the existing `final_grades` â†’ `evaluations` coupling at L639-642;
 4. asks `autoLockIfReady()`, so the submission locks itself the moment the last
    expected form lands.
 
 ### 2.3 `MarkSubmissionService`
 
-- Add `autoLockIfReady(MarkSubmission): ?MarkSubmission` — locks **only** when
+- Add `autoLockIfReady(MarkSubmission): ?MarkSubmission` â€” locks **only** when
   `isReadyToLock()`, and never throws. The manual `lock()` keeps its throwing
   contract for the API route.
 - `lock()` stops being the only write path, so the audit action needs to
   distinguish a system lock from an attested one. Add
   `AuditAction::MarkSubmissionAutoLocked` (or reuse the existing lock action
-  with `actor = null` and a description saying so — whichever the enum's shape
+  with `actor = null` and a description saying so â€” whichever the enum's shape
   makes cleaner). **Decision recorded:** prefer a distinct audit action; "who
   locked this and why" is exactly the question an audit trail exists to answer.
 - `EvaluationService` and `MarkSubmissionService` would otherwise be circular
@@ -173,7 +173,7 @@ if (! $semester->is_active) {
 }
 ```
 
-Plus the unique-key check already there (L93-102) is retained — it is what makes
+Plus the unique-key check already there (L93-102) is retained â€” it is what makes
 "one window per (term, part)" real.
 
 Consider also returning the resulting window's part explicitly in the create
@@ -187,7 +187,7 @@ message so a mis-selection is impossible to miss:
 Add the project's students to that dispatch, reusing
 `NotificationType::GradeReleased`, worded for a mark that arrives by itself:
 
-> "Your mark is available — Lampiran E has been filed. It appears on your
+> "Your mark is available â€” Lampiran E has been filed. It appears on your
 > dashboard now and will update as your examiners submit."
 
 Notification fires on **every** submission that changes the visible mark
@@ -197,19 +197,19 @@ Notification fires on **every** submission that changes the visible mark
 
 ## 3. Frontend changes
 
-### 3.1 Student-facing — show the Lampiran's own marks
+### 3.1 Student-facing â€” show the Lampiran's own marks
 
 | File | Change |
 |---|---|
 | `pages/student/StudentDashboard.jsx` L42, L71-85, L338-359 | Fetch the breakdown whenever a grade exists (not only when `status === 'released'`, since release is now automatic). Render `MarkTotal` from `breakdown.total_marks / total_max`. Change the subtitle from "Released by the coordinator" to state it is automatic. |
-| `pages/projects/ProjectDetailPage.jsx` L425-431 | Same treatment — it already uses `MarkTotal`. |
-| `components/MarkBreakdown.jsx` | No arithmetic change needed; it is already in Lampiran units. Add a "showing the supervisor's mark — the examiner half is still to come" note when `total_max` is short of the configured total. |
+| `pages/projects/ProjectDetailPage.jsx` L425-431 | Same treatment â€” it already uses `MarkTotal`. |
+| `components/MarkBreakdown.jsx` | No arithmetic change needed; it is already in Lampiran units. Add a "showing the supervisor's mark â€” the examiner half is still to come" note when `total_max` is short of the configured total. |
 
 `formatMark` / `finalMark` must **stop** being what a student is shown. Worth
 grepping for `final_mark` and `aggregate_percent` in student-visible code paths
 before finishing, because a leak here is exactly the bug being fixed.
 
-### 3.2 Coordinator-facing — read-only oversight (decision #6)
+### 3.2 Coordinator-facing â€” read-only oversight (decision #6)
 
 | File | Change |
 |---|---|
@@ -224,7 +224,7 @@ before finishing, because a leak here is exactly the bug being fixed.
 | File | Change |
 |---|---|
 | `pages/coordinator/AssessmentWindowPage.jsx` L364-392 | Replace the Term `<Select>` with the **current term shown as fixed text**. Keep the Batch select. Disable creation with an explanatory message when no term is active. |
-| Same file, Students table L249-291 | Header becomes e.g. "Students — PSM 2 only", with the part badge beside it and the count, so a mis-scoped window is obvious at a glance rather than needing a click into each student. |
+| Same file, Students table L249-291 | Header becomes e.g. "Students â€” PSM 2 only", with the part badge beside it and the count, so a mis-scoped window is obvious at a glance rather than needing a click into each student. |
 | Same file, `load()` L59-80 | The list is already filtered by `semester_id`; when the term switcher is pointed at a *different* term than the active one, say so on the page rather than silently showing nothing. |
 
 ---
@@ -238,7 +238,7 @@ before finishing, because a leak here is exactly the bug being fixed.
    list, so this check is replaced rather than patched. If the deferred pass
    slips, this check must at minimum be swapped for "every PSM 1 submission is
    locked" *before* shipping this one.
-2. **`lib/permissions.js` / `GradePolicy::release`** — the ability becomes
+2. **`lib/permissions.js` / `GradePolicy::release`** â€” the ability becomes
    meaningless. Remove it or it becomes a hook nobody remembers is dead.
 3. **Existing `final_grades` rows** in the live database are `provisional` with
    `is_marks_released = true` on the term today. They will not auto-flip until
@@ -246,11 +246,11 @@ before finishing, because a leak here is exactly the bug being fixed.
    the coordinator screen) so the coordinator's list does not show last
    semester's marks as incomplete. **Flagging this as the one item that may need
    a data fix rather than a code fix.**
-4. **`docs/`** — `MODULES.md`, `API.md` and
+4. **`docs/`** â€” `MODULES.md`, `API.md` and
    `docs/REQUIREMENT_TWO_BATCHES_SAME_SEMESTER.md` all document the
    release-marks endpoint and `is_marks_released`. They go stale the moment this
    ships.
-5. **Seeder** — `AcademicSemesterSeeder` / whatever seeds a released term will
+5. **Seeder** â€” `AcademicSemesterSeeder` / whatever seeds a released term will
    need to follow, since the repo's stated convention is that seeders drive the
    real services and must not be able to display a state the app cannot produce.
 
@@ -263,23 +263,23 @@ I cannot run the stack from this session: `php` and `mysql` are not on PATH,
 and the 401 from `localhost:8000/api/semesters` confirms the API is up but
 needs a token. So verification will be:
 
-1. **Static, and locally runnable** — both repo checkers are pure Python and
+1. **Static, and locally runnable** â€” both repo checkers are pure Python and
    need no runtime:
    ```
    python backend/tools/check_seeders.py
    python frontend/tools/check_frontend.py
    ```
    The frontend checker validates every relative import, every named import and
-   every `fooApi.bar()` call against `api/endpoints.js` — which is exactly the
+   every `fooApi.bar()` call against `api/endpoints.js` â€” which is exactly the
    surface being edited.
-2. **Route table consistency** — grep for `release-marks`, `setMarkRelease`,
+2. **Route table consistency** â€” grep for `release-marks`, `setMarkRelease`,
    `assertTermAllowsRelease`, `is_marks_released`, `releaseMarks`,
    `releaseAllGrades` and `markApi.release` afterwards to prove no dangling
    reference survives.
-3. **`php artisan test`** — you run it, or I do if you give me a working PHP
+3. **`php artisan test`** â€” you run it, or I do if you give me a working PHP
    path. Existing Module 4 tests will assert the old release behaviour and need
    updating as part of this change, not after it.
-4. **Manual, in the browser at `localhost:5173`** — the only real proof:
+4. **Manual, in the browser at `localhost:5173`** â€” the only real proof:
    submit a supervisor form as PSM 1 and confirm the student's own dashboard
    shows `x / 35` immediately with no Release click anywhere; submit an examiner
    form and confirm the total moves to `x / 65`; create a PSM 2 window and
@@ -310,8 +310,8 @@ divergence is stated rather than quietly absorbed.
 1. **`MarkSubmission::expectedAssessors()` is missing a `psm_part` filter**
    (L132-136). It resolves examiners by `project_id` alone, while
    `MarkSubmissionService::resolvePanel()` filters by part as well. In this data
-   it happens to agree � every `examiner_assignments` row matches its project's
-   part, checked explicitly � but it is a latent mixed-batch bug sitting directly
+   it happens to agree — every `examiner_assignments` row matches its project's
+   part, checked explicitly — but it is a latent mixed-batch bug sitting directly
    under the window bug that was reported. **Not fixed in this pass**; it is a
    behavioural change to a readiness rule and deserves its own verification.
 
@@ -323,7 +323,7 @@ divergence is stated rather than quietly absorbed.
 3. **The plan under-called the `released` vs `locked` trap.** `FinalGrade::
    isReleased()` tested the literal string `'released'`, and there were four
    call sites. Turning auto-lock on meant a grade flipped to `locked` the moment
-   the batch completed � which made the student's mark *disappear* at exactly the
+   the batch completed — which made the student's mark *disappear* at exactly the
    moment it became final, and made the next sync re-publish it and drop the
    lock. Both directions were caught by the end-to-end probe, not by reading.
 
@@ -333,7 +333,7 @@ divergence is stated rather than quietly absorbed.
 
 ### What verification actually proved
 
-No test suite exists in this repo � `backend/tests/` is absent and `phpunit` is
+No test suite exists in this repo — `backend/tests/` is absent and `phpunit` is
 not installed, so the README's `php artisan test` cannot run. Verification was:
 
 - **Both static checkers**, which caught three real breakages the plan did not
@@ -353,18 +353,44 @@ not installed, so the README's `php artisan test` cannot run. Verification was:
 
 ### Still outstanding
 
-1. **Two broken windows in the live database.** Window 2 is named "PSM1" but its
-   `psm_part` is `PSM2`; window 3 is scoped to term 1, which has no projects. No
-   code change repairs rows already written. Needs a decision from the user.
-2. **Docs are stale.** `docs/MODULES.md`, `docs/API.md` and
-   `docs/REQUIREMENT_TWO_BATCHES_SAME_SEMESTER.md` still document the
-   `release-marks` endpoint and `is_marks_released` as live.
-3. **`expectedAssessors()`** � see divergence 1.
-4. **Browser confirmation of the student screens.** The API payload is verified;
-   the rendered page is not, since that needs a real session in the SPA.
-5. **The deferred original request** � semester-close gate, admin tick-list
-   rollover to PSM 2, and admin adding the new PSM 1 intake.
-6. **`SemesterFilterBar`'s marks badge.** It reads `is_marks_released` from the
-   semester *list*, which never loads stats, so the field is now `null` there and
-   the badge reads "Marks withheld" unconditionally. Needs either a cheap derived
-   flag on the list endpoint or a different badge.
+Updated after the second pass (commit `a29bb56`).
+
+1. ~~Two broken windows in the live database.~~ **Repaired.** Window 2 renamed to
+   "PSM 2" — it held PSM 2 under a PSM 1 name — and window 3 re-pointed from term
+   1 (which has no projects) to `2026/2027 Semester I`, where PSM 2 will actually
+   run once students roll over. Verified through the API afterwards: window 2
+   lists 9 PSM 2 students, window 1 lists 12 PSM 1 students, and every window's
+   name now matches its `psm_part` and its roster.
+2. ~~Docs are stale.~~ **Mostly fixed.** `MODULES.md`, `PSM2-PROGRESSION.md` and
+   `REQUIREMENT_TWO_BATCHES_SAME_SEMESTER.md` now describe the current rules.
+   `docs/API.md` turned out never to have documented semesters at all, so the
+   earlier claim that it was stale was simply wrong.
+3. ~~`expectedAssessors()`~~ **Fixed.** Now scoped to the submission's part,
+   matching `resolvePanel()` on the service side. Verified as a no-op on the
+   current data — 0 of 21 submissions changed — so it is a defensive fix for a
+   latent mixed-batch bug rather than a behaviour change.
+4. ~~The deferred original request.~~ **Implemented** in `a29bb56`. See the two
+   new sub-sections below.
+5. ~~`SemesterFilterBar`'s marks badge.~~ **Fixed.** The list endpoint now attaches
+   both submission counts per row, so the flag is a real boolean for every caller
+   instead of `null` for a student. The badge reads "Marks complete" /
+   "Marking in progress", which is what it should say now that nothing is
+   released by hand.
+6. **Browser confirmation of the rendered screens.** Every API payload is verified
+   end to end as admin, coordinator and student, and the frontend compiles — but
+   nobody has clicked through the new `/rollover` or roster screens in a real
+   session. This is the one gap that cannot be closed from here.
+7. **The rollover cannot be demonstrated on the seeded data.** Term 2 holds 21
+   submissions and none are locked, so the term cannot close and nothing can roll
+   over until the cohort is genuinely marked. That is the requested rule working
+   as designed — progression only after the semester closes, term-wide — and there
+   is deliberately no bypass. Worth knowing before a demo.
+
+### The original request, as built
+
+| # | Asked for | Where it lives |
+|---|---|---|
+| 1 | Closing a semester requires all marks submitted | `SemesterService::assertMarkingIsComplete()`, called from `close()`. Names up to five students and what each is waiting on; a student with no submission opened counts as outstanding. |
+| 2 | New semester manages new students, added by admin after account creation | "Enrolling semester" field on the add-user form (the API always accepted `academic_semester_id`; no screen ever sent it). `GET /api/semesters/{id}/students` plus an expanding roster on the semester screen shows the result. |
+| 3 | PSM 1 students proceed to PSM 2 with the title carried over | `ProgressionService::progressBatch()`, the `/api/projects/rollover` endpoint, and the `/rollover` tick-list. The admin chooses; titles, supervisor and panel carry over; PSM 1 is archived. |
+| 4 | The admin picks who moves | The tick-list. Students who cannot move are listed with the reason rather than hidden, so nobody disappears silently. |

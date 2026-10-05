@@ -131,6 +131,13 @@ class MarkSubmission extends Model
 
         $examiners = ExaminerAssignment::query()
             ->where('project_id', $this->project_id)
+            // Scoped to this submission's part, matching resolvePanel() on the
+            // service side. Without it the expectation is every examiner on the
+            // project node rather than the panel for *this* batch: a project
+            // carrying rows for both parts — which this data does — would
+            // demand forms from the other batch's examiners, and readiness
+            // would never clear.
+            ->when($this->psm_part !== null, fn ($q) => $q->where('psm_part', $this->psm_part))
             ->active()
             ->pluck('examiner_id')
             ->all();

@@ -246,9 +246,9 @@ Chapters 5–7 and assembles the whole document for examination. There is no sec
 Lampiran A, no second review, and no re-allocation.
 
 ```
-PSM 1 term   Lampiran A/B → proposal milestone → Chapters 1-4 → marks released
-                             │
-                             ▼  Progress to PSM 2   (coordinator)
+PSM 1 term   Lampiran A/B → proposal milestone → Chapters 1-4 → marking complete
+                             │                                  → semester closed
+                             ▼  PSM 2 Rollover   (admin tick-list)
 PSM 2 term   same title, same supervisor, same panel, Chapters 5-7 + final report
              PSM 1 project archived
 ```
@@ -258,9 +258,18 @@ PSM 2 term   same title, same supervisor, same panel, Chapters 5-7 + final repor
   supervision pairing to `BOTH`, copies the panel across, and archives PSM 1 —
   in one transaction. A re-registration would ask the student to propose three
   titles for a project they have already been examined on.
-- *Marks released is the trigger.* Progressing earlier would enrol the student in
-  PSM 2 while PSM 1 is unresolved, and the released mark is what the archived
-  PSM 1 record is meant to carry.
+- *A closed, fully marked semester is the trigger.* Progressing earlier would
+  enrol the student in PSM 2 while PSM 1 is unresolved, and the mark is what the
+  archived PSM 1 record is meant to carry. Two conditions, both required: the
+  source term must be closed, and every PSM 1 mark submission in it must be
+  locked. The same condition gates `SemesterService::close()`, so "PSM 1 is
+  finished" has one definition rather than two that can drift.
+- *The admin ticks who moves.* `POST /api/projects/rollover` takes a list of PSM 1
+  projects and applies the same per-student rules one at a time, reporting who
+  did not qualify instead of refusing the batch. Partial success is the expected
+  outcome — a student repeating PSM 1 is left unticked and stays behind without
+  holding up the rest. The `/rollover` screen lists the students who *cannot*
+  move alongside those who can, each with the reason.
 - *Advancing the enrolment is load-bearing, not bookkeeping.*
   `AssignmentService` scopes the supervisor capacity gate by
   `student_profiles.academic_semester_id`, and `SemesterService::currentFor()`
