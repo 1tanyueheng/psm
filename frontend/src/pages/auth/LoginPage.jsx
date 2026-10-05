@@ -38,6 +38,7 @@ export default function LoginPage() {
 
     if (!result.ok) {
       setMessage(result.message)
+      setErrors(result.errors ?? null)
       return
     }
 
@@ -55,6 +56,7 @@ export default function LoginPage() {
     setEmail(demoEmail)
     setPassword('password')
     setMessage(null)
+    setErrors(null)
   }
 
   const demoAccounts = [

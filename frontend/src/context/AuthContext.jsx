@@ -62,8 +62,24 @@ export function AuthProvider({ children }) {
 
       return { ok: true, user: nextUser, homeRoute: payload?.home_route }
     } catch (err) {
-      setError(err.message)
-      return { ok: false, message: err.message }
+      /**
+       * Prefer the field-level detail over the envelope's message.
+       *
+       * Laravel answers a failed sign-in with `message: "The given data was
+       * invalid."` plus `errors.email: ["These credentials do not match our
+       * records."]`. Discarding `errors` left the sign-in screen showing only
+       * the generic sentence, which says nothing about whether the address is
+       * wrong, the password is wrong, or the request never arrived — the three
+       * questions someone trying to log in actually has.
+       */
+      const fieldMessage = err.errors
+        ? Object.values(err.errors).flat().filter(Boolean)[0]
+        : null
+
+      const message = fieldMessage ?? err.message
+
+      setError(message)
+      return { ok: false, message, errors: err.errors ?? null, status: err.status }
     }
   }, [])
 
