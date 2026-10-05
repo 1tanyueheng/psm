@@ -80,23 +80,68 @@ return new class extends Migration
     /**
      * Drop a foreign key only when it is there.
      *
-     * MySQL DDL is not transactional, so a half-applied migration leaves earlier
-     * statements in place and a re-run has to survive them.
+     * Portability matters here: the project supports both MySQL and PostgreSQL —
+     * `docs/DEPLOYMENT.md` states the code contains no engine-specific SQL — and
+     * this method previously broke that in two ways. It asked
+     * `information_schema.KEY_COLUMN_USAGE ... WHERE TABLE_SCHEMA = DATABASE()`,
+     * and `DATABASE()` exists in MySQL but not in PostgreSQL:
+     *
+     *   SQLSTATE[42883]: Undefined function: function database() does not exist
+     *
+     * It then dropped the key with a backtick-quoted `ALTER TABLE`, which
+     * PostgreSQL also rejects. Neither syntax is reachable by the MySQL-and-
+     * PostgreSQL test matrix, so the failure only appeared on a Postgres deploy
+     * — and because `migrate` runs after the schema has already been dropped, the
+     * database was left without tables, which is what made every sign-in fail.
+     *
+     * The existence check is now per driver, and the drop uses the schema builder
+     * so each engine quotes the identifier its own way.
      */
     protected function dropForeignIfExists(string $table, string $constraint): void
     {
-        $exists = DB::selectOne(
-            'SELECT 1 AS found FROM information_schema.KEY_COLUMN_USAGE
-             WHERE TABLE_SCHEMA = DATABASE()
-               AND TABLE_NAME = ?
-               AND CONSTRAINT_NAME = ?
-               AND REFERENCED_TABLE_NAME IS NOT NULL
-             LIMIT 1',
-            [$table, $constraint]
-        );
-
-        if ($exists !== null) {
-            DB::statement(sprintf('ALTER TABLE `%s` DROP FOREIGN KEY `%s`', $table, $constraint));
+        if (! $this->foreignKeyExists($table, $constraint)) {
+            return;
         }
+
+        Schema::table($table, function (Blueprint $blueprint) use ($constraint) {
+            $blueprint->dropForeign($constraint);
+        });
+    }
+
+    /** Is this named foreign key present, on either supported engine? */
+    protected function foreignKeyExists(string $table, string $constraint): bool
+    {
+        $driver = DB::getDriverName();
+
+        if ($driver === 'pgsql') {
+            // Postgres keeps constraints in pg_constraint, keyed by relation
+            // name rather than by the schema-qualified name MySQL reports.
+            return DB::selectOne(
+                'SELECT 1 AS found
+                   FROM pg_constraint c
+                   JOIN pg_class t ON t.oid = c.conrelid
+                  WHERE t.relname = ?
+                    AND c.conname = ?
+                    AND c.contype = \'f\'
+                  LIMIT 1',
+                [$table, $constraint]
+            ) !== null;
+        }
+
+        if ($driver === 'mysql' || $driver === 'mariadb') {
+            return DB::selectOne(
+                'SELECT 1 AS found FROM information_schema.KEY_COLUMN_USAGE
+                  WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME = ?
+                    AND CONSTRAINT_NAME = ?
+                    AND REFERENCED_TABLE_NAME IS NOT NULL
+                  LIMIT 1',
+                [$table, $constraint]
+            ) !== null;
+        }
+
+        // SQLite has no named constraints to drop, and the guard above the call
+        // site already makes this a no-op where the column is present.
+        return false;
     }
 };

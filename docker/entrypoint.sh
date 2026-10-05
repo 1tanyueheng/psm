@@ -114,13 +114,20 @@ fi
 # choices supervisord enforces, which is what makes the ordering reliable
 # rather than a race that usually goes the right way.
 #
-# Seeding stays here: it has no ordering constraint against the workers, and
-# keeping it out of supervisord means a bad seeder cannot repeatedly restart.
-if [ "$RUN_SEED" = "true" ]; then
-    echo "[entrypoint] Seeding (demo data — never enable this in production)"
-    php /var/www/html/artisan db:seed --force --no-interaction || \
-        echo "[entrypoint] Seeding failed — see the error above."
-fi
+# Seeding used to stay here on the reasoning that it had no ordering constraint
+# against the workers. That was wrong, and the Render deploy proved it: this
+# script seeds BEFORE supervisord starts, so the seeder ran against the previous
+# deploy's schema and never got past its first seeder.
+#
+#   [entrypoint] Seeding (demo data — never enable this in production)
+#   SQLSTATE[42703]: Undefined column: column "max_supervisees_psm1"
+#   of relation "supervisor_profiles" does not exist
+#   [entrypoint] Seeding failed — see the error above.
+#   [migrate] RUN_MIGRATIONS=true - applying fresh migrations with seed
+#
+# Seeding therefore moved into [program:migrate], strictly after `migrate` has
+# exited successfully — the only ordering supervisord can actually guarantee,
+# and the only way "seed the schema I just migrated" can be true.
 
 # ---------------------------------------------------------------------
 # 6. Hand off
