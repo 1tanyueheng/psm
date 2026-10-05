@@ -1,5 +1,9 @@
 # Plan â€” automatic mark visibility, and the assessment-window scope fix
 
+> **STATUS â€” implemented and verified, commit `fe210aa`.** Restore point is
+> `e3b253f`. See "As-built notes" at the end for what diverged from this plan,
+> what the verification actually proved, and what is still outstanding.
+
 Scope agreed with the user: **the three marking/window items only.** The
 semester-close gate, the PSM 1 â†’ PSM 2 rollover and the admin-add-student
 intake are deliberately deferred to a later pass.
@@ -293,3 +297,74 @@ needs a token. So verification will be:
 3. **Verification.** If you can tell me how the backend is being served (it is
    answering on `:8000`), I can try to run `php artisan test` myself instead of
    handing that step to you.
+
+---
+
+## As-built notes
+
+Written after implementation. Where this diverges from the plan above, the
+divergence is stated rather than quietly absorbed.
+
+### What the plan got wrong
+
+1. **`MarkSubmission::expectedAssessors()` is missing a `psm_part` filter**
+   (L132-136). It resolves examiners by `project_id` alone, while
+   `MarkSubmissionService::resolvePanel()` filters by part as well. In this data
+   it happens to agree — every `examiner_assignments` row matches its project's
+   part, checked explicitly — but it is a latent mixed-batch bug sitting directly
+   under the window bug that was reported. **Not fixed in this pass**; it is a
+   behavioural change to a readiness rule and deserves its own verification.
+
+2. **`readiness()` reports more outstanding entries than there are people.** A
+   panel of 2 with nothing filed returns 4 entries: one per missing form plus a
+   summary "2 panel forms are still outstanding". Correct behaviour, confusing
+   count. Left alone.
+
+3. **The plan under-called the `released` vs `locked` trap.** `FinalGrade::
+   isReleased()` tested the literal string `'released'`, and there were four
+   call sites. Turning auto-lock on meant a grade flipped to `locked` the moment
+   the batch completed — which made the student's mark *disappear* at exactly the
+   moment it became final, and made the next sync re-publish it and drop the
+   lock. Both directions were caught by the end-to-end probe, not by reading.
+
+4. **The plan assumed a backfill would be needed.** It is not: all 10 existing
+   grades reconcile to `no change`, and 0 of 21 submissions are ready to lock.
+   Verified read-only before running anything, which is why nothing was run.
+
+### What verification actually proved
+
+No test suite exists in this repo — `backend/tests/` is absent and `phpunit` is
+not installed, so the README's `php artisan test` cannot run. Verification was:
+
+- **Both static checkers**, which caught three real breakages the plan did not
+  anticipate: a stale `useAuth()` import, `SemesterListPage` still calling the
+  removed `setMarkRelease`, and `EvaluationSeeder` calling the removed
+  `SemesterService::setMarkRelease`.
+- **`vite build`** in the container, to prove the JSX parses (the checker
+  validates structure, not syntax).
+- **A transaction-rolled-back probe** driving the real services through the whole
+  sequence. Result: supervisor submits ? mark visible, examiner half `null`;
+  first examiner ? still `null`; second examiner ? auto-locked and still visible;
+  student reads `45.52 / 65`, `by_assessor {supervisor: 24.52, examiner: 21}`
+  while the internal `final_mark` reads `70.03`.
+- **Live HTTP payloads** as a student and as a coordinator, which is what exposed
+  the rescaled `80.8` still being sent to a student beside a `40.4 / 95`
+  breakdown.
+
+### Still outstanding
+
+1. **Two broken windows in the live database.** Window 2 is named "PSM1" but its
+   `psm_part` is `PSM2`; window 3 is scoped to term 1, which has no projects. No
+   code change repairs rows already written. Needs a decision from the user.
+2. **Docs are stale.** `docs/MODULES.md`, `docs/API.md` and
+   `docs/REQUIREMENT_TWO_BATCHES_SAME_SEMESTER.md` still document the
+   `release-marks` endpoint and `is_marks_released` as live.
+3. **`expectedAssessors()`** — see divergence 1.
+4. **Browser confirmation of the student screens.** The API payload is verified;
+   the rendered page is not, since that needs a real session in the SPA.
+5. **The deferred original request** — semester-close gate, admin tick-list
+   rollover to PSM 2, and admin adding the new PSM 1 intake.
+6. **`SemesterFilterBar`'s marks badge.** It reads `is_marks_released` from the
+   semester *list*, which never loads stats, so the field is now `null` there and
+   the badge reads "Marks withheld" unconditionally. Needs either a cheap derived
+   flag on the list endpoint or a different badge.
