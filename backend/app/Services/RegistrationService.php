@@ -154,6 +154,43 @@ class RegistrationService
             throw new InvalidArgumentException('Pick the title the student will register.');
         }
 
+        /**
+         * The agreed title must be one the student actually proposed.
+         *
+         * Without this the supervisor could name any string at all, and that
+         * string becomes the project's title — the candidate set the panel is
+         * asked to consider and the title recorded on the registered project
+         * would then be two unrelated things, with nothing able to reconcile
+         * them. The three candidates are the entire negotiable space: the form
+         * offers them as a list, and Part C is a *choice* between them.
+         *
+         * Compared with whitespace collapsed and case-insensitively, because a
+         * supervisor typing or pasting the title should not be refused over
+         * spacing or casing — the stored value is still the candidate exactly as
+         * proposed, so the two cannot drift.
+         */
+        $normalise = static fn ($title): string => mb_strtolower(
+            preg_replace('/\s+/u', ' ', trim((string) $title)) ?? ''
+        );
+
+        $candidates = collect([
+            $agreement->proposed_title_1,
+            $agreement->proposed_title_2,
+            $agreement->proposed_title_3,
+        ])->filter()->values();
+
+        $agreedTitle = $candidates->first(
+            fn ($t) => $normalise($t) === $normalise($agreedTitle)
+        );
+
+        if ($agreedTitle === null) {
+            throw new InvalidArgumentException(
+                'The agreed title must be one of the titles the student proposed. '
+                .'Part C records the choice between those candidates; a different title has to '
+                .'come from a new Lampiran A.'
+            );
+        }
+
         return DB::transaction(function () use ($agreement, $agreedTitle, $actor) {
             $student    = $agreement->studentProfile;
             $supervisor = $agreement->supervisorProfile;

@@ -300,13 +300,27 @@ function MilestoneTab({ milestones }) {
         { key: 'status', label: 'Status' },
         { key: 'due_at', label: 'Due' },
         { key: 'approved_at', label: 'Approved' },
+        { key: 'actions', label: '' },
       ]}
       rows={milestones}
       render={(row) => (
-        <tr key={row.id}>
+        <tr key={row.id} className="hover:bg-slate-50/60">
           <Td>
-            <p className="font-medium text-slate-800">{row.title}</p>
-            {row.description && <p className="text-sm text-slate-500 truncate max-w-md">{row.description}</p>}
+            {/*
+              The whole row is not the link — a milestone row carries badges and
+              an "Overdue" flag, and making all of it clickable makes selecting
+              text impossible. The title is the target, with a chevron so it
+              reads as one.
+            */}
+            <Link
+              to={`/milestones/${row.id}`}
+              className="font-medium text-slate-800 hover:text-brand-700 hover:underline"
+            >
+              {row.title}
+            </Link>
+            {row.description && (
+              <p className="text-sm text-slate-500 truncate max-w-md">{row.description}</p>
+            )}
           </Td>
           <Td>
             <Badge tone={statusMeta(MILESTONE_STATUS, row.status).tone}>
@@ -321,6 +335,11 @@ function MilestoneTab({ milestones }) {
           </Td>
           <Td className="whitespace-nowrap">
             {row.approved_at ? formatDateTime(row.approved_at) : '—'}
+          </Td>
+          <Td>
+            <Link to={`/milestones/${row.id}`}>
+              <Button size="sm" variant="ghost">Open</Button>
+            </Link>
           </Td>
         </tr>
       )}
