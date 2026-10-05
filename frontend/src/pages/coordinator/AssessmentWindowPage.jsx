@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { assessmentWindowApi } from '../../api/endpoints'
 import { unwrap } from '../../api/client'
@@ -46,7 +46,16 @@ export default function AssessmentWindowPage() {
 
   const [windows, setWindows] = useState([])
   const [detail, setDetail] = useState(null)
-  const [windowId, setWindowId] = useState(null)
+  /**
+   * The window whose detail is being shown.
+   *
+   * A single source of truth on purpose. It used to be duplicated: a
+   * `windowId` state for "which row is selected" *and* an inline fetch that set
+   * `detail`. Selecting a row then called `act()`, which reloaded the list, and
+   * `load` read the id frozen in its closure — the previous window — found it
+   * still present, and re-selected it. Clicking a window appeared to do nothing.
+   */
+  const [needsDetail, setNeedsDetail] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -56,8 +65,26 @@ export default function AssessmentWindowPage() {
 
   const canManage = ['coordinator', 'admin'].includes(user?.role)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  /**
+   * What `load()` should keep selected across a reload.
+   *
+   * A ref, not a dependency. Taking the selection as a dependency while `load`
+   * also *set* it meant selecting a window could re-create `load`, re-run the
+   * effect and fetch again. A ref breaks that: it is always current when `load`
+   * reads it, and changing it cannot re-trigger the effect.
+   */
+  const selectedWindowId = useRef(null)
+
+  /**
+   * Read the window list.
+   *
+   * `quiet` skips the full-page skeleton for a refresh the user did not ask for
+   * and does not need to see — after an open/close the button already shows a
+   * busy state, and replacing the whole page with "Loading assessment windows"
+   * loses their place.
+   */
+  const load = useCallback(async ({ quiet = false } = {}) => {
+    if (!quiet) setLoading(true)
     setError(null)
     try {
       // The scoped term wins over the global one, so a link from a project's
@@ -67,21 +94,55 @@ export default function AssessmentWindowPage() {
       })) ?? []
       setWindows(list)
 
-      const keep = windowId && list.find((w) => w.id === windowId)
+      // Keep the current selection when it is still in the refreshed list;
+      // otherwise fall back to the batch the caller linked in with, then to the
+      // first row.
+      const keep = list.find((w) => w.id === selectedWindowId.current)
       const scoped = scopedPart ? list.find((w) => w.psm_part === scopedPart) : null
       const next = keep ?? scoped ?? list[0] ?? null
-      setWindowId(next?.id ?? null)
-      setDetail(next ? await assessmentWindowApi.show(next.id) : null)
+
+      selectedWindowId.current = next?.id ?? null
+      setNeedsDetail(next?.id ?? null)
     } catch (err) {
       setError(err)
     } finally {
-      setLoading(false)
+      if (!quiet) setLoading(false)
     }
-  }, [termId, windowId, scopedSemesterId, scopedPart])
+  }, [termId, scopedSemesterId, scopedPart])
 
   useEffect(() => {
     load()
   }, [load])
+
+  // The detail fetch is a separate effect so `load` does not have to be async
+  // about two different things — and so selecting a window does not refetch the
+  // list it was selected from.
+  useEffect(() => {
+    if (needsDetail == null) {
+      setDetail(null)
+      return undefined
+    }
+
+    let cancelled = false
+    assessmentWindowApi
+      .show(needsDetail)
+      .then((data) => {
+        if (!cancelled) setDetail(data)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [needsDetail])
+
+  /** Select one window without reloading the list it came from. */
+  function selectWindow(id) {
+    selectedWindowId.current = id
+    setNeedsDetail(id)
+  }
 
   async function act(fn) {
     setBusy(true)
@@ -89,12 +150,30 @@ export default function AssessmentWindowPage() {
     setNotice(null)
     try {
       const result = await fn()
-      await load()
+      // The list, then the detail. The detail has to be refetched explicitly:
+      // `load()` deliberately leaves the selected window alone, because bumping
+      // `needsDetail` to the value it already holds would not re-run the effect
+      // that fetches it.
+      await load({ quiet: true })
+      await refreshDetail()
       if (result?.message) setNotice(result.message)
     } catch (err) {
       setActionError(err?.message ?? 'That action could not be completed.')
     } finally {
       setBusy(false)
+    }
+  }
+
+  /** Re-fetch the selected window so the panel reflects what just happened. */
+  async function refreshDetail() {
+    const id = selectedWindowId.current
+
+    if (id == null) return
+
+    try {
+      setDetail(await assessmentWindowApi.show(id))
+    } catch (err) {
+      setError(err)
     }
   }
 
@@ -133,7 +212,9 @@ export default function AssessmentWindowPage() {
           defaultPart={scopedPart}
           onCreated={async (created) => {
             setShowCreate(false)
-            setWindowId(created?.id ?? null)
+            // Select the new window through the same path a click uses, then
+            // refresh the list — the ref keeps the selection across that reload.
+            if (created?.id != null) selectWindow(created.id)
             await load()
             setNotice('Assessment window created. Open it when marking should begin.')
           }}
@@ -157,7 +238,9 @@ export default function AssessmentWindowPage() {
                 <li key={w.id}>
                   <button
                     type="button"
-                    onClick={() => act(async () => setDetail(await assessmentWindowApi.show(w.id)))}
+                    // Selecting is a local, synchronous act — no reload, so the
+                    // choice cannot be overwritten by the list refetching itself.
+                    onClick={() => selectWindow(w.id)}
                     className={`w-full py-3 pl-3 text-left transition ${
                       detail?.id === w.id
                         ? 'border-l-2 border-brand-600'
