@@ -162,6 +162,12 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
             // There is no `release-marks` route. A mark is published by the
             // submission that completes it (MarkVisibilityService), so a
             // coordinator has nothing to release. See SemesterController.
+
+            // Who the admin's intake actually enrolled. Registered inside this
+            // group with the other staff-only reads rather than with the open
+            // `{semester}` wildcard below, because it returns student records.
+            Route::get('{semester}/students', [SemesterController::class, 'students'])
+                ->name('students');
         });
 
         Route::get('{semester}', [SemesterController::class, 'show'])->name('show');
@@ -276,6 +282,21 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
         Route::get('options', [ProjectController::class, 'options'])->name('options');
         Route::get('summary', [ProjectController::class, 'summary'])->name('summary');
         Route::get('registration-meta', [ProjectController::class, 'registrationMeta'])->name('registration-meta');
+
+        /**
+         * The batch PSM 1 → PSM 2 rollover.
+         *
+         * Registered **before** the `{project}` wildcard below, or "rollover"
+         * would be read as a project id — the same ordering rule `/semesters/current`
+         * depends on. `/projects/rollover` is a literal segment and Laravel
+         * matches routes in registration order, not by specificity.
+         */
+        Route::middleware('role:admin,coordinator')->group(function () {
+            Route::get('rollover', [ProjectController::class, 'rolloverCandidates'])
+                ->name('rollover.index');
+            Route::post('rollover', [ProjectController::class, 'rollover'])
+                ->name('rollover.store');
+        });
 
         Route::post('/', [ProjectController::class, 'store'])
             ->middleware('role:student')

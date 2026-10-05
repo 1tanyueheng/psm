@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\ApiController;
 use App\Http\Resources\AcademicSemesterResource;
 use App\Models\AcademicSemester;
+use App\Models\StudentProfile;
+use App\Enums\MarkSubmissionStatus;
 use App\Services\SemesterService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -41,7 +43,18 @@ class SemesterController extends ApiController
     {
         $this->authorize('viewAny', AcademicSemester::class);
 
-        $query = AcademicSemester::query()->chronological();
+        $query = AcademicSemester::query()
+            ->chronological()
+            // Cheap completeness flag for every row, so the filter bars can say
+            // whether a term's marking is finished without paying for full
+            // cohort stats on a list that every screen loads. Both counts come
+            // from the same correlated subqueries, so acquiring the flag costs
+            // two aggregates for the whole list rather than two per term.
+            ->withCount([
+                'markSubmissions as mark_submissions_count',
+                'markSubmissions as locked_submissions_count' => fn ($q) => $q
+                    ->where('status', MarkSubmissionStatus::Locked->value),
+            ]);
 
         if ($request->filled('academic_session')) {
             $query->ofSession($request->string('academic_session')->toString());
@@ -98,9 +111,66 @@ class SemesterController extends ApiController
         return $this->ok(AcademicSemesterResource::make($semester)->resolve());
     }
 
-    /** POST /api/semesters */
-    public function store(Request $request): JsonResponse
+    /**
+     * GET /api/semesters/{semester}/students
+     *
+     * Who is enrolled in this term, and in which batch.
+     *
+     * Exists because the admin intake has no other way to see its own result:
+     * an account created with an `academic_semester_id` is enrolled in that
+     * term, but nothing listed the enrolment back. A student with the wrong term
+     * — or none — was invisible until they could not register.
+     *
+     * Read-only and staff-only: this is cohort data, so it sits behind the same
+     * `viewStats` ability as the counts.
+     */
+    public function students(Request $request, AcademicSemester $semester): JsonResponse
     {
+        $this->authorize('viewStats', $semester);
+
+        $profiles = StudentProfile::query()
+            ->where('academic_semester_id', $semester->id)
+            ->with(['user', 'projects' => fn ($q) => $q
+                ->whereNull('archived_at')
+                ->orderByDesc('id')])
+            ->get();
+
+        $rows = $profiles->map(function (StudentProfile $profile) {
+            $project = $profile->projects->first();
+
+            return [
+                'student_profile_id' => $profile->id,
+                'user_id'      => $profile->user_id,
+                'student_id'   => $profile->student_id,
+                'name'         => $profile->user?->name,
+                'email'        => $profile->user?->email,
+                'program'      => $profile->program,
+                'program_code' => $profile->program_code,
+                'batch'        => $profile->batch,
+                'is_active'    => (bool) ($profile->user?->is_active ?? true),
+                // What they have in this term, so a missing registration is
+                // visible rather than merely absent from a project list.
+                'psm_part'     => $project?->psm_part,
+                'project_code' => $project?->code,
+                'project_title'=> $project?->title,
+                'project_status' => $project?->status,
+            ];
+        })
+            ->sortBy('student_id')
+            ->values()
+            ->all();
+
+        return $this->ok([
+            'semester_id' => $semester->id,
+            'semester'    => $semester->name,
+            'total'       => count($rows),
+            'without_project' => count(array_filter($rows, fn ($r) => $r['project_code'] === null)),
+            'students'    => $rows,
+        ]);
+    }
+
+    /** POST /api/semesters */
+    public function store(Request $request): JsonResponse    {
         $this->authorize('create', AcademicSemester::class);
 
         $validated = $request->validate([

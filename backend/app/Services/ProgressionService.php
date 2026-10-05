@@ -85,6 +85,17 @@ class ProgressionService
             );
         }
 
+        // The semester has to be over. Progression is a rollover between terms,
+        // so moving a student while their PSM 1 term is still running would put
+        // them in two live terms at once and leave the PSM 1 mark they were
+        // progressed on still being written.
+        if (! $sourceTerm->isClosed()) {
+            throw new InvalidArgumentException(
+                "{$sourceTerm->name} is still open. Close the semester before progressing "
+                .'students to PSM 2 — the rollover runs once the term is over.'
+            );
+        }
+
         if (! $this->termMarkingIsComplete($sourceTerm)) {
             throw new InvalidArgumentException(
                 "Marking for {$sourceTerm->name} is not finished. Every student's PSM 1 forms must be "
@@ -210,6 +221,85 @@ class ProgressionService
         $marks = $this->semesters->marksState($term);
 
         return ($marks['by_part'][PsmPart::Psm1->value]['outstanding'] ?? 0) === 0;
+    }
+
+    /**
+     * Move a whole ticked batch from PSM 1 into PSM 2.
+     *
+     * The admin chooses who moves; this applies the same per-student rules the
+     * single action applies, one project at a time, and reports who did not
+     * qualify rather than refusing the lot. That is deliberately NOT
+     * all-or-nothing: a cohort is never uniformly ready, and one student held
+     * back for a missing form must not strand the eleven who are finished.
+     *
+     * The gate is still term-wide and still requires the semester to be closed.
+     * `progress()` enforces both, so this method does not restate them — a
+     * second copy of "PSM 1 is finished" is exactly the drift this rework
+     * removed elsewhere.
+     *
+     * Each student moves in their own transaction, so a failure part-way through
+     * leaves the earlier ones committed and the rest untouched. Re-running is
+     * safe: `progress()` refuses a student who already has a live PSM 2 project
+     * rather than creating a second one.
+     *
+     * @param  array<int, int>  $projectIds  PSM 1 projects the admin ticked
+     * @return array{
+     *     progressed: array<int, array{project_id:int, code:?string, title:?string, student:?string, psm2_code:string, psm2_id:int}>,
+     *     failed: array<int, array{project_id:int, code:?string, student:?string, reason:string}>
+     * }
+     */
+    public function progressBatch(array $projectIds, User $actor): array
+    {
+        $progressed = [];
+        $failed = [];
+
+        // One query for the batch, not one per student.
+        $projects = Project::query()
+            ->whereIn('id', $projectIds)
+            ->with(['members.studentProfile'])
+            ->get()
+            ->keyBy('id');
+
+        foreach ($projectIds as $projectId) {
+            $project = $projects->get($projectId);
+
+            if ($project === null) {
+                $failed[] = [
+                    'project_id' => (int) $projectId,
+                    'code'       => null,
+                    'student'    => null,
+                    'reason'     => 'That project does not exist.',
+                ];
+
+                continue;
+            }
+
+            $student = $project->leader();
+
+            try {
+                $psm2 = $this->progress($project, $actor);
+
+                $progressed[] = [
+                    'project_id' => $project->id,
+                    'code'       => $project->code,
+                    'title'      => $project->title,
+                    'student'    => $student?->student_id,
+                    'psm2_id'    => $psm2->id,
+                    'psm2_code'  => $psm2->code,
+                ];
+            } catch (InvalidArgumentException $e) {
+                // Reported, not thrown: the other students in the batch are
+                // unaffected and the coordinator needs the reason per student.
+                $failed[] = [
+                    'project_id' => $project->id,
+                    'code'       => $project->code,
+                    'student'    => $student?->student_id,
+                    'reason'     => $e->getMessage(),
+                ];
+            }
+        }
+
+        return ['progressed' => $progressed, 'failed' => $failed];
     }
 
     /** The student's live PSM 2 project, if they already have one. */

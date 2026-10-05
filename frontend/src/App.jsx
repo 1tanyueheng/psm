@@ -27,6 +27,7 @@ const PanelWorkPage = lazy(() => import('./pages/panel/PanelWorkPage'))
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 const UserListPage = lazy(() => import('./pages/admin/UserListPage'))
 const SemesterListPage = lazy(() => import('./pages/admin/SemesterListPage'))
+const RolloverPage = lazy(() => import('./pages/admin/RolloverPage'))
 
 const ProjectListPage = lazy(() => import('./pages/projects/ProjectListPage'))
 const ProjectDetailPage = lazy(() => import('./pages/projects/ProjectDetailPage'))
@@ -241,6 +242,21 @@ export default function AppRoutes() {
             element={
               <RequireCapability capability="manageSemesters">
                 <SemesterListPage />
+              </RequireCapability>
+            }
+          />
+
+          {/*
+            The PSM 1 → PSM 2 rollover: the batch form of the same move a
+            project page offers one student at a time, and deliberately its own
+            screen rather than a button on the term row — it needs a tick-list,
+            a readiness explanation and a per-student result report.
+          */}
+          <Route
+            path="/rollover"
+            element={
+              <RequireCapability capability="manageSemesters">
+                <RolloverPage />
               </RequireCapability>
             }
           />

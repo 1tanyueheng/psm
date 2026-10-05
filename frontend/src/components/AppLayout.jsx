@@ -40,6 +40,10 @@ const MENU = [
       // The term owns both PSM batches, so it sits above Projects in the
       // reading order even though almost every screen is scoped by it.
       { to: '/semesters', label: 'Semesters', roles: ['coordinator', 'admin'] },
+      // The end-of-term move: PSM 1 students continue into PSM 2 on the title
+      // they already registered. Its own screen because it is a tick-list with
+      // two gates in front of it, not a one-click action.
+      { to: '/rollover', label: 'PSM 2 Rollover', roles: ['coordinator', 'admin'] },
       { to: '/projects', label: 'All Projects', roles: ['student', 'supervisor', 'coordinator', 'admin'] },
       { to: '/milestones', label: 'Milestones', roles: ['student', 'supervisor', 'coordinator'] },
       { to: '/assignments', label: 'Supervision', roles: ['coordinator', 'admin'] },

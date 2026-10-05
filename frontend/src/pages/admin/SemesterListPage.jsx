@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { semesterApi } from '../../api/endpoints'
 import {
@@ -18,6 +18,7 @@ import {
 } from '../../components/ui'
 import { useSemesters } from '../../context/SemesterContext'
 import { formatDate } from '../../lib/format'
+import { partLabel, PSM_PART_BADGE_TONES } from '../../lib/psmPart'
 
 /**
  * Semester management (Module 3).
@@ -43,6 +44,12 @@ export default function SemesterListPage() {
   const [notice, setNotice] = useState(null)
   const [actionError, setActionError] = useState(null)
 
+  // The enrolled roster, loaded on demand per term rather than with the list —
+  // it is a student record dump and only useful when actually opened.
+  const [rosterId, setRosterId] = useState(null)
+  const [roster, setRoster] = useState(null)
+  const [rosterLoading, setRosterLoading] = useState(false)
+
   useEffect(() => {
     if (!notice) return
     const timer = setTimeout(() => setNotice(null), 4000)
@@ -61,6 +68,33 @@ export default function SemesterListPage() {
       setActionError(err?.message ?? 'The action could not be completed.')
     } finally {
       setBusyId(null)
+    }
+  }
+
+  /**
+   * Open or close the enrolled-student list for one term.
+   *
+   * Fetched lazily and kept per-term, so opening a second term's roster does
+   * not make the first one re-request when it is reopened.
+   */
+  async function toggleRoster(semesterId) {
+    if (String(rosterId) === String(semesterId)) {
+      setRosterId(null)
+      setRoster(null)
+      return
+    }
+
+    setRosterId(semesterId)
+    setRoster(null)
+    setRosterLoading(true)
+    setActionError(null)
+
+    try {
+      setRoster(await semesterApi.students(semesterId))
+    } catch (err) {
+      setActionError(err?.message ?? 'The student list could not be loaded.')
+    } finally {
+      setRosterLoading(false)
     }
   }
 
@@ -269,8 +303,11 @@ export default function SemesterListPage() {
               const busy = busyId === row.id
               const selected = String(row.id) === String(selectedId)
 
+              const rosterOpen = String(rosterId) === String(row.id)
+
               return (
-                <tr key={row.id} className={selected ? 'bg-brand-50/40' : undefined}>
+                <Fragment key={row.id}>
+                <tr className={selected ? 'bg-brand-50/40' : undefined}>
                   <Td>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-slate-800">{row.name}</span>
@@ -365,6 +402,13 @@ export default function SemesterListPage() {
                       <Link to="/projects" onClick={() => selectSemester(row.id)}>
                         <Button size="sm" variant="ghost">Projects</Button>
                       </Link>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => toggleRoster(row.id)}
+                      >
+                        {rosterOpen ? 'Hide students' : 'Students'}
+                      </Button>
                       {row.is_closed ? (
                         // Closing used to be a one-way door: the button simply
                         // disappeared once a term was closed, with nothing to
@@ -404,6 +448,108 @@ export default function SemesterListPage() {
                     </div>
                   </Td>
                 </tr>
+
+                {/*
+                  The enrolled roster, opened on demand. This is how the admin
+                  sees the result of the add-student intake: a student created
+                  against the wrong term — or none — used to be invisible until
+                  they could not register for anything.
+                */}
+                {rosterOpen && (
+                  <tr className="bg-slate-50/70">
+                    <Td colSpan={7}>
+                      {rosterLoading ? (
+                        <Spinner label="Loading enrolled students" />
+                      ) : roster ? (
+                        <div className="space-y-2 py-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-medium text-slate-700">
+                              {roster.total} student{roster.total === 1 ? '' : 's'} enrolled
+                            </span>
+                            {roster.without_project > 0 && (
+                              <Badge tone="warning">
+                                {roster.without_project} without a project
+                              </Badge>
+                            )}
+                            <Link to="/users?role=student">
+                              <Button size="sm" variant="ghost">Manage accounts</Button>
+                            </Link>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setRosterId(null)
+                                setRoster(null)
+                              }}
+                            >
+                              Close
+                            </Button>
+                          </div>
+
+                          {roster.students.length === 0 ? (
+                            <p className="text-sm text-slate-500">
+                              Nobody is enrolled in this term yet. Add accounts from the
+                              Users screen and set their enrolling semester.
+                            </p>
+                          ) : (
+                            <div className="max-h-72 overflow-y-auto">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-slate-200 text-xs text-slate-500">
+                                    <th className="px-2 py-1 text-left">Student</th>
+                                    <th className="px-2 py-1 text-left">Programme</th>
+                                    <th className="px-2 py-1 text-left">Batch</th>
+                                    <th className="px-2 py-1 text-left">Batch type</th>
+                                    <th className="px-2 py-1 text-left">Project</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {roster.students.map((s) => (
+                                    <tr key={s.student_profile_id} className="border-b border-slate-100">
+                                      <td className="px-2 py-1">
+                                        <div className="text-slate-800">{s.name}</div>
+                                        <div className="font-mono text-xs text-slate-400">
+                                          {s.student_id}
+                                        </div>
+                                      </td>
+                                      <td className="px-2 py-1 text-slate-600">
+                                        {s.program} {s.program_code ? `(${s.program_code})` : ''}
+                                      </td>
+                                      <td className="px-2 py-1 text-slate-600">{s.batch}</td>
+                                      <td className="px-2 py-1">
+                                        {s.psm_part ? (
+                                          <Badge tone={PSM_PART_BADGE_TONES[s.psm_part] ?? 'neutral'}>
+                                            {partLabel(s.psm_part)}
+                                          </Badge>
+                                        ) : (
+                                          <span className="text-xs text-slate-400">—</span>
+                                        )}
+                                      </td>
+                                      <td className="px-2 py-1">
+                                        {s.project_code ? (
+                                          <span className="font-mono text-xs text-slate-600">
+                                            {s.project_code}
+                                          </span>
+                                        ) : (
+                                          <span className="text-xs text-amber-600">
+                                            not registered
+                                          </span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-slate-500">Nothing loaded.</span>
+                      )}
+                    </Td>
+                  </tr>
+                )}
+                </Fragment>
               )
             }}
           />

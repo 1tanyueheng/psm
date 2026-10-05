@@ -29,6 +29,26 @@ class StudentProfileResource extends JsonResource
             'batch'         => $this->batch,
             'faculty'       => $this->faculty,
             'current_semester' => $this->current_semester,
+
+            /**
+             * The term this student is enrolled in.
+             *
+             * Load-bearing, not decorative: it gates Lampiran A, it is what the
+             * supervisor capacity check counts against, and it is how the
+             * student appears in a term's cohort. The admin sets it when
+             * creating the account, so it has to come back or the assignment
+             * cannot be confirmed — an account silently enrolled in the wrong
+             * term was previously indistinguishable from a correct one.
+             */
+            'academic_semester_id' => $this->academic_semester_id,
+            'academic_semester'    => $this->whenLoaded(
+                'academicSemester',
+                fn () => $this->academicSemester ? [
+                    'id'   => $this->academicSemester->id,
+                    'name' => $this->academicSemester->name,
+                ] : null
+            ),
+
             'phone_emergency'  => $this->phone_emergency,
 
             // Module 3 — declared topic, before or alongside registration

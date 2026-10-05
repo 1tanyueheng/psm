@@ -102,7 +102,11 @@ class LeaderboardService
     ): Collection {
         $query = FinalGrade::query()
             ->with(['project.students.user', 'project.members.studentProfile.user'])
-            ->where('status', 'released')
+            // Both published statuses. A mark that auto-locked is published *and*
+            // attested complete, so filtering on the literal 'released' would
+            // drop every finished project off the leaderboard the moment its
+            // last form landed.
+            ->released()
             ->where('is_publishable', true)
             ->where('assessor_count', '>=', $minAssessors)
             ->whereNotNull('final_mark')

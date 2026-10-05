@@ -45,15 +45,16 @@ class AcademicSemesterResource extends JsonResource
              * reads it: a mark publishes itself the moment its supervisor form
              * arrives, so there is no term-level release left to record. The
              * flag is echoed here so existing screens keep rendering, and it now
-             * means "some mark in this term is readable", read from the grades
-             * themselves.
+             * means "marking for this term has finished" — read from the
+             * submissions, which is what the mark list's Release button used to
+             * gate on and what a filter badge actually wants to say.
              *
-             * Null when stats were not loaded — the caller then has no
-             * permission to see cohort figures, and this is a cohort figure.
+             * Always a boolean. The list endpoint counts locked submissions per
+             * row so this is answerable without loading full cohort stats, which
+             * only coordinators may see — a student's filter bar was reading a
+             * null here and concluding the term had been withheld.
              */
-            'is_marks_released'     => $this->relationLoaded('stats')
-                ? (bool) ($this->stats['marks']['marks_released'] ?? false)
-                : null,
+            'is_marks_released'     => $this->marksAreComplete(),
             'marks'                 => $this->when(
                 $this->relationLoaded('stats'),
                 fn () => $this->stats['marks'] ?? null
@@ -79,5 +80,41 @@ class AcademicSemesterResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Has this term's marking finished?
+     *
+     * Two sources, in order of preference:
+     *
+     *  1. the per-row `locked_submissions_count` the list endpoint attaches, or
+     *     the full `stats.marks` figures when a coordinator loaded them — both
+     *     answer it without a query per row;
+     *  2. the stored column, kept only as a fallback for a term whose
+     *     submissions were never counted. New terms never set it, so this is
+     *     really for legacy rows.
+     *
+     * "Complete" means at least one submission is locked and every one of them
+     * is. A term with no submissions at all reports false: nothing has been
+     * marked, which is not the same as marking having finished.
+     */
+    protected function marksAreComplete(): bool
+    {
+        if ($this->resource->relationLoaded('stats')) {
+            $marks = $this->stats['marks'] ?? null;
+
+            if ($marks !== null) {
+                return ($marks['total'] ?? 0) > 0 && ($marks['outstanding'] ?? 1) === 0;
+            }
+        }
+
+        $locked = $this->resource->locked_submissions_count ?? null;
+        $total  = $this->resource->mark_submissions_count ?? null;
+
+        if ($locked !== null && $total !== null) {
+            return (int) $total > 0 && (int) $locked === (int) $total;
+        }
+
+        return (bool) $this->is_marks_released;
     }
 }

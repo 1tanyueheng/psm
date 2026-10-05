@@ -82,6 +82,19 @@ class AcademicSemester extends Model
         return $this->hasMany(ExaminerPair::class);
     }
 
+    /**
+     * The per-student mark submissions filed against this term.
+     *
+     * Used for the "how much of this term is done" figure. A submission carries
+     * its own `academic_semester_id`, so this is a plain has-many rather than a
+     * walk through projects — which matters because the filter bars need a count
+     * per term and a walk would be a query per row.
+     */
+    public function markSubmissions(): HasMany
+    {
+        return $this->hasMany(MarkSubmission::class, 'academic_semester_id');
+    }
+
     // -----------------------------------------------------------------
     // Lifecycle
     // -----------------------------------------------------------------

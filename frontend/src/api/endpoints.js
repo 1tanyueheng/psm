@@ -66,6 +66,14 @@ export const semesterApi = {
    */
   setRegistration: (id, isOpen) =>
     api.post(`/semesters/${id}/registration`, { is_registration_open: Boolean(isOpen) }).then(unwrap),
+  /**
+   * Who the intake actually enrolled in this term.
+   *
+   * The admin-add-student form sets `academic_semester_id`, but nothing listed
+   * the result back — a student created with the wrong term was invisible until
+   * they could not register. Staff only: it returns student records.
+   */
+  students: (id) => api.get(`/semesters/${id}/students`).then(unwrap),
   // There is no `setMarkRelease`. A mark publishes itself the moment its
   // supervisor's form arrives, so a term has no release to set. How far a
   // term's marking has got comes back on `stats.marks` from `show`/`list`.
@@ -251,6 +259,22 @@ export const projectApi = {
     api.get(`/projects/${projectId}/students/${studentId}/mark-breakdown`).then(unwrap),
   updateGradeScheme: (id, payload) =>
     api.put(`/projects/${id}/grade-scheme`, payload).then(unwrap),
+
+  /**
+   * The batch PSM 1 → PSM 2 rollover.
+   *
+   * `rolloverCandidates` is the tick-list: every live PSM 1 project in a term,
+   * each with the title that will carry over and whether the term is ready at
+   * all. It deliberately includes students who cannot move, so a coordinator
+   * looking for one sees them present and blocked rather than absent.
+   *
+   * `rollover` moves the ticked ones. Partial success is the expected outcome —
+   * the response carries who moved and why each of the rest did not.
+   */
+  rolloverCandidates: (semesterId) =>
+    api.get('/projects/rollover', { params: { semester_id: semesterId } }).then(unwrap),
+  rollover: (projectIds) =>
+    api.post('/projects/rollover', { project_ids: projectIds }).then(unwrap),
 
   // --- Aliases -----------------------------------------------------------
   /** Registration screen metadata — categories, sessions, supervisor list. */

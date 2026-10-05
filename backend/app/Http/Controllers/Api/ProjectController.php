@@ -487,8 +487,9 @@ class ProjectController extends ApiController
      * by filing a second Lampiran A. The title, the supervisor and the examiner
      * pair all carry over, and PSM 1 is archived in the same step.
      *
-     * Refused until the PSM 1 marks have been released, because progressing
-     * earlier would enrol the student in PSM 2 while PSM 1 is still unresolved.
+     * Refused until the semester is closed and every PSM 1 form is in, because
+     * progressing earlier would enrol the student in PSM 2 while PSM 1 is still
+     * unresolved.
      */
     public function progressToPsm2(Request $request, Project $project): JsonResponse
     {
@@ -511,6 +512,139 @@ class ProjectController extends ApiController
                 'title' => $milestone->title,
             ])->all(),
         ], 'Student progressed to PSM 2 — the PSM 1 project has been archived.');
+    }
+
+    /**
+     * GET /api/projects/rollover
+     *
+     * Who could move to PSM 2, so the admin has something to tick.
+     *
+     * Returns every live PSM 1 project in the term with the figures the screen
+     * needs to show the choice honestly: the title that will carry over, the
+     * supervisor who will keep the student, and whether this student can move
+     * yet. The list is *not* filtered to the eligible — a coordinator looking
+     * for a missing student needs to see them present and blocked, not absent.
+     *
+     * The term's own readiness is returned alongside so the screen can explain
+     * a blanket refusal once instead of printing the same reason on every row.
+     */
+    public function rolloverCandidates(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', Project::class);
+
+        $semesterId = AcademicSemester::resolveFilterId($request->input('semester_id'));
+
+        if ($semesterId === null) {
+            return $this->ok([
+                'semester'    => null,
+                'term_ready'  => false,
+                'term_reason' => 'No semester is selected, so there is nothing to roll over.',
+                'candidates'  => [],
+            ]);
+        }
+
+        $semester = AcademicSemester::with('markSubmissions')->find($semesterId);
+
+        if ($semester === null) {
+            return $this->fail('That semester does not exist.', 422);
+        }
+
+        $marks = $this->semesters->marksState($semester);
+
+        $termReady = $semester->isClosed() && $marks['outstanding'] === 0;
+
+        $termReason = match (true) {
+            ! $semester->isClosed() =>
+                "{$semester->name} is still open. Close the semester before rolling students over.",
+            $marks['outstanding'] > 0 =>
+                "{$marks['outstanding']} of {$marks['total']} mark submission(s) in {$semester->name} "
+                    .'are still incomplete. Every PSM 1 form has to be in first.',
+            default => null,
+        };
+
+        $projects = Project::query()
+            ->where('psm_part', 'PSM1')
+            ->where('academic_semester_id', $semester->id)
+            ->whereNull('archived_at')
+            ->with([
+                'members.studentProfile.user',
+                'members.studentProfile.activeSupervisions.supervisorProfile.user',
+            ])
+            ->orderBy('code')
+            ->get();
+
+        $candidates = $projects->map(function (Project $project) {
+            $student = $project->leader();
+            $supervision = $student?->activeSupervisions
+                ?->firstWhere('is_active', true);
+
+            // Already moved. Shown so a second run is visibly a no-op on that
+            // row rather than a mystery refusal.
+            $existing = $student === null ? null : $this->progression->livePsm2For($student);
+
+            return [
+                'project_id'    => $project->id,
+                'code'          => $project->code,
+                'title'         => $project->title,
+                'category'      => $project->category?->value,
+                'student_id'    => $student?->student_id,
+                'student_name'  => $student?->user?->name,
+                'program'       => $student?->program,
+                'batch'         => $project->batch,
+                'supervisor'    => $supervision?->supervisorProfile?->user?->name,
+                'already_psm2'  => $existing !== null,
+                'psm2_code'     => $existing?->code,
+            ];
+        })->values()->all();
+
+        return $this->ok([
+            'semester'         => $semester->name,
+            'semester_id'      => $semester->id,
+            'semester_closed'  => $semester->isClosed(),
+            'marks'            => $marks,
+            'term_ready'       => $termReady,
+            'term_reason'      => $termReason,
+            'candidates'       => $candidates,
+        ]);
+    }
+
+    /**
+     * POST /api/projects/rollover
+     *
+     * Move the ticked students into PSM 2. Partial success is the expected
+     * outcome, so the response reports who moved and why each of the rest did
+     * not, rather than failing the whole batch on the first refusal.
+     */
+    public function rollover(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', Project::class);
+
+        $validated = $request->validate([
+            'project_ids'   => ['required', 'array', 'min:1'],
+            'project_ids.*' => ['integer', 'exists:projects,id'],
+        ]);
+
+        $result = $this->progression->progressBatch(
+            array_map('intval', $validated['project_ids']),
+            $request->user(),
+        );
+
+        $moved = count($result['progressed']);
+        $failed = count($result['failed']);
+
+        $message = match (true) {
+            $moved === 0 && $failed === 0 => 'Nothing was selected, so nothing moved.',
+            $moved === 0 => "No students were progressed — see the reasons below.",
+            $failed === 0 => "{$moved} student(s) progressed to PSM 2. Their PSM 1 projects are archived.",
+            default => "{$moved} student(s) progressed to PSM 2. {$failed} could not be — see the reasons.",
+        };
+
+        return $this->ok([
+            'progressed' => $result['progressed'],
+            'failed'     => $result['failed'],
+            'moved'      => $moved,
+            'blocked'    => $failed,
+        ], $message);
     }
 
     /**

@@ -200,6 +200,17 @@ class SemesterService
      * marks are still being filed would strand the assessors mid-window. This
      * check used to guard open title-defence sittings; the defence was folded
      * onto the proposal, so the window is what is left to protect.
+     *
+     * **Every mark submission must also be complete.** Closing a term freezes
+     * it, and a term frozen with forms still outstanding strands those students
+     * with no mark and no way to file one — the semester is no longer active, so
+     * reopening the marking window would be a lie about which term is running.
+     * The same condition gates PSM 1 → PSM 2 progression, so "this batch is
+     * finished" has one definition rather than two that can disagree.
+     *
+     * A student with no submission opened at all counts as outstanding. That is
+     * the case worth catching: nothing was ever allocated for them, so no form
+     * is missing in a way any list would show.
      */
     public function close(AcademicSemester $semester, User $actor): AcademicSemester
     {
@@ -215,6 +226,8 @@ class SemesterService
             );
         }
 
+        $this->assertMarkingIsComplete($semester);
+
         $semester->update([
             'is_active'            => false,
             'is_registration_open' => false,
@@ -229,6 +242,67 @@ class SemesterService
         );
 
         return $semester->fresh();
+    }
+
+    /**
+     * Refuse to close a term that still has marks to come.
+     *
+     * The message names the students and what each is waiting on, because
+     * "3 submissions outstanding" leaves a coordinator with nothing to act on
+     * while "2210456 (Supervisor form is not submitted yet)" is a phone call.
+     *
+     * @throws InvalidArgumentException
+     */
+    protected function assertMarkingIsComplete(AcademicSemester $semester): void
+    {
+        $submissions = MarkSubmission::query()
+            ->where('academic_semester_id', $semester->id)
+            ->with(['project', 'studentProfile'])
+            ->get();
+
+        if ($submissions->isEmpty()) {
+            return;
+        }
+
+        $outstanding = $submissions
+            ->reject(fn (MarkSubmission $s) => $s->status === MarkSubmissionStatus::Locked);
+
+        if ($outstanding->isEmpty()) {
+            return;
+        }
+
+        // Cap the list: a whole cohort's worth of names in an error toast is
+        // unreadable, and the count plus a sample is enough to act on.
+        $named = $outstanding->take(5)->map(function (MarkSubmission $s) {
+            $who = $s->studentProfile?->student_id ?? "submission #{$s->id}";
+            $part = $s->psm_part ?? '—';
+
+            $reasons = $s->readiness()['outstanding'];
+
+            // `readiness()` returns one entry per missing form plus a summary
+            // line, so the same sentence can appear twice — collapse rather
+            // than make a coordinator read it again.
+            $why = collect($reasons)
+                ->pluck('reason')
+                ->filter()
+                ->unique()
+                ->take(2)
+                ->implode('; ');
+
+            return "{$who} ({$part}: "
+                .($why === '' ? 'no submission opened' : $why)
+                .')';
+        })->implode(', ');
+
+        $remaining = $outstanding->count() - 5;
+
+        throw new InvalidArgumentException(
+            "{$outstanding->count()} of {$submissions->count()} mark submission(s) for "
+            ."{$semester->name} are not complete. Every student's forms must be in before the "
+            ."semester can be closed. Outstanding: {$named}"
+            .($remaining > 0 ? " and {$remaining} more" : '')
+            .'.'
+        );
     }
 
     /**

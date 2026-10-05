@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { userApi } from '../../api/endpoints'
 import { unwrapPaged } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
+import { useSemesters } from '../../context/SemesterContext'
 import {
   Card, CardHeader, PageHeader, Badge, Avatar, EmptyState, Spinner,
   ErrorState, Button, Select, DataTable, Td, Input, Field,
@@ -46,6 +47,7 @@ function blankForm() {
     role: 'student',
     name: '', email: '', phone: '', department: '',
     student_id: '', program: '', program_code: '', batch: '', faculty: '',
+    academic_semester_id: '',
     staff_no: '', academic_title: '', max_supervisees: '',
   }
 }
@@ -74,6 +76,20 @@ function payloadFor(form) {
       batch: form.batch.trim(),
       program_code: form.program_code.trim() || undefined,
       faculty: form.faculty.trim() || undefined,
+      /**
+       * The term the student is enrolling into.
+       *
+       * This is the field the intake turns on. It is what Lampiran A is gated
+       * against (`SemesterService::registrationGate`), what
+       * `AssignmentService` capacity-checks a supervisor against, and what
+       * makes a student appear in a term's cohort at all. The API defaults it
+       * to the active term when omitted, which is why its absence was invisible
+       * — an admin could not put the new intake into a term that was not the
+       * active one, and could not see which term they had landed in either.
+       */
+      academic_semester_id: form.academic_semester_id === ''
+        ? undefined
+        : Number(form.academic_semester_id),
     }
   }
 
@@ -107,6 +123,7 @@ function payloadFor(form) {
  */
 export default function UserListPage() {
   const { user: me } = useAuth()
+  const { semesters, active, selectedId, selectSemester } = useSemesters()
   const [params, setParams] = useSearchParams()
 
   const [rows, setRows] = useState([])
@@ -253,6 +270,8 @@ export default function UserListPage() {
           setForm={setForm}
           errors={formErrors}
           saving={saving}
+          semesters={semesters}
+          defaultSemesterId={active?.id ?? selectedId ?? ''}
           onCancel={() => {
             setCreating(false)
             setForm(blankForm())
@@ -492,7 +511,9 @@ export default function UserListPage() {
  * staff number while creating a student. Switching roles resets the role-specific
  * fields, so a value typed for one role cannot be submitted for another.
  */
-function CreateUserPanel({ form, setForm, errors, saving, onCancel, onSubmit }) {
+function CreateUserPanel({
+  form, setForm, errors, saving, semesters, defaultSemesterId, onCancel, onSubmit,
+}) {
   const set = (key) => (event) => setForm((prev) => ({ ...prev, [key]: event.target.value }))
 
   function changeRole(event) {
@@ -505,10 +526,18 @@ function CreateUserPanel({ form, setForm, errors, saving, onCancel, onSubmit }) 
       email: prev.email,
       phone: prev.phone,
       department: prev.department,
+      // The chosen term survives a role change: an admin flipping to student
+      // to check a field should not silently lose the term they picked.
+      academic_semester_id: prev.academic_semester_id || defaultSemesterId,
     }))
   }
 
   const role = ROLES.find((r) => r.value === form.role)
+
+  // Seed the term on first render. Doing it here rather than in the parent's
+  // state keeps `blankForm()` free of a value the parent may not have yet —
+  // the term list is still loading when the panel first mounts.
+  const semesterValue = form.academic_semester_id || defaultSemesterId || ''
 
   return (
     <Card>
@@ -566,6 +595,40 @@ function CreateUserPanel({ form, setForm, errors, saving, onCancel, onSubmit }) 
             >
               <Input id="new_batch" value={form.batch} onChange={set('batch')} maxLength={32} />
             </Field>
+
+            {/*
+              The enrolling term. Not decoration: it gates Lampiran A, it is what
+              the supervisor capacity check counts against, and it is how the
+              student appears in a term's cohort. Defaults to the active term,
+              and is overridable for a late or re-enrolling student.
+            */}
+            <Field
+              label="Enrolling semester"
+              htmlFor="new_semester"
+              errors={errors}
+              field="academic_semester_id"
+              hint={
+                semesters?.length
+                  ? 'The term this intake belongs to. Defaults to the active one.'
+                  : 'No semesters exist yet — create one before adding students.'
+              }
+            >
+              <Select
+                id="new_semester"
+                value={semesterValue}
+                onChange={set('academic_semester_id')}
+                disabled={!semesters?.length}
+              >
+                {!semesters?.length && <option value="">No semesters yet</option>}
+                {(semesters ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                    {s.is_active ? ' — active' : ''}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
             <Field label="Programme code" htmlFor="new_program_code" errors={errors} field="program_code">
               <Input
                 id="new_program_code"

@@ -444,10 +444,16 @@ export function SemesterFilterBar({ part, onPartChange, partCounts, semester, cl
           ) : (
             <Badge tone="neutral">Registration closed</Badge>
           )}
+          {/*
+            "Marks complete", not "released". Marks publish themselves as each
+            assessor files, so there is nothing for a coordinator to release;
+            what a reader wants to know from this badge is whether the term's
+            marking has finished.
+          */}
           {semester.is_marks_released ? (
-            <Badge tone="success">Marks released</Badge>
+            <Badge tone="success">Marks complete</Badge>
           ) : (
-            <Badge tone="warning">Marks withheld</Badge>
+            <Badge tone="warning">Marking in progress</Badge>
           )}
         </div>
       )}
