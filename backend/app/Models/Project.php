@@ -30,6 +30,7 @@ class Project extends Model
         'category',
         'psm_part',
         'academic_session',
+            'academic_semester_id',
             'batch',
             'program',
             'status',
@@ -63,6 +64,21 @@ class Project extends Model
     public function members(): HasMany
     {
         return $this->hasMany(ProjectMember::class);
+    }
+
+    /**
+     * The term this project belongs to — the scoping unit for every cohort
+     * query.
+     *
+     * Reachable through here rather than through `academic_session` because a
+     * session holds two terms and each term holds two batches. The FK is
+     * nullable so pre-semester data keeps working; callers that genuinely need a
+     * term (the cohort views, the reporting split) must decide what a null means
+     * rather than inherit it.
+     */
+    public function academicSemester(): BelongsTo
+    {
+        return $this->belongsTo(AcademicSemester::class, 'academic_semester_id');
     }
 
     public function students(): BelongsToMany
@@ -199,6 +215,37 @@ class Project extends Model
         return round(($earned / $totalWeight) * 100, 2);
     }
 
+    /**
+     * Has every milestone reached the terminal `approved` state?
+     *
+     * This is the gate the PSM requirement puts on the supervisor's Lampiran E
+     * evaluation: "Once all milestones are marked as completed, the supervisor
+     * evaluates the student." Completion means approved, not merely submitted —
+     * a chapter sitting in review is not finished work, and the final mark
+     * should not be assessable while part of the project is still moving.
+     *
+     * Deliberately a separate query rather than `status === 'completed'`: that
+     * status is set as a side effect of approving the last milestone
+     * (MilestoneService::activateNext), so relying on it would make this rule
+     * depend on an unrelated write succeeding.
+     */
+    public function allMilestonesApproved(): bool
+    {
+        $milestones = $this->relationLoaded('milestones')
+            ? $this->milestones
+            : $this->milestones()->get();
+
+        // A project with no milestones has nothing to have completed, so it
+        // must not be treated as finished.
+        if ($milestones->isEmpty()) {
+            return false;
+        }
+
+        return $milestones->every(
+            fn (Milestone $m) => $m->status === MilestoneStatus::Approved
+        );
+    }
+
     /** The next milestone the student should be working on. */
     public function currentMilestone(): ?Milestone
     {
@@ -244,9 +291,52 @@ class Project extends Model
         return $query->where('batch', $batch);
     }
 
+    /**
+     * Restrict to one academic term.
+     *
+     * A null id means "no filter" rather than "no rows": screens that must show
+     * legacy projects predating semesters pass null through deliberately, and a
+     * silent empty list there would look like data loss.
+     */
+    public function scopeForSemester(Builder $query, int|AcademicSemester|null $semester): Builder
+    {
+        $id = $semester instanceof AcademicSemester ? $semester->id : $semester;
+
+        return $id === null ? $query : $query->where('academic_semester_id', $id);
+    }
+
     public function scopeForPart(Builder $query, string $psmPart): Builder
     {
         return $query->where('psm_part', $psmPart);
+    }
+
+    /**
+     * One batch of one term — the combination every cohort view needs.
+     *
+     * Both parts of a term together is just `scopeForSemester`; naming the pair
+     * separately keeps the call sites from each hand-rolling both filters and
+     * forgetting one, which is how a roster ends up mixing batches.
+     */
+    public function scopeForSemesterPart(
+        Builder $query,
+        int|AcademicSemester|null $semester,
+        string $psmPart
+    ): Builder {
+        return $query->forSemester($semester)->forPart($psmPart);
+    }
+
+    /**
+     * Projects that are not archived.
+     *
+     * `archived_at` is the retirement marker, but the soft-delete column is
+     * also in play — an archived project is usually soft-deleted, and either
+     * one alone is enough to retire it. Checking both keeps a project that was
+     * archived by the coordinator but not by the deletion cascade out of every
+     * live roster.
+     */
+    public function scopeLive(Builder $query): Builder
+    {
+        return $query->whereNull('archived_at');
     }
 
     public function scopeOfCategory(Builder $query, ProjectCategory|string $category): Builder
@@ -294,17 +384,28 @@ class Project extends Model
         if ($user->isSupervisor()) {
             $supervisorId = $user->supervisorProfile?->id;
 
-            return $query->whereHas(
-                'members.studentProfile.activeSupervisions',
-                fn ($q) => $q->where('supervisor_profile_id', $supervisorId)
-            );
-        }
-
-        if ($user->isExaminer()) {
-            return $query->whereHas(
-                'examinerAssignments',
-                fn ($q) => $q->where('examiner_id', $user->id)->where('is_active', true)
-            );
+            /**
+             * Projects they supervise, **or** projects they are allocated to as
+             * a panel examiner.
+             *
+             * Being an examiner is a seating, not a role — the same academic
+             * supervises their own students and may sit on someone else's panel,
+             * so a supervisor must see the project they were appointed to
+             * examine. Otherwise they cannot read, or decide the proposal
+             * milestone of, the work they were given.
+             *
+             * This mirrors `ProjectPolicy::view()`; the two must agree or a list
+             * and a single-record check would disagree about the same row.
+             */
+            return $query->where(function ($q) use ($supervisorId, $user) {
+                $q->whereHas(
+                    'members.studentProfile.activeSupervisions',
+                    fn ($sub) => $sub->where('supervisor_profile_id', $supervisorId)
+                )->orWhereHas(
+                    'examinerAssignments',
+                    fn ($sub) => $sub->where('examiner_id', $user->id)->where('is_active', true)
+                );
+            });
         }
 
         return $query->whereRaw('1 = 0');

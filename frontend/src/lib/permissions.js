@@ -11,10 +11,9 @@
 /** Seniority ordering, used for "at least this role" checks. */
 const SENIORITY = {
   student: 1,
-  examiner: 2,
-  supervisor: 3,
-  coordinator: 4,
-  admin: 5,
+  supervisor: 2,
+  coordinator: 3,
+  admin: 4,
 }
 
 /** Where each role lands after signing in. */
@@ -22,23 +21,30 @@ const HOME_ROUTES = {
   student: '/student/dashboard',
   supervisor: '/supervisor/dashboard',
   coordinator: '/coordinator/dashboard',
-  examiner: '/examiner/dashboard',
   admin: '/admin/dashboard',
 }
 
-/** Capability → roles that hold it. Mirrors Role.php on the server. */
+/**
+ * Capability → roles that hold it. Mirrors Role.php on the server.
+ *
+ * There is no `examiner` role: a panel is drawn from the people who supervise,
+ * so `supervisor` covers both. Which *form* someone fills is decided by the
+ * assessor type on the evaluation, not by their account.
+ */
 const CAPABILITIES = {
-  assess: ['supervisor', 'examiner', 'coordinator'],
+  assess: ['supervisor', 'coordinator'],
   viewCohortAnalytics: ['coordinator', 'admin'],
   manageUsers: ['admin'],
-  accessArchive: ['student', 'supervisor', 'coordinator', 'examiner', 'admin'],
-  manageLeaderboard: ['coordinator', 'admin'],
+  accessArchive: ['student', 'supervisor', 'coordinator', 'admin'],
   assignSupervisors: ['coordinator', 'admin'],
-  releaseGrades: ['coordinator', 'admin'],
-  moderateMarks: ['coordinator', 'admin'],
+  releaseMarks: ['coordinator', 'admin'],
+  /** Create terms, open/close registration, set per-term mark release. */
+  manageSemesters: ['coordinator', 'admin'],
   manageMilestones: ['supervisor', 'coordinator', 'admin'],
   manageTemplates: ['admin'],
   viewAuditLog: ['coordinator', 'admin'],
+  /** Open/lock/unlock mark submissions (Module 4). */
+  manageMarkSubmissions: ['coordinator', 'admin'],
 }
 
 export function homeRouteFor(role) {
@@ -62,7 +68,6 @@ export const ROLE_LABELS = {
   student: 'Student',
   supervisor: 'Supervisor',
   coordinator: 'Coordinator',
-  examiner: 'Examiner',
   admin: 'Administrator',
 }
 
@@ -71,7 +76,6 @@ export const ROLE_TONES = {
   student: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   supervisor: 'bg-amber-50 text-amber-700 border-amber-200',
   coordinator: 'bg-violet-50 text-violet-700 border-violet-200',
-  examiner: 'bg-sky-50 text-sky-700 border-sky-200',
   admin: 'bg-rose-50 text-rose-700 border-rose-200',
 }
 

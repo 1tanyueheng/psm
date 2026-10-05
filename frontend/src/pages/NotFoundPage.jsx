@@ -47,9 +47,6 @@ export default function NotFoundPage() {
               <Link to="/login">
                 <Button>Sign in</Button>
               </Link>
-              <Link to="/leaderboard">
-                <Button variant="secondary">View award results</Button>
-              </Link>
             </>
           )}
         </div>

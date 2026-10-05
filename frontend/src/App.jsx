@@ -22,9 +22,11 @@ const ChangePasswordPage = lazy(() => import('./pages/auth/ChangePasswordPage'))
 const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard'))
 const SupervisorDashboard = lazy(() => import('./pages/supervisor/SupervisorDashboard'))
 const CoordinatorDashboard = lazy(() => import('./pages/coordinator/CoordinatorDashboard'))
-const ExaminerDashboard = lazy(() => import('./pages/examiner/ExaminerDashboard'))
+const MarkSubmissionPage = lazy(() => import('./pages/coordinator/MarkSubmissionPage'))
+const PanelWorkPage = lazy(() => import('./pages/panel/PanelWorkPage'))
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 const UserListPage = lazy(() => import('./pages/admin/UserListPage'))
+const SemesterListPage = lazy(() => import('./pages/admin/SemesterListPage'))
 
 const ProjectListPage = lazy(() => import('./pages/projects/ProjectListPage'))
 const ProjectDetailPage = lazy(() => import('./pages/projects/ProjectDetailPage'))
@@ -37,23 +39,19 @@ const MilestoneDetailPage = lazy(() => import('./pages/milestones/MilestoneDetai
 
 const EvaluationListPage = lazy(() => import('./pages/evaluations/EvaluationListPage'))
 const EvaluationFormPage = lazy(() => import('./pages/evaluations/EvaluationFormPage'))
-const GradeListPage = lazy(() => import('./pages/evaluations/GradeListPage'))
+const MarkListPage = lazy(() => import('./pages/evaluations/MarkListPage'))
+const AssessmentWindowPage = lazy(() => import('./pages/coordinator/AssessmentWindowPage'))
 const RubricListPage = lazy(() => import('./pages/evaluations/RubricListPage'))
 
 const AssignmentPage = lazy(() => import('./pages/assignments/AssignmentPage'))
+const PanelAssignmentPage = lazy(() => import('./pages/assignments/PanelAssignmentPage'))
 const ReportPage = lazy(() => import('./pages/reports/ReportPage'))
 const ArchivePage = lazy(() => import('./pages/archive/ArchivePage'))
 const ArchiveDetailPage = lazy(() => import('./pages/archive/ArchiveDetailPage'))
 const AuditLogPage = lazy(() => import('./pages/archive/AuditLogPage'))
 
-const LeaderboardAdminPage = lazy(() => import('./pages/leaderboards/LeaderboardAdminPage'))
-const LeaderboardBuilderPage = lazy(() => import('./pages/leaderboards/LeaderboardBuilderPage'))
-
 const NotificationPage = lazy(() => import('./pages/account/NotificationPage'))
 const ProfilePage = lazy(() => import('./pages/account/ProfilePage'))
-
-// Module 8 — public, no authentication, no app shell
-const PublicLeaderboardPage = lazy(() => import('./pages/public/PublicLeaderboardPage'))
 
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
@@ -69,14 +67,6 @@ export default function AppRoutes() {
   return (
     <Suspense fallback={<PageFallback />}>
       <Routes>
-        {/* ---------------- Public ---------------- */}
-
-        {/* Module 8 — genuinely public. Outside RequireAuth and outside the
-            app shell, because a visitor has no account and should not be
-            shown a signed-in layout. */}
-        <Route path="/leaderboard" element={<PublicLeaderboardPage />} />
-        <Route path="/leaderboard/:slug" element={<PublicLeaderboardPage />} />
-
         {/* ---------------- Auth ---------------- */}
         <Route
           path="/login"
@@ -137,10 +127,20 @@ export default function AppRoutes() {
             }
           />
           <Route
-            path="/examiner/dashboard"
+            path="/coordinator/projects/:project/students/:student/mark-submission"
             element={
-              <RequireRole roles={['examiner']}>
-                <ExaminerDashboard />
+              <RequireCapability capability="manageMarkSubmissions">
+                <MarkSubmissionPage />
+              </RequireCapability>
+            }
+          />
+          {/* The panel view. Same role as /supervisor/dashboard — being on a
+              panel is a seating, not a separate kind of account. */}
+          <Route
+            path="/panel/dashboard"
+            element={
+              <RequireRole roles={['supervisor']}>
+                <PanelWorkPage />
               </RequireRole>
             }
           />
@@ -191,15 +191,35 @@ export default function AppRoutes() {
               </RequireCapability>
             }
           />
+          {/* Seating a panel is the same audience as allocating supervisors —
+              both are the coordinator's pairing decisions. */}
+          <Route
+            path="/assignments/panels"
+            element={
+              <RequireCapability capability="assignSupervisors">
+                <PanelAssignmentPage />
+              </RequireCapability>
+            }
+          />
 
           {/* --- Module 4: assessment --- */}
           <Route path="/evaluations" element={<EvaluationListPage />} />
+          {/* The coordinator's open/close control over marking. Assessors read
+              the same windows from their marking page. */}
+          <Route
+            path="/assessment"
+            element={
+              <RequireCapability capability="releaseMarks">
+                <AssessmentWindowPage />
+              </RequireCapability>
+            }
+          />
           <Route path="/evaluations/:id" element={<EvaluationFormPage />} />
           <Route
-            path="/grades"
+            path="/marks"
             element={
-              <RequireCapability capability="releaseGrades">
-                <GradeListPage />
+              <RequireCapability capability="releaseMarks">
+                <MarkListPage />
               </RequireCapability>
             }
           />
@@ -211,6 +231,16 @@ export default function AppRoutes() {
             element={
               <RequireCapability capability="viewCohortAnalytics">
                 <ReportPage />
+              </RequireCapability>
+            }
+          />
+
+          {/* --- Module 3: the term that owns both batches --- */}
+          <Route
+            path="/semesters"
+            element={
+              <RequireCapability capability="manageSemesters">
+                <SemesterListPage />
               </RequireCapability>
             }
           />
@@ -233,24 +263,6 @@ export default function AppRoutes() {
             element={
               <RequireCapability capability="viewAuditLog">
                 <AuditLogPage />
-              </RequireCapability>
-            }
-          />
-
-          {/* --- Module 8: staff-side leaderboard management --- */}
-          <Route
-            path="/leaderboards"
-            element={
-              <RequireCapability capability="manageLeaderboard">
-                <LeaderboardAdminPage />
-              </RequireCapability>
-            }
-          />
-          <Route
-            path="/leaderboards/:id"
-            element={
-              <RequireCapability capability="manageLeaderboard">
-                <LeaderboardBuilderPage />
               </RequireCapability>
             }
           />

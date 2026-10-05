@@ -88,8 +88,22 @@ class UserSeeder extends Seeder
         // -----------------------------------------------------------------
         // Supervisors
         // -----------------------------------------------------------------
+        /**
+         * Supervisor roster.
+         *
+         * Trailing columns are optional per-batch ceilings. They exist so the
+         * seed exercises the case acceptance criterion #4 is actually about:
+         * capacity enforced *per batch*, not globally. With every supervisor at
+         * the config default of 5+5, a screen could show a single "5/10" total
+         * and still pass, because the two ceilings never diverge.
+         *
+         * SUP-001 carries 2 PSM 1 and 2 PSM 2 students in the active term, so
+         * capping PSM 1 at 2 makes them exactly full on one batch while still
+         * having room on the other — the situation a supervisor dashboard has
+         * to be able to express.
+         */
         $supervisorData = [
-            ['Dr.',  'Ahmad Faizal bin Hassan',  'SUP-001',  8,  ['Artificial Intelligence', 'Machine Learning', 'Data Mining']],
+            ['Dr.',  'Ahmad Faizal bin Hassan',  'SUP-001',  8,  ['Artificial Intelligence', 'Machine Learning', 'Data Mining'], 2, null],
             ['Dr.',  'Tan Wei Ming',             'SUP-002',  6,  ['Cybersecurity', 'Cryptography', 'Digital Forensics']],
             ['Prof.', 'Siti Nurhaliza binti Ali','SUP-003', 10, ['Software Engineering', 'Web Development', 'Cloud Computing']],
             ['Dr.',  'Rajesh Kumar',             'SUP-004',  8,  ['Internet of Things', 'Computer Networks', 'Cloud Computing']],
@@ -101,7 +115,14 @@ class UserSeeder extends Seeder
 
         $supervisors = [];
 
-        foreach ($supervisorData as [$title, $name, $staffNo, $capacity, $areas]) {
+        // Pad every row to seven columns so the destructuring below never hits a
+// missing key for the supervisors that leave the per-batch ceilings unset.
+$supervisorData = array_map(
+    fn (array $row) => array_pad($row, 7, null),
+    $supervisorData
+);
+
+foreach ($supervisorData as [$title, $name, $staffNo, $capacity, $areas, $psm1Cap, $psm2Cap]) {
             $user = User::updateOrCreate(
                 ['email' => strtolower(str_replace([' ', '.'], ['.', ''], $staffNo)).'@psm.test'],
                 [
@@ -120,6 +141,11 @@ class UserSeeder extends Seeder
                     'staff_no'         => $staffNo,
                     'academic_title'   => $title,
                     'max_supervisees'  => $capacity,
+                    // Left null where unspecified, so `capacityForPart` falls
+                    // back to the configured default rather than pinning every
+                    // supervisor to a literal 5.
+                    'max_supervisees_psm1' => $psm1Cap,
+                    'max_supervisees_psm2' => $psm2Cap,
                     'is_accepting_students' => true,
                     'office_location'  => 'Block C, Level 3',
                     'bio'              => "{$title} {$name} supervises PSM projects in ".implode(', ', $areas).'.',
@@ -142,37 +168,41 @@ class UserSeeder extends Seeder
         $this->command->line('  Supervisors: '.count($supervisors));
 
         // -----------------------------------------------------------------
-        // Examiners
+        // Academic staff, second cohort
         // -----------------------------------------------------------------
-        $examinerData = [
+        // These four used to be seeded as a separate `examiner` role. There is
+        // no such role any more: a panel is drawn from the same people who
+        // supervise, so they are ordinary supervisors with capacity and
+        // expertise, and a coordinator may seat any of them on a panel.
+        $staffData = [
             ['Dr.', 'Zulkifli bin Omar',   'EXM-001', ['Artificial Intelligence', 'Software Engineering']],
             ['Dr.', 'Chong Mei Ling',      'EXM-002', ['Cybersecurity', 'Computer Networks']],
             ['Prof.', 'Azlina binti Rahim','EXM-003', ['Database Systems', 'Big Data Analytics']],
             ['Dr.', 'Kavitha Subramaniam', 'EXM-004', ['Human-Computer Interaction', 'Mobile Computing']],
         ];
 
-        foreach ($examinerData as [$title, $name, $staffNo, $areas]) {
+        foreach ($staffData as [$title, $name, $staffNo, $areas]) {
             $user = User::updateOrCreate(
                 ['email' => strtolower($staffNo).'@psm.test'],
                 [
                     'name'       => $name,
                     'password'   => Hash::make('password'),
-                    'role'       => Role::Examiner,
+                    'role'       => Role::Supervisor,
                     'status'     => 'active',
                     'staff_id'   => $staffNo,
                     'department' => 'Faculty of Computing',
                 ]
             );
 
-            // Examiners need a supervisor profile for staff_no and expertise
             $profile = SupervisorProfile::updateOrCreate(
                 ['user_id' => $user->id],
                 [
                     'staff_no'              => $staffNo,
                     'academic_title'        => $title,
-                    'max_supervisees'       => 0,      // examiners do not supervise
-                    'is_accepting_students' => false,
-                    'can_examine'           => true,
+                    'max_supervisees'       => (int) config('psm.supervisor_max_capacity', 8),
+                    'max_supervisees_psm1'  => (int) config('psm.supervisor_capacity.PSM1', 5),
+                    'max_supervisees_psm2'  => (int) config('psm.supervisor_capacity.PSM2', 5),
+                    'is_accepting_students' => true,
                 ]
             );
 
@@ -183,9 +213,10 @@ class UserSeeder extends Seeder
             );
         }
 
+        // The email is kept as a stable demo login; the account is a supervisor.
         User::where('email', 'exm-001@psm.test')->update(['email' => 'examiner@psm.test']);
 
-        $this->command->line('  Examiners: '.count($examinerData));
+        $this->command->line('  Academic staff (second cohort): '.count($staffData));
 
         // -----------------------------------------------------------------
         // Students — a full cohort

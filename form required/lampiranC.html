@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lampiran C - Borang Pembetulan Cadangan Projek</title>
+  <style>
+    :root {
+      --primary-color: #003366;
+      --border-color: #ccc;
+      --bg-light: #f9f9f9;
+    }
+    body { font-family: Arial, sans-serif; line-height: 1.4; color: #333; margin: 0; padding: 20px; background-color: #f4f6f9; }
+    .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .header { text-align: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 15px; margin-bottom: 20px; }
+    .header h2, .header h3, .header h4 { margin: 4px 0; color: var(--primary-color); }
+    .doc-ref { text-align: right; font-size: 0.85em; font-weight: bold; }
+    .instruction-box { background-color: #eef4fb; border-left: 4px solid var(--primary-color); padding: 10px 15px; margin-bottom: 20px; font-size: 0.9em; }
+    .section-title { background-color: var(--primary-color); color: #fff; padding: 8px 12px; font-weight: bold; margin-top: 25px; margin-bottom: 15px; border-radius: 4px; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group.full-width { grid-column: 1 / -1; }
+    .form-group label { font-weight: bold; margin-bottom: 5px; font-size: 0.9em; }
+    .form-group input, .form-group select, .form-group textarea { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.95em; }
+    .info-note { background: var(--bg-light); border: 1px solid var(--border-color); padding: 12px; border-radius: 4px; font-size: 0.85em; margin-top: 15px; line-height: 1.4; }
+    .comments-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
+    .comments-table th, .comments-table td { border: 1px solid var(--border-color); padding: 8px; text-align: left; }
+    .comments-table th { background-color: var(--primary-color); color: white; font-weight: bold; }
+    .comments-table textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 4px; padding: 6px; font-family: inherit; resize: vertical; }
+    .declaration { font-size: 0.9em; margin-top: 15px; line-height: 1.4; }
+    .signature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }
+    .signature-box { border: 1px dashed var(--border-color); height: 90px; display: flex; align-items: center; justify-content: center; color: #888; background-color: var(--bg-light); border-radius: 4px; text-align: center; padding: 5px; }
+    .jkpsm-box { border: 2px solid var(--primary-color); padding: 15px; border-radius: 6px; background-color: #f0f4f8; margin-top: 25px; }
+    .btn-container { margin-top: 30px; text-align: center; }
+    .btn { background-color: var(--primary-color); color: white; border: none; padding: 12px 24px; font-size: 1em; border-radius: 4px; cursor: pointer; }
+    .btn:hover { opacity: 0.9; }
+    @media print {
+      body { background-color: #fff; padding: 0; }
+      .container { box-shadow: none; max-width: 100%; padding: 0; }
+      .btn-container { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="doc-ref">UTHM.FSKTM/UA-34/2025<br>LAMPIRAN C</div>
+  
+  <div class="header">
+    <h2>UNIVERSITI TUN HUSSEIN ONN MALAYSIA</h2>
+    <h3>FAKULTI SAINS KOMPUTER DAN TEKNOLOGI MAKLUMAT</h3>
+    <h4>PROJEK SARJANA MUDA</h4>
+    <p><strong>BORANG PEMBETULAN CADANGAN PROJEK<br>(BAGI PROJEK DENGAN PENERIMAAN BERSYARAT)</strong><br>
+    <em>Proposed Project Amendment Form (for Projects with Conditional Acceptance)</em></p>
+  </div>
+
+  <div class="instruction-box">
+    <strong>Arahan:</strong> Sila lengkapkan Bahagian A, B, C dan D, kemudian serahkan borang kepada JKPSM pada masa yang ditetapkan.<br>
+    <em><strong>Instruction:</strong> Please complete Part A, B, C and D, then submit the form to the PSM Committee at the designated time.</em>
+  </div>
+
+  <form id="formC">
+    <div class="form-group" style="margin-bottom: 20px;">
+      <label for="session">Sesi/Semester (Session/Semester):</label>
+      <input type="text" id="session" name="session" placeholder="e.g. 2025/2026 Semester I" required>
+    </div>
+
+    <!-- BAHAGIAN A -->
+    <div class="section-title">BAHAGIAN A: MAKLUMAT PELAJAR / PART A: STUDENT INFORMATION</div>
+    <div class="form-grid">
+      <div class="form-group full-width">
+        <label for="studentName">Nama (Name):</label>
+        <input type="text" id="studentName" name="studentName" required>
+      </div>
+      <div class="form-group">
+        <label for="matricNum">No. Matrik (Matric Num):</label>
+        <input type="text" id="matricNum" name="matricNum" required>
+      </div>
+      <div class="form-group">
+        <label for="yearStudy">Tahun Pengajian Semasa (Current Year of Study):</label>
+        <input type="text" id="yearStudy" name="yearStudy" required>
+      </div>
+      <div class="form-group">
+        <label for="programme">Program (Programme):</label>
+        <select id="programme" name="programme" required>
+          <option value="">-- Pilih / Select --</option>
+          <option value="BIT">BIT</option>
+          <option value="BIS">BIS</option>
+          <option value="BIP">BIP</option>
+          <option value="BIW">BIW</option>
+          <option value="BIM">BIM</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="icNum">No. KP (IC Num):</label>
+        <input type="text" id="icNum" name="icNum">
+      </div>
+      <div class="form-group">
+        <label for="passportNum">No. Passport (Passport Num):</label>
+        <input type="text" id="passportNum" name="passportNum">
+      </div>
+      <div class="form-group">
+        <label for="mobileNum">No. Tel (Mobile Num):</label>
+        <input type="tel" id="mobileNum" name="mobileNum" required>
+      </div>
+      <div class="form-group full-width">
+        <label for="defenseDate">Tarikh Pembentangan Tajuk (Date of Title Defense):</label>
+        <input type="date" id="defenseDate" name="defenseDate" required>
+      </div>
+      <div class="form-group full-width">
+        <label for="examiner1">Nama Penilai 1 (Examiner 1 Name):</label>
+        <input type="text" id="examiner1" name="examiner1" required>
+      </div>
+      <div class="form-group full-width">
+        <label for="examiner2">Nama Penilai 2 (Examiner 2 Name):</label>
+        <input type="text" id="examiner2" name="examiner2" required>
+      </div>
+    </div>
+
+    <!-- BAHAGIAN B -->
+    <div class="section-title">BAHAGIAN B: TAJUK PROJEK / PART B: PROJECT TITLE</div>
+    <div class="form-group" style="margin-bottom: 15px;">
+      <label for="previousTitle">Tajuk Lama (Previous Title):</label>
+      <textarea id="previousTitle" name="previousTitle" rows="2" required></textarea>
+    </div>
+    <div class="form-group" style="margin-bottom: 15px;">
+      <label for="newTitle">Tajuk Baharu (New Title):</label>
+      <textarea id="newTitle" name="newTitle" rows="2" required></textarea>
+    </div>
+
+    <div class="info-note">
+      <strong>*Keterangan (Description):</strong><br>
+      • <strong>Tajuk Lama</strong> adalah tajuk yang dipersetujui semasa sesi Pembentangan Tajuk (Penerimaan Bersyarat)<br>
+      <em>(Previous Title refers to the title that was approved during the Title Defense session - with Conditional Approval)</em><br>
+      • <strong>Tajuk Baharu</strong> adalah tajuk setelah perbincangan semula dengan penyelia (atau tuliskan Tiada Perubahan)<br>
+      <em>(New Title refers to the title after further discussion with the supervisor - or write No Changes)</em>
+    </div>
+
+    <!-- BAHAGIAN C -->
+    <div class="section-title">BAHAGIAN C: ULASAN PENILAI / PEMBETULAN DIPERLUKAN<br><span style="font-size: 0.85em; font-weight: normal;">PART C: EXAMINER'S COMMENTS/REQUIRED CORRECTIONS</span></div>
+    <p style="font-size: 0.9em; margin-bottom: 10px;">
+      Senarai ulasan/komen yang diterima daripada Penilai (Lampirkan halaman tambahan jika perlu).<br>
+      <em>List of reviews/comments received from the Examiner (Attach additional pages if necessary).</em>
+    </p>
+
+    <table class="comments-table">
+      <thead>
+        <tr>
+          <th style="width: 5%; text-align: center;">No.</th>
+          <th style="width: 48%;">Komen Penilai (Examiner's Comment)</th>
+          <th style="width: 47%;">Tindakan Pembetulan (Correction Action)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="text-align: center;">1</td>
+          <td><textarea name="comment1" rows="3"></textarea></td>
+          <td><textarea name="action1" rows="3"></textarea></td>
+        </tr>
+        <tr>
+          <td style="text-align: center;">2</td>
+          <td><textarea name="comment2" rows="3"></textarea></td>
+          <td><textarea name="action2" rows="3"></textarea></td>
+        </tr>
+        <tr>
+          <td style="text-align: center;">3</td>
+          <td><textarea name="comment3" rows="3"></textarea></td>
+          <td><textarea name="action3" rows="3"></textarea></td>
+        </tr>
+        <tr>
+          <td style="text-align: center;">4</td>
+          <td><textarea name="comment4" rows="3"></textarea></td>
+          <td><textarea name="action4" rows="3"></textarea></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="declaration">
+      Saya dengan ini mengakui bahawa cadangan projek di atas telah dipinda/ditambahbaik mengikut cadangan penilai seperti yang dinyatakan di atas.<br>
+      <em>(I hereby confirm that the above project proposal has been revised/improved according to the suggestions of the examiner as stated above.)</em>
+    </div>
+
+    <div class="signature-grid">
+      <div class="form-group">
+        <label for="studentDate">Tarikh (Date):</label>
+        <input type="date" id="studentDate" name="studentDate">
+      </div>
+      <div class="form-group" style="grid-column: span 2;">
+        <label>Tandatangan Pelajar (Student's Signature):</label>
+        <div class="signature-box">[ Ruang Tandatangan Pelajar ]</div>
+      </div>
+    </div>
+
+    <!-- BAHAGIAN D -->
+    <div class="section-title">BAHAGIAN D: PENERIMAAN PENYELIA / PART D: SUPERVISOR ACKNOWLEDGMENT</div>
+    <div class="declaration">
+      Saya mengesahkan bahawa pelajar telah membuat pembetulan yang diperlukan dan cadangan projek/tajuk yang dipinda adalah sesuai untuk diteruskan bagi projek PSM.<br>
+      <em>(I confirm that the student has made the necessary corrections and that the revised title is appropriate for the continuation of the PSM project.)</em>
+    </div>
+
+    <div class="signature-grid" style="grid-template-columns: 1fr 2fr;">
+      <div class="form-group">
+        <label for="supervisorDate">Tarikh (Date):</label>
+        <input type="date" id="supervisorDate" name="supervisorDate">
+      </div>
+      <div class="form-group">
+        <label>Tandatangan & Cop Rasmi (Signature & Official Stamp):</label>
+        <div class="signature-box" style="height: 100px;">[ Ruang Tandatangan & Cop Rasmi ]</div>
+      </div>
+    </div>
+
+    <!-- BAHAGIAN E -->
+    <div class="jkpsm-box">
+      <div style="font-weight: bold; color: var(--primary-color); margin-bottom: 10px;">
+        BAHAGIAN E: UNTUK KEGUNAAN JKPSM / PART E: FOR JKPSM USE ONLY
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="jkpsmDate">Tarikh diterima (Date received):</label>
+          <input type="date" id="jkpsmDate" name="jkpsmDate">
+        </div>
+        <div class="form-group">
+          <label>Tandatangan (Signature):</label>
+          <div class="signature-box" style="height: 60px;">[ Ruang Tandatangan JKPSM ]</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-container">
+      <button type="button" class="btn" onclick="window.print()">Cetak / Simpan PDF</button>
+    </div>
+  </form>
+</div>
+
+</body>
+</html>

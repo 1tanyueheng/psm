@@ -1,0 +1,20 @@
+{
+  "format": "xlsx",
+  "verdict": "pass",
+  "checks": [
+    {
+      "id": "package",
+      "status": "pass"
+    }
+  ],
+  "summary": {
+    "sheets": [
+      {
+        "name": "HIRARC FORM",
+        "cells": 264,
+        "formulas": 10
+      }
+    ],
+    "formulas_evaluated": false
+  }
+}

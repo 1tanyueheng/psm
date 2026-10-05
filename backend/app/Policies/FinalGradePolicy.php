@@ -24,18 +24,23 @@ class FinalGradePolicy
             return true;
         }
 
-        // A supervisor may see the result of a project they supervise
+        // Academic staff see the result of a project they supervise *or* one
+        // they sit on the panel for — the same person can be both, for
+        // different students.
         if ($actor->isSupervisor()) {
             $supervisorId = $actor->supervisorProfile?->id;
 
-            if ($supervisorId === null) {
-                return false;
+            if ($supervisorId !== null
+                && $grade->project->members()
+                    ->whereHas('studentProfile.activeSupervisions', function ($q) use ($supervisorId) {
+                        $q->where('supervisor_profile_id', $supervisorId);
+                    })
+                    ->exists()) {
+                return true;
             }
 
-            return $grade->project->members()
-                ->whereHas('studentProfile.activeSupervisions', function ($q) use ($supervisorId) {
-                    $q->where('supervisor_profile_id', $supervisorId);
-                })
+            return $grade->project->examinerAssignments()
+                ->where('examiner_id', $actor->id)
                 ->exists();
         }
 
@@ -46,13 +51,6 @@ class FinalGradePolicy
             return $studentId !== null
                 && $grade->student_profile_id === $studentId
                 && $grade->isReleased();
-        }
-
-        // An examiner sees the outcomes of projects they assessed
-        if ($actor->isExaminer()) {
-            return $grade->project->examinerAssignments()
-                ->where('examiner_id', $actor->id)
-                ->exists();
         }
 
         return false;

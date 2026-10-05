@@ -438,6 +438,36 @@ def main() -> int:
                     return True
             return False
 
+        def param_segments(target: str) -> list[str]:
+            """
+            The segments of `target` that match only because a route declares a
+            `:param` there. Empty when the path matches a route exactly.
+
+            This exists because a mistyped literal path is *invisible* to a
+            plain "does any route accept this?" check. `/projects/register`
+            matches `/projects/:id` perfectly well, so the router rendered the
+            project detail page for a project literally called "register" and
+            the user saw "not found" — which reads like a permissions or data
+            problem rather than a wrong URL. The real route was `/projects/new`.
+            """
+            if target in declared:
+                return []
+
+            target_parts = [p for p in target.split("/") if p != ""]
+            for pattern in declared:
+                pattern_parts = [p for p in pattern.split("/") if p != ""]
+                if len(pattern_parts) != len(target_parts):
+                    continue
+                if all(
+                    pp.startswith(":") or pp == tp
+                    for pp, tp in zip(pattern_parts, target_parts)
+                ):
+                    return [
+                        tp for pp, tp in zip(pattern_parts, target_parts)
+                        if pp.startswith(":")
+                    ]
+            return []
+
         for path in parsed:
             # Only screens are worth checking; a link in App.jsx is a route.
             if path == app_path:
@@ -458,6 +488,19 @@ def main() -> int:
                     problems.append(
                         f"{rel(path)}: links to {target!r} but App.jsx declares no "
                         f"such route"
+                    )
+                    continue
+
+                # A real id is fine; anything else sitting in a `:param` slot is
+                # a mistyped path that happens to resolve to a detail page.
+                stray = [p for p in param_segments(target) if not p.isdigit()]
+
+                if stray:
+                    problems.append(
+                        f"{rel(path)}: links to {target!r}, which matches no route "
+                        f"directly and only resolves because {stray!r} falls into a "
+                        f"dynamic segment — it renders the detail page for a record "
+                        f"literally named {stray[0]!r} instead of the page intended."
                     )
 
     # ---------------------------------------------------------------------

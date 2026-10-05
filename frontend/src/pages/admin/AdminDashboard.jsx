@@ -64,13 +64,10 @@ export default function AdminDashboard() {
       <PageHeader
         title="System administration"
         subtitle="Accounts, access, and the audit trail"
-        actions={
+        action={
           <div className="flex gap-2">
             <Link to="/audit">
               <Button variant="secondary">Audit log</Button>
-            </Link>
-            <Link to="/leaderboards">
-              <Button>Pixel-It awards</Button>
             </Link>
           </div>
         }

@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { reportApi, assignmentApi } from '../../api/endpoints'
+import { reportApi, assignmentApi, projectApi } from '../../api/endpoints'
 import { unwrap, unwrapPaged } from '../../api/client'
 import {
   Card, CardHeader, PageHeader, StatCard, Badge, ProgressBar,
   EmptyState, Spinner, ErrorState, Button, DataTable, Td,
+  SegmentedControl, FilterBar, FilterField, Select,
 } from '../../components/ui'
 import { formatPercent } from '../../lib/format'
+import { PSM_PARTS, partLabel } from '../../lib/psmPart'
+import { useSemesters } from '../../context/SemesterContext'
+
+const LAST_PART_KEY = 'psm.dashboard.lastPart'
 
 /**
  * Coordinator dashboard — Module 5's cohort view.
@@ -14,8 +19,19 @@ import { formatPercent } from '../../lib/format'
  * The coordinator is accountable for the whole batch, so this page answers
  * "is the cohort on track, and where is it stuck" rather than tracking
  * individuals. Distribution charts and the bottleneck list are the priority.
+ *
+ * PSM 1 and PSM 2 run concurrently in one term, so the cohort view is
+ * segmented by batch (acceptance criterion #1) and scoped to a term. Switching
+ * batch does not refetch: `by_part` already carries each batch's cohort, marks
+ * and at-risk figures for the term, so both halves stay comparable in a single
+ * round trip — which is the point of showing them side by side.
  */
 export default function CoordinatorDashboard() {
+  const { selected, selectedId, options: semesterOptions, selectSemester } = useSemesters()
+
+  // '' means both batches. Remembered per browser so a coordinator working
+  // through one half of the cohort is not flipped back on every reload.
+  const [part, setPart] = useState(() => readLastPart())
   const [overview, setOverview] = useState(null)
   const [distribution, setDistribution] = useState([])
   const [workload, setWorkload] = useState([])
@@ -23,26 +39,39 @@ export default function CoordinatorDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  function changePart(next) {
+    setPart(next)
+    try {
+      window.localStorage.setItem(LAST_PART_KEY, next)
+    } catch {
+      // The preference simply will not persist.
+    }
+  }
+
+  // Refetch when the term changes — every figure here is scoped to it, so a
+  // stale term would quietly show the previous cohort's numbers.
   useEffect(() => {
     let cancelled = false
 
     async function load() {
       setLoading(true)
       setError(null)
+
       try {
         // Four independent reads — run them together rather than in series.
+        const scope = { semester_id: selectedId ?? undefined }
         const [overviewRes, distributionRes, workloadRes, unpairedRes] = await Promise.all([
-          reportApi.overview(),
-          reportApi.gradeDistribution(),
-          reportApi.workload(),
-          assignmentApi.unassigned({ per_page: 1 }),
+          reportApi.overview(scope),
+          reportApi.markDistribution(scope),
+          reportApi.workload(scope),
+          assignmentApi.unassigned({ ...scope, per_page: 1 }),
         ])
         if (cancelled) return
 
         setOverview(unwrap(overviewRes))
-        // The API returns the distribution as { by_band: [...] } — the bands
+        // The API returns the distribution as { by_range: [...] } — the ranges
         // are what the bars render, not the raw `distribution` map.
-        setDistribution(unwrap(distributionRes)?.by_band ?? [])
+        setDistribution(unwrap(distributionRes)?.by_range ?? [])
         setWorkload(unwrap(workloadRes) ?? [])
         setUnpaired(unwrapPaged(unpairedRes).meta)
       } catch (err) {
@@ -56,41 +85,55 @@ export default function CoordinatorDashboard() {
     return () => {
       cancelled = true
     }
-  }, [])
-
-  const maxBand = useMemo(
-    () => Math.max(1, ...distribution.map((row) => row.count ?? 0)),
-    [distribution]
-  )
+  }, [selectedId])
 
   const k = overview ?? {}
-  const cohort = k.cohort ?? {}
+
+  // The server returns a row for both batches whether or not either has
+  // students, so the segmented control always has two options to render.
+  const byPart = k.by_part ?? {}
+  const partTotals = Object.fromEntries(
+    PSM_PARTS.map((value) => [value, byPart[value]?.cohort?.total_projects ?? 0])
+  )
+  const partCounts = {
+    all: PSM_PARTS.reduce((sum, value) => sum + partTotals[value], 0),
+    ...partTotals,
+  }
+
+  // Everything below describes the selected batch when one is chosen, and the
+  // whole term otherwise.
+  const scoped = part ? byPart[part] : null
+  const cohort = (scoped ? scoped.cohort : k.cohort) ?? {}
   const stages = cohort.stages ?? {}
-  const byBand = (() => {
-    const first = cohort.by_batch?.[0]
-    return first?.batch ? `Batch ${first.batch}` : null
-  })()
+  const marks = (scoped ? scoped.marks : k.marks) ?? {}
+
+  // The chart follows the batch too, so PSM 1 and PSM 2 marks are never mixed.
+  const bands = scoped ? (scoped.marks?.by_range ?? []) : distribution
+  const maxBand = useMemo(() => Math.max(1, ...bands.map((row) => row.count ?? 0)), [bands])
 
   // Module 5's "where is the cohort stuck" — drawn from the summary the
   // dashboard endpoint already returns, rather than a separate round-trip.
   const attention = [
     { label: 'Awaiting review', count: k.awaiting_review ?? 0, tone: 'warning' },
-    { label: 'At risk', count: k.at_risk ?? 0, tone: 'danger' },
+    { label: 'At risk', count: (scoped ? scoped.at_risk : k.at_risk) ?? 0, tone: 'danger' },
     { label: 'Revision required', count: stages.rejected?.count ?? 0, tone: 'warning' },
   ].filter((item) => item.count > 0)
 
-  if (loading) return <Spinner label="Loading cohort analytics" />
-  if (error) return <ErrorState message={error.message || error} />
+  if (loading && !overview) return <Spinner label="Loading cohort analytics" />
+  if (error && !overview) return <ErrorState message={error.message || error} />
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Cohort overview"
-        subtitle={byBand ?? 'Current cohort'}
-        actions={
-          <div className="flex gap-2">
+        subtitle={selected?.name ?? 'Current cohort'}
+        action={
+          <div className="flex flex-wrap gap-2">
             <Link to="/assignments">
               <Button variant="secondary">Assign supervisors</Button>
+            </Link>
+            <Link to="/semesters">
+              <Button variant="secondary">Manage semesters</Button>
             </Link>
             <Link to="/reports">
               <Button>Full analytics</Button>
@@ -99,8 +142,45 @@ export default function CoordinatorDashboard() {
         }
       />
 
+      <FilterBar>
+        <FilterField label="Semester">
+          <Select
+            value={selectedId ?? ''}
+            onChange={(event) => selectSemester(event.target.value)}
+            className="min-w-[13rem]"
+          >
+            {semesterOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+                {option.active ? ' (active)' : ''}
+              </option>
+            ))}
+          </Select>
+        </FilterField>
+
+        <FilterField label="Batch">
+          <SegmentedControl
+            value={part}
+            onChange={changePart}
+            name="dashboard_part"
+            options={[
+              { value: '', label: 'All batches', count: partCounts.all },
+              ...PSM_PARTS.map((value) => ({
+                value,
+                label: partLabel(value, { short: true }),
+                count: partTotals[value],
+              })),
+            ]}
+          />
+        </FilterField>
+      </FilterBar>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Active projects" value={cohort.total_projects ?? 0} hint="Current batch in flight" />
+        <StatCard
+          label="Active projects"
+          value={cohort.total_projects ?? 0}
+          hint={part ? `In ${partLabel(part)}` : 'Both batches'}
+        />
         <StatCard
           label="Unpaired students"
           value={unpaired?.total ?? 0}
@@ -114,37 +194,43 @@ export default function CoordinatorDashboard() {
           tone={(stages.overdue?.count ?? 0) > 0 ? 'warning' : 'success'}
         />
         <StatCard
-          label="Grades released"
-          value={k.grades?.total ?? 0}
-          hint="Released final grades"
+          label="Marks released"
+          value={marks.total ?? 0}
+          hint="Released final marks"
           tone="success"
         />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Grade distribution — module 5's headline chart. */}
+        {/* Mark distribution — module 5's headline chart. */}
         <Card>
           <CardHeader
-            title="Grade distribution"
-            subtitle={k.grades?.stats?.count ? `${k.grades.stats.count} graded projects` : 'All graded projects'}
+            title="Mark distribution"
+            subtitle={
+              marks?.stats?.count
+                ? `${marks.stats.count} marked project${marks.stats.count === 1 ? '' : 's'}${
+                    part ? ` in ${partLabel(part)}` : ''
+                  }`
+                : 'All marked projects'
+            }
           />
-          {distribution.length === 0 ? (
+          {bands.length === 0 ? (
             <EmptyState
-              title="No grades yet"
-              message="The distribution appears once examiners and supervisors submit marks."
+              title="No marks yet"
+              message="The distribution appears once examiners and supervisors submit their forms."
             />
           ) : (
             <div className="space-y-3 pt-1">
-              {distribution.map((row) => {
+              {bands.map((row) => {
                 const share = ((row.count ?? 0) / maxBand) * 100
                 return (
-                  <div key={row.grade ?? row.label} className="flex items-center gap-3">
-                    <span className="w-12 shrink-0 text-sm font-semibold text-slate-700">
-                      {row.grade ?? row.label}
+                  <div key={row.range ?? row.label} className="flex items-center gap-3">
+                    <span className="w-14 shrink-0 text-sm font-semibold text-slate-700">
+                      {row.range ?? row.label}
                     </span>
                     <div className="h-6 flex-1 overflow-hidden rounded bg-slate-100">
                       <div
-                        className={`h-full rounded ${barTone(row.grade ?? row.label)}`}
+                        className={`h-full rounded ${barTone(row.range ?? row.label)}`}
                         style={{ width: `${share}%` }}
                       />
                     </div>
@@ -255,17 +341,27 @@ export default function CoordinatorDashboard() {
   )
 }
 
-/** Conventional Malaysian grade bands → bar colour. */
-const BAR_TONES = {
-  A: 'bg-emerald-500',
-  B: 'bg-sky-500',
-  C: 'bg-amber-500',
-  D: 'bg-orange-500',
-  F: 'bg-rose-500',
+/** Mark range → bar colour. Ranges are descriptive, not evaluative. */
+const RANGE_TONES = {
+  '80+':   'bg-emerald-500',
+  '70-79': 'bg-sky-500',
+  '60-69': 'bg-amber-500',
+  '50-59': 'bg-orange-500',
+  '40-49': 'bg-rose-500',
+  '0-39':  'bg-red-600',
 }
 
-function barTone(grade) {
-  // gradeTone() is a Badge palette, not a fill colour, so the band letter is
-  // mapped here instead of falling through to a near-transparent class.
-  return BAR_TONES[String(grade ?? '').charAt(0).toUpperCase()] ?? 'bg-slate-400'
+function barTone(range) {
+  return RANGE_TONES[range] ?? 'bg-slate-400'
+}
+
+function readLastPart() {
+  try {
+    const stored = window.localStorage.getItem(LAST_PART_KEY)
+    // Guard against a stale or hand-edited value: only the three states the
+    // control can actually be in are accepted.
+    return stored === 'PSM1' || stored === 'PSM2' ? stored : ''
+  } catch {
+    return ''
+  }
 }

@@ -14,6 +14,7 @@ use App\Models\SubmissionFile;
 use App\Services\AuditLogger;
 use App\Services\MilestoneService;
 use App\Services\NotificationDispatcher;
+use App\Services\ProposalReviewService;
 use App\Enums\NotificationType;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,14 +22,22 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use InvalidArgumentException;
 
 /**
  * Module 3 — Milestone browsing, submission, review and deadline changes.
+ *
+ * The **proposal milestone** is special: its verdict is the panel's and it
+ * settles the project title, so it is decided through the three endpoints at the
+ * bottom of this class rather than through `approve` / `request-revision`.
+ * MilestoneService refuses those two for the proposal, so the generic path
+ * cannot bypass the title decision.
  */
 class MilestoneController extends ApiController
 {
     public function __construct(
         protected MilestoneService $milestones,
+        protected ProposalReviewService $proposals,
         protected AuditLogger $audit,
         protected NotificationDispatcher $notifications,
     ) {
@@ -131,21 +140,38 @@ class MilestoneController extends ApiController
     {
         $this->authorize('submit', $milestone);
 
-        $maxMb = (int) config('psm.submission.max_mb', 25);
-        $allowed = config('psm.submission.allowed_extensions', []);
+        $maxMb      = $milestone->maxFileMegabytes();
+        $maxFiles   = $milestone->effectiveMaxFiles();
+        $extensions = $milestone->effectiveAllowedExtensions();
+
+        $fileRules = ['required', 'file', 'max:'.($maxMb * 1024)];
+
+        /**
+         * `extensions` rather than `mimes`.
+         *
+         * Both check the upload, but they check different things: `mimes`
+         * validates the extension Symfony *guesses* from the file's MIME type,
+         * which is unreliable for the source files this platform accepts
+         * (.py, .java, .sql, .md frequently sniff to `text/plain` and are then
+         * rejected even though they are on the allowlist). `extensions` checks
+         * the extension the client sent — the same value the upload form
+         * advertises in its `accept` attribute, so the form and the validator
+         * can never disagree. Files are stored privately under a random name
+         * and are never executed, so extension matching is the appropriate
+         * control here.
+         */
+        if ($extensions !== []) {
+            $fileRules[] = 'extensions:'.implode(',', $extensions);
+        }
 
         $validated = $request->validate([
-            'files'   => ['required', 'array', 'min:1', 'max:'.max(1, $milestone->max_files)],
-            'files.*' => [
-                'required', 'file',
-                'max:'.($maxMb * 1024),
-                'mimes:'.implode(',', $allowed),
-            ],
+            'files'   => ['required', 'array', 'min:1', 'max:'.$maxFiles],
+            'files.*' => $fileRules,
             'note'    => ['nullable', 'string', 'max:2000'],
         ], [
-            'files.max'      => "You may upload at most {$milestone->max_files} file(s) for this milestone.",
-            'files.*.max'    => "Each file must be smaller than {$maxMb} MB.",
-            'files.*.mimes'  => 'Allowed file types: '.implode(', ', $allowed).'.',
+            'files.max'          => "You may upload at most {$maxFiles} file(s) for this milestone.",
+            'files.*.max'        => "Each file must be smaller than {$maxMb} MB.",
+            'files.*.extensions' => 'This milestone accepts: '.implode(', ', $extensions).'.',
         ]);
 
         if (! $milestone->acceptsSubmission()) {
@@ -189,16 +215,17 @@ class MilestoneController extends ApiController
 
             foreach ($request->file('files') as $uploaded) {
                 // Randomised storage name; extension preserved for readability
+                $disk = config('filesystems.default', 'local');
                 $path = $uploaded->storeAs(
                     'submissions/'.$milestone->project_id.'/'.$milestone->id,
                     Str::uuid()->toString().'.'.strtolower($uploaded->getClientOriginalExtension()),
-                    'local',
+                    $disk
                 );
 
                 $created[] = SubmissionFile::create([
                     'milestone_id'   => $milestone->id,
                     'uploaded_by'    => $request->user()->id,
-                    'disk'           => 'local',
+                    'disk'           => $disk,
                     'path'           => $path,
                     'original_name'  => $uploaded->getClientOriginalName(),
                     'mime_type'      => $uploaded->getClientMimeType(),
@@ -272,11 +299,15 @@ class MilestoneController extends ApiController
             return $this->fail('There is nothing to approve yet — no submission has been made.', 422);
         }
 
-        $updated = $this->milestones->approve(
-            $milestone,
-            $request->user(),
-            $validated['comment'] ?? null
-        );
+        try {
+            $updated = $this->milestones->approve(
+                $milestone,
+                $request->user(),
+                $validated['comment'] ?? null
+            );
+        } catch (InvalidArgumentException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
 
         $this->notifications->notify(
             $updated->project->students->pluck('user')->filter(),
@@ -303,15 +334,178 @@ class MilestoneController extends ApiController
             'comment' => ['required', 'string', 'min:10', 'max:2000'],
         ]);
 
-        $updated = $this->milestones->requestRevision(
-            $milestone,
-            $request->user(),
-            $validated['comment']
-        );
+        try {
+            $updated = $this->milestones->requestRevision(
+                $milestone,
+                $request->user(),
+                $validated['comment']
+            );
+        } catch (InvalidArgumentException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
 
         return $this->ok(
             new MilestoneResource($updated->load('currentFiles')),
             'Revision requested. The student has been notified.'
+        );
+    }
+
+    // -----------------------------------------------------------------
+    // The proposal milestone — the title decision
+    // -----------------------------------------------------------------
+
+    /**
+     * GET /api/panel/proposals
+     *
+     * The proposals this panel member has to rule on.
+     *
+     * The panel decides the title at the project's proposal milestone, so a
+     * seated examiner needs to see which proposals are waiting for them. The
+     * milestone screen carries the form, but nothing pointed them at it — a
+     * panel member had no way to find the students they were appointed to
+     * examine except by searching the project list.
+     *
+     * Settled proposals are returned too, not just the outstanding ones: the
+     * list doubles as the record of what this person decided, and a list that
+     * empties itself the moment a decision is recorded is impossible to check.
+     */
+    public function panelProposals(Request $request): JsonResponse
+    {
+        $actor = $request->user();
+
+        $milestones = Milestone::query()
+            ->where('code', Milestone::CODE_PROPOSAL)
+            ->whereHas('project.examinerAssignments', fn ($q) => $q
+                ->where('examiner_id', $actor->id)
+                ->where('is_active', true))
+            ->with(['project.students.user', 'project.examinerAssignments.examiner'])
+            ->orderBy('id')
+            ->get();
+
+        return $this->ok($milestones->map(function (Milestone $milestone) use ($actor) {
+            $project = $milestone->project;
+            $student = $project?->leader();
+
+            return [
+                'id'           => $milestone->id,
+                'status'       => $milestone->status->value,
+                'status_label' => $milestone->status->label(),
+                // The panel has something to do only while it is filed and undecided.
+                'awaiting_decision' => in_array(
+                    $milestone->status,
+                    [MilestoneStatus::Submitted, MilestoneStatus::Reviewed],
+                    true
+                ),
+                'project' => $project ? [
+                    'id'       => $project->id,
+                    'code'     => $project->code,
+                    'title'    => $project->title,
+                    'psm_part' => $project->psm_part,
+                ] : null,
+                'student' => $student ? [
+                    'profile_id' => $student->id,
+                    'student_id' => $student->student_id,
+                    'name'       => $student->user?->name,
+                ] : null,
+                'decided_at' => $milestone->reviewed_at?->toIso8601String(),
+                'panel_role' => $project?->examinerAssignments
+                    ?->firstWhere('examiner_id', $actor->id)?->panel_role,
+                'panel' => ($project?->examinerAssignments ?? collect())
+                    ->where('is_active', true)
+                    ->map(fn ($a) => [
+                        'examiner_id' => $a->examiner_id,
+                        'name'        => $a->examiner?->displayName(),
+                        'panel_role'  => $a->panel_role,
+                    ])
+                    ->values(),
+            ];
+        })->values());
+    }
+
+    /**
+     * POST /api/milestones/{milestone}/title-decision
+     *
+     * The panel's verdict on the proposal, which settles the title and gates the
+     * rest of the chain. One decision for the whole panel.
+     *
+     *   approved            the milestone is approved; the remaining chapters open
+     *   conditional_approve the title stands subject to corrections (Lampiran C)
+     *   rejected            the title is refused; the student changes it
+     */
+    public function titleDecision(Request $request, Milestone $milestone): JsonResponse
+    {
+        $this->authorize('decideTitle', $milestone);
+
+        $validated = $request->validate([
+            'decision'     => ['required', Rule::in(\App\Enums\PanelDecision::values())],
+            'panel_reason' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        try {
+            $updated = $this->proposals->recordDecision($milestone, $validated, $request->user());
+        } catch (InvalidArgumentException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
+
+        return $this->ok(
+            new MilestoneResource($updated->load('currentFiles')),
+            "The panel's decision has been recorded.",
+        );
+    }
+
+    /**
+     * POST /api/milestones/{milestone}/lampiran-c
+     *
+     * Lampiran C — the corrections a conditional approval required. Filed by the
+     * student; accepting it approves the milestone and fixes the corrected title.
+     */
+    public function fileLampiranC(Request $request, Milestone $milestone): JsonResponse
+    {
+        $this->authorize('fileLampiranC', $milestone);
+
+        $validated = $request->validate([
+            'corrections_title'             => ['required', 'string', 'max:255'],
+            'corrections_actions'           => ['nullable', 'array'],
+            'corrections_actions.*.comment' => ['nullable', 'string', 'max:1000'],
+            'corrections_actions.*.action'  => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        try {
+            $updated = $this->proposals->fileLampiranC($milestone, $validated, $request->user());
+        } catch (InvalidArgumentException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
+
+        return $this->ok(
+            new MilestoneResource($updated->load('currentFiles')),
+            'Lampiran C filed — the title is confirmed and the next milestone is open.',
+        );
+    }
+
+    /**
+     * POST /api/milestones/{milestone}/change-title
+     *
+     * Change the title after the panel refused it. The new title is written to
+     * the project, and the milestone reopens so the proposal can be refiled and
+     * decided again.
+     */
+    public function changeTitle(Request $request, Milestone $milestone): JsonResponse
+    {
+        $this->authorize('changeTitle', $milestone);
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+        ]);
+
+        try {
+            $updated = $this->proposals->changeTitle($milestone, $validated['title'], $request->user());
+        } catch (InvalidArgumentException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
+
+        return $this->ok(
+            new MilestoneResource($updated->load('currentFiles')),
+            'Title updated — resubmit the proposal for a fresh decision.',
         );
     }
 
@@ -396,27 +590,112 @@ class MilestoneController extends ApiController
     /**
      * DELETE /api/submissions/{file}
      *
-     * Withdraws a file. Allowed only while the milestone is still open, and it
-     * marks the row superseded rather than destroying it (Module 7).
+     * Withdraws a file: allowed while the milestone still accepts submissions,
+     * and also while the submission is merely `submitted` (see
+     * MilestonePolicy::withdraw()). The row is marked superseded rather than
+     * destroyed (Module 7).
+     *
+     * "Withdraw" rather than "delete" is the accurate verb: the bytes stay on
+     * the private disk and the row stays in the table, so an appeal can still
+     * be answered with what was actually submitted. What changes is that the
+     * file is no longer current, so it leaves the reviewer's view.
      */
     public function destroyFile(Request $request, SubmissionFile $file): JsonResponse
     {
         $milestone = $file->milestone;
 
-        $this->authorize('submit', $milestone);
+        $this->authorize('withdraw', $milestone);
 
-        $file->update([
-            'is_current'    => false,
-            'superseded_at' => now(),
-            'superseded_by' => $request->user()->id,
-        ]);
-
-        // If nothing current remains, reopen the milestone for a fresh upload
-        if ($milestone->currentFiles()->count() === 0
-            && $milestone->status === MilestoneStatus::Submitted) {
-            $this->milestones->transitionTo($milestone, MilestoneStatus::Rejected, $request->user(), 'Submission withdrawn by the student.');
+        /**
+         * Only the live file can be withdrawn.
+         *
+         * Without this guard a replayed request against an already-superseded
+         * row would quietly succeed, restamp `superseded_at`, and — because
+         * the count of current files is already zero — drive the milestone
+         * through a second `rejected` transition, bumping `revision_count`
+         * again. The UI only offers the button on current files, so the
+         * realistic path never reaches this; a retried request would.
+         */
+        if (! $file->is_current) {
+            return $this->fail('That file has already been withdrawn.', 422);
         }
 
-        return $this->ok(null, 'File withdrawn. It remains in the audit trail.');
+        $milestone = DB::transaction(function () use ($file, $request, $milestone) {
+            $file->update([
+                'is_current'    => false,
+                'superseded_at' => now(),
+                'superseded_by' => $request->user()->id,
+            ]);
+
+            $comment = "Withdrew {$file->original_name}.";
+
+            /**
+             * Any withdrawal from a `submitted` milestone returns it to
+             * `rejected`, even if other files remain.
+             *
+             * The reviewer is about to assess a specific set of files. Once
+             * that set changes, the thing awaiting review is no longer the
+             * thing that was submitted, so the submission is void and has to be
+             * made again — otherwise a supervisor could approve a milestone
+             * whose contents shifted underneath them between opening it and
+             * acting on it. `rejected` still accepts uploads, so the student
+             * can drop in a replacement and resubmit in one flow.
+             *
+             * The narrative event is named explicitly: the default for a
+             * `rejected` transition is "requested a revision", which would
+             * attribute the action to the wrong party and duplicate the
+             * withdrawal. One entry, stating what actually happened.
+             */
+            if ($milestone->status === MilestoneStatus::Submitted) {
+                return $this->milestones->transitionTo(
+                    $milestone,
+                    MilestoneStatus::Rejected,
+                    $request->user(),
+                    $comment,
+                    narrativeEvent: SubmissionEvent::EVENT_WITHDRAWN,
+                );
+            }
+
+            /**
+             * Otherwise the milestone keeps its status — a revision was already
+             * requested, or it is still open — so the withdrawal is recorded on
+             * its own.
+             *
+             * It belongs in the timeline, not only in the audit log:
+             * `submission_events` is the layer the student and supervisor read
+             * on this page, while `audit_logs` answers "what did this user do"
+             * for an auditor. A file silently vanishing from the submission
+             * list with nothing explaining why is exactly the kind of
+             * unexplained change the record is meant to prevent.
+             */
+            SubmissionEvent::create([
+                'milestone_id' => $milestone->id,
+                'actor_id'     => $request->user()->id,
+                'event'        => SubmissionEvent::EVENT_WITHDRAWN,
+                'from_status'  => $milestone->status->value,
+                'to_status'    => $milestone->status->value,
+                'comment'      => $comment,
+                'payload'      => [
+                    'file_id'       => $file->id,
+                    'original_name' => $file->original_name,
+                    'files_left'    => $milestone->currentFiles()->count(),
+                ],
+            ]);
+
+            return $milestone->refresh();
+        });
+
+        $this->audit->log(
+            action: AuditAction::FileWithdrawn,
+            description: "Withdrew {$file->original_name} from {$milestone->title}",
+            subject: $file,
+        );
+
+        $milestone->load(['currentFiles.uploader', 'files.uploader', 'events.actor', 'reviewer']);
+
+        return $this->ok(
+            new MilestoneResource($milestone),
+            'File withdrawn. It remains in the audit trail.'
+        );
     }
 }

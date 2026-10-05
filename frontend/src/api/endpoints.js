@@ -19,6 +19,67 @@ import api, { unwrap, unwrapPaged, saveDownload } from './client'
 // Lives in `./auth` because the login/logout flow also drives AuthContext.
 
 // =====================================================================
+// Module 3 — academic semesters
+// =====================================================================
+/**
+ * The term is the unit that owns both PSM batches, so this sits above every
+ * project/mark/report call rather than inside one of them.
+ *
+ * Note the shape of the two gate routes. Registration and mark release are
+ * POST actions rather than PATCH fields on purpose — on the server they carry
+ * side effects (stamping `registration_opened_at` / `marks_released_at`, and
+ * bulk-releasing the term's `final_grades`). Keeping them off the generic
+ * update means a stray `{is_marks_released: true}` cannot publish a cohort.
+ */
+export const semesterApi = {
+  /** Every term, oldest first. Pass `active: true` to narrow to live terms. */
+  list: (params) => api.get('/semesters', { params }).then(unwrap),
+  /**
+   * The term the caller is working in — their own enrolment where they have
+   * one, otherwise the faculty's active term. This is what every filter bar
+   * should default to.
+   */
+  current: () => api.get('/semesters/current').then(unwrap),
+  /** One term plus its per-batch cohort stats. */
+  show: (id) => api.get(`/semesters/${id}`).then(unwrap),
+  /** Create a term. Starts inactive; nothing is open until you open it. */
+  create: (payload) => api.post('/semesters', payload).then(unwrap),
+  /** Dates and metadata only — see the note above on why flags are excluded. */
+  update: (id, payload) => api.patch(`/semesters/${id}`, payload).then(unwrap),
+
+  /** Close the term: registration shuts and the term stops being active. */
+  close: (id) => api.post(`/semesters/${id}/close`).then(unwrap),
+  /**
+   * Reopen a closed term — the counterpart to `close`.
+   *
+   * Restores the term as live and clears `closed_at`. **Registration stays
+   * closed**: opening it is a separate decision, and the response says so, so
+   * the screen can prompt rather than leave the coordinator guessing.
+   */
+  reopen: (id) => api.post(`/semesters/${id}/reopen`).then(unwrap),
+  /**
+   * `{ is_registration_open: boolean }` — gates Lampiran A for this term.
+   *
+   * The key deliberately matches the column rather than being abbreviated: the
+   * controller validates this exact name and a mismatch is a 422, not a
+   * silently ignored field.
+   */
+  setRegistration: (id, isOpen) =>
+    api.post(`/semesters/${id}/registration`, { is_registration_open: Boolean(isOpen) }).then(unwrap),
+  /**
+   * `{ is_marks_released: boolean }` — publishes or withholds this term's marks.
+   *
+   * This is per *term*, not per part: one call covers both PSM 1 and PSM 2, and
+   * the response says how many projects it touched so the coordinator can check
+   * it against what they expected.
+   */
+  setMarkRelease: (id, isReleased) =>
+    api
+      .post(`/semesters/${id}/release-marks`, { is_marks_released: Boolean(isReleased) })
+      .then(unwrap),
+}
+
+// =====================================================================
 // Module 2 — users, profiles, assignments
 // =====================================================================
 export const userApi = {
@@ -42,7 +103,7 @@ export const profileApi = {
   update: (payload) => api.put('/profile', payload).then(unwrap),
   setAvailability: (payload) => api.post('/profile/availability', payload).then(unwrap),
   updateExpertise: (payload) => api.put('/profile/expertise', payload).then(unwrap),
-  workload: () => api.get('/profile/workload').then(unwrap),
+  workload: (params) => api.get('/profile/workload', { params }).then(unwrap),
 
   // Alias — the current user's profile is the natural "me".
   me: () => api.get('/profile').then(unwrap),
@@ -62,6 +123,16 @@ export const assignmentApi = {
   assignExaminer: (payload) => api.post('/assignments/examiners', payload).then(unwrap),
   endExaminer: (id) => api.delete(`/assignments/examiners/${id}`).then(unwrap),
 
+  /** Fixed examiner pairs — examiners grouped into standing panels. */
+  examinerPairs: (params) => api.get('/assignments/examiner-pairs', { params }).then(unwrap),
+  /**
+   * Batch-assign students to examiner pairs, two examiners each. Give it an
+   * explicit student list, the students awaiting a panel verdict, an explicit
+   * project list, or nothing for the whole batch of the term.
+   */
+  autoAssignExaminerPairs: (payload) =>
+    api.post('/assignments/examiner-pairs/auto-assign', payload).then(unwrap),
+
   unassignedStudents: (params) =>
     api.get('/assignments/students/unassigned', { params }).then(unwrap),
   expertiseAreas: () => api.get('/assignments/expertise-areas').then(unwrap),
@@ -72,17 +143,50 @@ export const assignmentApi = {
   /** Unassigned students — paged, because the screen counts them. */
   unassigned: (params) =>
     api.get('/assignments/students/unassigned', { params }).then(unwrapPaged),
+
   /**
-   * Supervisors with capacity, for the capacity panel.
+   * One student's panel: who is seated, and who may be.
    *
-   * There is no `/assignments/supervisors` route — that path only exists as
-   * `/assignments/supervisors/{id}/capacity` for setting a limit. The list of
-   * staff to choose from comes from `/users/options`, which returns
-   * {value, label, meta:{staff_no, capacity, load, available}} entries and is
-   * readable by admin and coordinator alike.
+   * The candidate list already has the student's own supervisor removed — the
+   * conflict-of-interest rule — and `supervisors` names them, so the screen can
+   * say *why* a name is missing rather than leaving the coordinator to wonder.
+   */
+  panel: (studentId, params) =>
+    api.get(`/assignments/students/${studentId}/panel`, { params }).then(unwrap),
+
+  /**
+   * Seat a pair on a student's panel.
+   *
+   * Exactly two ids, and the **first is the chair**. Re-pairing replaces the
+   * previous panel rather than being refused.
+   */
+  assignPanel: (studentId, examinerIds, psmPart) =>
+    api
+      .post(`/assignments/students/${studentId}/panel`, {
+        examiner_ids: examinerIds,
+        psm_part: psmPart || undefined,
+      })
+      .then(unwrap),
+
+  /**
+   * The cohort view: every student beside every examiner who could examine them.
+   *
+   * Each row carries the people who **cannot** examine that student (their own
+   * supervisors) as well as the people who can, so the screen can show the
+   * exclusion rather than leaving a gap.
+   */
+  panelMatching: (params) => api.get('/assignments/panel-matching', { params }).then(unwrap),
+  /**
+   * The supervisor pool, in `supervisor_profiles` terms.
+   *
+   * Not `/users/options`: that is the generic picker vocabulary keyed on *user*
+   * ids, and the two id spaces are disjoint — user 3 is supervisor_profiles 1,
+   * while supervisor_profiles 3 is a different person. `assign` validates
+   * `supervisor_profile_id` against `supervisor_profiles`, so this returns the
+   * id the write actually needs.
    */
   supervisors: (params) =>
-    api.get('/users/options', { params: { role: 'supervisor', ...params } }).then(unwrapPaged),
+    api.get('/assignments/supervisors', { params }).then(unwrapPaged),
   /** Create a supervision pair. */
   assign: (payload) => api.post('/assignments/supervisions', payload).then(unwrap),
   /** End a supervision pair. */
@@ -92,6 +196,10 @@ export const assignmentApi = {
 // =====================================================================
 // Module 2/3 — registration flow (Lampiran A & B)
 // =====================================================================
+// Lampiran A drives the supervisor<->student pairing and fixes the agreed
+// title; Lampiran B registers that title as a project. There is no approval
+// step between them — the title is judged afterwards, by the panel, at the
+// project's proposal milestone (see `milestoneApi` below).
 export const registrationApi = {
   /** Agreements visible to the signed-in user (scoped by role server-side). */
   agreements: (params) => api.get('/registrations/agreements', { params }).then(unwrap),
@@ -106,12 +214,7 @@ export const registrationApi = {
       .post(`/registrations/agreements/${id}/acknowledge`, { agreed_title: agreedTitle })
       .then(unwrap),
 
-  /** JKPSM/coordinator approves — this registers the pairing. */
-  approve: (id) => api.post(`/registrations/agreements/${id}/approve`).then(unwrap),
-  reject: (id, reason) =>
-    api.post(`/registrations/agreements/${id}/reject`, { reason }).then(unwrap),
-
-  /** Student submits Lampiran B against an approved agreement. */
+  /** Student submits Lampiran B against an acknowledged agreement. */
   submitTitleProposal: (id, payload) =>
     api.post(`/registrations/agreements/${id}/title-proposal`, payload).then(unwrap),
 }
@@ -132,11 +235,26 @@ export const projectApi = {
   approve: (id) => api.post(`/projects/${id}/approve`).then(unwrap),
   reject: (id, reason) => api.post(`/projects/${id}/reject`, { reason }).then(unwrap),
   archive: (id, note) => api.post(`/projects/${id}/archive`, { note }).then(unwrap),
-  setLeaderboardConsent: (id, optOut) =>
-    api.post(`/projects/${id}/leaderboard-consent`, { opt_out: optOut }).then(unwrap),
+
+  /**
+   * PSM 1 → PSM 2. PSM 1 and PSM 2 are one project across two continuous terms
+   * on one title, so PSM 2 is reached by progressing the student rather than by
+   * filing a second Lampiran A. Creates the PSM 2 project from this title and
+   * archives the PSM 1 one. Refused until the PSM 1 marks are released.
+   */
+  progressToPsm2: (id) => api.post(`/projects/${id}/progress-to-psm2`).then(unwrap),
 
   milestones: (id) => api.get(`/projects/${id}/milestones`).then(unwrap),
   grades: (id) => api.get(`/projects/${id}/grades`).then(unwrap),
+
+  /**
+   * One student's mark broken down by form and component.
+   *
+   * Withheld by the server until the mark is released, so this is safe to call
+   * speculatively — an unreleased mark comes back as `{ released: false }`.
+   */
+  markBreakdown: (projectId, studentId) =>
+    api.get(`/projects/${projectId}/students/${studentId}/mark-breakdown`).then(unwrap),
   releaseAllGrades: (id) => api.post(`/projects/${id}/grades/release-all`).then(unwrap),
   updateGradeScheme: (id, payload) =>
     api.put(`/projects/${id}/grade-scheme`, payload).then(unwrap),
@@ -154,7 +272,7 @@ export const milestoneApi = {
    * Submit files for a milestone.
    *
    * Accepts either a pre-built FormData (the form builds one so it can append
-   * several files and a note) or `{ files, comment }`.
+   * several files and a note) or `{ files, note }`.
    */
   submit: (id, payload) => {
     const form = payload instanceof FormData ? payload : new FormData()
@@ -162,8 +280,11 @@ export const milestoneApi = {
     if (!(payload instanceof FormData)) {
       // Laravel expects files[] for an array field.
       Array.from(payload?.files ?? []).forEach((file) => form.append('files[]', file))
-      if (payload?.comment) form.append('comment', payload.comment)
-      if (payload?.note) form.append('comment', payload.note)
+      // The controller validates `note`; `comment` is accepted here only
+      // because older callers used that name, and it used to be sent verbatim
+      // and silently ignored by the validator.
+      const note = payload?.note ?? payload?.comment
+      if (note) form.append('note', note)
     }
 
     // Let the browser set the multipart boundary and Content-Length.
@@ -177,12 +298,65 @@ export const milestoneApi = {
   changeDeadline: (id, dueAt, reason) =>
     api.post(`/milestones/${id}/deadline`, { due_at: dueAt, reason }).then(unwrap),
 
+  // --- The proposal milestone: the title decision ------------------------
+  // The proposal is the one milestone whose verdict is the panel's, and it is
+  // what settles the title and opens the rest of the chain. `approve` and
+  // `requestRevision` are refused for it server-side, so these are the only
+  // routes that decide it.
+
+  /**
+   * Record the panel's verdict. `decision` is `approved`, `conditional_approve`
+   * or `rejected`; a reason is required for the latter two.
+   */
+  titleDecision: (id, payload) =>
+    api.post(`/milestones/${id}/title-decision`, payload).then(unwrap),
+
+  /**
+   * Lampiran C — the corrections a conditional approval required. Filed by the
+   * student; accepting it approves the milestone and fixes the corrected title.
+   */
+  fileLampiranC: (id, payload) =>
+    api.post(`/milestones/${id}/lampiran-c`, payload).then(unwrap),
+
+  /**
+   * Change the title after the panel refused it. The new title is written to the
+   * project, and the milestone reopens for a fresh decision.
+   */
+  changeTitle: (id, title) =>
+    api.post(`/milestones/${id}/change-title`, { title }).then(unwrap),
+
+  /**
+   * The proposals this panel member has to rule on.
+   *
+   * A panel decides the title at the project's proposal milestone, so a seated
+   * examiner needs to find those students. Settled proposals are included too,
+   * so the list is a record rather than a to-do that empties silently.
+   */
+  panelProposals: () => api.get('/panel/proposals').then(unwrap),
+
   downloadUrl: (fileId) => `/api/submissions/${fileId}/download`,
-  /** Authenticated file download — see reportApi.download for why. */
-  download: (fileId) =>
+  /**
+   * Authenticated file download.
+   *
+   * Fetched through the axios instance rather than opened with `window.open`,
+   * for the same reason as the CSV exports: the route sits behind Sanctum and
+   * a plain navigation carries no Authorization header.
+   *
+   * `fallbackName` should be the file's original name. The server sends
+   * Content-Disposition (CORS exposes it), so this is only used if that header
+   * is ever unavailable — but the previous default of `submission-<id>` would
+   * then save the file with no extension at all.
+   */
+  download: (fileId, fallbackName) =>
     api
       .get(`/submissions/${fileId}/download`, { responseType: 'blob' })
-      .then((res) => saveDownload(res, `submission-${fileId}`)),
+      .then((res) => saveDownload(res, fallbackName || `submission-${fileId}`)),
+
+  /**
+   * Withdraw a submission file. The server keeps the row and the bytes — this
+   * only clears `is_current`, so the file leaves the reviewer's view while the
+   * audit trail keeps it.
+   */
   deleteFile: (fileId) => api.delete(`/submissions/${fileId}`).then(unwrap),
 
   // --- Aliases -----------------------------------------------------------
@@ -199,7 +373,7 @@ export const milestoneApi = {
 }
 
 // =====================================================================
-// Module 4 — evaluations and grades
+// Module 4 — evaluations and marks
 // =====================================================================
 export const evaluationApi = {
   list: (params) => api.get('/evaluations', { params }).then(unwrapPaged),
@@ -210,8 +384,6 @@ export const evaluationApi = {
     api.post('/evaluations/progress-report', payload).then(unwrap),
   saveMarks: (id, payload) => api.put(`/evaluations/${id}/marks`, payload).then(unwrap),
   submit: (id) => api.post(`/evaluations/${id}/submit`).then(unwrap),
-  moderate: (id, newPercent, reason) =>
-    api.post(`/evaluations/${id}/moderate`, { new_percent: newPercent, reason }).then(unwrap),
   declareConflict: (id, note) =>
     api.post(`/evaluations/${id}/declare-conflict`, { note }).then(unwrap),
 
@@ -226,16 +398,14 @@ export const evaluationApi = {
   // fetch it and select client-side rather than pretending dedicated routes
   // exist for each template.
   templates: (params = {}) =>
-    api.get('/rubrics', { params }).then((response) => {
-      const items = pickRubricList(response)
-      const category = params.category
-      const filtered = category ? items.filter((t) => t.category === category) : items
-      return { data: { data: filtered, meta: response?.data?.meta ?? null } }
-    }),
+    api.get('/rubrics', { params }).then((response) => ({
+      items: pickRubricList(response),
+      meta: response?.data?.meta ?? null,
+    })),
   template: (id) =>
     api.get('/rubrics').then((response) => {
       const items = pickRubricList(response)
-      return { data: { data: items.find((t) => String(t.id) === String(id)) ?? null } }
+      return items.find((t) => String(t.id) === String(id)) ?? null
     }),
   /** Clone a template forward into a new version. */
   cloneTemplate: (id, payload) =>
@@ -263,14 +433,48 @@ export const rubricApi = {
   publish: (id) => api.post(`/rubrics/${id}/publish`).then(unwrap),
 }
 
-export const gradeApi = {
+export const markApi = {
   list: (params) => api.get('/grades', { params }).then(unwrapPaged),
   recompute: (id) => api.post(`/grades/${id}/recompute`).then(unwrap),
   release: (id) => api.post(`/grades/${id}/release`).then(unwrap),
 
   // --- Aliases -----------------------------------------------------------
-  /** Grades for one project. Scoped to the project, not the grade list. */
+  /** Marks for one project. Scoped to the project, not the mark list. */
   forProject: (projectId) => api.get(`/projects/${projectId}/grades`).then(unwrap),
+}
+
+/**
+ * The coordinator's assessment window.
+ *
+ * Opening one allocates every Lampiran the batch needs and starts accepting
+ * marks; closing stops new marks but keeps what was filed. Assessors read
+ * `current()` to know whether they may file.
+ */
+export const assessmentWindowApi = {
+  list: (params) => api.get('/assessment-windows', { params }).then(unwrap),
+  current: () => api.get('/assessment-windows/current').then(unwrap),
+  show: (id) => api.get(`/assessment-windows/${id}`).then(unwrap),
+  create: (payload) => api.post('/assessment-windows', payload).then(unwrap),
+  open: (id) => api.post(`/assessment-windows/${id}/open`).then(unwrap),
+  close: (id) => api.post(`/assessment-windows/${id}/close`).then(unwrap),
+}
+
+export const markSubmissionApi = {
+  /** Open (or fetch existing) a mark submission for one student on one project. */
+  open: (projectId, studentId) =>
+    api.post(`/projects/${projectId}/students/${studentId}/mark-submission/open`).then(unwrap),
+
+  /** Get the current mark submission with readiness checklist and forms. */
+  show: (projectId, studentId) =>
+    api.get(`/projects/${projectId}/students/${studentId}/mark-submission`).then(unwrap),
+
+  /** Lock the submission — attests all forms are in, freezes the aggregate. */
+  lock: (projectId, studentId) =>
+    api.post(`/projects/${projectId}/students/${studentId}/mark-submission/lock`).then(unwrap),
+
+  /** Unlock a locked submission — requires a reason. */
+  unlock: (projectId, studentId, reason) =>
+    api.post(`/projects/${projectId}/students/${studentId}/mark-submission/unlock`, { reason }).then(unwrap),
 }
 
 // =====================================================================
@@ -284,8 +488,8 @@ export const reportApi = {
     api.get('/reports/supervisor-workload', { params }).then(unwrap),
   examinerWorkload: (params) =>
     api.get('/reports/examiner-workload', { params }).then(unwrap),
-  gradeDistribution: (params) =>
-    api.get('/reports/grade-distribution', { params }).then(unwrap),
+  markDistribution: (params) =>
+    api.get('/reports/mark-distribution', { params }).then(unwrap),
   milestoneBreakdown: (params) =>
     api.get('/reports/milestone-breakdown', { params }).then(unwrap),
 
@@ -371,77 +575,4 @@ export const auditApi = {
   list: (params) => api.get('/audit-logs', { params }).then(unwrapPaged),
   filters: () => api.get('/audit-logs/filters').then(unwrap),
   forSubject: (type, id) => api.get(`/audit-logs/for/${type}/${id}`).then(unwrapPaged),
-}
-
-// =====================================================================
-// Module 8 — leaderboard management (staff side)
-// =====================================================================
-export const leaderboardApi = {
-  list: (params) => api.get('/leaderboards', { params }).then(unwrapPaged),
-  show: (id) => api.get(`/leaderboards/${id}`).then(unwrap),
-  create: (payload) => api.post('/leaderboards', payload).then(unwrap),
-  update: (id, payload) => api.patch(`/leaderboards/${id}`, payload).then(unwrap),
-  destroy: (id) => api.delete(`/leaderboards/${id}`).then(unwrap),
-
-  eligible: (params) => api.get('/leaderboards/eligible', { params }).then(unwrap),
-  settings: () => api.get('/leaderboards/settings').then(unwrap),
-  updateSettings: (payload) => api.put('/leaderboards/settings', payload).then(unwrap),
-  preview: (slug) => api.get(`/leaderboards/preview/${slug}`).then(unwrap),
-
-  /**
-   * Build a board. With an id, rebuild that board into a fresh draft; without
-   * one, create a new draft from the current rankings.
-   */
-  build: (idOrPayload) => {
-    if (idOrPayload && typeof idOrPayload === 'object') {
-      return api.post('/leaderboards', idOrPayload).then(unwrap)
-    }
-    if (idOrPayload) {
-      return api.post(`/leaderboards/${idOrPayload}/build`).then(unwrap)
-    }
-    // No target given: create a draft, then populate it from current marks.
-    return api
-      .post('/leaderboards', {})
-      .then((response) => {
-        const created = response?.data?.data
-        return created?.id ? api.post(`/leaderboards/${created.id}/build`) : response
-      })
-      .then(unwrap)
-  },
-
-  publish: (id) => api.post(`/leaderboards/${id}/publish`).then(unwrap),
-  unpublish: (id, reason) =>
-    api.post(`/leaderboards/${id}/unpublish`, { reason }).then(unwrap),
-  updateEntry: (id, entryId, payload) =>
-    api.patch(`/leaderboards/${id}/entries/${entryId}`, payload).then(unwrap),
-
-  // --- Aliases -----------------------------------------------------------
-  /** Read one board, with entries. */
-  get: (id) => api.get(`/leaderboards/${id}`).then(unwrap),
-}
-
-// =====================================================================
-// Module 8 — PUBLIC. No authentication required.
-// =====================================================================
-export const publicApi = {
-  current: () => api.get('/public/leaderboard', { skipAuthRedirect: true }).then(unwrap),
-  status: () => api.get('/public/leaderboard/status', { skipAuthRedirect: true }).then(unwrap),
-  archive: () => api.get('/public/leaderboard/archive', { skipAuthRedirect: true }).then(unwrap),
-  bySlug: (slug) =>
-    api.get(`/public/leaderboard/${slug}`, { skipAuthRedirect: true }).then(unwrap),
-  entry: (slug, rank) =>
-    api.get(`/public/leaderboard/${slug}/entry/${rank}`, { skipAuthRedirect: true }).then(unwrap),
-
-  // --- Aliases used by the public page ----------------------------------
-  /**
-   * The live board. With a slug, that board; without one, whichever board the
-   * API reports as current.
-   */
-  leaderboard: (slug) =>
-    slug
-      ? api.get(`/public/leaderboard/${slug}`, { skipAuthRedirect: true }).then(unwrap)
-      : api.get('/public/leaderboard', { skipAuthRedirect: true }).then(unwrap),
-  /** Past sessions, for the "other sessions" navigation. */
-  leaderboards: () =>
-    api.get('/public/leaderboard/archive', { skipAuthRedirect: true }).then(unwrap),
 }

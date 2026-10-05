@@ -70,9 +70,17 @@ abstract class ApiController extends BaseController
     /**
      * Paginate and wrap a query, returning the envelope the client expects:
      *   { data: [...], meta: { current_page, last_page, per_page, total } }
+     *
+     * `$extraMeta` is merged into `meta` last, so a caller can surface the
+     * context its filters resolved to — the grade list needs to hand the client
+     * which term it defaulted to and whether that term has released results,
+     * otherwise the UI has to guess whether the "Release" button is live.
      */
-    protected function paginated(LengthAwarePaginator $paginator, ?callable $transform = null): JsonResponse
-    {
+    protected function paginated(
+        LengthAwarePaginator $paginator,
+        ?callable $transform = null,
+        array $extraMeta = [],
+    ): JsonResponse {
         $items = collect($paginator->items());
 
         if ($transform !== null) {
@@ -82,14 +90,14 @@ abstract class ApiController extends BaseController
         return response()->json([
             'success' => true,
             'data'    => $items->values(),
-            'meta'    => [
+            'meta'    => array_merge([
                 'current_page' => $paginator->currentPage(),
                 'last_page'    => $paginator->lastPage(),
                 'per_page'     => $paginator->perPage(),
                 'total'        => $paginator->total(),
                 'from'         => $paginator->firstItem(),
                 'to'           => $paginator->lastItem(),
-            ],
+            ], $extraMeta),
         ]);
     }
 }

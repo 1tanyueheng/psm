@@ -29,7 +29,6 @@ class SupervisorProfileResource extends JsonResource
             'academic_title' => $this->academic_title,
             'office_location'=> $this->office_location,
             'bio'            => $this->bio,
-            'can_examine'    => (bool) $this->can_examine,
 
             // Module 2 — the capacity constraint, resolved server-side
             'max_supervisees'      => $this->max_supervisees,

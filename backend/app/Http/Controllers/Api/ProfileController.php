@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\AuditAction;
+use App\Enums\PsmPart;
 use App\Http\Controllers\ApiController;
 use App\Http\Resources\UserResource;
+use App\Models\AcademicSemester;
 use App\Models\SupervisorProfile;
 use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
@@ -204,6 +206,12 @@ class ProfileController extends ApiController
                 'days_waiting' => $m->submitted_at ? (int) $m->submitted_at->diffInDays(now()) : null,
             ]);
 
+        $semesterId = AcademicSemester::resolveFilterId($request->input('semester_id'));
+        $semester = $semesterId === null ? null : AcademicSemester::find($semesterId);
+        $loadByPart = $semesterId === null
+            ? []
+            : $profile->currentLoadByPartInSemester($semesterId);
+
         return $this->ok([
             'supervisor' => [
                 'name'       => $profile->label(),
@@ -213,6 +221,37 @@ class ProfileController extends ApiController
                 'utilisation'=> $profile->utilisationPercent(),
                 'overloaded' => $profile->isOverloaded(),
                 'accepting'  => (bool) $profile->is_accepting_students,
+
+                /**
+                 * Per-part capacity, which is the figure that actually governs
+                 * allocation now that both batches run in one term.
+                 *
+                 * A single aggregate number cannot express "4 of 5 PSM 1 and
+                 * 5 of 5 PSM 2" — which is the ordinary case for a supervisor
+                 * carrying both batches, and the one where the screen must not
+                 * imply there is room when there is none.
+                 *
+                 * Load is counted within the requested term; capacity is not,
+                 * because the ceiling is a property of the supervisor rather
+                 * than of a term. Falling back to the all-terms load keeps a
+                 * supervisor with no term selected from seeing empty bars.
+                 */
+                'by_part' => collect(PsmPart::deliverables())
+                    ->mapWithKeys(fn (PsmPart $part) => [
+                        $part->value => [
+                            'capacity'  => $profile->capacityForPart($part),
+                            'load'      => $semesterId === null
+                                ? $profile->currentLoadForPart($part)
+                                : ($loadByPart[$part->value] ?? 0),
+                            'remaining' => $profile->remainingCapacityForPartInSemester($part, $semester),
+                        ],
+                    ])
+                    ->all(),
+            ],
+            'semester' => $semester === null ? null : [
+                'id'         => $semester->id,
+                'name'       => $semester->name,
+                'short_name' => $semester->shortName(),
             ],
             'supervisees'    => $supervisees,
             'pending_reviews'=> $pendingReviews,

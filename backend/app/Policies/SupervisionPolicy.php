@@ -61,9 +61,18 @@ class SupervisionPolicy
         return $actor->hasRole('admin', 'coordinator') || $actor->id === $supervisorUserId;
     }
 
-    /** Module 2 — allocating examiners to a project. */
-    public function allocateExaminer(User $actor): bool
-    {
-        return $actor->hasRole('admin', 'coordinator');
-    }
+    /*
+     * `allocateExaminer` used to live here, and it never ran.
+     *
+     * The examiner-allocation endpoints authorise with
+     * `$this->authorize('allocateExaminer', User::class)`. Gate resolves the
+     * policy from the *class* it is handed — `User` — which maps to
+     * UserPolicy, not to this one (this policy is registered for
+     * SupervisionAssignment). So this method was unreachable, UserPolicy had
+     * no such ability, and every examiner allocation answered 403.
+     *
+     * The ability now lives on UserPolicy, where the authorisation actually
+     * resolves. Kept as a note rather than deleted silently so the next person
+     * looking for it here finds out where it went.
+     */
 }

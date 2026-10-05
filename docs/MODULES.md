@@ -10,11 +10,19 @@ do, how it is built, and the decisions worth defending.
 **Requirement.** Five roles (student, supervisor, coordinator, examiner,
 admin), role-appropriate dashboards, password reset, session management.
 
-**Built.** Laravel Sanctum token auth against a stateless API. `Role` is a
-backed enum with `homeRoute()` so the SPA's post-login redirect is data, not a
-switch statement. `AuthController` provides login, logout, password change,
+**Built.** Laravel Sanctum token auth against a stateless API. `Role` is a backed
+enum with `homeRoute()` so the SPA's post-login redirect is data, not a switch
+statement. `AuthController` provides login, logout, password change,
 forgot-password, and reset. `must_change_password` drives the `first.login`
 middleware, so an admin-issued temporary password cannot be used indefinitely.
+
+Four roles — student, supervisor, coordinator, admin. **There is no `examiner`
+role**: being an examiner is a *seating*, modelled by `examiner_assignments`,
+because a panel is drawn from the same academic staff who supervise. Keeping it as
+a role meant the panel pool had to accept either, and a supervisor appointed to a
+panel could not read the project they were appointed to examine. `AssessorType`
+still separates the *forms* (supervisor E/G/H vs examiner I/J) — that is a
+property of the evaluation, not of the account.
 
 **Screens.** `pages/auth/` — login (with one-tap demo accounts and `?next=`
 handling), forgot-password, reset-password, change-password. The last one
@@ -85,6 +93,63 @@ a password breaks the attribution story — a reset must be traceable to the
 account holder. Suspending yourself is blocked in the UI even though the API
 permits it, because it would lock you out of the screen that undoes it.
 
+**Seating a panel — `pages/assignments/PanelAssignmentPage.jsx`.**
+
+A panel is **two people who both decide the proposal and give the final mark**,
+so it is seated as a *pair against a student*, not one examiner at a time against
+a project. The panel has to exist before the project does — it rules on the title
+at the proposal milestone — which is why the student is the anchor.
+
+```
+/assignments/panels   pick a student → see the panel, then seat a pair
+  ├ GET  /assignments/students/{student}/panel   seated + candidates + excluded supervisors
+  └ POST /assignments/students/{student}/panel   two ids, first is chair
+```
+
+- **The student's own supervisor is never offered.** That is the point of the
+  screen. `ExaminerPairingService::panelCandidates()` leaves them out and
+  `assignPair()` refuses them again on submit, so a stale page cannot seat one.
+  The screen *names* the exclusion — a coordinator who cannot find a name needs to
+  see why it is missing rather than guess.
+- **Re-pairing replaces.** The previous panel is retired (`is_active = false`,
+  rows kept so the audit trail still shows who examined before) and both seats are
+  refilled. Saving without changing the pickers is a no-op, not a surprise.
+- **One set of rules.** Both seats go through
+  `AssignmentService::assignExaminerToStudent()`, so the conflict-of-interest,
+  duplicate and panel-cap rules are the same ones the automatic run and the
+  project screen use. The older project-shaped `assignExaminer()` now delegates to
+  it, so there is no second implementation to drift.
+- **Capacity is not consulted** — `max_supervisees` limits supervising, not
+  examining, so a supervisor who is already full can still take a panel.
+
+The panel is visible to the student and their supervisor on the project page
+(`ProjectResource.examiners`, active allocations only — a retired allocation is
+not a panel member). Before this screen existed there was **no coordinator-side
+view or editor for it at all**: the allocation endpoints existed but no page
+called them, so a coordinator could not see who was examining whom.
+
+**The matching table** sits above the seating panel: every student beside every
+examiner who could examine them, with the excluded supervisors named in their own
+column. It answers the same question `showPanel()` answers for one student, in a
+fixed number of queries rather than one per student (`GET /assignments/panel-matching`).
+
+**The panel's other job.** A panel decides the *proposal* as well as giving the
+final mark, so a seated examiner also needs to find those students:
+`GET /panel/proposals` returns the proposals they must rule on — settled ones
+included, because a list that empties itself the moment a decision is recorded is
+impossible to check. It renders on `/panel/dashboard` as *Proposals to decide*,
+with a Decide/View link into the milestone.
+
+Both halves matter because the panel is appointed to do two things, and the
+proposal decision is the one that gates the student's whole milestone chain. The
+milestone screen had the form from the start; nothing pointed a panel member at it.
+
+**One seeded-data consequence.** `EvaluationSeeder` seats a pair for **every**
+registered project, outside the `isMarkable()` gate — the panel decides the
+proposal, which every student has, while only the *evaluation* depends on how far
+along the work is. Before this, an `approved` proposal with no panel was a
+contradiction: the screen showed a decision nobody had been appointed to make.
+
 ---
 
 ## Module 3 — Project and milestone management
@@ -121,6 +186,92 @@ single validated path for status changes. Uploads are stored as revisions.
 - *Late windows are opt-in per milestone* (`allow_late_submission`,
   `late_window_days`) rather than a global toggle, because a proposal deadline
   and a final-report deadline deserve different tolerance.
+
+**The registration and title flow.** Four steps, each a gate on the next:
+
+```
+Lampiran A   three candidate titles     student → supervisor
+             the supervisor acknowledges, which fixes the agreed title
+             and registers the pairing
+Lampiran B   register the agreed title  student (project created, milestone chain built)
+Proposal     the panel decides          the student files the proposal, the panel rules
+milestone    ├ Approved            → the milestone is approved and the rest of the chain opens
+             ├ Conditional approval → the student files Lampiran C, then it opens
+             └ Rejected            → the student changes the title; the milestone reopens
+```
+
+**The title is decided at the proposal milestone, by the panel.** That is the
+first milestone of every chain (`code = 'proposal'`, sequence 1), and its verdict
+is what gates the rest — `MilestoneService::activateNext()` opens the next
+chapter only when it is approved. Nothing decides the title before the project
+exists.
+
+Three consequences worth knowing:
+
+- The panel's verdict **is the milestone's status**: `approved`,
+  `conditional_approve` or `rejected`. `MilestoneStatus::Conditional` exists for
+  the middle case, which is genuinely distinct — the title stands, the work
+  around it needs fixing.
+- `MilestoneService::approve()` and `requestRevision()` **refuse the proposal
+  milestone**. Its verdict is recorded through `ProposalReviewService`
+  (`POST /milestones/{id}/title-decision`), so the generic path cannot quietly fix
+  the milestone without ever deciding the title.
+- Changing the title after a rejection writes **`projects.title`**, not a column
+  on the milestone — the project title *is* the confirmed title, so a decision
+  that settles a different one must not leave the two disagreeing.
+
+**The panel is seated from Lampiran A onward**, anchored on the **student**, not
+the project: the same two examiners decide the proposal and give the final mark,
+and the project does not exist when they are appointed. `examiner_assignments`
+therefore carries `student_profile_id` from the start, and Lampiran B stamps
+`project_id` onto the allocation.
+
+The panel is drawn from the **academic staff who supervise** — there is no
+examiner role, so `ExaminerPairingService::eligibleExaminers()` is simply the
+active supervisors, and the conflict-of-interest rule is what keeps someone off
+their own student's panel. Visibility therefore keys on the **allocation**, never
+on the role: a supervisor sitting on someone else's panel must be able to read
+(and decide) that project, or they cannot do the job they were appointed to. See
+`ProjectPolicy::view()` and `Project::scopeVisibleTo()`.
+
+**There is no title-defence sitting and no coordinator approval.** The defence
+was a second event — its own tables, its own sitting to schedule, its own roster
+and sheet — asking the same two examiners to judge the same candidate titles. The
+coordinator's approval step only relayed a decision that was not theirs to make.
+Both are gone; `title_defences` and `title_defence_sessions` are dropped.
+
+**PSM 1 → PSM 2 progression.** The two parts are **one project across two
+continuous semesters on one title**. Only PSM 1 registers a title; PSM 2 delivers
+Chapters 5–7 and assembles the whole document for examination. There is no second
+Lampiran A, no second review, and no re-allocation.
+
+```
+PSM 1 term   Lampiran A/B → proposal milestone → Chapters 1-4 → marks released
+                             │
+                             ▼  Progress to PSM 2   (coordinator)
+PSM 2 term   same title, same supervisor, same panel, Chapters 5-7 + final report
+             PSM 1 project archived
+```
+
+- *Progressing, not re-registering.* `ProgressionService` creates the PSM 2
+  project from the PSM 1 title, advances the student's enrolment, widens the
+  supervision pairing to `BOTH`, copies the panel across, and archives PSM 1 —
+  in one transaction. A re-registration would ask the student to propose three
+  titles for a project they have already been examined on.
+- *Marks released is the trigger.* Progressing earlier would enrol the student in
+  PSM 2 while PSM 1 is unresolved, and the released mark is what the archived
+  PSM 1 record is meant to carry.
+- *Advancing the enrolment is load-bearing, not bookkeeping.*
+  `AssignmentService` scopes the supervisor capacity gate by
+  `student_profiles.academic_semester_id`, and `SemesterService::currentFor()`
+  hands a student their own term. Leaving it behind capacity-checked PSM 2
+  against the PSM 1 term — the same supervisor measuring as both full and not
+  full depending only on which term was passed.
+- *The PSM 2 chain is Chapters 5–7 + final report* (template version 4). It
+  previously opened with `chapter_4`, identical to PSM 1's, so a student running
+  PSM 1 → PSM 2 on one title was asked to submit the same chapter twice.
+- *One student at a time.* The preconditions are per-student and a batch action
+  would have to decide what to do about the ones that fail.
 
 **Screens.** `pages/projects/` — list (filter-driven, since every role arrives
 wanting a specific slice), detail (progress, people, abstract, then milestones

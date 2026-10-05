@@ -51,7 +51,10 @@ export default function AssignmentPage() {
   }, [load])
 
   const available = useMemo(
-    () => supervisors.filter((s) => s.has_capacity !== false),
+    // `=== true` rather than `!== false`: the endpoint states assignability, so
+    // a missing field should fail closed and withhold the picker, not offer
+    // every supervisor including the full ones.
+    () => supervisors.filter((s) => s.has_capacity === true),
     [supervisors]
   )
 
@@ -211,7 +214,7 @@ export default function AssignmentPage() {
                             </option>
                             {available.map((s) => (
                               <option key={s.id} value={s.id}>
-                                {s.name}
+                                {s.display_name}
                                 {s.current_load != null && s.max_supervisees
                                   ? ` (${s.current_load}/${s.max_supervisees})`
                                   : ''}
@@ -242,16 +245,25 @@ export default function AssignmentPage() {
                     const used = s.current_load ?? 0
                     const max = s.max_supervisees ?? 0
                     const pct = max > 0 ? Math.round((used / max) * 100) : 0
-                    const full = s.has_capacity === false || (max > 0 && used >= max)
+                    const atCapacity = max > 0 && used >= max
+                    // A supervisor who has paused intake is unavailable but not
+                    // full. `has_capacity` folds both together, so it drives the
+                    // picker while these two drive the explanation — otherwise a
+                    // paused supervisor shows a red bar and sends the coordinator
+                    // hunting for capacity that was never the problem.
+                    const paused = s.is_accepting_students === false
 
                     return (
                       <li key={s.id}>
                         <div className="flex items-center gap-3">
-                          <Avatar name={s.name} size="sm" />
+                          <Avatar name={s.display_name} size="sm" />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-slate-800">{s.name}</p>
+                            <p className="truncate text-sm font-medium text-slate-800">{s.display_name}</p>
                             <p className="text-xs text-slate-400">
-                              {s.expertise?.slice(0, 2).join(', ') || 'No expertise listed'}
+                              {(s.expertise_areas ?? [])
+                                .slice(0, 2)
+                                .map((a) => a.name)
+                                .join(', ') || 'No expertise listed'}
                             </p>
                           </div>
                           <span className="shrink-0 text-xs tabular-nums text-slate-500">
@@ -261,12 +273,14 @@ export default function AssignmentPage() {
                         <div className="mt-2">
                           <ProgressBar
                             value={pct}
-                            tone={full ? 'danger' : pct >= 80 ? 'warning' : 'success'}
+                            tone={atCapacity ? 'danger' : paused || pct >= 80 ? 'warning' : 'success'}
                           />
                         </div>
-                        {full && (
+                        {paused ? (
+                          <p className="mt-1 text-xs text-amber-600">Not accepting students</p>
+                        ) : atCapacity ? (
                           <p className="mt-1 text-xs text-rose-600">At capacity</p>
-                        )}
+                        ) : null}
                       </li>
                     )
                   })}
@@ -341,6 +355,6 @@ function sortByAvailable(list) {
     const roomA = room(a)
     const roomB = room(b)
     if (roomA !== roomB) return roomB - roomA
-    return (a.name ?? '').localeCompare(b.name ?? '')
+    return (a.display_name ?? '').localeCompare(b.display_name ?? '')
   })
 }

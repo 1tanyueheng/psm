@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { milestoneApi } from '../../api/endpoints'
 import { useAuth } from '../../context/AuthContext'
 import {
   Card, CardHeader, PageHeader, Badge, EmptyState, Spinner, ErrorState,
-  Button, Field, Textarea, FieldErrors, Avatar, ProgressBar,
+  Button, Field, Input, Textarea, FieldErrors, Avatar, ProgressBar,
 } from '../../components/ui'
 import { can } from '../../lib/permissions'
 import {
@@ -166,7 +166,11 @@ export default function MilestoneDetailPage() {
           <SubmissionCard
             milestone={milestone}
             canSubmit={isStudentOwner && milestone.accepts_submission}
-            onSubmitted={() => run(() => Promise.resolve())}
+            // Decided by the API, not re-derived here: withdrawal stays legal
+            // for a short window after submitting, which `accepts_submission`
+            // alone does not describe.
+            canWithdraw={milestone.can_withdraw}
+            onChanged={load}
           />
 
           {/* Decision history — the audit trail of this specific milestone. */}
@@ -180,8 +184,70 @@ export default function MilestoneDetailPage() {
         </div>
 
         <div className="space-y-6">
-          {/* Reviewer actions. Only rendered when this user may actually act. */}
-          {isReviewer && <ReviewCard milestone={milestone} busy={busy} onRun={run} />}
+          {/* Reviewer actions. The **proposal milestone** is different: its
+              verdict is the panel's and it settles the project title, so it gets
+              its own card and the generic approve/revision controls are not
+              offered — the server refuses them for this milestone anyway. */}
+          {milestone.is_proposal ? (
+            <>
+              {milestone.can_decide_title && (
+                <ProposalDecisionCard milestone={milestone} busy={busy} onRun={run} />
+              )}
+              {isStudentOwner && (
+                <ProposalResponseCard milestone={milestone} busy={busy} onRun={run} />
+              )}
+            </>
+          ) : (
+            isReviewer && <ReviewCard milestone={milestone} busy={busy} onRun={run} />
+          )}
+
+          {milestone.is_proposal && (
+            <Card>
+              <CardHeader
+                title="Panel"
+                subtitle="The examiners seated on this student"
+                action={
+                  (milestone.panel?.length ?? 0) === 0 ? (
+                    <Badge tone="warning">None seated</Badge>
+                  ) : null
+                }
+              />
+
+              {(milestone.panel?.length ?? 0) > 0 ? (
+                <ul className="space-y-2 text-sm">
+                  {milestone.panel.map((member) => (
+                    <li key={member.user_id} className="flex items-center justify-between gap-3">
+                      <span className="text-slate-700">{member.name}</span>
+                      {member.role_label && <Badge tone="neutral">{member.role_label}</Badge>}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                /**
+                 * Say so, rather than rendering nothing.
+                 *
+                 * An empty panel is not a cosmetic gap: this milestone is decided
+                 * by the panel, so with nobody seated there is no one appointed to
+                 * rule on the title and the rest of the chain cannot open. A blank
+                 * card let that read as "nothing to show" instead of "this student
+                 * has no panel".
+                 */
+                <p className="text-sm text-slate-500">
+                  No panel is seated on this student yet. The proposal is decided by the panel, so
+                  nobody is currently appointed to rule on this title.
+                  {(role === 'coordinator' || role === 'admin') && (
+                    <>
+                      {' '}
+                      <Link to="/assignments/panels" className="text-brand-700 underline">
+                        Seat a panel
+                      </Link>
+                      .
+                    </>
+                  )}
+                </p>
+              )}
+            </Card>
+          )}
 
           <Card>
             <CardHeader title="Ownership" />
@@ -219,39 +285,51 @@ export default function MilestoneDetailPage() {
  * Upload + submit. Files are staged locally and only sent when the student
  * confirms, because a half-uploaded submission is worse than none — the
  * student's work is only "submitted" once every file arrived.
+ *
+ * Every limit shown here comes from the server (`max_files`, `max_file_mb`,
+ * `allowed_extensions`) instead of being hardcoded. A client guard that is
+ * more permissive than the validator is worse than no guard: it lets the
+ * student spend the upload, then rejects them at the end.
  */
-function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
+function SubmissionCard({ milestone, canSubmit, canWithdraw, onChanged }) {
   const inputRef = useRef(null)
   const [files, setFiles] = useState([])
   const [note, setNote] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [busyFileId, setBusyFileId] = useState(null)
   const [errors, setErrors] = useState(null)
   const [error, setError] = useState(null)
-  const [downloadError, setDownloadError] = useState(null)
+  const [fileError, setFileError] = useState(null)
 
   const existing = milestone.files ?? []
   const accepts = milestone.accepts_submission
 
+  // Server-provided constraints; the literals are only a fallback for a stale
+  // bundle talking to an older API.
+  const maxMb = milestone.max_file_mb ?? 25
+  const maxFiles = milestone.max_files || Infinity
+  const allowed = milestone.allowed_extensions ?? milestone.allowed_file_types ?? []
+
   const acceptAttr = useMemo(
     () =>
-      milestone.allowed_file_types?.length
-        ? milestone.allowed_file_types.map((t) => (t.startsWith('.') ? t : `.${t}`)).join(',')
+      allowed.length
+        ? allowed.map((t) => (t.startsWith('.') ? t : `.${t}`)).join(',')
         : undefined,
-    [milestone.allowed_file_types]
+    [allowed]
   )
 
   function pick(event) {
     const picked = Array.from(event.target.files ?? [])
-    const max = milestone.max_files || Infinity
 
-    if (picked.length + files.length > max) {
-      setError(`You can attach at most ${max} file${max === 1 ? '' : 's'}.`)
+    if (picked.length + files.length > maxFiles) {
+      setError(`You can attach at most ${maxFiles} file${maxFiles === 1 ? '' : 's'}.`)
       return
     }
-    // Guard the size here too, so the user is told before the request fails.
-    const tooBig = picked.find((f) => f.size > 32 * 1024 * 1024)
+    // Guard the size here too, so the user is told before the upload is spent
+    // rather than after the server rejects it.
+    const tooBig = picked.find((f) => f.size > maxMb * 1024 * 1024)
     if (tooBig) {
-      setError(`"${tooBig.name}" is larger than the 32 MB limit.`)
+      setError(`"${tooBig.name}" is larger than the ${maxMb} MB limit.`)
       return
     }
 
@@ -282,12 +360,60 @@ function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
       await milestoneApi.submit(milestone.id, body)
       setFiles([])
       setNote('')
-      onSubmitted()
+      await onChanged()
     } catch (err) {
       if (err?.errors) setErrors(err.errors)
       else setError(err?.message ?? 'Upload failed. Please try again.')
     } finally {
       setUploading(false)
+    }
+  }
+
+  async function download(file) {
+    setFileError(null)
+    setBusyFileId(file.id)
+    try {
+      // The original name is passed as the fallback: if Content-Disposition is
+      // ever unavailable, the saved file still arrives with its real extension
+      // instead of being called `submission-42` with none.
+      await milestoneApi.download(file.id, file.original_name ?? file.name)
+    } catch (err) {
+      setFileError(err?.message ?? 'That file could not be downloaded.')
+    } finally {
+      setBusyFileId(null)
+    }
+  }
+
+  async function withdraw(file) {
+    const name = file.original_name ?? file.name
+    // Withdrawing from a submitted milestone invalidates the submission, so
+    // say so before the student is surprised by the status change.
+    const wasSubmitted = milestone.status === 'submitted'
+
+    const confirmed = window.confirm(
+      `Withdraw "${name}"?\n\n` +
+        (wasSubmitted
+          ? 'This submission has not been reviewed yet, so withdrawing a file ' +
+            'returns the milestone to "Revision required" and you will need to ' +
+            'submit again.\n\n'
+          : '') +
+        'The file stays in the audit trail but is no longer available for ' +
+        'review. You can upload a replacement.'
+    )
+    if (!confirmed) return
+
+    setFileError(null)
+    setBusyFileId(file.id)
+    try {
+      await milestoneApi.deleteFile(file.id)
+      // Reload rather than using the withdrawal response: that payload carries
+      // the file list but not the project/student/supervisor relations this
+      // page also renders, so reusing it would blank those sections.
+      await onChanged()
+    } catch (err) {
+      setFileError(err?.message ?? 'That file could not be withdrawn.')
+    } finally {
+      setBusyFileId(null)
     }
   }
 
@@ -302,7 +428,7 @@ function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
         }
       />
 
-      {downloadError && <ErrorState error={{ message: downloadError }} />}
+      {fileError && <ErrorState error={{ message: fileError }} />}
 
       {/* Already-submitted files. Always visible, whatever the status. */}
       {existing.length > 0 ? (
@@ -317,39 +443,27 @@ function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
                 <p className="text-xs text-slate-400">
                   {formatBytes(file.size)}
                   {file.uploaded_at && ` · uploaded ${relativeDays(file.uploaded_at)}`}
+                  {file.revision_no > 1 && ` · revision ${file.revision_no}`}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => {
-                    setDownloadError(null)
-                    milestoneApi
-                      .download(file.id)
-                      .catch((err) =>
-                        setDownloadError(err?.message ?? 'That file could not be downloaded.')
-                      )
-                  }}
+                  disabled={busyFileId === file.id}
+                  onClick={() => download(file)}
                 >
-                  Download
+                  {busyFileId === file.id ? 'Working…' : 'Download'}
                 </Button>
-                {canSubmit && (
+                {canWithdraw && (
                   <Button
                     size="sm"
                     variant="ghost"
-                    tone="danger"
-                    onClick={async () => {
-                      if (!window.confirm('Delete this submission file? It will remain in the audit trail but will no longer be available for review.')) return
-                      try {
-                        await milestoneApi.deleteFile(file.id)
-                        await load()
-                      } catch (err) {
-                        setActionError(err?.message ?? 'Could not delete file.')
-                      }
-                    }}
+                    disabled={busyFileId === file.id}
+                    className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                    onClick={() => withdraw(file)}
                   >
-                    Delete
+                    Withdraw
                   </Button>
                 )}
               </div>
@@ -388,8 +502,8 @@ function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
             </p>
             <p className="mt-1 text-xs text-slate-400">
               {acceptAttr ? `Accepted: ${acceptAttr}` : 'Any file type'}
-              {milestone.max_files ? ` · max ${milestone.max_files} files` : ''}
-              {' · 32 MB per file'}
+              {milestone.max_files ? ` · max ${maxFiles} files` : ''}
+              {` · ${maxMb} MB per file`}
             </p>
             <input
               ref={inputRef}
@@ -400,6 +514,16 @@ function SubmissionCard({ milestone, canSubmit, onSubmitted }) {
               className="sr-only"
             />
           </div>
+
+          {/* Submitting supersedes the previous attempt rather than adding to
+              it, so say so before the student is surprised by it. */}
+          {existing.length > 0 && files.length > 0 && (
+            <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Submitting will supersede the {existing.length} file
+              {existing.length === 1 ? '' : 's'} currently on record. They stay in
+              the history and remain downloadable.
+            </p>
+          )}
 
           {files.length > 0 && (
             <ul className="space-y-2">
@@ -547,29 +671,281 @@ function ReviewCard({ milestone, busy, onRun }) {
   )
 }
 
+/**
+ * The panel's verdict on the proposal — the title decision.
+ *
+ * Three outcomes, and they are genuinely different: an approval opens the rest
+ * of the chain, a conditional approval leaves the student owing Lampiran C, and
+ * a rejection means the title itself has to change. That is why this is not the
+ * generic approve/request-revision card.
+ */
+function ProposalDecisionCard({ milestone, busy, onRun }) {
+  const [decision, setDecision] = useState('approved')
+  const [reason, setReason] = useState('')
+
+  const needsReason = decision !== 'approved'
+  const ready = !needsReason || reason.trim().length > 0
+
+  const OPTIONS = [
+    {
+      value: 'approved',
+      label: 'Approve',
+      hint: 'The title stands, and the remaining milestones open',
+      active: 'border-emerald-500 bg-emerald-50 text-emerald-800',
+      idle: 'border-slate-200 text-slate-600 hover:border-slate-300',
+    },
+    {
+      value: 'conditional_approve',
+      label: 'Conditional approval',
+      hint: 'The title stands subject to corrections — the student files Lampiran C',
+      active: 'border-amber-500 bg-amber-50 text-amber-800',
+      idle: 'border-slate-200 text-slate-600 hover:border-slate-300',
+    },
+    {
+      value: 'rejected',
+      label: 'Reject the title',
+      hint: 'The title is refused and the student must change it',
+      active: 'border-rose-500 bg-rose-50 text-rose-800',
+      idle: 'border-slate-200 text-slate-600 hover:border-slate-300',
+    },
+  ]
+
+  // Nothing to decide until the student has filed the proposal.
+  if (!['submitted', 'reviewed'].includes(milestone.status)) {
+    return (
+      <Card>
+        <CardHeader title="Title decision" subtitle="The panel's verdict on the proposed title" />
+        <p className="text-sm text-slate-500">
+          {milestone.status === 'approved'
+            ? 'This title has been approved, and the remaining milestones are open.'
+            : milestone.status === 'conditional_approve'
+              ? 'Approved conditionally — the student still owes the Lampiran C form.'
+              : milestone.status === 'rejected'
+                ? 'This title was rejected. The student must change it before a fresh decision.'
+                : 'There is nothing to decide yet — the student has not submitted the proposal.'}
+        </p>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Title decision"
+        subtitle="Settles the project title and gates the remaining milestones"
+      />
+      <div className="space-y-4">
+        <div className="space-y-2">
+          {OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setDecision(option.value)}
+              className={`w-full rounded-lg border px-3 py-2.5 text-left transition ${
+                decision === option.value ? option.active : option.idle
+              }`}
+            >
+              <span className="block text-sm font-medium">{option.label}</span>
+              <span className="block text-xs text-slate-500">{option.hint}</span>
+            </button>
+          ))}
+        </div>
+
+        <Field
+          label={needsReason ? 'Reason for the decision' : 'Comment'}
+          htmlFor="panel_reason"
+          required={needsReason}
+          hint={needsReason ? 'Required — the student needs to know what to change' : 'Optional'}
+        >
+          <Textarea
+            id="panel_reason"
+            rows={4}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder={
+              needsReason
+                ? 'Be specific — the student has to act on this.'
+                : 'Feedback, or a note for the record…'
+            }
+          />
+        </Field>
+
+        <Button
+          className="w-full"
+          disabled={busy || !ready}
+          onClick={() =>
+            onRun(() =>
+              milestoneApi.titleDecision(milestone.id, {
+                decision,
+                panel_reason: reason.trim() || undefined,
+              }),
+            )
+          }
+        >
+          {busy ? 'Recording…' : 'Record the decision'}
+        </Button>
+      </div>
+    </Card>
+  )
+}
+
+/**
+ * The student's side of the proposal decision.
+ *
+ * A conditional approval owes the Lampiran C form; a rejection owes a new title.
+ * Either way the rest of the chain stays shut until it is done.
+ */
+function ProposalResponseCard({ milestone, busy, onRun }) {
+  const [title, setTitle] = useState('')
+  const [rows, setRows] = useState([{ comment: '', action: '' }])
+
+  const conditional = milestone.status === 'conditional_approve'
+  const rejected = milestone.status === 'rejected'
+
+  if (!conditional && !rejected) return null
+
+  if (conditional) {
+    return (
+      <Card>
+        <CardHeader
+          title="Lampiran C — Corrections"
+          subtitle="Record the corrected title and what was changed, then the chain opens"
+        />
+        <div className="space-y-5">
+          {milestone.review_comment && (
+            <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              {milestone.review_comment}
+            </p>
+          )}
+
+          <Field
+            label="Corrected title (Tajuk Baharu)"
+            htmlFor="corrections_title"
+            required
+            hint="This becomes the project title"
+          >
+            <Input
+              id="corrections_title"
+              value={title || milestone.project?.title || ''}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={255}
+            />
+          </Field>
+
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-slate-700">Panel comment → action taken</p>
+            {rows.map((row, index) => (
+              <div key={index} className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  placeholder="Panel comment"
+                  value={row.comment}
+                  onChange={(e) =>
+                    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, comment: e.target.value } : r)))
+                  }
+                />
+                <Input
+                  placeholder="Action taken"
+                  value={row.action}
+                  onChange={(e) =>
+                    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, action: e.target.value } : r)))
+                  }
+                />
+              </div>
+            ))}
+            <Button variant="secondary" onClick={() => setRows((prev) => [...prev, { comment: '', action: '' }])}>
+              Add row
+            </Button>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              disabled={busy || !(title || milestone.project?.title || '').trim()}
+              onClick={() =>
+                onRun(() =>
+                  milestoneApi.fileLampiranC(milestone.id, {
+                    corrections_title: (title || milestone.project?.title || '').trim(),
+                    corrections_actions: rows.filter((r) => r.comment.trim() || r.action.trim()),
+                  }),
+                )
+              }
+            >
+              {busy ? 'Filing…' : 'File Lampiran C'}
+            </Button>
+          </div>
+        </div>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Change the title"
+        subtitle="The panel refused the title — propose a new one and the proposal reopens"
+      />
+      <div className="space-y-5">
+        {milestone.review_comment && (
+          <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-800">
+            {milestone.review_comment}
+          </p>
+        )}
+
+        <Field
+          label="New title"
+          htmlFor="new_title"
+          required
+          hint="Written to the project; the milestone reopens so you can resubmit"
+        >
+          <Input
+            id="new_title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={255}
+            placeholder={milestone.project?.title ?? ''}
+          />
+        </Field>
+
+        <div className="flex justify-end">
+          <Button
+            disabled={busy || !title.trim() || title.trim() === milestone.project?.title}
+            onClick={() => onRun(() => milestoneApi.changeTitle(milestone.id, title.trim()))}
+          >
+            {busy ? 'Saving…' : 'Change the title'}
+          </Button>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
 function EventTimeline({ events }) {
   if (events.length === 0) {
     return <EmptyState title="No events yet" message="Submission and review activity will appear here." />
   }
 
-  const sorted = [...events].sort(
-    (a, b) => new Date(b.created_at ?? 0) - new Date(a.created_at ?? 0)
-  )
+  // Newest first. Ties are broken on id so the order is stable: a withdrawal
+  // and the status change it triggers land in the same second, and without a
+  // tiebreak their relative order would depend on sort implementation details.
+  const sorted = [...events].sort((a, b) => {
+    const byTime = new Date(b.created_at ?? 0) - new Date(a.created_at ?? 0)
+    return byTime !== 0 ? byTime : (b.id ?? 0) - (a.id ?? 0)
+  })
 
   return (
     <ul className="space-y-4">
       {sorted.map((event) => (
         <li key={event.id} className="flex gap-3">
-          <Avatar name={event.actor?.name ?? event.actor_name ?? 'System'} size="sm" />
+          <Avatar name={event.actor?.name ?? 'System'} size="sm" />
           <div className="min-w-0 flex-1">
+            {/* The API sends a pre-rendered sentence that already names the
+                actor, so it is rendered as-is. `describeEvent` is only the
+                fallback for an event type the server does not label. */}
             <p className="text-sm text-slate-800">
-              <span className="font-medium">{event.actor?.name ?? event.actor_name ?? 'System'}</span>
-              {' '}
-              <span className="text-slate-600">{describeEvent(event)}</span>
+              {event.description ?? describeEvent(event)}
             </p>
-            {event.payload?.comment && (
+            {event.comment && (
               <p className="mt-1 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                {event.payload.comment}
+                {event.comment}
               </p>
             )}
             <p className="mt-1 text-xs text-slate-400">
@@ -583,18 +959,31 @@ function EventTimeline({ events }) {
   )
 }
 
+/**
+ * Fallback wording, keyed on the raw `event` value the API stores.
+ *
+ * The earlier version read `event_type` / `event.action`, neither of which the
+ * resource sends, so every row fell through to "updated this milestone" and a
+ * supervisor could not tell an upload from an approval.
+ */
 function describeEvent(event) {
   const labels = {
     created: 'created this milestone',
-    submitted: 'submitted files for review',
-    commented: 'left a comment',
-    approved: 'approved the submission',
+    opened: 'Milestone opened for submission',
+    submitted: 'uploaded a submission',
+    uploaded: 'uploaded a submission',
+    commented: 'added a comment',
+    approved: 'approved this milestone',
     revision_requested: 'requested a revision',
-    resubmitted: 'resubmitted after revision',
+    rejected: 'requested a revision',
+    replaced: 'replaced the submission file',
+    withdrawn: 'withdrew a file',
     extended: 'extended the deadline',
+    deadline_changed: 'changed the deadline',
     reopened: 'reopened the milestone',
   }
-  return labels[event.event_type ?? event.action] ?? (event.event_type ?? event.action ?? 'updated this milestone')
+  const key = event.event ?? event.event_type ?? event.action
+  return labels[key] ?? (key ?? 'updated this milestone')
 }
 
 function Detail({ label, value }) {

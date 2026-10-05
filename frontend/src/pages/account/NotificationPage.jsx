@@ -98,7 +98,7 @@ export default function NotificationPage() {
             ? `${unreadCount} unread`
             : 'You are up to date'
         }
-        actions={
+        action={
           unreadCount > 0 ? (
             <Button variant="secondary" disabled={busy} onClick={markAllRead}>
               {busy ? 'Marking…' : 'Mark all as read'}
@@ -120,7 +120,7 @@ export default function NotificationPage() {
             <option value="status_change">Status changes</option>
             <option value="submission_received">Submissions</option>
             <option value="evaluation_assigned">Assessments</option>
-            <option value="grade_released">Grades</option>
+            <option value="grade_released">Marks</option>
           </Select>
           {meta && (
             <span className="text-sm text-slate-500">
@@ -137,7 +137,7 @@ export default function NotificationPage() {
             message={
               filter === 'unread'
                 ? 'You have read everything. Switch to "All" to review previous notifications.'
-                : 'Notifications about deadlines, submissions and grades will appear here.'
+                : 'Notifications about deadlines, submissions and marks will appear here.'
             }
           />
         </Card>

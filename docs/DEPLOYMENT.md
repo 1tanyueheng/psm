@@ -283,10 +283,11 @@ MAIL_PASSWORD=...
 MAIL_FROM_ADDRESS=noreply@your-domain
 MAIL_FROM_NAME="${APP_NAME}"
 
-SANCTUM_STATEFUL_DOMAINS=your-frontend-domain     # Option B only
+# Do NOT set SANCTUM_STATEFUL_DOMAINS. The SPA uses bearer tokens, not cookies;
+# naming a stateful host makes browser POST/DELETE fail with 419 CSRF mismatch.
 SESSION_DOMAIN=.your-domain                       # Option B only
 
-PSM_MILESTONE_BLEND_PERCENT=20
+PSM_MILESTONE_BLEND_PERCENT=0
 LEADERBOARD_TOP_N=3
 LEADERBOARD_MIN_ASSESSORS=2
 REMINDER_DAYS_BEFORE=7,3,1

@@ -81,30 +81,6 @@ class EvaluationPolicy
             && $evaluation->status->isEditable();
     }
 
-    /**
-     * Moderation: change a locked mark. Coordinator/admin only, never the
-     * assessor who wrote it — that is the point of moderation.
-     */
-    public function moderate(User $actor, Evaluation $evaluation): bool
-    {
-        if (! $actor->hasRole('admin', 'coordinator')) {
-            return false;
-        }
-
-        // An assessor cannot moderate their own submission, even if they also
-        // hold a coordinator role.
-        if ($evaluation->assessor_id === $actor->id) {
-            return false;
-        }
-
-        if (! $evaluation->status->isLocked()) {
-            return false;
-        }
-
-        return $actor->hasRole('admin')
-            || app(ProjectPolicy::class)->view($actor, $evaluation->project);
-    }
-
     /** Declare a conflict of interest and step back from assessing. */
     public function declareConflict(User $actor, Evaluation $evaluation): bool
     {

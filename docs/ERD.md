@@ -14,7 +14,7 @@ worth knowing about.
 | `id` | PK |
 | `name`, `email` | `email` is `uq` |
 | `password` | hashed, hidden from serialisation |
-| `role` | enum: student / supervisor / coordinator / examiner / admin |
+| `role` | enum: student / supervisor / coordinator / admin |
 | `status` | enum: active / inactive / suspended / pending |
 | `staff_id`, `department`, `phone` | staff and contact fields |
 | `must_change_password` | drives the `first.login` middleware |
@@ -76,9 +76,55 @@ stamps `ended_at`, so the coordinator can always answer "who supervised whom,
 and when".
 
 ### examiner_assignments
-`project_id →`, `examiner_id → users`, `psm_part`, `panel_role`
-(chair/member/reserve), `is_active`, `assigned_by → users`, `notified_at`.
-Unique `(project_id, examiner_id, psm_part)`.
+`project_id →` (**nullable**), `student_profile_id →` (**nullable**),
+`examiner_id → users`, `examiner_pair_id → examiner_pairs` (nullable),
+`psm_part`, `panel_role` (chair/member/reserve), `is_active`,
+`assigned_by → users`, `notified_at`.
+Unique `(project_id, examiner_id, psm_part)` and
+`(student_profile_id, examiner_id, psm_part)`.
+
+**The anchor is the student, not the project.** The same two examiners review the
+proposal *and* give the final mark, and the review happens before Lampiran B
+creates a project — so the panel is allocated against the student from Lampiran A
+onward and `project_id` is stamped on once the project exists. This is what keeps
+the evaluation path, which reads `project_id`, unchanged.
+
+### supervisor_agreements — Lampiran A
+`student_profile_id →`, `supervisor_profile_id →`, `session` (the **session string**,
+"2025/2026"), `psm_part`, `proposed_title_1/2/3`, `agreed_title` (picked at
+acknowledgement), `english_report`, `status`
+(`pending_supervisor → approved`), `student_signed_at`,
+`supervisor_acknowledged_at`, `supervision_assignment_id →`.
+
+**This row carries no review.** It used to hold the panel's verdict, and before
+that a title-defence sitting hung off it. Both are gone: the title is decided at
+the **proposal milestone** (see below), so the agreement is just the paperwork —
+who agreed to supervise whom, on which title.
+
+`projects.agreement_id →` is the link between the two. It is written by
+`RegistrationService::submitTitleProposal()`; it used to be recorded only inside
+`projects.metadata->agreement_id`, which left both `Project::agreement()` and
+`SupervisorAgreement::project()` resolving to null.
+
+### milestones — the proposal milestone decides the title
+The proposal is **sequence 1 of every chain** (`code = 'proposal'`) and the only
+milestone whose verdict is the panel's rather than the supervisor's. Its `status`
+*is* the decision:
+
+| status | meaning |
+|---|---|
+| `approved` | the title stands; `activateNext()` opens the next chapter |
+| `conditional_approve` | the title stands subject to corrections — the student files Lampiran C |
+| `rejected` | the title is refused; the student changes it and the milestone reopens |
+
+The panel's reason and who recorded it reuse the existing review columns
+(`review_comment`, `reviewed_at`, `reviewed_by`). Lampiran C adds
+`lampiran_c_title` (Tajuk Baharu), `lampiran_c_actions` (JSON comment/action
+table), `lampiran_c_at`, `lampiran_c_by → users`.
+
+Changing the title writes **`projects.title`** — the project title is the
+confirmed title, so a decision that settles a different one must not leave the two
+disagreeing.
 
 ---
 

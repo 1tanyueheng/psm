@@ -53,7 +53,6 @@ class UserResource extends JsonResource
                 'is_student'               => $this->isStudent(),
                 'is_supervisor'            => $this->isSupervisor(),
                 'is_coordinator'           => $this->isCoordinator(),
-                'is_examiner'              => $this->isExaminer(),
                 'is_admin'                 => $this->isAdmin(),
             ],
 

@@ -5,9 +5,9 @@ import { useAuth } from '../../context/AuthContext'
 import { can } from '../../lib/permissions'
 import {
   Card, CardHeader, PageHeader, Badge, EmptyState, Spinner, ErrorState,
-  Button, Select,
+  Button,
 } from '../../components/ui'
-import { formatDate, formatMark, CATEGORY_LABELS } from '../../lib/format'
+import { formatDate, formatMark } from '../../lib/format'
 
 /**
  * Rubric template management (Module 4, authoring side).
@@ -23,13 +23,18 @@ export default function RubricListPage() {
   const [templates, setTemplates] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [detail, setDetail] = useState(null)
-  const [filter, setFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
   const [error, setError] = useState(null)
   const [cloning, setCloning] = useState(false)
 
   const canManage = can(user?.role, 'manageTemplates')
+
+  // One entry per Lampiran, with the category variants nested underneath.
+  // Listing the variants as siblings made every form look duplicated, even
+  // though the split is the point: four of the five forms print different items
+  // for a development project than for a study.
+  const groups = groupByForm(templates)
 
   useEffect(() => {
     let cancelled = false
@@ -39,12 +44,15 @@ export default function RubricListPage() {
       setError(null)
       try {
         const { items } = unwrapPaged(
-          await rubricApi.templates({ category: filter || undefined, per_page: 100 })
+          await rubricApi.templates({ per_page: 100 })
         )
         if (cancelled) return
         setTemplates(items)
-        // Open the newest template by default so the page is never empty.
-        if (items.length > 0) setSelectedId((prev) => prev ?? items[0].id)
+        // Open the first form's first variant by default, matching the row the
+        // grouped sidebar highlights, so the page is never empty.
+        if (items.length > 0) {
+          setSelectedId((prev) => prev ?? groupByForm(items)[0]?.variants[0]?.id ?? null)
+        }
       } catch (err) {
         if (!cancelled) setError(err)
       } finally {
@@ -56,7 +64,7 @@ export default function RubricListPage() {
     return () => {
       cancelled = true
     }
-  }, [filter])
+  }, [])
 
   useEffect(() => {
     if (!selectedId) return undefined
@@ -106,7 +114,7 @@ export default function RubricListPage() {
       <PageHeader
         title="Rubric templates"
         subtitle="Versioned marking schemes — published versions are never edited in place"
-        actions={
+        action={
           canManage ? (
             <Button onClick={createVersion} disabled={cloning || !detail}>
               {cloning ? 'Creating…' : 'New version from current'}
@@ -117,66 +125,53 @@ export default function RubricListPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1">
-          <CardHeader title="Templates" />
-          <div className="mb-3">
-            <Select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              aria-label="Filter by category"
-            >
-              <option value="">All categories</option>
-              {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          {templates.length === 0 ? (
+          <CardHeader title="Forms" />
+          {groups.length === 0 ? (
             <EmptyState title="No templates" message="No rubric templates match this filter." />
           ) : (
             <ul className="divide-y divide-slate-100">
-              {templates.map((template) => (
-                <li key={template.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedId(template.id)}
-                    className={`w-full px-1 py-3 text-left transition ${
-                      selectedId === template.id
-                        ? 'border-l-2 border-brand-600 pl-3'
-                        : 'border-l-2 border-transparent pl-3 hover:bg-slate-50'
-                    }`}
-                    aria-current={selectedId === template.id ? 'true' : undefined}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-medium text-slate-800">{template.name}</span>
-                      {template.version && <Badge tone="neutral">v{template.version}</Badge>}
-                    </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                      <span className="capitalize">{template.assessor_type}</span>
-                      <span>·</span>
-                      <span>{CATEGORY_LABELS[template.category] ?? template.category}</span>
-                      {template.psm_part && (
-                        <>
-                          <span>·</span>
-                          <span>{template.psm_part}</span>
-                        </>
-                      )}
-                    </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      {template.is_published ? (
-                        <Badge tone="success">published</Badge>
-                      ) : (
-                        <Badge tone="warning">draft</Badge>
-                      )}
-                      {template.usage_count > 0 && (
-                        <span className="text-xs text-slate-400">
-                          used {template.usage_count}×
-                        </span>
-                      )}
-                    </div>
-                  </button>
+              {groups.map((group) => (
+                <li key={group.key} className="py-2">
+                  <div className="px-1">
+                    <p className="font-medium text-slate-800">{group.heading}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">{group.summary}</p>
+                  </div>
+
+                  <ul className="mt-1 space-y-0.5">
+                    {group.variants.map((variant) => (
+                      <li key={variant.id}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(variant.id)}
+                          className={`w-full px-1 py-2 text-left transition ${
+                            selectedId === variant.id
+                              ? 'border-l-2 border-brand-600 pl-3'
+                              : 'border-l-2 border-transparent pl-3 hover:bg-slate-50'
+                          }`}
+                          aria-current={selectedId === variant.id ? 'true' : undefined}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="truncate text-sm text-slate-700">
+                              {variant.label}
+                            </span>
+                            {variant.version && (
+                              <Badge tone="neutral">v{variant.version}</Badge>
+                            )}
+                            {variant.is_published ? (
+                              <Badge tone="success">published</Badge>
+                            ) : (
+                              <Badge tone="warning">draft</Badge>
+                            )}
+                          </div>
+                          {variant.usage_count > 0 && (
+                            <div className="mt-0.5 text-xs text-slate-400">
+                              used {variant.usage_count}×
+                            </div>
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 </li>
               ))}
             </ul>
@@ -202,14 +197,16 @@ export default function RubricListPage() {
                       </Badge>
                       <Badge tone="neutral">v{detail.version}</Badge>
                       <span className="capitalize">{detail.assessor_type}</span>
-                      <span>·</span>
-                      <span>{CATEGORY_LABELS[detail.category] ?? detail.category}</span>
+                      {detail.category && (
+                        <Badge tone="brand">
+                          {CATEGORY_LABEL[detail.category] ?? detail.category}
+                        </Badge>
+                      )}
                     </span>
                   }
                 />
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <Meta label="Total marks" value={detail.total_marks ?? 100} />
-                  <Meta label="Pass mark" value={detail.pass_mark ?? 50} />
                   <Meta
                     label="Components"
                     value={(detail.components ?? []).length}
@@ -226,9 +223,9 @@ export default function RubricListPage() {
               {(detail.components ?? []).map((component) => (
                 <Card key={component.code}>
                   <CardHeader
-                    title={component.name}
+                    title={component.title}
                     action={
-                      <Badge tone="brand">{component.weight ?? 0}%</Badge>
+                      <Badge tone="brand">{component.weight_percent ?? 0}%</Badge>
                     }
                   />
                   <ul className="divide-y divide-slate-100">
@@ -236,7 +233,7 @@ export default function RubricListPage() {
                       <li key={criterion.code} className="py-3">
                         <div className="flex items-start justify-between gap-4">
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-slate-800">{criterion.name}</p>
+                            <p className="text-sm font-medium text-slate-800">{criterion.title}</p>
                             {criterion.description && (
                               <p className="mt-0.5 text-sm text-slate-600">
                                 {criterion.description}
@@ -247,8 +244,8 @@ export default function RubricListPage() {
                             <div className="font-semibold tabular-nums text-slate-700">
                               {formatMark(criterion.max_marks)} marks
                             </div>
-                            {criterion.weight != null && (
-                              <div>{criterion.weight}% of component</div>
+                            {criterion.weight_percent != null && (
+                              <div>{criterion.weight_percent}% of component</div>
                             )}
                           </div>
                         </div>
@@ -269,6 +266,64 @@ export default function RubricListPage() {
 }
 
 /**
+ * Collapse the flat template list into one entry per official form.
+ *
+ * Lampiran E, G, I and J have a `system` and a `research` variant; Lampiran H
+ * has none and is labelled accordingly. Ordering follows the official set
+ * (E, I, G, H, J) rather than alphabetical, so the sidebar reads in the same
+ * order as the paperwork.
+ */
+const FORM_ORDER = ['E', 'I', 'G', 'H', 'J']
+
+const CATEGORY_LABEL = {
+  system: 'System development',
+  research: 'Research',
+}
+
+function groupByForm(templates) {
+  const byForm = new Map()
+
+  for (const template of templates) {
+    const code = template.form_code ?? null
+    if (!byForm.has(code)) byForm.set(code, [])
+    byForm.get(code).push(template)
+  }
+
+  return [...byForm.entries()]
+    .map(([code, variants]) => {
+      // Shared (category-agnostic) first, then development before research, so
+      // the order is deliberate rather than an alphabetical accident.
+      const rank = (t) => {
+        if (!t.category) return 0
+        return t.category === 'system' ? 1 : 2
+      }
+      variants.sort((a, b) => rank(a) - rank(b))
+
+      const first = variants[0]
+
+      return {
+        key: code ?? first.id,
+        heading: code ? `Lampiran ${code}` : first.name,
+        summary: [first.psm_part, first.assessor_type]
+          .filter(Boolean)
+          .map((part) => String(part).replace(/^./, (c) => c.toUpperCase()))
+          .join(' · '),
+        variants: variants.map((template) => ({
+          ...template,
+          label: template.category
+            ? CATEGORY_LABEL[template.category] ?? template.category
+            : 'All categories',
+        })),
+      }
+    })
+    .sort((a, b) => {
+      const ai = FORM_ORDER.indexOf(a.key)
+      const bi = FORM_ORDER.indexOf(b.key)
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+    })
+}
+
+/**
  * Show the arithmetic the server relies on. If component weights do not sum to
  * 100 the aggregate is rescaled, which is legal but worth surfacing so an
  * author can see the intent was preserved.
@@ -277,7 +332,7 @@ function WeightCheck({ detail }) {
   const components = detail.components ?? []
   if (components.length === 0) return null
 
-  const total = components.reduce((sum, c) => sum + (c.weight ?? 0), 0)
+  const total = components.reduce((sum, c) => sum + (c.weight_percent ?? 0), 0)
   const balanced = Math.abs(total - 100) < 0.01
 
   return (

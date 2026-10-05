@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { projectApi } from '../../api/endpoints'
+import MarkBreakdown, { MarkTotal } from '../../components/MarkBreakdown'
 import {
   Badge,
   Button,
@@ -23,6 +24,7 @@ import {
   MILESTONE_STATUS,
   PROJECT_STATUS,
 } from '../../lib/format'
+import { PSM_PART_BADGE_TONES, partLabel } from '../../lib/psmPart'
 
 /**
  * Module 3 — the student's own view.
@@ -37,6 +39,8 @@ export default function StudentDashboard() {
   const [error, setError] = useState(null)
   const [milestones, setMilestones] = useState([])
   const [selected, setSelected] = useState(null)
+  // Per-component marks, fetched only once the mark is released.
+  const [breakdown, setBreakdown] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -58,10 +62,27 @@ export default function StudentDashboard() {
 
         setSelected(project)
         setMilestones([])
+        setBreakdown(null)
 
         if (project) {
           const detail = await projectApi.milestones(project.id)
           if (!cancelled) setMilestones(detail?.milestones ?? detail ?? [])
+
+          // Only worth asking once the mark is out — the server withholds it
+          // before release, so this is a no-op on an unreleased project.
+          if (project.final_grade?.status === 'released') {
+            const own = (project.students ?? []).find((s) => s.user_id === user?.id)
+
+            if (own) {
+              try {
+                const marks = await projectApi.markBreakdown(project.id, own.id)
+                if (!cancelled) setBreakdown(marks)
+              } catch {
+                // A breakdown is an explanation, not the mark itself — a
+                // failure here must not blank the dashboard.
+              }
+            }
+          }
         }
       } catch (err) {
         if (!cancelled) setError(err.message)
@@ -75,7 +96,7 @@ export default function StudentDashboard() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [user?.id])
 
   if (loading) return <Spinner label="Loading your project…" />
 
@@ -130,7 +151,17 @@ export default function StudentDashboard() {
     <>
       <PageHeader
         title={selected.title}
-        subtitle={`${selected.code} · ${selected.academic_session ?? ''}`}
+        subtitle={
+          <span className="flex flex-wrap items-center gap-2">
+            <span>{selected.code}</span>
+            {selected.academic_session && (
+              <span className="font-mono text-xs text-slate-500">{selected.academic_session}</span>
+            )}
+            <Badge tone={PSM_PART_BADGE_TONES[selected.psm_part] ?? 'neutral'}>
+              {partLabel(selected.psm_part)}
+            </Badge>
+          </span>
+        }
         action={
           <div className="flex items-center gap-2">
             <Badge tone={projectStatus.tone}>{projectStatus.label}</Badge>
@@ -304,29 +335,29 @@ export default function StudentDashboard() {
             </Card>
           )}
 
-          {/* Result, once released */}
-          {selected.primary_grade?.status === 'released' && (
+          {/* Mark, once released — broken down to the level it was awarded.
+              Totals are the Lampiran's own marks, never a 0-100 percentage. */}
+          {selected.final_grade?.status === 'released' && (
             <Card>
-              <CardHeader title="Result" subtitle="Released by the coordinator" />
-              <div className="flex items-baseline gap-3">
-                <p className="text-3xl font-medium text-slate-900">
-                  {formatMark(selected.primary_grade.final_mark)}
+              <CardHeader
+                title="Released mark"
+                subtitle="Released by the coordinator"
+                action={<MarkTotal breakdown={breakdown} />}
+              />
+              {selected.final_grade.final_mark == null ? (
+                <p className="text-sm text-slate-500">
+                  No mark yet — your panel has not returned its forms. This will
+                  fill in as soon as they do.
                 </p>
-                <Badge
-                  tone={
-                    selected.primary_grade.is_pass
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-rose-50 text-rose-700 border-rose-200'
-                  }
-                >
-                  {selected.primary_grade.grade_letter}
-                </Badge>
-              </div>
-              <p className="text-xs text-slate-500 mt-2">
-                {selected.primary_grade.grade_label}
-              </p>
+              ) : (
+                <MarkBreakdown
+                  breakdown={breakdown}
+                  emptyMessage="The breakdown appears once the assessors' forms are in."
+                />
+              )}
             </Card>
           )}
+
         </div>
       </div>
     </>

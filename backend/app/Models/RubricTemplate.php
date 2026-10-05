@@ -30,7 +30,6 @@ class RubricTemplate extends Model
         'is_active',
         'is_published',
         'total_marks',
-        'pass_mark',
         'description',
         'grading_guide',
         'created_by',
@@ -44,7 +43,6 @@ class RubricTemplate extends Model
             'is_active'    => 'boolean',
             'is_published' => 'boolean',
             'total_marks'  => 'decimal:2',
-            'pass_mark'    => 'decimal:2',
             'version'      => 'integer',
         ];
     }
@@ -139,9 +137,20 @@ class RubricTemplate extends Model
     /**
      * Resolve the rubric to use for a given assessment context.
      *
-     * Pass $formCode to pin an official form; without it the part-specific /
-     * BOTH-part fallback below applies, which is how the legacy chapter rubrics
-     * (form_code IS NULL) are still reached.
+     * Four of the five official forms print a different set of items depending
+     * on the project category — Lampiran E carries C(i) Prototype *or* C(ii)
+     * Research Framework, I carries B(i) *or* B(ii), and G and J likewise — so
+     * E/I/G/J are seeded once per category and the matching row wins. Lampiran
+     * H has no variant and stays category-agnostic (`category IS NULL`).
+     *
+     * The category match is therefore ordered *before* the shared NULL row. That
+     * is the opposite of the old preference, which assumed every form served
+     * every category and so put the shared row first; leaving it that way would
+     * hand a research project the Development items.
+     *
+     * Pass $formCode to pin an official form. Callers should always pass it:
+     * without it the part-specific / BOTH-part fallback below applies, which is
+     * how a non-official rubric would be reached at all.
      */
     public static function resolveFor(
         ProjectCategory|string $category,
@@ -153,7 +162,7 @@ class RubricTemplate extends Model
         $ast = $assessorType instanceof AssessorType ? $assessorType->value : $assessorType;
 
         $query = static::query()
-            ->where('category', $cat)
+            ->where(fn ($q) => $q->whereNull('category')->orWhere('category', $cat))
             ->where('assessor_type', $ast)
             ->where('is_active', true)
             ->where('is_published', true)
@@ -164,8 +173,10 @@ class RubricTemplate extends Model
         }
 
         return $query
-            // See MilestoneTemplate::resolveFor — CASE instead of MySQL's
-            // FIELD() so this resolves on PostgreSQL too.
+            // Category-specific row first, then the shared one. CASE rather than
+            // MySQL's FIELD() so this resolves on PostgreSQL too.
+            ->orderByRaw('CASE WHEN category IS NULL THEN 1 ELSE 0 END')
+            ->orderByRaw('CASE WHEN category = ? THEN 0 ELSE 1 END', [$cat])
             ->orderByRaw('CASE WHEN psm_part = ? THEN 0 ELSE 1 END', [$psmPart])
             ->orderByDesc('version')
             ->first();
@@ -182,7 +193,6 @@ class RubricTemplate extends Model
             'name'         => $this->name,
             'version'      => $this->version,
             'total_marks'  => (float) $this->total_marks,
-            'pass_mark'    => (float) $this->pass_mark,
             'components'   => $this->components()->with('criteria')->get()->map(fn (RubricComponent $c) => [
                 'code'          => $c->code,
                 // Carried into the snapshot so a form created now can still be
@@ -216,11 +226,37 @@ class RubricTemplate extends Model
         return $query->where('is_active', true)->where('is_published', true);
     }
 
+    /**
+     * Only the official marking forms: Lampiran E, G, H, I, J.
+     *
+     * A rubric with no `form_code` corresponds to no form the faculty issues, so
+     * it must never reach an assessor. This scope is what makes that a property
+     * of the interface rather than a convention — a future seeder cannot quietly
+     * reintroduce an invented rubric without it being filtered out here. The
+     * legacy chapter rubrics were exactly that failure.
+     */
+    public function scopeOfficialForms($query)
+    {
+        return $query->whereNotNull('form_code');
+    }
+
     public function scopeForAssessor($query, AssessorType|string $type)
     {
         return $query->where(
             'assessor_type',
             $type instanceof AssessorType ? $type->value : $type
         );
+    }
+
+    /**
+     * Templates that apply to a category: the category-specific ones plus any
+     * shared (`category IS NULL`) form, which is Lampiran H — it carries the
+     * same three items whether the project is a system build or a study.
+     */
+    public function scopeForCategory($query, ProjectCategory|string $category)
+    {
+        $cat = $category instanceof ProjectCategory ? $category->value : $category;
+
+        return $query->where(fn ($q) => $q->whereNull('category')->orWhere('category', $cat));
     }
 }

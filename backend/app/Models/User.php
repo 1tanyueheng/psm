@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use App\Enums\Role;
 use App\Enums\NotificationType;
+use App\Enums\PsmPart;
+use App\Enums\Role;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -14,11 +15,15 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
- * Module 1 — the single authentication principal for all five roles.
+ * Module 1 — the single authentication principal for all four roles.
  *
  * Role-specific data hangs off `studentProfile` / `supervisorProfile`; the
  * convenience accessors below (isStudent(), canAssess(), ...) exist so that
  * policies and the SPA never have to compare raw strings.
+ *
+ * Being an *examiner* is not a role: it is an `examiner_assignments` row. A
+ * supervisor supervises their own students and may also sit on someone else's
+ * panel — see the Role enum.
  *
  * @property int    $id
  * @property string $name
@@ -136,7 +141,6 @@ class User extends Authenticatable
     public function isStudent(): bool     { return $this->role === Role::Student; }
     public function isSupervisor(): bool  { return $this->role === Role::Supervisor; }
     public function isCoordinator(): bool { return $this->role === Role::Coordinator; }
-    public function isExaminer(): bool    { return $this->role === Role::Examiner; }
     public function isAdmin(): bool       { return $this->role === Role::Admin; }
 
     /** Module 4 — may this user submit marks at all? */
@@ -155,6 +159,12 @@ class User extends Authenticatable
     public function canViewCohortAnalytics(): bool
     {
         return $this->role->canViewCohortAnalytics();
+    }
+
+    /** Module 4 — open/lock/unlock mark submissions. */
+    public function canManageMarkSubmissions(): bool
+    {
+        return $this->role->canManageMarkSubmissions();
     }
 
     public function canAccessArchive(): bool
@@ -221,8 +231,13 @@ class User extends Authenticatable
     /**
      * Module 2 — should this supervisor appear in the coordinator's
      * assignment dropdown, i.e. are they available to take a new student?
+     *
+     * Pass `$psmPart` when the batch is known. Without it the check is "has room
+     * in *some* batch", which under two concurrent batches is the honest default
+     * — a supervisor who is full in PSM 1 is still a valid answer for a PSM 2
+     * student, and dropping them from the list entirely would hide that.
      */
-    public function isAvailableSupervisor(): bool
+    public function isAvailableSupervisor(?string $psmPart = null): bool
     {
         if (! $this->isSupervisor() || ! $this->isActive()) {
             return false;
@@ -230,9 +245,13 @@ class User extends Authenticatable
 
         $profile = $this->supervisorProfile;
 
-        return $profile !== null
-            && $profile->is_accepting_students
-            && $profile->hasCapacity();
+        if ($profile === null || ! $profile->is_accepting_students) {
+            return false;
+        }
+
+        $part = PsmPart::tryParse($psmPart);
+
+        return $part === null ? ! $profile->isFull() : $profile->hasCapacityFor($part);
     }
 
     // -----------------------------------------------------------------

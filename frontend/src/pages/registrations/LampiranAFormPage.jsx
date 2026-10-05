@@ -74,8 +74,8 @@ export default function LampiranAFormPage() {
         psm_part: form.psm_part,
         supervisor_profile_id: Number(form.supervisor_profile_id),
         proposed_title_1: form.proposed_title_1.trim(),
-        proposed_title_2: form.proposed_title_2.trim() || undefined,
-        proposed_title_3: form.proposed_title_3.trim() || undefined,
+        proposed_title_2: form.proposed_title_2.trim(),
+        proposed_title_3: form.proposed_title_3.trim(),
         english_report: form.english_report,
       })
       const created = unwrap(res)
@@ -153,7 +153,7 @@ export default function LampiranAFormPage() {
         <Card>
           <CardHeader
             title="Part B — proposed titles"
-            subtitle="Propose up to three; your supervisor picks the agreed one"
+            subtitle="Three candidate titles are required; your supervisor picks the agreed one"
           />
           <div className="space-y-5">
             <Field label="Title 1" htmlFor="proposed_title_1" required error={errors?.proposed_title_1}>
@@ -165,19 +165,21 @@ export default function LampiranAFormPage() {
                 maxLength={255}
               />
             </Field>
-            <Field label="Title 2 (optional)" htmlFor="proposed_title_2" error={errors?.proposed_title_2}>
+            <Field label="Title 2" htmlFor="proposed_title_2" required error={errors?.proposed_title_2}>
               <Input
                 id="proposed_title_2"
                 value={form.proposed_title_2}
                 onChange={update('proposed_title_2')}
+                required
                 maxLength={255}
               />
             </Field>
-            <Field label="Title 3 (optional)" htmlFor="proposed_title_3" error={errors?.proposed_title_3}>
+            <Field label="Title 3" htmlFor="proposed_title_3" required error={errors?.proposed_title_3}>
               <Input
                 id="proposed_title_3"
                 value={form.proposed_title_3}
                 onChange={update('proposed_title_3')}
+                required
                 maxLength={255}
               />
             </Field>

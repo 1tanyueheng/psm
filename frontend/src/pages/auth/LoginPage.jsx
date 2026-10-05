@@ -150,12 +150,6 @@ export default function LoginPage() {
               ))}
             </div>
           </div>
-
-          <p className="text-center text-xs text-slate-400 mt-5">
-            <Link to="/leaderboard" className="hover:text-brand-600">
-              View the public showcase →
-            </Link>
-          </p>
         </div>
       </div>
     </div>

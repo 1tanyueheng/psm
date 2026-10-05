@@ -6,11 +6,10 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Module 4 / 5 — Final grade payload.
+ * Module 4 / 5 — Final mark payload.
  *
  * `computation_breakdown` is included for coordinators and withheld from
- * students, who see their mark and band but not the moderation arithmetic of
- * other assessors.
+ * students, who see their mark but not the arithmetic of other assessors.
  *
  * @mixin \App\Models\FinalGrade
  */
@@ -47,16 +46,11 @@ class FinalGradeResource extends JsonResource
             ] : null),
 
             // -----------------------------------------------------------------
-            // The mark
+            // The released mark
             // -----------------------------------------------------------------
             'final_mark'        => $this->final_mark !== null ? (float) $this->final_mark : null,
             'aggregate_percent' => $this->aggregate_percent !== null ? (float) $this->aggregate_percent : null,
             'milestone_score'   => $this->milestone_score !== null ? (float) $this->milestone_score : null,
-
-            'grade_letter' => $this->grade_letter,
-            'grade_point'  => $this->grade_point !== null ? (float) $this->grade_point : null,
-            'grade_label'  => $this->gradeLabel(),
-            'is_pass'      => $this->is_pass !== null ? (bool) $this->is_pass : null,
 
             // -----------------------------------------------------------------
             // Per-assessor subtotals. Shown to staff only: a student seeing

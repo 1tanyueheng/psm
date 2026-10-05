@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PSM process flow — implemented vs required</title>
+<style>
+  :root {
+    --ink: #26215C; --ink2: #444441; --muted: #5F5E5A;
+    --line: #D3D1C7; --line2: #B4B2A9;
+    --ok-f: #EAF3DE; --ok-s: #639922; --ok-t: #27500A;
+    --part-f: #FAEEDA; --part-s: #BA7517; --part-t: #633806;
+    --miss-f: #FCEBEB; --miss-s: #E24B4A; --miss-t: #791F1F;
+    --info-f: #E6F1FB; --info-s: #378ADD; --info-t: #0C447C;
+    --sys-f: #F1EFE8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 20px 64px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #FBFAF7; color: var(--ink2);
+    font-size: 14px; line-height: 1.6;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; color: var(--ink); margin: 0 0 4px; }
+  h2 { font-size: 16px; font-weight: 600; color: var(--ink); margin: 40px 0 4px; }
+  h3 { font-size: 14px; font-weight: 600; color: var(--ink); margin: 22px 0 8px; }
+  p  { margin: 6px 0; }
+  .sub { color: var(--muted); margin-bottom: 4px; }
+  .src { color: var(--muted); font-size: 12px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 8px; }
+  .key { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .dot { width: 10px; height: 10px; border-radius: 3px; }
+
+  .banner {
+    border: 1px solid var(--info-s); background: var(--info-f); color: var(--info-t);
+    border-radius: 10px; padding: 12px 16px; margin: 18px 0 4px; font-size: 13px;
+  }
+
+  .phase {
+    border: 1px solid var(--line); border-radius: 12px;
+    background: #fff; padding: 18px 20px; margin: 14px 0;
+  }
+  .phase > h3 { margin-top: 0; }
+  .phase .note { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+
+  .step { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-top: 1px dashed var(--line); }
+  .step:first-of-type { border-top: 0; }
+  .num {
+    flex: 0 0 26px; height: 26px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; margin-top: 1px;
+  }
+  .num.ok   { background: var(--ok-f);   color: var(--ok-t);   border: 1px solid var(--ok-s); }
+  .num.part { background: var(--part-f); color: var(--part-t); border: 1px solid var(--part-s); }
+  .num.miss { background: var(--miss-f); color: var(--miss-t); border: 1px solid var(--miss-s); }
+  .body { flex: 1 1 auto; min-width: 0; }
+  .action { font-weight: 600; color: var(--ink); }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+  .tag {
+    font-size: 11.5px; padding: 1px 7px; border-radius: 5px;
+    background: var(--sys-f); color: var(--muted); border: 1px solid var(--line);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .tag.form { background: #EEEDFE; color: #3C3489; border-color: #AFA9EC; font-family: inherit; }
+  .tag.actor { background: #E1F5EE; color: #085041; border-color: #5DCAA5; font-family: inherit; }
+  .why { font-size: 12.5px; color: var(--muted); margin-top: 5px; }
+
+  .arrow { text-align: center; color: var(--line2); font-size: 13px; line-height: 1; margin: 2px 0; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--sys-f); color: var(--ink); font-weight: 600; font-size: 12.5px; }
+  td code { font-size: 12px; color: var(--info-t); background: var(--info-f); padding: 1px 5px; border-radius: 4px; }
+
+  .gap { border-left: 3px solid var(--miss-s); padding-left: 12px; margin: 10px 0; }
+  .gap b { color: var(--miss-t); }
+
+  @media print {
+    body { background: #fff; padding: 0; font-size: 11pt; }
+    .phase { break-inside: avoid; }
+    h2 { break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>PSM process flow — as implemented</h1>
+  <p class="sub">Every step below is annotated with where it lives in the system, so you can click through and check it against the requirement document.</p>
+  <p class="src">Source: <code>requirement.pdf</code> ("PSM System Process Flow &amp; Functional Requirements") · system: <code>psm-system</code></p>
+
+  <div class="legend">
+    <span class="key"><span class="dot" style="background:#639922"></span> implemented and verified</span>
+    <span class="key"><span class="dot" style="background:#BA7517"></span> partially — see note</span>
+    <span class="key"><span class="dot" style="background:#E24B4A"></span> not implemented</span>
+  </div>
+
+  <div class="banner">
+    <b>How to verify.</b> Log in at <code>http://localhost:5173</code>. Demo accounts (password <code>password</code>):
+    <code>student@psm.test</code>, <code>supervisor@psm.test</code>, <code>coordinator@psm.test</code>,
+    <code>examiner@psm.test</code>, <code>admin@psm.test</code>.
+    Each step below names the screen (the URL path) and the status it should produce.
+  </div>
+
+  <h2>PSM 1</h2>
+
+  <div class="phase">
+    <h3>Phase 1 — supervisor registration &amp; defence preparation</h3>
+    <p class="note">The registration flow. Lampiran A is the entry point of the whole system.</p>
+
+    <div class="step">
+      <div class="num ok">1</div>
+      <div class="body">
+        <div class="action">Student submits Lampiran A with three candidate titles</div>
+        <div class="meta">
+          <span class="tag actor">student</span>
+          <span class="tag form">Lampiran A</span>
+          <span class="tag">/registrations/new</span>
+          <span class="tag">POST /api/registrations/agreements</span>
+          <span class="tag">status → pending_supervisor</span>
+        </div>
+        <div class="why">All three titles are now mandatory and must differ — the re-defence path needs alternatives to offer. Submitting with one title returns 422 "requires three candidate titles".</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num ok">2</div>
+      <div class="body">
+        <div class="action">Supervisor acknowledges and picks the agreed title</div>
+        <div class="meta">
+          <span class="tag actor">supervisor</span>
+          <span class="tag form">Lampiran A, part C</span>
+          <span class="tag">/registrations/:id</span>
+          <span class="tag">POST …/acknowledge</span>
+          <span class="tag">status → pending_jkpsm</span>
+        </div>
+        <div class="why">Note: <code>agreed_title</code> is still free text — it is not yet constrained to one of the three candidates.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num ok">3</div>
+      <div class="body">
+        <div class="action">JKPSM / coordinator approves — the pairing is registered</div>
+        <div class="meta">
+          <span class="tag actor">coordinator</span>
+          <span class="tag form">Lampiran A, part D</span>
+          <span class="tag">POST …/approve</span>
+          <span class="tag">creates supervision_assignments</span>
+        </div>
+        <div class="why">This is the step that creates the live student↔supervisor link, through AssignmentService so capacity rules still apply.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num miss">4</div>
+      <div class="body">
+        <div class="action">Coordinator fallback — auto-assign a supervisor after a timeframe</div>
+        <div class="meta"><span class="tag actor">coordinator / system</span><span class="tag">no screen</span></div>
+        <div class="why">Requirement: "If a student fails to secure a supervisor within the designated timeframe, the PSM Coordinator automatically assigns a supervisor." There is no timeframe setting, no scheduled job, and no auto-assignment. A coordinator can assign manually from <code>/assignments</code>.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num ok">5</div>
+      <div class="body">
+        <div class="action">Title Defence session in front of the two assigned examiners</div>
+        <div class="meta">
+          <span class="tag actor">coordinator starts</span>
+          <span class="tag actor">panel records</span>
+          <span class="tag">/title-defence</span>
+          <span class="tag">POST /api/title-defences</span>
+        </div>
+        <div class="why">
+          The coordinator creates a sitting and <b>starts it from their dashboard</b>; it is
+          <b>open during the time</b> and the panel can only record decisions while it is open.
+          Closing it, or the window expiring, stops recording.
+          <br>One <b>collective</b> decision per student — Approved, Conditional Approve or Rejected —
+          with a mandatory reason for the latter two. The record mirrors the faculty's defence sheet
+          column for column: proposed title, accepted title, decision, reason, project type and area,
+          panel comments, and both panel names (taken from the examiner allocations).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <h3>Phase 2 — post-defence approval flow</h3>
+    <p class="note">The requirement branches three ways on the defence outcome. The decision is now recorded, but the branches it should trigger are not yet wired.</p>
+
+    <div class="step">
+      <div class="num part">A</div>
+      <div class="body">
+        <div class="action">Approved → student submits Lampiran B → project created</div>
+        <div class="meta">
+          <span class="tag actor">student</span>
+          <span class="tag form">Lampiran B</span>
+          <span class="tag">POST …/title-proposal</span>
+          <span class="tag">project status → submitted</span>
+        </div>
+        <div class="why">Lampiran B works and creates the project, but it is gated on <b>Lampiran A being approved by JKPSM</b>, not on the defence outcome — the decision is recorded but does not yet gate anything.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num miss">C</div>
+      <div class="body">
+        <div class="action">Conditional approve → status "Conditional Approval" → Lampiran C → Lampiran B</div>
+        <div class="meta"><span class="tag form">Lampiran C</span><span class="tag">no status</span><span class="tag">no form</span></div>
+        <div class="why">Lampiran C is absent from the codebase entirely, and there is no "Conditional Approval" status to trigger it. Your <code>form required/lampiranC.html</code> documents what it needs: defence date, Examiner 1/2 names, previous vs new title, examiner comments → correction actions, JKPSM verification.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num miss">R</div>
+      <div class="body">
+        <div class="action">Rejected → student picks Title 2 or 3 → re-defence</div>
+        <div class="meta"><span class="tag">no screen</span></div>
+        <div class="why">The candidate set is now captured (three titles), but nothing reads it back to offer a re-defence. The data is in place; the flow is not.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <h3>Phase 3 — project execution &amp; PSM 1 final evaluation</h3>
+    <p class="note">Fully implemented. Milestones now differ by PSM part (template v3).</p>
+
+    <div class="step">
+      <div class="num ok">1</div>
+      <div class="body">
+        <div class="action">Student submits deliverables against milestone deadlines</div>
+        <div class="meta">
+          <span class="tag actor">student</span>
+          <span class="tag">/milestones</span>
+          <span class="tag">POST /api/milestones/:id/submit</span>
+        </div>
+        <div class="why">
+          <b>PSM 1 chain:</b> proposal, chapter 1, chapter 2, chapter 3, chapter 4, final report (weights 10/15/15/15/20/25).
+          Chapter 4 deliberately spans both parts — PSM 1 hands over the build, PSM 2 examines it in depth.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num ok">2</div>
+      <div class="body">
+        <div class="action">Supervisor evaluates with Lampiran E — only once all milestones are approved</div>
+        <div class="meta">
+          <span class="tag actor">supervisor</span>
+          <span class="tag form">Lampiran E</span>
+          <span class="tag">/evaluations</span>
+          <span class="tag">gated</span>
+        </div>
+        <div class="why">The gate is new and applies to both allocation and submission. Trying it early returns 422 "Lampiran E … opens only once every milestone has been approved. N of M milestone(s) are still outstanding."</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num ok">3</div>
+      <div class="body">
+        <div class="action">Two examiners grade with Lampiran I — system averages the two scores</div>
+        <div class="meta">
+          <span class="tag actor">examiner ×2</span>
+          <span class="tag form">Lampiran I</span>
+          <span class="tag">/assignments</span>
+          <span class="tag">panel = 2</span>
+        </div>
+        <div class="why">
+          Final examiner score = (Examiner 1 + Examiner 2) ÷ 2 — the grouping averages all examiners.
+          The panel is now capped at two; a third allocation returns 422 rather than silently changing the average.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2>PSM 2</h2>
+
+  <div class="phase">
+    <h3>Scope — chapters 4 to 7</h3>
+    <p class="note">Implementation, testing, results, conclusion.</p>
+
+    <div class="step">
+      <div class="num ok">1</div>
+      <div class="body">
+        <div class="action">Milestone chain</div>
+        <div class="meta">
+          <span class="tag actor">student</span>
+          <span class="tag">chapter 4 → 7</span>
+          <span class="tag">+ final report</span>
+        </div>
+        <div class="why">Weights 20/20/15/15/30. Previously PSM 2 was given the same chain as PSM 1 (proposal + chapters 1–5); it now starts at chapter 4 as the requirement states.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num ok">2</div>
+      <div class="body">
+        <div class="action">Supervisor evaluates progress, implementation and final report</div>
+        <div class="meta">
+          <span class="tag actor">supervisor</span>
+          <span class="tag form">Lampiran G</span>
+          <span class="tag form">Lampiran H ×2</span>
+          <span class="tag">POST /api/evaluations/progress-report</span>
+        </div>
+        <div class="why">G is the main evaluation; H is the progress report, taken twice (Laporan Kemajuan 1 and 2).</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num ok">3</div>
+      <div class="body">
+        <div class="action">Two examiners grade the final presentation and thesis</div>
+        <div class="meta">
+          <span class="tag actor">examiner ×2</span>
+          <span class="tag form">Lampiran J</span>
+          <span class="tag">panel = 2</span>
+        </div>
+        <div class="why">Same averaging rule as PSM 1.</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Cross-cutting — what happens after marking</h2>
+
+  <div class="phase">
+    <div class="step">
+      <div class="num ok">1</div>
+      <div class="body">
+        <div class="action">Grade aggregation</div>
+        <div class="meta">
+          <span class="tag">EvaluationService::computeFinalGrade()</span>
+          <span class="tag">weighted per official form</span>
+          <span class="tag">coordinator 0</span>
+        </div>
+        <div class="why">
+          Each official form carries its own share, and the forms marked are combined by weight:
+          <b>PSM 1</b> — Lampiran E 35 (supervisor) + Lampiran I 30 (examiners) = 65.
+          <b>PSM 2</b> — Lampiran G 50 + Lampiran H 5 (supervisor) + Lampiran J 40 (examiners) = 95.
+          <br>Both totals sit below 100 because the remainder of the official weighting is marked
+          <b>outside this system</b>, by the lecturer in class. What the system releases is therefore a
+          <b>mark</b> over the components it holds — the weighted mean, rescaled so a part-marked project
+          is not shown as failing — not a final grade. The full breakdown is persisted on the grade row,
+          so any mark can be explained line by line.
+          <br>The <b>coordinator awards no marks at all</b>, and since the weighting moved to forms they
+          cannot adjust an assessor's mark either — that ability has been removed.
+          <br>Weights live in <code>psm.assessment_weights</code> and are keyed by <b>form</b>, not by
+          assessor role: G and H are both supervisor forms, so a per-role scheme would merge their 50 and 5.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num ok">2</div>
+      <div class="body">
+        <div class="action">Release → archive</div>
+        <div class="meta">
+          <span class="tag">/grades</span>
+          <span class="tag">/archive</span>
+          <span class="tag">/audit</span>
+        </div>
+        <div class="why">Grades are released, the project is archived as a frozen snapshot, and every one of these actions lands in the append-only audit log.</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Milestone state machine</h2>
+  <div class="phase">
+    <p class="note">Applies to every milestone in both parts. Illegal transitions are rejected by <code>MilestoneService::transitionTo()</code>.</p>
+    <p>
+      <code>pending</code> → <code>open</code> → <code>submitted</code> → <code>reviewed</code> → <code>approved</code><br>
+      <code>submitted</code> → <code>rejected</code> (revision requested, reopens for upload)<br>
+      <code>open</code>/<code>pending</code> → <code>overdue</code> (deadline passed with no submission)<br>
+      <code>approved</code> → unlocks the next milestone in the chain
+    </p>
+    <p class="why">
+      Withdrawal rule (new): withdrawing a file from a <code>submitted</code> milestone returns it to <code>rejected</code>,
+      even if other files remain — the reviewer must never assess a set that changed underneath them. Files are
+      superseded, never deleted, so the audit trail keeps what was actually submitted.
+    </p>
+  </div>
+
+  <h2>Gap list — what to declare as not implemented</h2>
+  <p class="sub">Everything here is Phase 2 (post-defence) plus one Phase 1 item. Nothing else in the document is missing.</p>
+
+  <div class="gap">
+    <b>Lampiran C</b> — absent from the codebase. Required for the "Conditional Approve" branch, so a conditional decision currently has no way to be resolved.
+  </div>
+  <div class="gap">
+    <b>Wiring the decision to the next step</b> — the panel's decision is recorded and visible, but it does not yet gate Lampiran B. Gating it now would deadlock a conditional student, because Lampiran C does not exist to clear them.
+  </div>
+  <div class="gap">
+    <b>"Conditional Approval" status</b> — no such project or student status exists.
+  </div>
+  <div class="gap">
+    <b>Re-defence from Title 2 or 3</b> — the three titles are captured, but nothing reads them back.
+  </div>
+  <div class="gap">
+    <b>Coordinator auto-assign fallback</b> — no timeframe, no scheduled job, no auto-assignment.
+  </div>
+
+  <h3>Also worth recording as a limitation</h3>
+  <table>
+    <tr><th>Item</th><th>Detail</th></tr>
+    <tr>
+      <td>Assessment weights</td>
+      <td>Weighting totals</td>
+      <td>PSM 1 weights total 65 and PSM 2 total 95, because the remainder of the official weighting is marked outside the system (lecturer, in class). The system therefore releases marks, not final grades. Milestones no longer contribute to the mark — they gate it instead, since Lampiran E cannot be completed until every milestone is approved.</td>
+    </tr>
+    <tr>
+      <td>Legacy chapter rubric</td>
+      <td>A coordinator-level rubric still scores proposal + chapters 1–5 and has no chapter 6 or 7. Unreachable for the official forms (E/I/G/J), and coordinator weight is 0, but it is stale.</td>
+    </tr>
+    <tr>
+      <td><code>psm_part = BOTH</code></td>
+      <td>No milestone template exists for it, so such a project could not be instantiated. The chains are now part-specific by design.</td>
+    </tr>
+    <tr>
+      <td>Lampiran K and R1</td>
+      <td>Both forms are in <code>form required/</code> but are not in the requirement document's mapping matrix, so neither is implemented.</td>
+    </tr>
+    <tr>
+      <td>Leaderboard and public page</td>
+      <td>Module 8 has been removed from the interface by decision — no leaderboard screens, no public showcase page, and no navigation entry. The API routes and tables still exist and are untouched, so it can be restored without rewriting anything. The requirement document's mapping matrix does not list a leaderboard, so nothing in the process flow above depends on it.</td>
+    </tr>
+    <tr>
+      <td>Archive downloads</td>
+      <td>Seeded archive records show "not retrievable" — the demo files were never written to disk. Real archives carry a file reference and download normally.</td>
+    </tr>
+  </table>
+
+</div>
+</body>
+</html>

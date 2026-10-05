@@ -8,6 +8,7 @@
 
 import { Children, cloneElement, isValidElement } from 'react'
 import { initials } from '../lib/format'
+import { partLabel } from '../lib/psmPart'
 
 // ---------------------------------------------------------------------
 // Surfaces
@@ -313,6 +314,144 @@ export function Select({ children, className = '', ...props }) {
     <select className={`${INPUT_CLASS} ${className}`} {...props}>
       {children}
     </select>
+  )
+}
+
+/**
+ * A row of mutually exclusive options, rendered as one control.
+ *
+ * Used where the choices are a small closed set the user compares at a glance
+ * — PSM 1 vs PSM 2 on the cohort overview, report type on the reports screen.
+ * Prefer it over a `<Select>` in those cases; reserve the dropdown for the long
+ * lists (a term picker with a dozen entries).
+ *
+ * Implemented as a real `radiogroup` so arrow keys move between options and
+ * screen readers announce the selection, rather than as a row of buttons where
+ * only the visual state says which one is active.
+ */
+export function SegmentedControl({ value, onChange, options, size = 'md', className = '', name }) {
+  const sizes = {
+    sm: 'px-2.5 py-1 text-xs',
+    md: 'px-3 py-1.5 text-sm',
+  }
+
+  return (
+    <div
+      role="radiogroup"
+      className={`inline-flex rounded-lg bg-slate-100 p-1 ${className}`}
+    >
+      {options.map((option) => {
+        const active = String(option.value) === String(value)
+
+        return (
+          <button
+            key={option.value ?? 'all'}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            name={name}
+            onClick={() => onChange(option.value)}
+            className={`rounded-md font-medium transition-colors focus:outline-none
+              focus:ring-2 focus:ring-brand-500/30 ${sizes[size]}
+              ${
+                active
+                  ? 'bg-white text-brand-700 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+          >
+            {option.label}
+            {option.count != null && (
+              <span
+                className={`ml-1.5 tabular-nums ${active ? 'text-brand-500' : 'text-slate-400'}`}
+              >
+                {option.count}
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * Filter bar shared by every term-scoped list.
+ *
+ * The term picker leads because it is the outermost scope — the batch filter
+ * only means something relative to a term. `Batch` is optional so screens with
+ * no batch dimension can omit it rather than showing a control that does
+ * nothing.
+ */
+export function FilterBar({ children, className = '' }) {
+  return (
+    <div
+      className={`flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-3 ${className}`}
+    >
+      {children}
+    </div>
+  )
+}
+
+/**
+ * A labelled control inside a `FilterBar`.
+ *
+ * `className` lands on the wrapping `<label>`, so a caller can size or flex the
+ * field without having to hand-wrap the control.
+ */
+export function FilterField({ label, hint, children, className = '' }) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="mb-1 block text-xs font-medium text-slate-500">{label}</span>
+      {children}
+      {hint && <span className="mt-1 block text-[11px] text-slate-400">{hint}</span>}
+    </label>
+  )
+}
+
+/**
+ * The PSM batch switch, plus the flags of the term currently in view.
+ *
+ * Kept separate from `SegmentedControl` because every screen wants the same
+ * three options in the same order with the same counts, and because the
+ * registration/release badges belong next to the part the numbers describe.
+ */
+export function SemesterFilterBar({ part, onPartChange, partCounts, semester, className = '' }) {
+  const options = [
+    { value: '', label: 'All batches', count: partCounts?.all },
+    ...['PSM1', 'PSM2'].map((partKey) => ({
+      value: partKey,
+      label: partLabel(partKey, { short: true }),
+      count: partCounts?.[partKey],
+    })),
+  ]
+
+  return (
+    <FilterBar className={className}>
+      {part != null && (
+        <FilterField label="Batch">
+          <SegmentedControl
+            value={part}
+            onChange={onPartChange}
+            options={options}
+            name="psm_part"
+          />
+        </FilterField>
+      )}
+      {semester && (
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {semester.registration_open ? (
+            <Badge tone="success">Registration open</Badge>
+          ) : (
+            <Badge tone="neutral">Registration closed</Badge>
+          )}
+          {semester.is_marks_released ? (
+            <Badge tone="success">Marks released</Badge>
+          ) : (
+            <Badge tone="warning">Marks withheld</Badge>
+          )}
+        </div>
+      )}
+    </FilterBar>
   )
 }
 

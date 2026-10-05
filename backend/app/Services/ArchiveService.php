@@ -62,8 +62,6 @@ class ArchiveService
                 'examiners'   => $this->examinerRoster($project),
 
                 'final_mark'   => $grade?->final_mark,
-                'grade_letter' => $grade?->grade_letter,
-                'grade_point'  => $grade?->grade_point,
 
                 'milestone_summary' => $this->milestoneSummary($project),
                 'grade_breakdown'   => $grade?->computation_breakdown,
@@ -269,6 +267,17 @@ class ArchiveService
     {
         return $project->milestones
             ->flatMap(fn ($m) => $m->files->map(fn ($f) => [
+                /**
+                 * The submission file's id, so the document can be fetched.
+                 *
+                 * The manifest is a frozen snapshot — name, disk and path are
+                 * copied so the record survives the live rows — but the
+                 * download route is `/api/submissions/{id}/download`, and
+                 * without the id the SPA built `/api/submissions/undefined/...`
+                 * and every archive download 404ed. Submission files are
+                 * superseded rather than deleted, so the id stays valid.
+                 */
+                'id'            => $f->id,
                 'milestone'     => $m->code,
                 'revision_no'   => $f->revision_no,
                 'original_name' => $f->original_name,

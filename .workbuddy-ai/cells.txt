@@ -1,0 +1,99 @@
+=== CELLS (by clip rect) ===
+clip x= 306.55 y= 629.02 w=  28.92 h= 70.08 :: Control Measures / Implemented/To be / Implemented
+clip x= 335.95 y= 628.54 w=   7.08 h=142.08 :: RISK CONTROL
+clip x= 533.74 y= 571.27 w=   6.62 h=199.34 :: UTHM/OSHE/BKPPS.001(2025)
+clip x= 306.55 y= 527.95 w=  28.92 h= 42.84 :: F. / Risk Value / (Likelihood x / Severity)
+clip x= 350.11 y= 483.67 w=   9.24 h=144.86 :: Review Date
+clip x= 335.95 y= 361.25 w=   7.08 h=267.29 :: RISK ANALYSIS
+clip x= 350.11 y= 281.57 w=   9.24 h=202.10 :: : / (the date you filled in the form)
+clip x= 359.35 y= 281.57 w=  24.48 h=489.05 :: : / (your PSM supervisor name) / ___________________________ / (supervisor's signature)
+clip x= 383.83 y= 281.57 w=   7.08 h=489.05 :: : / (your full name, matric No)
+clip x= 390.91 y= 281.57 w=   8.88 h=489.05 :: : General Office
+clip x= 416.02 y= 204.14 w=   7.08 h=566.47 :: : /  (your mobile number)
+clip x= 423.10 y= 204.14 w=   7.08 h=566.47 :: : N/A
+clip x= 430.18 y= 204.14 w=  13.56 h=566.47 :: : / Dr. Norfaradilla binti Wahid (PSM Coordinator)
+clip x= 443.74 y= 204.14 w=   7.08 h=566.47 :: : N/A
+clip x= 450.82 y= 204.14 w=   7.08 h=566.47 :: : (e.g., Around the faculty, hostel, company/organization - if applicable)
+clip x= 457.90 y= 204.14 w=   7.08 h=566.47 :: : (your programme, e.g. Bachelor of Computer Science (Web Technology) with Honors - BIW)
+clip x= 464.98 y= 204.14 w=   7.08 h=566.47 :: : Faculty of Computer Science and Information Technology
+clip x= 306.55 y=  78.24 w=  28.92 h=125.42 :: Activity / Machine / Process / Material / Workplace / Environment
+clip x= 283.25 y=  77.76 w=  22.82 h=126.38 :: Fill up the activity (minimum 3), A-G, control measures / & responsible person
+clip x= 283.25 y=  51.36 w= 257.11 h=719.74 :: No.
+clip x= 283.25 y=  51.36 w=  22.82 h= 26.40 :: 1
+clip x= 306.55 y=  51.36 w=  28.92 h=719.74 :: A. / B. / C. / D. / E. / G. / Responsible Person/ Status / Hazard / Potential Consequence / Existing Risk Control / Likelihood / Severity /  Risk Level
+clip x= 335.95 y=  51.36 w=   7.08 h=309.89 :: HAZARD IDENTIFICATION
+clip x= 350.11 y=  51.36 w=   9.24 h=230.21 :: Date
+clip x= 350.59 y=  51.36 w=   8.28 h=719.74 :: : (date supervisor review and sign the form)
+clip x= 359.35 y=  51.36 w=  24.48 h=230.21 :: Reviewed and Approved By (Head of Department / Unit Head / Lab Manager / SLO / PSM or LI or WBL / Supervisor) / (Signature, Name, and Position)
+clip x= 383.83 y=  51.36 w=   7.08 h=230.21 :: Prepared by
+clip x= 390.91 y=  51.36 w=   8.88 h=230.21 :: Work Process / Location
+clip x= 403.63 y=  51.36 w=   7.10 h=719.26 :: SECTION B: HIRARC FORM
+clip x= 416.02 y=  51.36 w=  14.16 h= 26.40 :: Tel No.
+clip x= 416.50 y=  51.36 w=   6.12 h=719.74 :: Mobile Phone
+clip x= 423.58 y=  51.36 w=   6.12 h=719.74 :: Office
+clip x= 430.18 y=  51.36 w=  13.56 h=152.78 :: Head of Office / Lab Manager / PSM Coordinator / Internship / Coordinator / WBL Coordinator
+clip x= 443.74 y=  51.36 w=  14.16 h= 26.40 :: Location
+clip x= 444.22 y=  51.36 w=   6.12 h=719.74 :: Room Number
+clip x= 451.30 y=  51.36 w=   6.12 h=719.74 :: Block
+clip x= 457.90 y=  51.36 w=   7.08 h=152.78 :: Office / Laboratory / Workshop / Store Name
+clip x= 464.98 y=  51.36 w=   7.08 h=152.78 :: Faculty
+clip x= 472.06 y=  51.36 w=   9.96 h=719.26 :: SECTION A: GENERAL INFORMATION
+clip x= 488.74 y=  51.36 w=   6.72 h=719.26 :: UNIVERSITI TUN HUSSEIN ONN MALAYSIA
+clip x= 495.46 y=  51.36 w=   9.96 h=719.26 :: HIRARC FORM
+
+=== FILLED RECTS (non-white) ===
+x=  349.99 y=   50.88 w=  132.02 h=  719.86 color=None
+x=  305.95 y=   50.88 w=   37.08 h=  719.86 color=None
+x=  298.51 y=  204.14 w=    7.56 h=  237.41 color=None
+x=  443.50 y=   77.52 w=   14.16 h=    0.48 color=None
+x=  415.78 y=   50.64 w=   56.52 h=    0.48 color=None
+x=  415.78 y=  770.38 w=   56.04 h=    0.48 color=None
+x=  349.87 y=   50.64 w=   50.16 h=    0.48 color=None
+x=  349.87 y=  628.30 w=    9.24 h=    0.48 color=None
+x=  349.87 y=  770.38 w=   49.68 h=    0.48 color=None
+x=  415.78 y=   77.52 w=   14.16 h=    0.48 color=None
+x=  415.78 y=  203.90 w=   56.04 h=    0.48 color=None
+x=  349.87 y=  281.33 w=   49.68 h=    0.48 color=None
+x=  349.87 y=  483.43 w=    9.24 h=    0.48 color=None
+x=  306.55 y=   50.64 w=   36.72 h=    0.48 color=None
+x=  306.55 y=   77.52 w=   29.16 h=    0.48 color=None
+x=  306.55 y=  203.90 w=   29.16 h=    0.48 color=None
+x=  306.55 y=  281.33 w=   29.16 h=    0.48 color=None
+x=  306.55 y=  361.01 w=   36.24 h=    0.48 color=None
+x=  306.55 y=  441.19 w=   29.16 h=    0.48 color=None
+x=  306.55 y=  483.43 w=   29.16 h=    0.48 color=None
+x=  306.55 y=  527.23 w=   29.16 h=    0.48 color=None
+x=  306.55 y=  571.03 w=   29.16 h=    0.48 color=None
+x=  306.55 y=  628.30 w=   36.24 h=    0.48 color=None
+x=  306.55 y=  699.34 w=   29.16 h=    0.48 color=None
+x=  306.55 y=  770.38 w=   36.24 h=    0.48 color=None
+x=  283.49 y=  281.81 w=    0.48 h=   79.68 color=None
+x=  283.61 y=   50.40 w=   22.94 h=    0.96 color=None
+x=  283.61 y=  203.90 w=   21.98 h=    0.48 color=None
+x=  283.61 y=  770.14 w=   21.98 h=    0.96 color=None
+x=  283.61 y=   77.52 w=   21.98 h=    0.48 color=None
+x=  283.49 y=  281.33 w=   22.10 h=    0.48 color=None
+x=  283.49 y=  483.43 w=   22.10 h=    0.48 color=None
+x=  283.49 y=  628.30 w=   22.10 h=    0.48 color=None
+x=  283.49 y=  361.01 w=   22.10 h=    0.48 color=None
+x=  283.49 y=  441.19 w=   22.10 h=    0.48 color=None
+x=  283.49 y=  527.23 w=   22.10 h=    0.48 color=None
+x=  283.49 y=  571.03 w=   22.10 h=    0.48 color=None
+x=  283.49 y=  699.34 w=   22.10 h=    0.48 color=None
+x=  471.82 y=   51.12 w=    0.48 h=  719.74 color=None
+x=  464.74 y=   51.12 w=    0.48 h=  719.74 color=None
+x=  457.66 y=   51.12 w=    0.48 h=  719.74 color=None
+x=  450.58 y=   78.00 w=    0.48 h=  692.86 color=None
+x=  443.50 y=   51.12 w=    0.48 h=  719.74 color=None
+x=  429.94 y=   51.12 w=    0.48 h=  719.74 color=None
+x=  422.86 y=   78.00 w=    0.48 h=  692.86 color=None
+x=  415.78 y=   51.12 w=    0.48 h=  719.74 color=None
+x=  399.55 y=   51.12 w=    0.48 h=  719.74 color=None
+x=  390.67 y=   51.12 w=    0.48 h=  719.74 color=None
+x=  383.59 y=   51.12 w=    0.48 h=  719.74 color=None
+x=  359.11 y=   51.12 w=    0.48 h=  719.74 color=None
+x=  349.87 y=   51.12 w=    0.48 h=  719.74 color=None
+x=  342.79 y=   51.12 w=    0.48 h=  719.74 color=None
+x=  335.71 y=   51.12 w=    0.48 h=  719.74 color=None
+x=  305.59 y=   51.36 w=    0.96 h=  719.74 color=None
+x=  283.49 y=  441.67 w=    0.48 h=  258.14 color=None

@@ -58,11 +58,19 @@ services:
       MAIL_FROM_ADDRESS: noreply@psm.test
       MAIL_FROM_NAME: "${APP_NAME}"
 
-      # SPA origin allowed to use cookie auth
-      SANCTUM_STATEFUL_DOMAINS: localhost:5173,localhost:8000
+      # The SPA authenticates with a bearer token, not cookies, so no host is
+      # "stateful" and this variable is deliberately left unset.
+      #
+      # It used to read `localhost:5173,localhost:8000`, which — combined with
+      # Sanctum's EnsureFrontendRequestsAreStateful middleware — made every
+      # browser POST/PUT/PATCH/DELETE from the dev SPA run through the `web`
+      # middleware group and fail with 419 "CSRF token mismatch." The SPA never
+      # fetches /sanctum/csrf-cookie, so there was no token to send. GETs were
+      # unaffected, so the app looked fine until you uploaded or withdrew.
+      # See the comment in backend/bootstrap/app.php.
 
       # --- PSM domain policy ---
-      PSM_MILESTONE_BLEND_PERCENT: "20"
+      PSM_MILESTONE_BLEND_PERCENT: "0"
       LEADERBOARD_TOP_N: "3"
       LEADERBOARD_MIN_ASSESSORS: "2"
       REMINDER_DAYS_BEFORE: "7,3,1"
@@ -88,6 +96,11 @@ services:
       - vendor-data:/var/www/html/vendor
       # Persist uploads and logs across restarts
       - storage-data:/var/www/html/storage
+      # The image ships opcache.validate_timestamps=0 (right for production),
+      # which would make the bind-mount above pointless: PHP would keep
+      # serving the bytecode it compiled first, so an edit would silently do
+      # nothing. This override re-enables revalidation for local work only.
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/zz-local.ini:ro
     depends_on:
       db:
         condition: service_healthy

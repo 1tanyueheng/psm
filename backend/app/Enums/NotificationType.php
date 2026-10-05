@@ -28,6 +28,11 @@ enum NotificationType: string
     case GradeReleased          = 'grade.released';
     case GradeModerated         = 'grade.moderated';
 
+    // --- Module 3: registration ------------------------------------------------
+    // A Lampiran A has been acknowledged by the supervisor and is now waiting on
+    // the panel. Sent to the examiners allocated to the student.
+    case ProposalAwaitingReview = 'proposal.awaiting_review';
+
     // --- Module 2: accounts & supervision -------------------------------------
     case AccountCreated         = 'account.created';
     case SupervisorAssigned     = 'supervisor.assigned';
@@ -50,8 +55,9 @@ enum NotificationType: string
             self::DeadlineOverridden   => 'Deadline changed',
             self::EvaluationAssigned   => 'Evaluation assigned to you',
             self::EvaluationSubmitted  => 'Evaluation submitted',
-            self::GradeReleased        => 'Grade released',
-            self::GradeModerated       => 'Grade moderated',
+            self::GradeReleased        => 'Mark released',
+            self::GradeModerated       => 'Mark moderated',
+            self::ProposalAwaitingReview => 'Proposal awaiting your review',
             self::AccountCreated       => 'Welcome — account created',
             self::SupervisorAssigned   => 'Supervisor assigned',
             self::SupervisorReassigned => 'Supervision changed',
@@ -103,7 +109,8 @@ enum NotificationType: string
             self::DeadlineMissed       => 'alert-triangle',
             self::DeadlineReminder     => 'clock',
             self::DeadlineOverridden   => 'calendar',
-            self::EvaluationAssigned   => 'clipboard-list',
+            self::EvaluationAssigned,
+            self::ProposalAwaitingReview => 'clipboard-list',
             self::GradeReleased,
             self::GradeModerated       => 'award',
             self::AccountCreated,
@@ -135,6 +142,9 @@ enum NotificationType: string
                 self::EvaluationSubmitted->value,
                 self::GradeReleased->value,
                 self::GradeModerated->value,
+            ],
+            'Registration' => [
+                self::ProposalAwaitingReview->value,
             ],
             'Account' => [
                 self::AccountCreated->value,

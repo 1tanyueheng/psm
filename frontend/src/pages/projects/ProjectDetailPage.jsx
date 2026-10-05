@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { projectApi, milestoneApi, evaluationApi, gradeApi } from '../../api/endpoints'
+import { projectApi, milestoneApi, evaluationApi, markApi, markSubmissionApi } from '../../api/endpoints'
 import { unwrap, unwrapPaged } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -8,10 +8,11 @@ import {
   Spinner, ErrorState, Button, DataTable, Td,
 } from '../../components/ui'
 import {
-  formatDate, formatDateTime, formatMark, formatPercent, relativeDays, isOverdue,
+  formatDate, formatDateTime, formatMark, relativeDays, isOverdue,
   CATEGORY_LABELS, MILESTONE_STATUS, statusMeta,
 } from '../../lib/format'
 import { StatusBadge } from './ProjectListPage'
+import MarkBreakdown, { MarkTotal } from '../../components/MarkBreakdown'
 
 /**
  * Project detail — the single page from which a project is understood.
@@ -29,20 +30,22 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState(null)
   const [milestones, setMilestones] = useState([])
   const [evaluations, setEvaluations] = useState([])
-  const [grade, setGrade] = useState(null)
+  const [mark, setMark] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [tab, setTab] = useState('milestones')
+  const [progressing, setProgressing] = useState(false)
+  const [progressError, setProgressError] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const [projectRes, milestoneRes, evaluationRes, gradeRes] = await Promise.allSettled([
+      const [projectRes, milestoneRes, evaluationRes, markRes] = await Promise.allSettled([
         projectApi.show(id),
         milestoneApi.list({ project_id: id, per_page: 100 }),
         evaluationApi.list({ project_id: id, per_page: 100 }),
-        gradeApi.forProject(id),
+        markApi.forProject(id),
       ])
 
       if (projectRes.status === 'rejected') throw projectRes.reason
@@ -54,9 +57,9 @@ export default function ProjectDetailPage() {
       setEvaluations(
         evaluationRes.status === 'fulfilled' ? unwrapPaged(evaluationRes.value).items : []
       )
-      // A grade may legitimately not exist yet, or be hidden from this role —
+      // A mark may legitimately not exist yet, or be hidden from this role —
       // either way it is not an error worth failing the whole page over.
-      setGrade(gradeRes.status === 'fulfilled' ? unwrap(gradeRes.value) : null)
+      setMark(markRes.status === 'fulfilled' ? unwrap(markRes.value) : null)
     } catch (err) {
       setError(err)
     } finally {
@@ -73,6 +76,24 @@ export default function ProjectDetailPage() {
   if (!project) return <ErrorState error={{ message: 'Project not found.' }} />
 
   const isOwner = project.students?.some((s) => s.user_id === user?.id)
+  const isCoordinator = user?.role === 'coordinator' || user?.role === 'admin'
+
+  // PSM 2 continues this project in the next term, so the action is offered on
+  // a live PSM 1 project only.
+  const canProgress = isCoordinator && project.psm_part === 'PSM1' && !project.archived_at
+
+  /**
+   * Marking is opened per (term, batch), not per project: one window allocates
+   * every Lampiran that batch needs. So this is a single action for the whole
+   * cohort rather than one per student, and the link carries this project's term
+   * and part so the coordinator lands on the right batch instead of an unscoped
+   * list.
+   */
+  const canOpenAssessment = isCoordinator && !project.archived_at
+  const assessmentHref =
+    `/assessment?semester_id=${project.academic_semester_id ?? ''}`
+    + `&psm_part=${project.psm_part ?? ''}`
+
   const approved = milestones.filter((m) => m.status === 'approved').length
   const overdue = milestones.filter(
     (m) => m.status !== 'approved' && isOverdue(m.effective_due_at ?? m.due_at, m.status)
@@ -92,7 +113,7 @@ export default function ProjectDetailPage() {
             {project.code && <span className="font-mono text-xs">{project.code}</span>}
           </span>
         }
-        actions={
+        action={
           <div className="flex gap-2">
             {isOwner && project.status === 'draft' && (
               <Button onClick={() => navigate(`/projects/${id}/edit`)}>Edit</Button>
@@ -142,16 +163,66 @@ export default function ProjectDetailPage() {
           </div>
         </Card>
 
-        {/* People */}
+        {/* Quick actions */}
         <Card>
-          <CardHeader title="People" />
-          <div className="space-y-4">
-            <PersonGroup label="Students" people={project.students} showId />
-            <PersonGroup label="Supervisors" people={project.supervisors} />
-            <PersonGroup label="Examiners" people={project.examiners} />
+          <CardHeader
+            title="Quick actions"
+            subtitle="Assessment is opened for a whole batch, not one student at a time"
+          />
+          <div className="space-y-2">
+            {canOpenAssessment && (
+              <Link to={assessmentHref}>
+                <Button variant="outline" className="w-full justify-start">
+                  Open assessment window
+                </Button>
+              </Link>
+            )}
+            {canProgress && (
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                disabled={progressing}
+                onClick={async () => {
+                  const go = window.confirm(
+                    'Progress this student to PSM 2?\n\n'
+                    + 'A PSM 2 project is created from this title in the next term, the supervisor '
+                    + 'and the examiner panel carry over, and this PSM 1 project is archived.\n\n'
+                    + 'The PSM 1 marks must already be released.',
+                  )
+                  if (!go) return
+
+                  setProgressing(true)
+                  setProgressError(null)
+                  try {
+                    const created = unwrap(await projectApi.progressToPsm2(id))
+                    navigate(`/projects/${created?.project_id ?? ''}`)
+                  } catch (err) {
+                    setProgressError(err?.message ?? 'Could not progress the student.')
+                  } finally {
+                    setProgressing(false)
+                  }
+                }}
+              >
+                {progressing ? 'Progressing…' : 'Progress to PSM 2'}
+              </Button>
+            )}
+
+            {progressError && (
+              <p className="rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-700">{progressError}</p>
+            )}
           </div>
         </Card>
       </div>
+
+      {/* People */}
+      <Card>
+        <CardHeader title="People" />
+        <div className="space-y-4">
+          <PersonGroup label="Students" people={project.students} showId />
+          <PersonGroup label="Supervisors" people={project.supervisors} />
+          <PersonGroup label="Examiners" people={project.examiners} />
+        </div>
+      </Card>
 
       {project.abstract && (
         <Card>
@@ -177,7 +248,8 @@ export default function ProjectDetailPage() {
           {[
             { key: 'milestones', label: 'Milestones', count: milestones.length },
             { key: 'evaluations', label: 'Assessments', count: evaluations.length },
-            { key: 'grade', label: 'Grade' },
+            { key: 'mark', label: 'Mark' },
+            { key: 'marks', label: 'Mark Submission', count: project?.students?.length },
           ].map((t) => (
             <button
               key={t.key}
@@ -203,7 +275,8 @@ export default function ProjectDetailPage() {
         <div className="p-5">
           {tab === 'milestones' && <MilestoneTab milestones={milestones} />}
           {tab === 'evaluations' && <EvaluationTab evaluations={evaluations} />}
-          {tab === 'grade' && <GradeTab grade={grade} />}
+          {tab === 'mark' && <MarkTab project={project} mark={mark} />}
+          {tab === 'marks' && <MarkSubmissionTab project={project} />}
         </div>
       </Card>
     </div>
@@ -214,101 +287,44 @@ function MilestoneTab({ milestones }) {
   if (milestones.length === 0) {
     return (
       <EmptyState
-        title="No milestones yet"
-        message="Milestones are generated automatically once the project is approved and a template is matched."
+        title="No milestones"
+        message="Create milestones to track progress against the timeline."
       />
     )
   }
 
   return (
-    <ol className="relative space-y-1">
-      {milestones.map((milestone, index) => {
-        const meta = statusMeta(MILESTONE_STATUS, milestone.status)
-        const due = milestone.effective_due_at ?? milestone.due_at
-        const late = milestone.status !== 'approved' && isOverdue(due, milestone.status)
-        const isLast = index === milestones.length - 1
-
-        return (
-          <li key={milestone.id} className="relative flex gap-4 pb-6">
-            {!isLast && (
-              <span
-                className="absolute left-3.5 top-8 h-full w-px bg-slate-200"
-                aria-hidden="true"
-              />
+    <DataTable
+      columns={[
+        { key: 'title', label: 'Milestone' },
+        { key: 'status', label: 'Status' },
+        { key: 'due_at', label: 'Due' },
+        { key: 'approved_at', label: 'Approved' },
+      ]}
+      rows={milestones}
+      render={(row) => (
+        <tr key={row.id}>
+          <Td>
+            <p className="font-medium text-slate-800">{row.title}</p>
+            {row.description && <p className="text-sm text-slate-500 truncate max-w-md">{row.description}</p>}
+          </Td>
+          <Td>
+            <Badge tone={statusMeta(MILESTONE_STATUS, row.status).tone}>
+              {statusMeta(MILESTONE_STATUS, row.status).label}
+            </Badge>
+          </Td>
+          <Td className="whitespace-nowrap">
+            {formatDate(row.effective_due_at ?? row.due_at, { fallback: '—' })}
+            {row.status !== 'approved' && isOverdue(row.effective_due_at ?? row.due_at, row.status) && (
+              <span className="ml-2 text-xs text-rose-600 font-medium">Overdue</span>
             )}
-            <span
-              className={`relative z-10 mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                milestone.status === 'approved'
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : late
-                    ? 'bg-rose-100 text-rose-700'
-                    : milestone.status === 'submitted'
-                      ? 'bg-amber-100 text-amber-700'
-                      : 'bg-slate-100 text-slate-500'
-              }`}
-            >
-              {milestone.status === 'approved' ? '✓' : index + 1}
-            </span>
-
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  to={`/milestones/${milestone.id}`}
-                  className="font-medium text-slate-800 hover:text-brand-700"
-                >
-                  {milestone.title}
-                </Link>
-                <Badge tone={milestone.status_tone ?? 'neutral'}>
-                  {milestone.status_label ?? meta?.label ?? milestone.status}
-                </Badge>
-                {milestone.code && (
-                  <span className="font-mono text-xs text-slate-400">
-                    {milestone.code}
-                  </span>
-                )}
-                {(milestone.revision_count ?? 0) > 0 && (
-                  <Badge tone="warning">rev {milestone.revision_count}</Badge>
-                )}
-              </div>
-
-              {milestone.deliverable_expectation && (
-                <p className="mt-1 line-clamp-2 text-sm text-slate-600">
-                  {milestone.deliverable_expectation}
-                </p>
-              )}
-
-              {/* Per-chapter progress, and the points it adds to the project
-                  total — these contributions sum to `project.milestone_progress`. */}
-              <div className="mt-2 max-w-sm">
-                <ProgressBar
-                  value={milestone.completion_percent ?? 0}
-                  tone={milestone.status_tone ?? 'brand'}
-                  showLabel
-                />
-              </div>
-
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-                <span className={late ? 'font-medium text-rose-600' : ''}>
-                  Due {formatDate(due)}
-                  {late && ' · overdue'}
-                </span>
-                {milestone.submitted_at && <span>Submitted {formatDate(milestone.submitted_at)}</span>}
-                {milestone.approved_at && (
-                  <span className="text-emerald-600">Approved {formatDate(milestone.approved_at)}</span>
-                )}
-                <span>Worth {formatPercent(milestone.weight_percent ?? 0, 0)}</span>
-              </div>
-            </div>
-
-            <Link to={`/milestones/${milestone.id}`}>
-              <Button size="sm" variant="secondary">
-                Open
-              </Button>
-            </Link>
-          </li>
-        )
-      })}
-    </ol>
+          </Td>
+          <Td className="whitespace-nowrap">
+            {row.approved_at ? formatDateTime(row.approved_at) : '—'}
+          </Td>
+        </tr>
+      )}
+    />
   )
 }
 
@@ -316,8 +332,8 @@ function EvaluationTab({ evaluations }) {
   if (evaluations.length === 0) {
     return (
       <EmptyState
-        title="No assessments yet"
-        message="Assessment forms appear when supervisors and examiners are asked to mark this project."
+        title="No assessments"
+        message="No evaluation forms have been created for this project yet."
       />
     )
   }
@@ -325,102 +341,151 @@ function EvaluationTab({ evaluations }) {
   return (
     <DataTable columns={['Assessor', 'Type', 'Status', 'Mark', 'Submitted']}>
       {evaluations.map((ev) => (
-        <tr key={ev.id} className="hover:bg-slate-50/60">
+        <tr key={ev.id}>
+          <Td>{ev.assessor?.name ?? '—'}</Td>
           <Td>
-            <div className="text-sm font-medium text-slate-800">
-              {ev.assessor?.name ?? '—'}
-            </div>
-            {ev.panel_role && (
-              <div className="text-xs text-slate-400">{ev.panel_role}</div>
-            )}
+            <Badge tone={ev.assessor_type === 'supervisor' ? 'blue' : 'green'}>
+              {ev.assessor_type}
+            </Badge>
           </Td>
-          <Td className="text-sm capitalize text-slate-600">{ev.assessor_type}</Td>
           <Td>
-            <Badge tone={ev.status === 'submitted' || ev.status === 'released' ? 'success' : 'warning'}>
+            <Badge tone={
+              ev.status === 'submitted' ? 'green' :
+              ev.status === 'draft' ? 'amber' : 'neutral'
+            }>
               {ev.status}
             </Badge>
           </Td>
           <Td className="font-semibold tabular-nums">
-            {ev.aggregate_mark != null ? formatMark(ev.aggregate_mark) : '—'}
+            {/* The mark in the form's own units — see the shared
+                MarkBreakdown for the same figure per component. */}
+            {ev.raw_score !== null && ev.max_score != null
+              ? `${formatMark(ev.raw_score)} / ${formatMark(ev.max_score)}`
+              : '—'}
           </Td>
-          <Td className="text-sm text-slate-500">
-            {ev.submitted_at ? formatDateTime(ev.submitted_at) : '—'}
-          </Td>
+          <Td>{ev.submitted_at ? formatDateTime(ev.submitted_at) : '—'}</Td>
         </tr>
       ))}
     </DataTable>
   )
 }
 
-function GradeTab({ grade }) {
-  if (!grade || !grade.status) {
-    return (
-      <EmptyState
-        title="No grade yet"
-        message="A grade is computed once enough assessors have submitted marks."
-      />
-    )
-  }
+function MarkTab({ project, mark }) {
+  const { user } = useAuth()
+  const [breakdown, setBreakdown] = useState(null)
+  const [breakdownLoading, setBreakdownLoading] = useState(false)
 
-  if (grade.status !== 'released') {
+  // Whose mark to show: a student sees their own, staff see the project's.
+  // Projects are single-member, so the first roster entry is the one.
+  const roster = project?.students ?? []
+  const own = roster.find((s) => s.user_id === user?.id)
+  const studentId = (own ?? roster[0])?.id ?? null
+
+  useEffect(() => {
+    if (!project || studentId == null) return undefined
+
+    let cancelled = false
+    setBreakdownLoading(true)
+
+    projectApi
+      .markBreakdown(project.id, studentId)
+      .then((data) => {
+        if (!cancelled) setBreakdown(data)
+      })
+      .catch(() => {
+        // The breakdown explains the mark; failing to load it must not blank
+        // the tab.
+        if (!cancelled) setBreakdown(null)
+      })
+      .finally(() => {
+        if (!cancelled) setBreakdownLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [project, studentId])
+
+  // `mark` exists as soon as a grade row does, which can be before anything has
+  // been marked — so check for the number, not just the object.
+  if (!mark || mark.final_mark == null) {
     return (
       <EmptyState
-        title="Grade not released"
-        message="Your grade has been computed but is being moderated. It will appear here once released by the coordinator."
+        title="No mark yet"
+        message="The mark will appear once the panel's forms are in and the coordinator releases it."
       />
     )
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-6">
-        <div>
-          <p className="text-sm text-slate-500">Final mark</p>
-          <p className="text-3xl font-semibold tabular-nums text-slate-900">
-            {formatMark(grade.final_mark)}
-          </p>
-        </div>
-        <div>
-          <p className="text-sm text-slate-500">Grade</p>
-          <p className="text-3xl font-semibold text-slate-900">{grade.grade_letter ?? '—'}</p>
-        </div>
-        {grade.grade_point != null && (
-          <div>
-            <p className="text-sm text-slate-500">Grade point</p>
-            <p className="text-3xl font-semibold tabular-nums text-slate-900">
-              {grade.grade_point.toFixed(2)}
-            </p>
-          </div>
-        )}
-      </div>
+    <Card>
+      <CardHeader
+        title="Mark by Lampiran"
+        subtitle="The mark as recorded on each form, in the form's own units"
+        action={<MarkTotal breakdown={breakdown} />}
+      />
 
-      {grade.breakdown && Object.keys(grade.breakdown).length > 0 && (
-        <div className="border-t border-slate-100 pt-5">
-          <p className="mb-3 text-sm font-medium text-slate-700">Breakdown</p>
-          <div className="space-y-2">
-            {Object.entries(grade.breakdown).map(([key, row]) => (
-              <div key={key} className="flex items-center gap-3">
-                <span className="w-40 shrink-0 text-sm capitalize text-slate-600">
-                  {key.replace(/_/g, ' ')}
-                </span>
-                <div className="flex-1">
-                  <ProgressBar
-                    value={row.mark ?? row.score ?? 0}
-                    max={100}
-                    tone="brand"
-                  />
-                </div>
-                <span className="w-24 shrink-0 text-right text-sm tabular-nums text-slate-600">
-                  {formatMark(row.mark ?? row.score)}{' '}
-                  <span className="text-xs text-slate-400">
-                    ×{row.weight ?? 0}%
-                  </span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+      {breakdownLoading ? (
+        <Spinner label="Loading the breakdown" />
+      ) : (
+        <MarkBreakdown
+          breakdown={breakdown}
+          emptyMessage="The breakdown appears once the assessors' forms are in."
+        />
       )}
+    </Card>
+  )
+}
+
+function MarkSubmissionTab({ project }) {
+  const { user } = useAuth()
+  const isCoordinator = user?.role === 'coordinator' || user?.role === 'admin'
+
+  if (!isCoordinator) {
+    return (
+      <div className="p-4 text-center text-slate-500">
+        <p>Mark submissions are managed by the coordinator.</p>
+      </div>
+    )
+  }
+
+  if (!project?.students?.length) {
+    return (
+      <div className="p-4 text-center text-slate-500">
+        <p>No students enrolled in this project.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-600">
+        Open a mark submission for each student to allocate forms and track readiness.
+      </p>
+      <div className="space-y-2">
+        {project.students.map((student) => (
+          <Link
+            key={student.id}
+            to={`/coordinator/projects/${project.id}/students/${student.id}/mark-submission`}
+            className="block"
+          >
+            <Card variant="bordered" className="p-4 hover:bg-slate-50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Avatar name={student.user?.name ?? '?'} size="md" />
+                  <div>
+                    <p className="font-medium text-slate-800">{student.user?.name}</p>
+                    <p className="text-sm text-slate-500">
+                      {student.student_id ?? student.user?.email}
+                    </p>
+                  </div>
+                </div>
+                <Button variant="secondary" size="sm">Open Submission</Button>
+              </div>
+            </Card>
+          </Link>
+        ))}
+      </div>
     </div>
   )
 }

@@ -103,7 +103,7 @@ export default function ProfilePage() {
       <PageHeader
         title="My profile"
         subtitle="Your details and account settings"
-        actions={
+        action={
           !editing ? (
             <Button onClick={() => setEditing(true)}>Edit details</Button>
           ) : null
@@ -245,7 +245,7 @@ export default function ProfilePage() {
         </Card>
       )}
 
-      {['supervisor', 'examiner'].includes(role) && (
+      {role === 'supervisor' && (
         <Card>
           <CardHeader
             title="Supervision details"
@@ -269,7 +269,6 @@ export default function ProfilePage() {
                   : 'No'
               }
             />
-            <ReadOnly label="Can examine" value={p.can_examine ? 'Yes' : 'No'} />
             <ReadOnly
               label="Expertise"
               value={(p.expertise ?? []).join(', ') || '—'}

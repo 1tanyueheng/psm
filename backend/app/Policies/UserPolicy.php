@@ -111,4 +111,30 @@ class UserPolicy
     {
         return $actor->hasRole('admin', 'coordinator');
     }
+
+    /**
+     * Module 2 — allocating an examiner to a project's panel.
+     *
+     * Lives here because the allocation endpoints authorise with
+     * `authorize('allocateExaminer', User::class)`, and Gate resolves the
+     * policy from that class — `User` → UserPolicy. The identically named
+     * method that used to sit on SupervisionPolicy was never reached, so the
+     * endpoints denied everyone, including admins, with a bare 403.
+     *
+     * A class-level ability like this one is deliberately not tied to a
+     * specific target user: the decision is "may this actor allocate
+     * examiners at all", and the per-project constraints (conflict of
+     * interest, panel size, no duplicates) are enforced by AssignmentService
+     * where the project is known.
+     */
+    public function allocateExaminer(User $actor): bool
+    {
+        return $actor->hasRole('admin', 'coordinator');
+    }
+
+    /** Module 4 — open/lock/unlock mark submissions. */
+    public function manageMarkSubmissions(User $actor): bool
+    {
+        return $actor->canManageMarkSubmissions();
+    }
 }

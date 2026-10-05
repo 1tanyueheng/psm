@@ -74,6 +74,32 @@ class MilestoneResource extends JsonResource
                 'name' => $this->reviewer->name,
             ] : null),
 
+            // -----------------------------------------------------------------
+            // The proposal milestone — the title decision
+            // -----------------------------------------------------------------
+            // The proposal is the one milestone whose verdict is the panel's and
+            // which settles the project title. Its `status` carries the decision:
+            // approved / conditional_approve / rejected. Everything below is
+            // resolved only for it, so the other milestones pay nothing.
+            'is_proposal' => $this->isProposal(),
+
+            'can_decide_title' => $this->when(
+                $this->isProposal(),
+                fn () => (bool) $request->user()?->can('decideTitle', $this->resource),
+            ),
+
+            // The two examiners seated on the student — read from the
+            // allocations, so the screen names the people the system appointed.
+            'panel' => $this->when(
+                $this->isProposal() && $this->relationLoaded('project'),
+                fn () => app(\App\Services\ProposalReviewService::class)->panel($this->project),
+            ),
+
+            // Lampiran C — the corrections a conditional approval required.
+            'lampiran_c_title'   => $this->lampiran_c_title,
+            'lampiran_c_actions' => $this->lampiran_c_actions,
+            'lampiran_c_at'      => $this->lampiran_c_at?->toIso8601String(),
+
             /**
              * The owning project.
              *
@@ -139,8 +165,36 @@ class MilestoneResource extends JsonResource
             'files' => SubmissionFileResource::collection($this->whenLoaded('currentFiles')),
 
             'file_count'   => $this->whenLoaded('currentFiles', fn () => $this->currentFiles->count()),
-            'max_files'    => $this->max_files,
+
+            /**
+             * Upload constraints, resolved server-side.
+             *
+             * The SPA used to hardcode a 32 MB ceiling and build its `accept`
+             * list from the milestone's own types alone. The server enforced
+             * 25 MB (psm.submission.max_mb) and a different, platform-wide
+             * allowlist — so a file the form was happy to stage could be
+             * rejected on submit, and a type the form offered could be refused.
+             * Publishing the effective values means the form can only offer
+             * what the API will actually take.
+             */
+            'max_files'          => $this->effectiveMaxFiles(),
+            'max_file_mb'        => $this->maxFileMegabytes(),
             'allowed_file_types' => $this->allowed_file_types,
+            'allowed_extensions' => $this->effectiveAllowedExtensions(),
+
+            /**
+             * Whether the signed-in user may withdraw a file from this
+             * milestone — the same `withdraw` ability the DELETE endpoint
+             * authorises, so the button cannot offer an action the API refuses.
+             *
+             * Gated on `currentFiles` being loaded so the cross-project
+             * worklist, which does not load it, does not pay a policy check
+             * (and a members query) for every row.
+             */
+            'can_withdraw' => $this->whenLoaded(
+                'currentFiles',
+                fn () => (bool) $request->user()?->can('withdraw', $this->resource),
+            ),
 
             'events' => SubmissionEventResource::collection($this->whenLoaded('events')),
 

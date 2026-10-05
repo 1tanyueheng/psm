@@ -32,8 +32,6 @@ class ArchivedProject extends Model
         'supervisors',
         'examiners',
         'final_mark',
-        'grade_letter',
-        'grade_point',
         'milestone_summary',
         'grade_breakdown',
         'documents',
@@ -55,7 +53,6 @@ class ArchivedProject extends Model
             'grade_breakdown'   => 'array',
             'documents'         => 'array',
             'final_mark'        => 'decimal:2',
-            'grade_point'       => 'decimal:2',
             'is_public'         => 'boolean',
             'archived_at'       => 'datetime',
         ];
@@ -94,6 +91,30 @@ class ArchivedProject extends Model
     public function documentCount(): int
     {
         return count($this->documents ?? []);
+    }
+
+    /**
+     * The keyword column as a list.
+     *
+     * `keywords` is stored as comma-separated text so the archive search can
+     * match it with a single LIKE (see the query scope below). The API used to
+     * hand that raw string to the SPA, which treats it as an array — so
+     * `keywords.slice(0, 4).map(...)` threw "map is not a function" and, with
+     * no error boundary above it, took the whole page down to a blank screen.
+     *
+     * Parsing here rather than in the client keeps the search behaviour
+     * unchanged (still one LIKE over the text column) while giving every
+     * consumer the shape it actually wants.
+     *
+     * @return array<int, string>
+     */
+    public function keywordList(): array
+    {
+        return collect(explode(',', (string) $this->keywords))
+            ->map(fn ($keyword) => trim($keyword))
+            ->filter()
+            ->values()
+            ->all();
     }
 
     /** Total bytes of retained documents, for the archive storage report. */

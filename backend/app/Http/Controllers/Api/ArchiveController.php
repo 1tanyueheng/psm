@@ -143,7 +143,6 @@ class ArchiveController extends ApiController
                             $r->studentList(),
                             $r->supervisorList(),
                             $r->final_mark,
-                            $r->grade_letter,
                             $r->documentCount(),
                             $r->is_public ? 'yes' : 'no',
                             $r->archived_at?->toDateTimeString(),

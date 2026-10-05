@@ -48,6 +48,13 @@ class Milestone extends Model
         'allowed_file_types',
         'max_files',
         'requires_supervisor_approval',
+
+        // Lampiran C — the corrections a conditional title approval requires.
+        // Only ever set on the proposal milestone.
+        'lampiran_c_title',
+        'lampiran_c_actions',
+        'lampiran_c_at',
+        'lampiran_c_by',
     ];
 
     protected function casts(): array
@@ -68,8 +75,13 @@ class Milestone extends Model
             'late_window_days'          => 'integer',
             'max_files'                 => 'integer',
             'revision_count'            => 'integer',
+            'lampiran_c_actions'        => 'array',
+            'lampiran_c_at'             => 'datetime',
         ];
     }
+
+    /** The code the proposal milestone carries in every template. */
+    public const CODE_PROPOSAL = 'proposal';
 
     // -----------------------------------------------------------------
     // Relations
@@ -88,6 +100,25 @@ class Milestone extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    /** The student who filed the Lampiran C form, on a conditional approval. */
+    public function lampiranCBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'lampiran_c_by');
+    }
+
+    /**
+     * Is this the proposal milestone — the one that decides the title?
+     *
+     * The proposal is sequence 1 in every chain and is the only milestone whose
+     * verdict is the panel's rather than the supervisor's; see
+     * ProposalReviewService. Matched on `code` rather than `sequence` because
+     * the code is what the template names it.
+     */
+    public function isProposal(): bool
+    {
+        return $this->code === self::CODE_PROPOSAL;
     }
 
     public function files(): HasMany
@@ -127,7 +158,7 @@ class Milestone extends Model
         return $due !== null
             && $due->isPast()
             && ! $this->status->isProgressed()
-            && $this->status !== MilestoneStatus::Approved;
+            && ! $this->status->isSettled();
     }
 
     /** Whole days remaining; negative when overdue. */
@@ -175,6 +206,80 @@ class Milestone extends Model
     }
 
     // -----------------------------------------------------------------
+    // Upload constraints — one definition, shared by the API and the SPA
+    // -----------------------------------------------------------------
+
+    /**
+     * The platform-wide allowlist, from config.
+     *
+     * Normalised to bare lowercase extensions so `PDF`, `.pdf` and `pdf` in
+     * config all behave the same and can be compared against a milestone's
+     * own list without surprises.
+     *
+     * @return array<int, string>
+     */
+    public static function platformAllowedExtensions(): array
+    {
+        return array_values(array_unique(array_filter(array_map(
+            static fn ($extension) => strtolower(ltrim(trim((string) $extension), '.')),
+            (array) config('psm.submission.allowed_extensions', []),
+        ))));
+    }
+
+    /**
+     * The file types this milestone actually accepts.
+     *
+     * A milestone may *narrow* what the platform permits but never widen it,
+     * so the effective rule is the intersection. The per-milestone
+     * `allowed_file_types` used to be advisory only — the UI honoured it and
+     * the API ignored it, so a `.zip` could be posted to a chapter that only
+     * accepts documents. Enforcing it here closes that gap, and having one
+     * method means the rule the client displays is the rule the server applies.
+     *
+     * @return array<int, string>
+     */
+    public function effectiveAllowedExtensions(): array
+    {
+        $platform = static::platformAllowedExtensions();
+
+        $own = array_values(array_unique(array_filter(array_map(
+            static fn ($extension) => strtolower(ltrim(trim((string) $extension), '.')),
+            (array) ($this->allowed_file_types ?? []),
+        ))));
+
+        if ($own === []) {
+            return $platform;
+        }
+
+        $allowed = array_values(array_intersect($own, $platform));
+
+        // A milestone whose list names nothing the platform allows would
+        // otherwise reject every upload with an error listing an empty set.
+        // Falling back to the platform list keeps the milestone usable.
+        return $allowed === [] ? $platform : $allowed;
+    }
+
+    /**
+     * How many files one submission may carry.
+     *
+     * `max_files` is nullable in the schema, and the previous
+     * `max(1, $milestone->max_files)` silently turned "no limit recorded" into
+     * "exactly one file" — while the UI, reading the same null as falsy, said
+     * "unlimited". The column default is 3, so this only bites on rows written
+     * outside the normal path, but the two ends should agree either way.
+     */
+    public function effectiveMaxFiles(): int
+    {
+        return (int) ($this->max_files ?: config('psm.submission.default_max_files', 3));
+    }
+
+    /** Per-file ceiling in megabytes, as enforced by validation. */
+    public function maxFileMegabytes(): int
+    {
+        return (int) config('psm.submission.max_mb', 25);
+    }
+
+    // -----------------------------------------------------------------
     // Scopes
     // -----------------------------------------------------------------
 
@@ -207,6 +312,7 @@ class Milestone extends Model
         return $query
             ->whereNotIn('status', [
                 MilestoneStatus::Approved->value,
+                MilestoneStatus::Conditional->value,
                 MilestoneStatus::Submitted->value,
                 MilestoneStatus::Reviewed->value,
             ])

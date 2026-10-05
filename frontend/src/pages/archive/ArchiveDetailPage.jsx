@@ -83,7 +83,10 @@ export default function ArchiveDetailPage() {
             <p className="text-sm text-slate-500">No abstract was recorded.</p>
           )}
 
-          {record.keywords?.length > 0 && (
+          {/* Array.isArray, not `?.length` — a string has a length too, and the
+              keyword column used to arrive as one, which made `.map` throw and
+              blanked the page. */}
+          {Array.isArray(record.keywords) && record.keywords.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-1.5 border-t border-slate-100 pt-4">
               {record.keywords.map((kw) => (
                 <span
@@ -109,20 +112,6 @@ export default function ArchiveDetailPage() {
                     {formatMark(record.final_mark)}
                   </p>
                 </div>
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Grade</p>
-                  <p className="text-3xl font-semibold text-slate-900">
-                    {record.grade_letter ?? '—'}
-                  </p>
-                </div>
-                {record.grade_point != null && (
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-400">Point</p>
-                    <p className="text-3xl font-semibold tabular-nums text-slate-900">
-                      {record.grade_point.toFixed(2)}
-                    </p>
-                  </div>
-                )}
               </div>
 
               {Object.keys(breakdown).length > 0 && (
@@ -268,27 +257,41 @@ export default function ArchiveDetailPage() {
           {actionError && <ErrorState error={{ message: actionError }} />}
           <ul className="divide-y divide-slate-100">
             {record.documents.map((doc) => (
-              <li key={doc.id ?? doc.name} className="flex items-center gap-3 py-3">
+              // Keyed on `path`, not `id`: the path is always in the snapshot,
+              // while `id` is absent from records archived before the manifest
+              // captured it. Keying on `id ?? name` produced `undefined` and a
+              // React "unique key" warning.
+              <li key={doc.path ?? doc.original_name} className="flex items-center gap-3 py-3">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-slate-700">{doc.name ?? doc.original_name}</p>
+                  <p className="truncate text-sm text-slate-700">{doc.original_name ?? doc.name}</p>
                   <p className="text-xs text-slate-400">
                     {doc.milestone ?? doc.milestone_code ?? 'general'}
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setActionError(null)
-                    archiveApi
-                      .downloadFile(doc.id)
-                      .catch((err) =>
-                        setActionError(err?.message ?? 'That file could not be downloaded.')
-                      )
-                  }}
-                >
-                  Download
-                </Button>
+                {/* The download route needs the submission file id. Records
+                    archived before it was captured have only a path, and the
+                    seeded demo files are not on disk at all — so offering a
+                    button that 404s would be worse than saying so. */}
+                {doc.id != null ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setActionError(null)
+                      archiveApi
+                        .downloadFile(doc.id)
+                        .catch((err) =>
+                          setActionError(err?.message ?? 'That file could not be downloaded.')
+                        )
+                    }}
+                  >
+                    Download
+                  </Button>
+                ) : (
+                  <span className="text-xs text-slate-400" title="Archived without a file reference">
+                    not retrievable
+                  </span>
+                )}
               </li>
             ))}
           </ul>

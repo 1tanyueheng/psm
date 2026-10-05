@@ -11,7 +11,11 @@ use App\Models\User;
  * Gates the agreement endpoints that previously had no authorization at all
  * (e.g. showAgreement was callable by any authenticated user). The rules mirror
  * how the registration UI exposes actions: only the parties to an agreement may
- * see it, the supervisor may acknowledge, and coordinators/admins decide.
+ * see it, the supervisor may acknowledge, and the student may register the
+ * agreed title.
+ *
+ * The title review is **not** here. It happens at the project's proposal
+ * milestone, so the seated panel's rights live in `MilestonePolicy::decideTitle`.
  */
 class SupervisorAgreementPolicy
 {
@@ -53,13 +57,7 @@ class SupervisorAgreementPolicy
         return $agreement->supervisorProfile?->user_id === $actor->id;
     }
 
-    /** Coordinator/admin act on Part D. */
-    public function decide(User $actor, SupervisorAgreement $agreement): bool
-    {
-        return $actor->hasRole('admin', 'coordinator');
-    }
-
-    /** Student submits Lampiran B against an approved agreement they own. */
+    /** Student submits Lampiran B against an acknowledged agreement they own. */
     public function submitTitleProposal(User $actor, SupervisorAgreement $agreement): bool
     {
         if (! $actor->isStudent()) {

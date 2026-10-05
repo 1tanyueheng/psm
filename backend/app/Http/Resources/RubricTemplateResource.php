@@ -21,8 +21,8 @@ class RubricTemplateResource extends JsonResource
             'id'   => $this->id,
             'name' => $this->name,
 
-            'category'       => $this->category->value,
-            'category_label' => $this->category->label(),
+            'category'       => $this->category?->value,
+            'category_label' => $this->category?->label(),
             'psm_part'       => $this->psm_part,
 
             // The Lampiran letter for an official marking form; null for the
@@ -37,7 +37,6 @@ class RubricTemplateResource extends JsonResource
             'is_published' => (bool) $this->is_published,
 
             'total_marks' => (float) $this->total_marks,
-            'pass_mark'   => (float) $this->pass_mark,
 
             'description'   => $this->description,
             'grading_guide' => $this->grading_guide,

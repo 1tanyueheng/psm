@@ -83,6 +83,17 @@ def schema_columns() -> dict[str, set[str]]:
         for cm in re.finditer(r"->(?:json|text|string)\s*\(\s*'([a-z_0-9]+)'\s*\)", block):
             cols.add(cm.group(1))
 
+        # renameColumn declares its *new* name as the second argument. Without
+        # this, a column introduced by a rename reads as absent, and every model
+        # or seeder that names it reports a phantom mismatch — which is exactly
+        # how `is_marks_released` and `marks_released_at` were reported as
+        # missing after 2026_10_04_000001_remove_grade_concept renamed them.
+        for rc in re.finditer(
+            r"->renameColumn\s*\(\s*'([a-z_0-9]+)'\s*,\s*'([a-z_0-9]+)'\s*\)", block
+        ):
+            cols.add(rc.group(1))
+            cols.add(rc.group(2))
+
         return cols
 
     for path in MIGRATIONS.glob("*.php"):
@@ -311,7 +322,10 @@ def check_methods_exist(relations: dict[str, set[str]]) -> None:
         "Project": ["students", "milestones", "evaluations", "finalGrades", "archivedRecord", "leaderboardEntries", "milestoneProgressPercent", "nextCode", "primaryGrade"],
         "Milestone": ["project", "files", "events", "templateItem", "reviewer"],
         "Evaluation": ["scores", "assessor", "project", "rubricTemplate"],
-        "FinalGrade": ["project", "studentProfile", "isReleased", "bandFor", "qualifiesForPublication"],
+        # `bandFor` was removed with the grade bands (see config/psm.php: the
+        # system releases a mark, not a grade). It has no callers anywhere, so
+        # expecting it here only produced a permanent false alarm.
+        "FinalGrade": ["project", "studentProfile", "isReleased", "qualifiesForPublication"],
         "Leaderboard": ["entries", "visibleEntries", "isPublished", "publish", "unpublish", "publicPath"],
         "LeaderboardEntry": ["project", "finalGrade", "medal", "rankSuffix", "shortAbstract"],
         "LeaderboardSetting": ["current", "isPubliclyAvailable"],

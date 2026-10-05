@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { evaluationApi } from '../../api/endpoints'
+import { assessmentWindowApi, evaluationApi } from '../../api/endpoints'
 import { unwrapPaged } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -8,6 +8,7 @@ import {
   ErrorState, Button, Select, DataTable, Td, ProgressBar,
 } from '../../components/ui'
 import { formatDate, formatMark, formLabel, relativeDays, EVALUATION_STATUS, statusMeta } from '../../lib/format'
+import { partLabel } from '../../lib/psmPart'
 
 /**
  * Assessment list — every evaluation form this user can see.
@@ -23,6 +24,9 @@ export default function EvaluationListPage() {
   const [meta, setMeta] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  // The coordinator's assessment window for each batch this assessor works in.
+  // Read, not inferred: whether marking is open is the coordinator's decision.
+  const [windows, setWindows] = useState([])
 
   const status = params.get('status') ?? ''
   const assessorType = params.get('assessor_type') ?? ''
@@ -65,6 +69,22 @@ export default function EvaluationListPage() {
     }
   }, [status, assessorType, scope])
 
+  useEffect(() => {
+    let cancelled = false
+    assessmentWindowApi
+      .current()
+      .then((data) => {
+        if (!cancelled) setWindows(data ?? [])
+      })
+      .catch(() => {
+        // A missing window is not an error — it just means marking is ungated.
+        if (!cancelled) setWindows([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const { open, filed } = useMemo(() => {
     const isOpen = (r) => ['draft', 'in_progress'].includes(r.status)
     return {
@@ -82,8 +102,29 @@ export default function EvaluationListPage() {
     <div className="space-y-6">
       <PageHeader
         title="Assessments"
-        subtitle={meta ? `${meta.total} form${meta.total === 1 ? '' : 's'}` : undefined}
+        subtitle="Pick the student you want to mark, then file their Lampiran"
       />
+
+      {windows.map((w) => (
+        <Card
+          key={w.id}
+          className={w.accepts_marks ? 'border-emerald-200 bg-emerald-50/60' : 'border-amber-200 bg-amber-50/60'}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className={`font-medium ${w.accepts_marks ? 'text-emerald-900' : 'text-amber-900'}`}>
+                {w.accepts_marks
+                  ? `Marking is open for ${partLabel(w.psm_part)}`
+                  : `Marking is closed for ${partLabel(w.psm_part)}`}
+              </p>
+              <p className={`text-sm ${w.accepts_marks ? 'text-emerald-800' : 'text-amber-800'}`}>
+                {w.name} · {w.window_label}
+              </p>
+            </div>
+            <Badge tone={w.accepts_marks ? 'success' : 'warning'}>{w.state_label}</Badge>
+          </div>
+        </Card>
+      ))}
 
       <Card>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

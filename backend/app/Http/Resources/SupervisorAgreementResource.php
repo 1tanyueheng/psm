@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\SupervisorAgreement;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -10,10 +11,14 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *
  * The agreement endpoints used to return raw Eloquent models, which serialised
  * the relations under their method names (`studentProfile`) while the SPA read
- * `student_profile`, so every name on the registration screens rendered as an
- * em dash. It also leaked `decided_by`, `metadata` and `deleted_at` to every
+ * `student_profile`, so every name on the registration screens rendered as an em
+ * dash. It also leaked `decided_by`, `metadata` and `deleted_at` to every
  * caller. This resource is the single shape both the list and the detail page
  * read from.
+ *
+ * It no longer carries a panel review: the title is decided at the project's
+ * proposal milestone (see ProposalReviewService), so this payload is just the
+ * paperwork — who agreed to supervise whom, on which title.
  *
  * @mixin \App\Models\SupervisorAgreement
  */
@@ -27,6 +32,7 @@ class SupervisorAgreementResource extends JsonResource
 
         $student = $this->whenLoaded('studentProfile', fn () => $this->studentProfile);
         $supervisor = $this->whenLoaded('supervisorProfile', fn () => $this->supervisorProfile);
+        $project = $this->relationLoaded('project') ? $this->project : null;
 
         return [
             'id'             => $this->id,
@@ -39,8 +45,11 @@ class SupervisorAgreementResource extends JsonResource
             'proposed_title_1' => $this->proposed_title_1,
             'proposed_title_2' => $this->proposed_title_2,
             'proposed_title_3' => $this->proposed_title_3,
-            'agreed_title'     => $this->agreed_title,
-            'titles'           => array_values(array_filter($this->proposedTitles())),
+
+            // The title the supervisor agreed at acknowledgement — what Lampiran
+            // B registers. Null until the acknowledgement happens.
+            'agreed_title' => $this->agreed_title,
+            'titles'       => array_values(array_filter($this->proposedTitles())),
 
             'student' => $student ? [
                 'profile_id' => $student->id,
@@ -59,29 +68,28 @@ class SupervisorAgreementResource extends JsonResource
                 'staff_no'   => $supervisor->staff_no,
             ] : null,
 
-            'signed_at'          => $this->student_signed_at?->toIso8601String(),
-            'acknowledged_at'    => $this->supervisor_acknowledged_at?->toIso8601String(),
-            'jkpsm_received_at'  => $this->jkpsm_received_at?->toIso8601String(),
-            'decided_at'         => $this->decided_at?->toIso8601String(),
-            'decided_by'         => $this->whenLoaded('decidedBy', fn () => $this->decidedBy?->name),
-            'rejection_reason'   => $this->rejection_reason,
+            'signed_at'       => $this->student_signed_at?->toIso8601String(),
+            'acknowledged_at' => $this->supervisor_acknowledged_at?->toIso8601String(),
 
             'supervision_assignment_id' => $this->supervision_assignment_id,
 
             // The project this agreement produced, so the registration list can
             // link straight to it instead of making the student go and find it.
-            'project' => $this->whenLoaded('projects', fn () => $this->projects->first())
-                ? [
-                    'id'    => $this->projects->first()->id,
-                    'code'  => $this->projects->first()->code,
-                    'title' => $this->projects->first()->title,
-                    'status'=> $this->projects->first()->status,
-                ]
-                : null,
+            // The relation is `project` (hasOne), not `projects` — reading the
+            // wrong name made this block render null on every row.
+            'project' => $project ? [
+                'id'     => $project->id,
+                'code'   => $project->code,
+                'title'  => $project->title,
+                'status' => $project->status,
+            ] : null,
 
-            'can_acknowledge' => $this->status === \App\Models\SupervisorAgreement::STATUS_PENDING_SUPERVISOR,
-            'can_decide'      => $this->status === \App\Models\SupervisorAgreement::STATUS_PENDING_JKPSM,
-            'can_submit_b'    => $this->isApproved(),
+            // -----------------------------------------------------------------
+            // What each role may do next
+            // -----------------------------------------------------------------
+            'can_acknowledge' => $this->status === SupervisorAgreement::STATUS_PENDING_SUPERVISOR,
+            'can_submit_b'    => $this->canSubmitLampiranB(),
+            'blocked_reason'  => $this->lampiranBBlockedReason(),
 
             'created_at' => $this->created_at?->toIso8601String(),
         ];
@@ -91,12 +99,11 @@ class SupervisorAgreementResource extends JsonResource
     protected function statusLabel(): string
     {
         return match ($this->status) {
-            \App\Models\SupervisorAgreement::STATUS_PENDING_SUPERVISOR => 'Awaiting supervisor acknowledgement',
-            \App\Models\SupervisorAgreement::STATUS_PENDING_JKPSM      => 'Awaiting JKPSM approval',
-            \App\Models\SupervisorAgreement::STATUS_APPROVED           => 'Approved',
-            \App\Models\SupervisorAgreement::STATUS_REJECTED           => 'Rejected',
-            \App\Models\SupervisorAgreement::STATUS_CANCELLED          => 'Cancelled',
-            default                                                  => $this->status,
+            SupervisorAgreement::STATUS_PENDING_SUPERVISOR => 'Awaiting supervisor acknowledgement',
+            SupervisorAgreement::STATUS_APPROVED           => 'Acknowledged',
+            SupervisorAgreement::STATUS_REJECTED           => 'Rejected',
+            SupervisorAgreement::STATUS_CANCELLED          => 'Cancelled',
+            default                                        => $this->status,
         };
     }
 }

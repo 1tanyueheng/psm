@@ -5,29 +5,105 @@ import { unwrapPaged } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import {
   Card, CardHeader, PageHeader, Badge, Avatar, EmptyState, Spinner,
-  ErrorState, Button, Select, DataTable, Td, Input,
+  ErrorState, Button, Select, DataTable, Td, Input, Field,
 } from '../../components/ui'
 import { formatDate, formatDateTime } from '../../lib/format'
 import { roleLabel, roleTone } from '../../lib/permissions'
 
 /**
+ * The roles an admin can create, with what each one is for.
+ *
+ * There is no `examiner`: a panel is drawn from the people who supervise, so a
+ * supervisor supervises their own students and may also be seated on someone
+ * else's panel. Which *form* they fill is decided by the assessment, not by the
+ * account.
+ */
+const ROLES = [
+  {
+    value: 'student',
+    label: 'Student',
+    hint: 'Registers a project — needs a matric number, a programme and a batch.',
+  },
+  {
+    value: 'supervisor',
+    label: 'Supervisor',
+    hint: 'Supervises students, and may be seated on a panel. Needs a staff number.',
+  },
+  {
+    value: 'coordinator',
+    label: 'Coordinator',
+    hint: 'Runs a batch: terms, allocation, assessment windows.',
+  },
+  {
+    value: 'admin',
+    label: 'Administrator',
+    hint: 'Manages accounts and system settings.',
+  },
+]
+
+function blankForm() {
+  return {
+    role: 'student',
+    name: '', email: '', phone: '', department: '',
+    student_id: '', program: '', program_code: '', batch: '', faculty: '',
+    staff_no: '', academic_title: '', max_supervisees: '',
+  }
+}
+
+/**
+ * Send only the fields the chosen role actually uses.
+ *
+ * The API validates per role, so posting the whole form would fail a student for
+ * a missing `staff_no` it never needed. Blank optional strings are dropped
+ * rather than sent as `''`, so the server's `nullable` rules see "absent".
+ */
+function payloadFor(form) {
+  const base = {
+    role: form.role,
+    name: form.name.trim(),
+    email: form.email.trim(),
+    phone: form.phone.trim() || undefined,
+    department: form.department.trim() || undefined,
+  }
+
+  if (form.role === 'student') {
+    return {
+      ...base,
+      student_id: form.student_id.trim(),
+      program: form.program.trim(),
+      batch: form.batch.trim(),
+      program_code: form.program_code.trim() || undefined,
+      faculty: form.faculty.trim() || undefined,
+    }
+  }
+
+  if (form.role === 'supervisor') {
+    return {
+      ...base,
+      staff_no: form.staff_no.trim(),
+      academic_title: form.academic_title.trim() || undefined,
+      max_supervisees: form.max_supervisees === '' ? undefined : Number(form.max_supervisees),
+    }
+  }
+
+  return base
+}
+
+/**
  * Module 2 — user administration.
  *
- * The job of this screen is account lifecycle, not profile editing: an admin
- * arrives here to find an account, unblock it, or issue a password reset. The
- * actions are therefore ordered by how often they are needed and how safely
- * they can be undone.
+ * The job of this screen is account lifecycle: an admin arrives here to add an
+ * account, find one, unblock it, or issue a password reset.
  *
  * Two deliberate omissions:
  *
  *  - There is no delete button. `DELETE /users/{id}` soft-deletes, which in a
  *    system with an audit trail and archived projects is rarely the right
  *    answer. Deactivating is reversible; deleting hides a student's history.
- *    The API supports both, but offering only deactivate here is the safer
- *    default.
- *  - There is no password field. Reset emails are the only supported path —
- *    an admin choosing a user's password breaks the audit story, because the
- *    reset cannot be attributed to the account holder.
+ *  - The create form does **not** ask for a password. New accounts start on the
+ *    system default (`psm.default_user_password`) and the holder resets it from
+ *    the sign-in screen — the admin only ever holds an address, so there is
+ *    nothing to choose and nothing to deliver.
  */
 export default function UserListPage() {
   const { user: me } = useAuth()
@@ -40,6 +116,12 @@ export default function UserListPage() {
   const [busy, setBusy] = useState(null)
   const [actionError, setActionError] = useState(null)
   const [notice, setNotice] = useState(null)
+
+  // The add-user panel.
+  const [creating, setCreating] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState(blankForm())
+  const [formErrors, setFormErrors] = useState({})
 
   const role = params.get('role') ?? ''
   const status = params.get('status') ?? ''
@@ -99,6 +181,37 @@ export default function UserListPage() {
     }
   }
 
+  /**
+   * Create an account, then refresh.
+   *
+   * Field-level 422s are mapped back onto the form rather than shown as a
+   * banner, so the message lands beside the field that caused it — the server is
+   * the authority on which role needs which field.
+   */
+  async function submitCreate() {
+    setSaving(true)
+    setFormErrors({})
+    setActionError(null)
+    setNotice(null)
+
+    try {
+      const created = await userApi.create(payloadFor(form))
+
+      setCreating(false)
+      setForm(blankForm())
+      setNotice(
+        `Account created for ${created?.email ?? form.email}. It starts on the system default `
+        + 'password — tell the holder to reset it from the sign-in screen.',
+      )
+      await load()
+    } catch (err) {
+      if (err?.errors) setFormErrors(err.errors)
+      else setActionError(err?.message ?? 'That account could not be created.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const counts = useMemo(() => {
     const out = { total: meta?.total ?? rows.length, suspended: 0, pending: 0 }
     for (const row of rows) {
@@ -118,7 +231,36 @@ export default function UserListPage() {
         subtitle={
           meta?.total != null ? `${meta.total} account${meta.total === 1 ? '' : 's'}` : undefined
         }
+        action={
+          // Only an admin may create accounts (`UserPolicy::create`), even though
+          // coordinators hold `canManageUsers` for profile work.
+          me?.role === 'admin' ? (
+            <Button
+              onClick={() => {
+                setCreating((open) => !open)
+                setFormErrors({})
+              }}
+            >
+              {creating ? 'Close' : 'Add user'}
+            </Button>
+          ) : null
+        }
       />
+
+      {creating && (
+        <CreateUserPanel
+          form={form}
+          setForm={setForm}
+          errors={formErrors}
+          saving={saving}
+          onCancel={() => {
+            setCreating(false)
+            setForm(blankForm())
+            setFormErrors({})
+          }}
+          onSubmit={submitCreate}
+        />
+      )}
 
       {notice && (
         <Card className="border-emerald-200 bg-emerald-50/60">
@@ -169,7 +311,6 @@ export default function UserListPage() {
             <option value="student">Students</option>
             <option value="supervisor">Supervisors</option>
             <option value="coordinator">Coordinators</option>
-            <option value="examiner">Examiners</option>
             <option value="admin">Administrators</option>
           </Select>
           <Select
@@ -341,5 +482,157 @@ export default function UserListPage() {
         </p>
       </Card>
     </div>
+  )
+}
+
+/**
+ * The add-user form.
+ *
+ * Role first: the section below it swaps, so the admin is never asked for a
+ * staff number while creating a student. Switching roles resets the role-specific
+ * fields, so a value typed for one role cannot be submitted for another.
+ */
+function CreateUserPanel({ form, setForm, errors, saving, onCancel, onSubmit }) {
+  const set = (key) => (event) => setForm((prev) => ({ ...prev, [key]: event.target.value }))
+
+  function changeRole(event) {
+    const role = event.target.value
+    setForm((prev) => ({
+      ...blankForm(),
+      // Keep what the role switch cannot invalidate.
+      role,
+      name: prev.name,
+      email: prev.email,
+      phone: prev.phone,
+      department: prev.department,
+    }))
+  }
+
+  const role = ROLES.find((r) => r.value === form.role)
+
+  return (
+    <Card>
+      <CardHeader
+        title="Add a user"
+        subtitle="The account starts on the system default password; the holder resets it from the sign-in screen"
+      />
+      <div className="space-y-5">
+        <Field label="Role" htmlFor="new_role" required errors={errors} field="role">
+          <Select id="new_role" value={form.role} onChange={changeRole}>
+            {ROLES.map((r) => (
+              <option key={r.value} value={r.value}>{r.label}</option>
+            ))}
+          </Select>
+          {role?.hint && <p className="mt-1 text-xs text-slate-400">{role.hint}</p>}
+        </Field>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field label="Full name" htmlFor="new_name" required errors={errors} field="name">
+            <Input id="new_name" value={form.name} onChange={set('name')} maxLength={255} />
+          </Field>
+          <Field
+            label="Email"
+            htmlFor="new_email"
+            required
+            errors={errors}
+            field="email"
+            hint="Their institutional address — the password reset goes here"
+          >
+            <Input id="new_email" type="email" value={form.email} onChange={set('email')} maxLength={255} />
+          </Field>
+          <Field label="Phone" htmlFor="new_phone" errors={errors} field="phone">
+            <Input id="new_phone" value={form.phone} onChange={set('phone')} maxLength={32} />
+          </Field>
+          <Field label="Department" htmlFor="new_department" errors={errors} field="department">
+            <Input id="new_department" value={form.department} onChange={set('department')} maxLength={255} />
+          </Field>
+        </div>
+
+        {form.role === 'student' && (
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Matric number" htmlFor="new_student_id" required errors={errors} field="student_id">
+              <Input id="new_student_id" value={form.student_id} onChange={set('student_id')} maxLength={32} />
+            </Field>
+            <Field label="Programme" htmlFor="new_program" required errors={errors} field="program">
+              <Input id="new_program" value={form.program} onChange={set('program')} maxLength={128} />
+            </Field>
+            <Field
+              label="Batch"
+              htmlFor="new_batch"
+              required
+              errors={errors}
+              field="batch"
+              hint="The cohort year, e.g. 2026"
+            >
+              <Input id="new_batch" value={form.batch} onChange={set('batch')} maxLength={32} />
+            </Field>
+            <Field label="Programme code" htmlFor="new_program_code" errors={errors} field="program_code">
+              <Input
+                id="new_program_code"
+                value={form.program_code}
+                onChange={set('program_code')}
+                maxLength={32}
+                placeholder="CS240"
+              />
+            </Field>
+            <Field label="Faculty" htmlFor="new_faculty" errors={errors} field="faculty">
+              <Input id="new_faculty" value={form.faculty} onChange={set('faculty')} maxLength={255} />
+            </Field>
+          </div>
+        )}
+
+        {form.role === 'supervisor' && (
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field
+              label="Staff number"
+              htmlFor="new_staff_no"
+              required
+              errors={errors}
+              field="staff_no"
+              hint="Recorded once and used everywhere"
+            >
+              <Input id="new_staff_no" value={form.staff_no} onChange={set('staff_no')} maxLength={32} />
+            </Field>
+            <Field label="Academic title" htmlFor="new_academic_title" errors={errors} field="academic_title">
+              <Input
+                id="new_academic_title"
+                value={form.academic_title}
+                onChange={set('academic_title')}
+                maxLength={64}
+                placeholder="Dr."
+              />
+            </Field>
+            <Field
+              label="Supervision capacity"
+              htmlFor="new_max_supervisees"
+              errors={errors}
+              field="max_supervisees"
+              hint="Students they may supervise. Defaults to the faculty limit."
+            >
+              <Input
+                id="new_max_supervisees"
+                type="number"
+                min="0"
+                max="50"
+                value={form.max_supervisees}
+                onChange={set('max_supervisees')}
+              />
+            </Field>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onCancel} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            onClick={onSubmit}
+            disabled={saving || !form.name.trim() || !form.email.trim()}
+          >
+            {saving ? 'Creating…' : 'Create account'}
+          </Button>
+        </div>
+      </div>
+    </Card>
   )
 }

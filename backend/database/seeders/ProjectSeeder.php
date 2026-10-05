@@ -4,12 +4,14 @@ namespace Database\Seeders;
 
 use App\Enums\MilestoneStatus;
 use App\Enums\ProjectCategory;
+use App\Models\AcademicSemester;
 use App\Models\Milestone;
 use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\StudentProfile;
 use App\Models\SubmissionEvent;
 use App\Models\SubmissionFile;
+use App\Models\SupervisionAssignment;
 use App\Models\User;
 use App\Services\MilestoneService;
 use Illuminate\Database\Seeder;
@@ -29,8 +31,15 @@ use Illuminate\Database\Seeder;
  *   completed      — every milestone approved, ready to grade and rank
  *   near_complete  — final report in review
  *   mid_project    — implementation underway
- *   early           — still on the proposal
+ *   early          — still on the proposal
  *   at_risk        — overdue milestones, the intervention list
+ *
+ * Every project is stamped with the active academic semester, and the cohort is
+ * split across PSM 1 and PSM 2 *within that one term*. Both matter: the whole
+ * point of the concurrent-batches requirement is that the two parts coexist in
+ * a single term, and a demo cohort where everything is PSM 2 in no term at all
+ * cannot show any of it — the coordinator's segmented overview, the per-part
+ * milestone chains, and the side-by-side report would all be empty.
  */
 class ProjectSeeder extends Seeder
 {
@@ -48,6 +57,12 @@ class ProjectSeeder extends Seeder
         $coordinator = User::where('email', 'coordinator@psm.test')->firstOrFail();
         $supervisorId = User::where('email', 'supervisor@psm.test')->value('id');
 
+        // The term the cohort is registered into. Every semester-scoped screen
+        // resolves a missing filter to the active term, so seeding without one
+        // leaves the whole application looking empty.
+        $semester = AcademicSemester::current()
+            ?? AcademicSemester::query()->chronological()->firstOrFail();
+
         // Only students with a supervisor can carry a project; the two left
         // unassigned by UserSeeder form the coordinator's pairing queue.
         $students = StudentProfile::query()
@@ -56,9 +71,15 @@ class ProjectSeeder extends Seeder
             ->orderBy('id')
             ->get();
 
-        $profiles = $this->progressProfiles();
-
         foreach ($students as $index => $student) {
+            // Interleave the two parts rather than assigning a contiguous block, so
+            // each progress profile is represented in both batches and switching the
+            // segmented control never lands on an empty tab.
+            $parts = ['PSM1', 'PSM2'];
+            $psmPart = $parts[$index % count($parts)];
+
+            // Resolved per part: the two milestone chains share only two codes.
+            $profiles    = $this->progressProfiles($psmPart);
             $profileName = array_keys($profiles)[$index % count($profiles)];
             $profile     = $profiles[$profileName];
 
@@ -66,7 +87,13 @@ class ProjectSeeder extends Seeder
                 ? ProjectCategory::Research
                 : ProjectCategory::System;
 
-            $project = $this->createProject($student, $category, $coordinator, $profileName);
+            // The enrolment follows the project: a student belongs to the term
+            // they are registered in.
+            if ($student->academic_semester_id !== $semester->id) {
+                $student->forceFill(['academic_semester_id' => $semester->id])->save();
+            }
+
+            $project = $this->createProject($student, $category, $coordinator, $profileName, $psmPart, $semester);
 
             // Module 3 — the real instantiation path
             $this->milestones->instantiateFor($project, now()->subDays($profile['started_days_ago']));
@@ -75,13 +102,60 @@ class ProjectSeeder extends Seeder
             $this->attachSupervisorNote($project, $supervisorId);
         }
 
+        // Reconcile SupervisionAssignment psm_part to the part(s) each student
+        // actually holds in this term. The UserSeeder created them as 'BOTH'
+        // because projects didn't exist yet; now we know the truth. This avoids
+        // the double-counting that made a supervisor with 2 students show
+        // 2/2 PSM 1 and 2/2 PSM 2 — masking the per-part capacity feature.
+        // If a student holds both batches (rare), the pairing stays BOTH.
+        $this->reconcileSupervisionParts($semester);
+
         $this->command?->info(sprintf(
-            '  Projects: %d, milestones: %d, submission files: %d, events: %d.',
+            '  Projects: %d (PSM 1: %d, PSM 2: %d), milestones: %d, submission files: %d, events: %d.',
             Project::count(),
+            Project::where('psm_part', 'PSM1')->count(),
+            Project::where('psm_part', 'PSM2')->count(),
             Milestone::count(),
             SubmissionFile::count(),
             SubmissionEvent::count()
         ));
+    }
+
+    /**
+     * Reconcile supervision pairings to match the batches each student holds.
+     *
+     * The UserSeeder creates pairings as 'BOTH' because projects don't exist
+     * yet. Now that we know each student's batch(es), we update the pairing to
+     * the exact part, or BOTH if the student genuinely holds both. This keeps
+     * the per-part load honest: a supervisor's PSM 1 bar reflects only PSM 1
+     * students, not everyone they supervise.
+     */
+    protected function reconcileSupervisionParts(AcademicSemester $semester): void
+    {
+        // Map each student to the set of parts they have projects in this term.
+        $studentParts = Project::query()
+            ->forSemester($semester)
+            ->join('project_members', 'project_members.project_id', '=', 'projects.id')
+            ->select('project_members.student_profile_id', 'projects.psm_part')
+            ->get()
+            ->groupBy('student_profile_id')
+            ->map(fn ($rows) => collect($rows->pluck('psm_part')->unique()));
+
+        foreach ($studentParts as $studentId => $parts) {
+            $part = $parts->count() === 2 ? 'BOTH' : $parts->first();
+
+            SupervisionAssignment::query()
+                ->where('student_profile_id', $studentId)
+                ->where('is_active', true)
+                ->update(['psm_part' => $part]);
+        }
+
+        $changed = SupervisionAssignment::query()
+            ->where('is_active', true)
+            ->whereHas('studentProfile.projects', fn ($q) => $q->forSemester($semester))
+            ->count();
+
+        $this->command?->line("  Supervision pairings reconciled to real batches: {$changed}");
     }
 
     // -----------------------------------------------------------------
@@ -93,13 +167,17 @@ class ProjectSeeder extends Seeder
         ProjectCategory $category,
         User $coordinator,
         string $profileName,
+        string $psmPart = 'PSM2',
+        ?AcademicSemester $semester = null,
     ): Project {
         // The thesis title lives on the student profile from Module 2
         $title = $student->thesis_title
             ?? "PSM Project — {$student->student_id}";
 
-        // Completed projects carry a raw code; in-flight ones use the sequence
-        $code = Project::nextCode('PSM2', self::SESSION, $student->program_code);
+        // Completed projects carry a raw code; in-flight ones use the sequence.
+        // The part goes into the code so PSM 1 and PSM 2 projects in the same
+        // term never collide on the same sequence.
+        $code = Project::nextCode($psmPart, self::SESSION, $student->program_code);
 
         $project = Project::updateOrCreate(
             ['code' => $code],
@@ -109,8 +187,11 @@ class ProjectSeeder extends Seeder
                 'objectives'       => $this->objectivesFor($title),
                 'scope'            => $this->scopeFor($category),
                 'category'         => $category,
-                'psm_part'         => 'PSM2',
+                'psm_part'         => $psmPart,
                 'academic_session' => self::SESSION,
+                // The term, not just the session string. Nullable for legacy
+                // rows, but new rows must supply it.
+                'academic_semester_id' => $semester?->id,
                 'batch'            => self::BATCH,
                 'program'          => $student->program,
                 'status'           => $profileName === 'completed' ? 'completed' : 'in_progress',
@@ -144,46 +225,70 @@ class ProjectSeeder extends Seeder
      * Progress profiles. `milestones` maps a milestone code to the status it
      * should reach; anything not listed stays Pending.
      *
-     * `started_days_ago` is chosen so each profile lands at a realistic point
-     * in the chain relative to the template's milestone offsets (proposal at
-     * day 21 through final report at day 140).
+     * Profiles are defined PER PART, because the two chains share only two
+     * codes (`chapter_4` and `final_report`) and are otherwise disjoint:
+     *
+     *   PSM 1  proposal, chapter_1..chapter_4, final_report   (6 items)
+     *   PSM 2  chapter_4, chapter_5, chapter_6, chapter_7, final_report (5)
+     *
+     * A single PSM 2-shaped profile map leaves a PSM 1 project with only those
+     * two codes resolvable, so it stalls at 2 of 6 approved and is then skipped
+     * by the evaluation seeder — which is how a cohort split across both parts
+     * ends up with no PSM 1 grades at all.
+     *
+     * `started_days_ago` is tuned per chain against the template offsets
+     * (PSM 1's final report sits at day 140, PSM 2's at day 126).
+     *
+     * A code that does not exist on the project's own template is skipped by
+     * advance(), so these stay safe against a template change.
      *
      * @return array<string, array{started_days_ago:int, milestones:array<string,string>}>
      */
-    protected function progressProfiles(): array
+    protected function progressProfiles(string $psmPart = 'PSM2'): array
+    {
+        return $psmPart === 'PSM1'
+            ? $this->psm1Profiles()
+            : $this->psm2Profiles();
+    }
+
+    /**
+     * PSM 1 — proposal through Chapter 4 and the consolidated report.
+     *
+     * @return array<string, array{started_days_ago:int, milestones:array<string,string>}>
+     */
+    protected function psm1Profiles(): array
     {
         return [
-            // Finished — the students Module 8 will rank
+            // Finished — Lampiran E is open, so these are the PSM 1 projects
+            // that carry a grade into Module 8.
             'completed' => [
-                'started_days_ago' => 150,
+                'started_days_ago' => 175,
                 'milestones' => [
                     'proposal'     => 'approved',
                     'chapter_1'    => 'approved',
                     'chapter_2'    => 'approved',
                     'chapter_3'    => 'approved',
                     'chapter_4'    => 'approved',
-                    'chapter_5'    => 'approved',
                     'final_report' => 'approved',
                 ],
             ],
 
             // Final report submitted, awaiting the examiner
             'near_complete' => [
-                'started_days_ago' => 138,
+                'started_days_ago' => 155,
                 'milestones' => [
                     'proposal'     => 'approved',
                     'chapter_1'    => 'approved',
                     'chapter_2'    => 'approved',
                     'chapter_3'    => 'approved',
                     'chapter_4'    => 'approved',
-                    'chapter_5'    => 'approved',
                     'final_report' => 'submitted',
                 ],
             ],
 
-            // Mid-flight: the biggest group, so the workload report is realistic
+            // Mid-flight: proposal and two chapters in, third under review
             'mid_project' => [
-                'started_days_ago' => 96,
+                'started_days_ago' => 95,
                 'milestones' => [
                     'proposal'  => 'approved',
                     'chapter_1' => 'approved',
@@ -192,25 +297,88 @@ class ProjectSeeder extends Seeder
                 ],
             ],
 
-            // Early: still validating the proposal
+            // Early: the proposal is in and Chapter 1 has just opened
             'early' => [
-                'started_days_ago' => 34,
+                'started_days_ago' => 45,
                 'milestones' => [
                     'proposal'  => 'approved',
                     'chapter_1' => 'open',
                 ],
             ],
 
-            // At risk: one rejection and one overdue chapter, so the
-            // "students needing intervention" list is populated
+            // At risk: a rejected chapter and an overdue one
             'at_risk' => [
-                'started_days_ago' => 120,
+                'started_days_ago' => 125,
                 'milestones' => [
                     'proposal'  => 'approved',
                     'chapter_1' => 'approved',
                     'chapter_2' => 'approved',
                     'chapter_3' => 'rejected',
                     'chapter_4' => 'overdue',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * PSM 2 — Chapters 4 to 7 and the final report.
+     *
+     * @return array<string, array{started_days_ago:int, milestones:array<string,string>}>
+     */
+    protected function psm2Profiles(): array
+    {
+        return [
+            // Finished — the students Module 8 will rank
+            'completed' => [
+                'started_days_ago' => 160,
+                'milestones' => [
+                    'chapter_4'    => 'approved',
+                    'chapter_5'    => 'approved',
+                    'chapter_6'    => 'approved',
+                    'chapter_7'    => 'approved',
+                    'final_report' => 'approved',
+                ],
+            ],
+
+            // Final report submitted, awaiting the examiner
+            'near_complete' => [
+                'started_days_ago' => 140,
+                'milestones' => [
+                    'chapter_4'    => 'approved',
+                    'chapter_5'    => 'approved',
+                    'chapter_6'    => 'approved',
+                    'chapter_7'    => 'approved',
+                    'final_report' => 'submitted',
+                ],
+            ],
+
+            // Mid-flight: the biggest group, so the workload report is realistic
+            'mid_project' => [
+                'started_days_ago' => 80,
+                'milestones' => [
+                    'chapter_4' => 'approved',
+                    'chapter_5' => 'approved',
+                    'chapter_6' => 'submitted',
+                ],
+            ],
+
+            // Early: implementation just opened
+            'early' => [
+                'started_days_ago' => 34,
+                'milestones' => [
+                    'chapter_4' => 'open',
+                ],
+            ],
+
+            // At risk: one rejection and one overdue chapter, so the
+            // "students needing intervention" list is populated
+            'at_risk' => [
+                'started_days_ago' => 110,
+                'milestones' => [
+                    'chapter_4' => 'approved',
+                    'chapter_5' => 'approved',
+                    'chapter_6' => 'rejected',
+                    'chapter_7' => 'overdue',
                 ],
             ],
         ];
@@ -303,12 +471,16 @@ class ProjectSeeder extends Seeder
                 'chapter_3'    => 'Design is justified and the alternatives you rejected are explained.',
                 'chapter_4'    => 'Core features demonstrably working. Well structured code.',
                 'chapter_5'    => 'Coverage is reasonable and defects are logged properly.',
+                'chapter_6'    => 'Results are tied back to the objectives, and the shortfalls are reported honestly.',
+                'chapter_7'    => 'Conclusions follow from the evidence and the limitations are acknowledged.',
                 'final_report' => 'Meets the faculty template. Approved for examination.',
                 default        => 'Approved.',
             },
-            MilestoneStatus::Rejected => $milestone->code === 'chapter_3'
-                ? 'The approach is not justified for the scope you committed to. '
-                  .'Please narrow the claim, revise the design rationale and resubmit.'
+            // Keyed on chapter_6 because that is the chapter the `at_risk`
+            // profile rejects; every other rejection gets the generic wording.
+            MilestoneStatus::Rejected => $milestone->code === 'chapter_6'
+                ? 'The evaluation does not yet support the claims made. '
+                  .'Please report the negative results, revisit the analysis and resubmit.'
                 : 'Insufficient detail. Please revise and resubmit.',
             MilestoneStatus::Submitted => 'Submitted for review.',
             default => null,

@@ -289,20 +289,11 @@ export default function EvaluationFormPage() {
                   </p>
                 </div>
 
-                <ProgressBar
-                  value={totals.percent}
-                  tone={
-                    totals.percent >= (evaluation.rubric_snapshot?.pass_mark ?? 50) ? 'success' : 'danger'
-                  }
-                />
+                {/* No pass/fail colouring: the system records a mark, and the
+                    form's own total is not the whole assessment. */}
+                <ProgressBar value={totals.percent} tone="brand" />
                 <p className="text-xs text-slate-500">
                   {totals.markedCount} of {totals.criterionCount} criteria marked
-                  {totals.percent < (evaluation.rubric_snapshot?.pass_mark ?? 50) &&
-                    totals.markedCount > 0 && (
-                      <span className="ml-1 text-rose-600">
-                        · below the {evaluation.rubric_snapshot?.pass_mark ?? 50} mark
-                      </span>
-                    )}
                 </p>
 
                 <ul className="space-y-2 border-t border-slate-100 pt-3">

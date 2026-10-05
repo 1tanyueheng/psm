@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { registrationApi } from '../../api/endpoints'
 import { unwrap } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
@@ -10,8 +10,7 @@ import {
 
 const STATUS = {
   pending_supervisor: { label: 'Awaiting supervisor', tone: 'amber' },
-  pending_jkpsm:      { label: 'Awaiting JKPSM',      tone: 'sky' },
-  approved:           { label: 'Approved',            tone: 'emerald' },
+  approved:           { label: 'Acknowledged',        tone: 'emerald' },
   rejected:           { label: 'Rejected',            tone: 'rose' },
   cancelled:          { label: 'Cancelled',           tone: 'slate' },
 }
@@ -26,9 +25,13 @@ const FIELD_STUDY = [
 
 /**
  * Lampiran A detail — where each role acts on the agreement:
- *   supervisor  → acknowledge Part C (pick the agreed title)
- *   JKPSM/admin → approve (registers the pairing) or reject
- *   student     → once approved, submit Lampiran B (title proposal)
+ *   supervisor → acknowledge Part C (pick the agreed title)
+ *   student    → file Lampiran B, which creates the project
+ *
+ * **The title is not decided here.** The panel rules on it at the project's
+ * proposal milestone, which is what gates the rest of the milestone chain. This
+ * page used to carry the panel's review, then a coordinator approval before
+ * that; both are gone, so all this screen does is the paperwork.
  */
 export default function RegistrationDetailPage() {
   const { id } = useParams()
@@ -42,7 +45,6 @@ export default function RegistrationDetailPage() {
   const [actionError, setActionError] = useState(null)
 
   const [agreedTitle, setAgreedTitle] = useState('')
-  const [reason, setReason] = useState('')
   const [proposal, setProposal] = useState({
     project_title: '',
     project_type: 'Pembangunan',
@@ -53,11 +55,22 @@ export default function RegistrationDetailPage() {
     req_tech: '',
   })
 
+  function seed(data) {
+    setAgreement(data)
+    setAgreedTitle((prev) => prev || data?.agreed_title || data?.proposed_title_1 || '')
+    // Lampiran B registers the title the supervisor agreed, so the field is
+    // seeded with it rather than left for the student to retype — a mismatch is
+    // refused.
+    setProposal((prev) => ({
+      ...prev,
+      project_title: prev.project_title || data?.agreed_title || data?.proposed_title_1 || '',
+    }))
+  }
+
   async function reload() {
     const res = await registrationApi.agreement(id)
     const data = unwrap(res)
-    setAgreement(data)
-    setAgreedTitle((prev) => prev || data?.agreed_title || data?.proposed_title_1 || '')
+    seed(data)
     return data
   }
 
@@ -66,11 +79,7 @@ export default function RegistrationDetailPage() {
     async function load() {
       try {
         const res = await registrationApi.agreement(id)
-        if (!cancelled) {
-          const data = unwrap(res)
-          setAgreement(data)
-          setAgreedTitle(data?.agreed_title || data?.proposed_title_1 || '')
-        }
+        if (!cancelled) seed(unwrap(res))
       } catch (err) {
         if (!cancelled) setError(err)
       } finally {
@@ -81,6 +90,7 @@ export default function RegistrationDetailPage() {
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   async function run(fn) {
@@ -108,8 +118,7 @@ export default function RegistrationDetailPage() {
   ].filter(Boolean)
 
   const canAcknowledge = hasRole('supervisor') && status === 'pending_supervisor'
-  const canDecide = hasRole('admin', 'coordinator') && status === 'pending_jkpsm'
-  const canPropose = hasRole('student') && status === 'approved'
+  const canSubmitB = hasRole('student') && (agreement.can_submit_b ?? false)
 
   const update = (key) => (event) =>
     setProposal((prev) => ({ ...prev, [key]: event.target.value }))
@@ -118,7 +127,7 @@ export default function RegistrationDetailPage() {
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader
         title="Lampiran A — Supervisor agreement"
-        subtitle={`${agreement.student_profile?.user?.name ?? 'Student'} · ${agreement.session}`}
+        subtitle={`${agreement.student?.name ?? 'Student'} · ${agreement.session}`}
         back={{ to: '/registrations', label: 'Back to registration' }}
         action={<Badge tone={STATUS[status]?.tone}>{STATUS[status]?.label ?? status}</Badge>}
       />
@@ -131,13 +140,13 @@ export default function RegistrationDetailPage() {
           <div>
             <dt className="text-slate-400">Student</dt>
             <dd className="text-slate-700">
-              {agreement.student_profile?.user?.name ?? '—'}{' '}
-              <span className="text-slate-400">({agreement.student_profile?.student_id})</span>
+              {agreement.student?.name ?? '—'}{' '}
+              <span className="text-slate-400">({agreement.student?.student_id})</span>
             </dd>
           </div>
           <div>
             <dt className="text-slate-400">Supervisor</dt>
-            <dd className="text-slate-700">{agreement.supervisor_profile?.user?.name ?? '—'}</dd>
+            <dd className="text-slate-700">{agreement.supervisor?.name ?? '—'}</dd>
           </div>
           <div>
             <dt className="text-slate-400">PSM part</dt>
@@ -163,14 +172,38 @@ export default function RegistrationDetailPage() {
               <dd className="font-medium text-slate-800">{agreement.agreed_title}</dd>
             </div>
           )}
-          {agreement.rejection_reason && (
-            <div className="sm:col-span-2">
-              <dt className="text-slate-400">Rejection reason</dt>
-              <dd className="text-rose-700">{agreement.rejection_reason}</dd>
-            </div>
-          )}
         </dl>
       </Card>
+
+      {agreement.project && (
+        <Card>
+          <CardHeader
+            title="Project registered"
+            subtitle="The title is decided by the panel at the proposal milestone"
+          />
+          <p className="text-sm text-slate-700">
+            {agreement.project.code} — {agreement.project.title}
+          </p>
+          <p className="mt-3 text-sm text-slate-500">
+            File the proposal milestone and the panel will rule on the title there. Until it is
+            approved, the rest of the milestones stay closed.
+          </p>
+          <div className="mt-4">
+            <Link
+              to={`/projects/${agreement.project.id}`}
+              className="font-medium text-brand-600 hover:underline"
+            >
+              Open the project
+            </Link>
+          </div>
+        </Card>
+      )}
+
+      {hasRole('student') && !canSubmitB && agreement.blocked_reason && (
+        <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {agreement.blocked_reason}
+        </p>
+      )}
 
       {canAcknowledge && (
         <Card>
@@ -204,47 +237,25 @@ export default function RegistrationDetailPage() {
         </Card>
       )}
 
-      {canDecide && (
-        <Card>
-          <CardHeader
-            title="Part D — JKPSM decision"
-            subtitle="Approving registers the supervisor↔student pairing"
-          />
-          <div className="space-y-5">
-            <div className="flex flex-wrap gap-2">
-              <Button disabled={busy} onClick={() => run(() => registrationApi.approve(id))}>
-                {busy ? 'Working…' : 'Approve & register pairing'}
-              </Button>
-            </div>
-            <Field label="Rejection reason" htmlFor="reason" hint="Required only when rejecting">
-              <Textarea id="reason" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
-            </Field>
-            <div className="flex justify-end">
-              <Button
-                variant="secondary"
-                disabled={busy || !reason.trim()}
-                onClick={() => run(() => registrationApi.reject(id, reason.trim()))}
-              >
-                Reject
-              </Button>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {canPropose && (
+      {canSubmitB && (
         <Card>
           <CardHeader
             title="Lampiran B — Title proposal"
-            subtitle="Submit the project details to create your project record"
+            subtitle="Register the agreed title and create your project"
           />
           <div className="space-y-5">
-            <Field label="Project title" htmlFor="project_title" required>
+            <Field
+              label="Project title"
+              htmlFor="project_title"
+              required
+              hint="Agreed with your supervisor — must match it exactly"
+            >
               <Input
                 id="project_title"
                 value={proposal.project_title}
                 onChange={update('project_title')}
                 maxLength={255}
+                readOnly={Boolean(agreement.agreed_title)}
               />
             </Field>
 

@@ -25,6 +25,7 @@ class SubmissionEvent extends Model
     public const EVENT_DEADLINE_CHANGED= 'deadline_changed';
     public const EVENT_OPENED          = 'opened';
     public const EVENT_COMMENTED       = 'commented';
+    public const EVENT_WITHDRAWN       = 'withdrawn';
 
     protected $fillable = [
         'milestone_id',
@@ -67,6 +68,7 @@ class SubmissionEvent extends Model
             self::EVENT_DEADLINE_CHANGED => "{$who} changed the deadline",
             self::EVENT_OPENED           => 'Milestone opened for submission',
             self::EVENT_COMMENTED        => "{$who} added a comment",
+            self::EVENT_WITHDRAWN        => "{$who} withdrew a file",
             default                      => "{$who} updated the milestone",
         };
     }
@@ -80,6 +82,7 @@ class SubmissionEvent extends Model
             self::EVENT_REJECTED  => 'alert-triangle',
             self::EVENT_DEADLINE_CHANGED => 'calendar',
             self::EVENT_OPENED    => 'play-circle',
+            self::EVENT_WITHDRAWN => 'trash',
             default               => 'message-circle',
         };
     }

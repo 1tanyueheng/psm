@@ -7,29 +7,39 @@ namespace App\Enums;
  *
  * pending ──► open ──► submitted ──► reviewed ──► approved
  *                          │             │
- *                          │             └──► rejected ──► open (resubmit)
+ *                          │             ├──► rejected ──► open (resubmit)
+ *                          │             └──► conditional_approve ──► approved
  *                          └──► overdue (deadline passed with no submission)
+ *
+ * `conditional_approve` is the proposal milestone's third outcome: the title is
+ * accepted *subject to corrections*, and the student owes the Lampiran C form
+ * before the milestone is approved and the rest of the chain opens. It is
+ * distinct from `rejected` on purpose — a rejection means the title itself is
+ * wrong and the student changes it, whereas a conditional approval means the
+ * title stands and the work around it needs fixing.
  */
 enum MilestoneStatus: string
 {
-    case Pending   = 'pending';
-    case Open      = 'open';
-    case Submitted = 'submitted';
-    case Reviewed  = 'reviewed';
-    case Approved  = 'approved';
-    case Rejected  = 'rejected';
-    case Overdue   = 'overdue';
+    case Pending     = 'pending';
+    case Open        = 'open';
+    case Submitted   = 'submitted';
+    case Reviewed    = 'reviewed';
+    case Approved    = 'approved';
+    case Conditional = 'conditional_approve';
+    case Rejected    = 'rejected';
+    case Overdue     = 'overdue';
 
     public function label(): string
     {
         return match ($this) {
-            self::Pending   => 'Not started',
-            self::Open      => 'Open for submission',
-            self::Submitted => 'Submitted',
-            self::Reviewed  => 'Reviewed',
-            self::Approved  => 'Approved',
-            self::Rejected  => 'Revision required',
-            self::Overdue   => 'Overdue',
+            self::Pending     => 'Not started',
+            self::Open        => 'Open for submission',
+            self::Submitted   => 'Submitted',
+            self::Reviewed    => 'Reviewed',
+            self::Approved    => 'Approved',
+            self::Conditional => 'Conditional approval',
+            self::Rejected    => 'Revision required',
+            self::Overdue     => 'Overdue',
         };
     }
 
@@ -37,13 +47,14 @@ enum MilestoneStatus: string
     public function tone(): string
     {
         return match ($this) {
-            self::Pending   => 'slate',
-            self::Open      => 'blue',
-            self::Submitted => 'amber',
-            self::Reviewed  => 'violet',
-            self::Approved  => 'emerald',
-            self::Rejected  => 'rose',
-            self::Overdue   => 'red',
+            self::Pending     => 'slate',
+            self::Open        => 'blue',
+            self::Submitted   => 'amber',
+            self::Reviewed    => 'violet',
+            self::Approved    => 'emerald',
+            self::Conditional => 'amber',
+            self::Rejected    => 'rose',
+            self::Overdue     => 'red',
         };
     }
 
@@ -54,13 +65,16 @@ enum MilestoneStatus: string
     public function allowedTransitions(): array
     {
         return match ($this) {
-            self::Pending   => [self::Open, self::Overdue],
-            self::Open      => [self::Submitted, self::Overdue],
-            self::Overdue   => [self::Submitted, self::Open],
-            self::Submitted => [self::Reviewed, self::Approved, self::Rejected],
-            self::Reviewed  => [self::Approved, self::Rejected],
-            self::Rejected  => [self::Open, self::Submitted],
-            self::Approved  => [],
+            self::Pending     => [self::Open, self::Overdue],
+            self::Open        => [self::Submitted, self::Overdue],
+            self::Overdue     => [self::Submitted, self::Open],
+            self::Submitted   => [self::Reviewed, self::Approved, self::Conditional, self::Rejected],
+            self::Reviewed    => [self::Approved, self::Conditional, self::Rejected],
+            // The conditional branch: Lampiran C clears it to Approved, or the
+            // panel refuses the corrections and it falls back to Rejected.
+            self::Conditional => [self::Approved, self::Rejected],
+            self::Rejected    => [self::Open, self::Submitted],
+            self::Approved    => [],
         };
     }
 
@@ -75,10 +89,28 @@ enum MilestoneStatus: string
         return in_array($this, [self::Open, self::Rejected, self::Overdue], true);
     }
 
-    /** Statuses counted as "work delivered" in Module 5 progress rollups. */
+    /**
+     * Statuses counted as "work delivered" in Module 5 progress rollups.
+     *
+     * Deliberately excludes `Conditional`: this is also the gate
+     * `MilestoneController::approve()` uses to answer "is there a submission to
+     * approve?", and a conditionally-approved milestone has already been decided.
+     */
     public function isProgressed(): bool
     {
         return in_array($this, [self::Submitted, self::Reviewed, self::Approved], true);
+    }
+
+    /**
+     * Is this milestone no longer waiting on the student?
+     *
+     * Approved and conditionally-approved both mean the reviewer has acted, so
+     * the deadline no longer applies and the milestone must not be flagged
+     * overdue while the Lampiran C form is outstanding.
+     */
+    public function isSettled(): bool
+    {
+        return in_array($this, [self::Approved, self::Conditional], true);
     }
 
     /**
@@ -96,8 +128,11 @@ enum MilestoneStatus: string
         return match ($this) {
             self::Approved  => 1.0,
             // Partial credit: submitted/reviewed work is underway but not yet
-            // accepted, so it cannot be worth the full weight.
-            self::Reviewed  => 0.75,
+            // accepted, so it cannot be worth the full weight. A conditional
+            // approval is accepted-in-principle but still owes Lampiran C, so it
+            // sits alongside `reviewed` rather than at full credit.
+            self::Reviewed,
+            self::Conditional => 0.75,
             self::Submitted => 0.5,
             default          => 0.0,
         };

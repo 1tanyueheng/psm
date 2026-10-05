@@ -24,22 +24,32 @@ enum AssessorType: string
         };
     }
 
-    /** Default contribution to the final aggregate, in percent. */
-    public function defaultWeight(): float
-    {
-        return match ($this) {
-            self::Supervisor  => 60.0,
-            self::Examiner    => 40.0,
-            self::Coordinator => 0.0,   // moderating/moderating-only by default
-        };
-    }
+    /*
+     * `defaultWeight()` used to live here, returning supervisor 60 / examiner
+     * 40 / coordinator 0. It is gone because the weighting is no longer per
+     * role: it is per official form (see `psm.assessment_weights`), so that
+     * Lampiran G 50 and Lampiran H 5 can be told apart even though both are
+     * supervisor forms. A role-level weight would have merged them.
+     *
+     * The coordinator appears in no weighting at all — they moderate the
+     * process, they do not award marks.
+     */
 
-    /** The Role that normally holds this assessor type. */
+    /**
+     * The Role that normally holds this assessor type.
+     *
+     * `Examiner` maps to `Role::Supervisor` because being an examiner is a
+     * seating, not a role — a panel is drawn from the academic staff who
+     * supervise. Which *form* someone fills is decided by the assessor type on
+     * the evaluation, not by who they are: the same person fills the supervisor's
+     * form for their own student and the examiner's form for a student whose
+     * panel they sit on.
+     */
     public function role(): Role
     {
         return match ($this) {
             self::Supervisor  => Role::Supervisor,
-            self::Examiner    => Role::Examiner,
+            self::Examiner    => Role::Supervisor,
             self::Coordinator => Role::Coordinator,
         };
     }

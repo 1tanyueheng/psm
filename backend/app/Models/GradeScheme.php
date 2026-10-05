@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\AssessorType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,7 +21,6 @@ class GradeScheme extends Model
         'weights',
         'aggregation',
         'trim_extremes',
-        'pass_mark',
         'is_locked',
         'created_by',
     ];
@@ -33,7 +31,6 @@ class GradeScheme extends Model
             'weights'       => 'array',
             'trim_extremes' => 'boolean',
             'is_locked'     => 'boolean',
-            'pass_mark'     => 'decimal:2',
         ];
     }
 
@@ -47,12 +44,17 @@ class GradeScheme extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function weightFor(AssessorType|string $type): float
+    /**
+     * Weight for one official form (a Lampiran code), or 0 if it carries none.
+     *
+     * Weights are keyed by form rather than by assessor role because Lampiran G
+     * and Lampiran H are both supervisor forms with different shares (50 and 5)
+     * — grouping by role would merge them into one 55% bucket.
+     */
+    public function weightForForm(string $formCode): float
     {
-        $key = $type instanceof AssessorType ? $type->value : $type;
-
         foreach ($this->weights ?? [] as $entry) {
-            if (($entry['assessor_type'] ?? null) === $key) {
+            if (($entry['form_code'] ?? null) === $formCode) {
                 return (float) ($entry['weight'] ?? 0);
             }
         }
@@ -60,22 +62,65 @@ class GradeScheme extends Model
         return 0.0;
     }
 
-    /** Total must be 100 for a usable scheme. */
+    /**
+     * The form codes this scheme weights, in configured order.
+     *
+     * @return array<int, string>
+     */
+    public function weightedForms(): array
+    {
+        return collect($this->weights ?? [])
+            ->pluck('form_code')
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Does the scheme total the weight expected for this project's PSM part?
+     *
+     * Not 100, and that is intentional: the system holds only part of the
+     * official weighting (65 for PSM 1, 95 for PSM 2) because the remainder is
+     * marked outside it. Comparing against 100 would report every scheme as
+     * broken.
+     */
     public function weightsBalance(): bool
     {
         $sum = collect($this->weights ?? [])->sum(fn ($w) => (float) ($w['weight'] ?? 0));
 
-        return abs($sum - 100.0) < 0.01;
+        return abs($sum - static::expectedWeightTotal($this->project?->psm_part)) < 0.01;
     }
 
-    /** Sensible default scheme for a new project. */
-    public static function defaults(): array
+    /** The weight this system is responsible for, for a given PSM part. */
+    public static function expectedWeightTotal(?string $psmPart): float
     {
-        return [
-            ['assessor_type' => AssessorType::Supervisor->value,  'weight' => 60],
-            ['assessor_type' => AssessorType::Examiner->value,    'weight' => 40],
-            ['assessor_type' => AssessorType::Coordinator->value, 'weight' => 0],
-        ];
+        return (float) array_sum(static::configuredWeights($psmPart));
+    }
+
+    /**
+     * The configured form weights for a PSM part, from `psm.assessment_weights`.
+     *
+     * @return array<string, float>  form code => weight
+     */
+    public static function configuredWeights(?string $psmPart): array
+    {
+        $configured = (array) config('psm.assessment_weights', []);
+
+        // 'BOTH' has no weighting of its own; fall back to PSM 2, which is where
+        // a combined project is finally assessed.
+        return (array) ($configured[$psmPart] ?? $configured['PSM2'] ?? []);
+    }
+
+    /** Default scheme weights for a project, as the scheme's JSON shape. */
+    public static function defaultsFor(?string $psmPart): array
+    {
+        return collect(static::configuredWeights($psmPart))
+            ->map(fn ($weight, $formCode) => [
+                'form_code' => (string) $formCode,
+                'weight'    => (float) $weight,
+            ])
+            ->values()
+            ->all();
     }
 
     /**
@@ -87,9 +132,8 @@ class GradeScheme extends Model
         return static::firstOrCreate(
             ['project_id' => $project->id],
             [
-                'weights'    => self::defaults(),
+                'weights'    => self::defaultsFor($project->psm_part),
                 'aggregation'=> 'mean',
-                'pass_mark'  => 50.00,
                 'created_by' => $project->created_by,
             ]
         );

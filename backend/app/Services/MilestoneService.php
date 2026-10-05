@@ -104,6 +104,15 @@ class MilestoneService
     /**
      * Move a milestone to a new status, validating the transition and
      * recording it. Throws if the transition is illegal.
+     *
+     * `$narrativeEvent` overrides the event type written to the timeline.
+     * The default is derived from the target status, which is right whenever
+     * the status change *is* the event. It is wrong when something else caused
+     * the change: a student withdrawing their submission drives the milestone
+     * to `rejected`, and the default would record "… requested a revision",
+     * which inverts who did what. Callers in that position name the event
+     * themselves so the timeline has one accurate entry rather than a
+     * misleading one plus a duplicate.
      */
     public function transitionTo(
         Milestone $milestone,
@@ -111,6 +120,7 @@ class MilestoneService
         ?User $actor = null,
         ?string $comment = null,
         array $extra = [],
+        ?string $narrativeEvent = null,
     ): Milestone {
         $current = $milestone->status;
 
@@ -125,7 +135,7 @@ class MilestoneService
             );
         }
 
-        return DB::transaction(function () use ($milestone, $current, $target, $actor, $comment, $extra) {
+        return DB::transaction(function () use ($milestone, $current, $target, $actor, $comment, $extra, $narrativeEvent) {
             $before = $milestone->getAttributes();
 
             $updates = ['status' => $target];
@@ -153,7 +163,7 @@ class MilestoneService
 
             $this->recordEvent(
                 $milestone,
-                $this->eventForTransition($target),
+                $narrativeEvent ?? $this->eventForTransition($target),
                 $current,
                 $comment,
                 $actor,
@@ -178,15 +188,27 @@ class MilestoneService
         });
     }
 
-    /** Approve with the standard "work accepted" semantics. */
+    /**
+     * Approve with the standard "work accepted" semantics.
+     *
+     * Refused for the proposal milestone: its verdict is the panel's and it
+     * settles the title, so it goes through
+     * `ProposalReviewService::recordDecision()`. Approving it here would fix the
+     * milestone without ever recording a title decision, which is the state this
+     * design exists to prevent.
+     */
     public function approve(Milestone $milestone, User $actor, ?string $comment = null): Milestone
     {
+        $this->assertNotProposal($milestone, 'approved');
+
         return $this->transitionTo($milestone, MilestoneStatus::Approved, $actor, $comment);
     }
 
     /** Request a revision — reopens the milestone for a re-upload. */
     public function requestRevision(Milestone $milestone, User $actor, string $comment): Milestone
     {
+        $this->assertNotProposal($milestone, 'sent back for revision');
+
         $milestone = $this->transitionTo($milestone, MilestoneStatus::Rejected, $actor, $comment);
 
         $this->notifications->notify(
@@ -204,12 +226,26 @@ class MilestoneService
         return $milestone;
     }
 
-    /** Open the milestone that follows the one just approved. */
+    /**
+     * Open the milestone that follows the one just approved.
+     *
+     * Selects the immediate next milestone that can still be opened — `pending`,
+     * or `overdue`/`rejected` because it was already flagged or returned before
+     * its predecessor cleared. Selecting only `pending` was a stall waiting to
+     * happen: the proposal milestone now gates the whole chain, so a chapter
+     * whose deadline passed while the proposal was still being decided was
+     * flipped to `overdue` by the nightly job and then skipped forever — the
+     * chain jumped over it, and its work could never be opened in order.
+     */
     public function activateNext(Project $project, int $afterSequence): ?Milestone
     {
         $next = $project->milestones()
             ->where('sequence', '>', $afterSequence)
-            ->where('status', MilestoneStatus::Pending->value)
+            ->whereIn('status', [
+                MilestoneStatus::Pending->value,
+                MilestoneStatus::Overdue->value,
+                MilestoneStatus::Rejected->value,
+            ])
             ->orderBy('sequence')
             ->first();
 
@@ -226,14 +262,15 @@ class MilestoneService
             return null;
         }
 
-        $next->update(['status' => MilestoneStatus::Open, 'opens_at' => now()]);
+        // Stamp the moment it actually opened, then move it through the state
+        // machine so the transition is validated and the timeline records it.
+        $next->update(['opens_at' => now()]);
 
-        $this->recordEvent(
+        $next = $this->transitionTo(
             $next,
-            SubmissionEvent::EVENT_OPENED,
-            MilestoneStatus::Pending,
+            MilestoneStatus::Open,
+            null,
             'Opened after previous milestone was approved',
-            actor: null,
         );
 
         $this->notifications->notify(
@@ -345,6 +382,24 @@ class MilestoneService
     // -----------------------------------------------------------------
     // Internals
     // -----------------------------------------------------------------
+
+    /**
+     * Refuse the generic review actions on the proposal milestone.
+     *
+     * Its verdict is the panel's, and it carries the title decision — so it is
+     * decided through ProposalReviewService, which knows about the conditional
+     * and rejected branches. Pointing the caller there is more useful than a
+     * generic "not allowed".
+     */
+    protected function assertNotProposal(Milestone $milestone, string $action): void
+    {
+        if ($milestone->isProposal()) {
+            throw new InvalidArgumentException(
+                "The proposal milestone cannot be {$action} from here — its title is decided by the "
+                .'panel. Record the panel\'s decision instead.'
+            );
+        }
+    }
 
     protected function recordEvent(
         Milestone $milestone,

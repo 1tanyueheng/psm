@@ -160,6 +160,10 @@ export const MILESTONE_STATUS = {
   submitted: { label: 'Submitted', tone: 'bg-amber-50 text-amber-700 border-amber-200' },
   reviewed: { label: 'Reviewed', tone: 'bg-violet-50 text-violet-700 border-violet-200' },
   approved: { label: 'Approved', tone: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  // The proposal milestone's third outcome: the title stands subject to
+  // corrections, and the student owes the Lampiran C form before the rest of
+  // the chain opens. Distinct from `rejected`, where the title itself changes.
+  conditional_approve: { label: 'Conditional approval', tone: 'bg-amber-50 text-amber-700 border-amber-200' },
   rejected: { label: 'Revision required', tone: 'bg-rose-50 text-rose-700 border-rose-200' },
   overdue: { label: 'Overdue', tone: 'bg-red-50 text-red-700 border-red-200' },
 }
@@ -185,16 +189,6 @@ export const EVALUATION_STATUS = {
 export const CATEGORY_LABELS = {
   system: 'System Development',
   research: 'Research',
-}
-
-/** Grade band → tone, matching psm.grade_bands on the server. */
-export function gradeTone(letter) {
-  if (!letter) return 'bg-slate-100 text-slate-700 border-slate-200'
-  if (letter.startsWith('A')) return 'bg-emerald-50 text-emerald-700 border-emerald-200'
-  if (letter.startsWith('B')) return 'bg-sky-50 text-sky-700 border-sky-200'
-  if (letter.startsWith('C')) return 'bg-amber-50 text-amber-700 border-amber-200'
-
-  return 'bg-rose-50 text-rose-700 border-rose-200'
 }
 
 export const EXAMINER_PANEL_ROLES = {

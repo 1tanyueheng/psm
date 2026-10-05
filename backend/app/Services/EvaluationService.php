@@ -5,11 +5,16 @@ namespace App\Services;
 use App\Enums\AssessorType;
 use App\Enums\AuditAction;
 use App\Enums\EvaluationStatus;
+use App\Enums\MilestoneStatus;
 use App\Enums\NotificationType;
+use App\Models\AssessmentWindow;
 use App\Models\Evaluation;
 use App\Models\EvaluationScore;
+use App\Models\ExaminerAssignment;
 use App\Models\FinalGrade;
 use App\Models\GradeScheme;
+use App\Models\MarkSubmission;
+use App\Models\Milestone;
 use App\Models\Project;
 use App\Models\RubricTemplate;
 use App\Models\User;
@@ -90,6 +95,15 @@ class EvaluationService
         ?string $formCode,
         string $formInstance,
     ): Evaluation {
+        // No milestone check here on purpose. A form may be *allocated* ahead of
+        // the milestones — that is what lets the coordinator open an assessment
+        // window for the whole batch at once, and what lets a form sit in an
+        // assessor's queue as a draft. The milestone rule is enforced at
+        // submission (see submit()), which is where it actually bites: Lampiran
+        // E still cannot be *completed* until every milestone is approved.
+        //
+        // Checking here as well made opening a window allocate nothing for any
+        // student still mid-project, which is most of them.
         $rubric = RubricTemplate::resolveFor(
             $project->category,
             $project->psm_part,
@@ -191,6 +205,8 @@ class EvaluationService
             );
         }
 
+        $this->assertMarkingOpen($evaluation->project, $evaluation->psm_part);
+
         return DB::transaction(function () use ($evaluation, $marks, $actor) {
             $snapshot = $evaluation->rubric_snapshot ?? [];
             $criteriaWeights = $this->criteriaWeightMap($snapshot);
@@ -270,7 +286,15 @@ class EvaluationService
             );
         }
 
-        $fresh = $evaluation->fresh(['scores', 'rubricTemplate']);
+        $this->assertMarkingOpen($evaluation->project, $evaluation->psm_part);
+
+        $fresh = $evaluation->fresh(['scores', 'rubricTemplate', 'project']);
+
+        // Re-checked at submission as well as at allocation: a coordinator may
+        // allocate the form ahead of the milestones (that is allowed — it just
+        // cannot be completed), and a milestone can be reopened by a revision
+        // request after the form was drafted.
+        $this->assertMilestonesCompleteFor($fresh->rubricTemplate?->form_code, $fresh->project);
 
         $errors = $fresh->validationErrors();
 
@@ -328,56 +352,15 @@ class EvaluationService
      * Coordinator moderation: apply a delta with a mandatory reason.
      * The original assessor's mark is preserved on `raw_score`.
      */
-    public function moderate(
-        Evaluation $evaluation,
-        float $newPercent,
-        string $reason,
-        User $actor,
-    ): Evaluation {
-        if (! $evaluation->status->isLocked()) {
-            throw new InvalidArgumentException('Only a submitted evaluation can be moderated.');
-        }
-
-        if ($newPercent < 0 || $newPercent > 100) {
-            throw new InvalidArgumentException('A moderated percentage must be between 0 and 100.');
-        }
-
-        return DB::transaction(function () use ($evaluation, $newPercent, $reason, $actor) {
-            $before = $evaluation->getAttributes();
-
-            $originalPercent = $evaluation->effectivePercent();
-            $max = (float) $evaluation->max_score;
-
-            $evaluation->update([
-                'status'           => EvaluationStatus::Moderated,
-                'final_score'      => round($max * ($newPercent / 100), 2),
-                'moderation_delta' => round($newPercent - $originalPercent, 2),
-                'moderation_reason'=> $reason,
-                'moderated_by'     => $actor->id,
-                'moderated_at'     => now(),
-            ]);
-
-            $this->audit->log(
-                action: AuditAction::EvaluationModerated,
-                description: sprintf(
-                    'Moderated %.2f%% → %.2f%% (%s)',
-                    $originalPercent,
-                    $newPercent,
-                    $reason
-                ),
-                subject: $evaluation,
-                before: $before,
-                after: $evaluation->getAttributes(),
-                actor: $actor,
-            );
-
-            foreach ($evaluation->project->students as $student) {
-                $this->computeFinalGrade($evaluation->project, $student->id);
-            }
-
-            return $evaluation->fresh();
-        });
-    }
+    /*
+     * `moderate()` used to live here — a coordinator could overwrite a locked
+     * mark with a reason and the delta was recorded.
+     *
+     * Removed: a coordinator does not award or alter marks. The aggregate reads
+     * each assessor's mark exactly as submitted. The `moderated_*` columns and
+     * `EvaluationStatus::Moderated` remain so historical rows still resolve;
+     * nothing can produce a new one.
+     */
 
     // -----------------------------------------------------------------
     // The aggregate
@@ -396,12 +379,24 @@ class EvaluationService
      *  5. Blend with the milestone-completion score to get the final mark
      *  6. Apply the grade band and persist the full breakdown
      */
-    public function computeFinalGrade(Project $project, int $studentProfileId): FinalGrade
-    {
+    /**
+     * Compute (or recompute) the final grade for one student on a project.
+     *
+     * When $expectedPanelSize is provided (from a locked MarkSubmission), the
+     * examiner component is NULL until every panel member has submitted. This
+     * implements the "Final_Examiner_Mark = (P1+P2)/2, NULL until both in"
+     * rule. Without the panel size the method computes with whatever forms are
+     * submitted — used for the per-assessor recompute after each submission.
+     */
+    public function computeFinalGrade(
+        Project $project,
+        int $studentProfileId,
+        ?int $expectedPanelSize = null
+    ): FinalGrade {
         $scheme = GradeScheme::ensureFor($project);
 
         $evaluations = $project->evaluations()
-            ->with(['scores', 'assessor'])
+            ->with(['scores', 'assessor', 'rubricTemplate'])
             ->whereIn('status', [
                 EvaluationStatus::Submitted->value,
                 EvaluationStatus::Moderated->value,
@@ -410,21 +405,55 @@ class EvaluationService
             ->where('psm_part', $project->psm_part)
             ->get();
 
-        // --- 2. Per-type combination ---------------------------------
-        $perType = [];
+        // Only the current panel's forms count.
+        //
+        // Retiring an examiner deactivates their allocation rather than deleting
+        // it, so a form they already marked is still sitting in the table. If it
+        // counted, a re-paired project would either average three Lampiran I
+        // forms where the panel is two, or keep a mark from someone who is no
+        // longer on the panel. The panel is authoritative — a student always has
+        // exactly two examiners.
+        //
+        // Applied whenever an active panel exists, not only when a caller passed
+        // a size: the size governs whether the examiner component is written at
+        // all, not who is allowed to contribute to it.
+        $panelExaminerIds = ExaminerAssignment::query()
+            ->where('project_id', $project->id)
+            ->where('psm_part', $project->psm_part)
+            ->active()
+            ->pluck('examiner_id')
+            ->all();
 
-        foreach (AssessorType::cases() as $type) {
-            $group = $evaluations->where('assessor_type', $type);
+        if ($panelExaminerIds !== []) {
+            $evaluations = $evaluations->filter(function (Evaluation $e) use ($panelExaminerIds) {
+                if ($e->assessor_type?->value !== 'examiner') {
+                    return true;
+                }
 
-            if ($group->isEmpty()) {
-                continue;
-            }
+                return in_array($e->assessor_id, $panelExaminerIds, true);
+            });
+        }
 
-            $perType[$type->value] = [
-                'subtotal'        => $this->combineGroup($group, $scheme),
-                'assessor_count'  => $group->count(),
-                'weight'          => $scheme->weightFor($type),
-                'individual'      => $group->map(fn (Evaluation $e) => [
+        // --- 2. Per-form combination ---------------------------------
+        //
+        // Grouped by the official form (Lampiran code), not by assessor role.
+        // The weights are per form: PSM 2 splits 55% of supervisor weighting
+        // into Lampiran G 50 and Lampiran H 5, which a per-role grouping would
+        // merge. Each form's subtotal is the mean of its evaluations — so the
+        // two Lampiran H progress reports average into one 5% component, and
+        // the two examiners on Lampiran I or J average into one component,
+        // which is the "sum both examiner scores and average" rule.
+        $perForm = [];
+
+        foreach ($evaluations->groupBy(fn (Evaluation $e) => $e->rubricTemplate?->form_code ?? 'unmapped') as $formCode => $group) {
+            $weight = $scheme->weightForForm((string) $formCode);
+
+            $perForm[$formCode] = [
+                'subtotal'       => $this->combineGroup($group, $scheme),
+                'evaluation_count' => $group->count(),
+                'weight'         => $weight,
+                'assessor_type'  => $group->first()->assessor_type->value,
+                'individual'     => $group->map(fn (Evaluation $e) => [
                     'assessor_id'   => $e->assessor_id,
                     'assessor_name' => $e->assessor?->name,
                     'percent'       => $e->effectivePercent(),
@@ -433,18 +462,56 @@ class EvaluationService
             ];
         }
 
-        // --- 3/4. Weighted sum ---------------------------------------
+        // --- 3. Per-assessor-type rollup (for the persisted columns) --
+        //
+        // Weighted by each form's share, so "supervisor score" means the
+        // supervisor's contribution and not a flat mean across G and H.
+        $perType = [];
+
+        foreach (AssessorType::cases() as $type) {
+            $forms = collect($perForm)->filter(fn ($data) => $data['assessor_type'] === $type->value);
+
+            if ($forms->isEmpty()) {
+                continue;
+            }
+
+            $weightSum = $forms->sum('weight');
+
+            $perType[$type->value] = [
+                'subtotal'       => $weightSum > 0
+                    ? round($forms->sum(fn ($d) => $d['subtotal'] * $d['weight']) / $weightSum, 2)
+                    : round($forms->avg('subtotal'), 2),
+                'assessor_count' => $forms->sum('evaluation_count'),
+                'forms'          => $forms->keys()->values()->all(),
+                'individual'     => $forms->pluck('individual')->flatten(1)->values()->all(),
+            ];
+        }
+
+        // --- 4. Weighted sum over forms ------------------------------
         $weightedTotal = 0.0;
         $weightSum     = 0.0;
 
-        foreach ($perType as $data) {
+        foreach ($perForm as $data) {
             $weightedTotal += $data['subtotal'] * ($data['weight'] / 100);
             $weightSum     += $data['weight'];
         }
 
-        // If the configured weights do not sum to 100 (e.g. only an examiner
-        // marked, and supervisors carry 60%), rescale so the aggregate stays
-        // on a 0-100 scale rather than silently capping at 40.
+        /**
+         * Rescale to 0-100 over the weight actually present.
+         *
+         * Two different situations both land here, and the same rescale is
+         * right for each:
+         *
+         *   - Only some forms are marked yet (say Lampiran G is in and H is
+         *     not). Without rescaling, a project would appear to score out of
+         *     55 rather than 95 and look like it was failing.
+         *   - The scheme's weights total less than 100 by design, because the
+         *     rest of the official weighting is marked outside this system.
+         *
+         * The result is therefore the weighted mean of what the system holds —
+         * a mark, not a final grade. The official total is only reachable once
+         * the external components are combined.
+         */
         $aggregate = $weightSum > 0
             ? ($weightedTotal / $weightSum) * 100
             : 0.0;
@@ -452,25 +519,44 @@ class EvaluationService
         $aggregate = round($aggregate, 2);
 
         // --- 5. Blend with milestone completion ----------------------
+        // 0 by default: milestones gate the assessment (Lampiran E cannot be
+        // completed until every milestone is approved) rather than diluting it.
         $milestoneScore = $project->milestoneProgressPercent();
 
-        // Milestones act as a gate rather than a large share of the mark:
-        // a student who never submitted cannot score 100 overall.
-        $milestoneBlendPercent = (float) config('psm.milestone_blend_percent', 20);
+        $milestoneBlendPercent = (float) config('psm.milestone_blend_percent', 0);
         $finalMark = round(
             ($aggregate * ((100 - $milestoneBlendPercent) / 100))
             + ($milestoneScore * ($milestoneBlendPercent / 100)),
             2
         );
 
-        // --- 6. Band and persist -------------------------------------
-        $band = FinalGrade::bandFor($finalMark);
+        // Nothing counted, so there is no mark — not a mark of zero.
+        //
+        // This happens when the panel was re-paired after the only submitted
+        // form was retired: no current panel member has marked yet. Persisting
+        // 0.00 would show the student a failing result, and would satisfy
+        // `qualifiesForPublication()` (which only checks `final_mark !== null`),
+        // putting a zero on the public leaderboard.
+        if ($evaluations->isEmpty()) {
+            $finalMark = null;
+            $aggregate = null;
+        }
 
+        // --- 6. Persist ----------------------------------------------
+        // No letter grade is derived: the system's share of the assessment is
+        // not 100%, so banding the mark would invent a grade.
         $breakdown = [
-            'algorithm'            => 'weighted_assessor_subtotals_blended_with_milestones',
+            'algorithm'            => 'weighted_form_subtotals',
             'aggregation_rule'     => $scheme->aggregation,
             'trim_extremes'        => $scheme->trim_extremes,
-            'weights_sum_to_100'   => $scheme->weightsBalance(),
+            'weighting_source'     => 'psm.assessment_weights',
+            // Weight of the forms actually marked — less than configured while
+            // a form is still outstanding, which is why the aggregate rescales.
+            'weights_present'      => round($weightSum, 2),
+            'weights_configured'   => round((float) collect($scheme->weights ?? [])->sum('weight'), 2),
+            'weights_expected'     => GradeScheme::expectedWeightTotal($project->psm_part),
+            'weights_balance'      => $scheme->weightsBalance(),
+            'forms'                => $perForm,
             'assessor_types'       => $perType,
             'aggregate_percent'    => $aggregate,
             'milestone_percent'    => $milestoneScore,
@@ -487,14 +573,20 @@ class EvaluationService
             ],
             [
                 'supervisor_score'  => $perType[AssessorType::Supervisor->value]['subtotal'] ?? null,
-                'examiner_score'    => $perType[AssessorType::Examiner->value]['subtotal'] ?? null,
+                'examiner_score'    => $this->resolveExaminerScore(
+                    $perType,
+                    $expectedPanelSize,
+                    $evaluations
+                ),
+                'examiner_panel_average' => $this->resolveExaminerPanelAverage(
+                    $perType,
+                    $expectedPanelSize,
+                    $evaluations
+                ),
                 'coordinator_score' => $perType[AssessorType::Coordinator->value]['subtotal'] ?? null,
                 'aggregate_percent' => $aggregate,
                 'milestone_score'   => $milestoneScore,
                 'final_mark'        => $finalMark,
-                'grade_letter'      => $band['grade'],
-                'grade_point'       => $band['point'],
-                'is_pass'           => $finalMark >= (float) $scheme->pass_mark,
                 'assessor_count'    => $evaluations->count(),
                 'computation_breakdown' => $breakdown,
                 'computed_at'       => now(),
@@ -503,7 +595,7 @@ class EvaluationService
 
         $this->audit->log(
             action: AuditAction::GradeRecalculated,
-            description: "Final mark {$finalMark}% ({$band['grade']}) from {$evaluations->count()} assessor(s)",
+            description: "Final mark {$finalMark} from {$evaluations->count()} assessor(s)",
             subject: $grade,
         );
 
@@ -512,9 +604,26 @@ class EvaluationService
 
     /**
      * Release a grade so the student can see it and Module 8 may rank it.
+     *
+     * Gated on the academic term's own release flag (requirement §4.2,
+     * acceptance criterion #7). Releasing a single grade used to be an entirely
+     * independent path from `POST /semesters/{id}/release-marks`, which left
+     * two ways to publish results and one way to retract them: a coordinator
+     * could withhold a term's results at the term level and still have a
+     * per-grade release sitting in the UI — and pressing it would publish a
+     * result the faculty had decided not to publish.
+     *
+     * Withholding the term is therefore authoritative, and the per-grade button
+     * only works once the term is open for release. Projects belonging to no
+     * term (legacy rows) are released the old way, so pre-semester records
+     * remain administrable.
+     *
+     * @throws InvalidArgumentException
      */
     public function releaseGrade(FinalGrade $grade, User $actor): FinalGrade
     {
+        $this->assertTermAllowsRelease($grade);
+
         $before = $grade->getAttributes();
 
         $minAssessors = (int) config('psm.leaderboard.min_assessors', 2);
@@ -534,7 +643,7 @@ class EvaluationService
 
         $this->audit->log(
             action: AuditAction::GradeReleased,
-            description: "Released {$grade->final_mark}% ({$grade->grade_letter})",
+            description: "Released mark {$grade->final_mark}",
             subject: $grade,
             before: $before,
             after: $grade->getAttributes(),
@@ -545,8 +654,8 @@ class EvaluationService
             $grade->project->students->pluck('user')->filter(),
             NotificationType::GradeReleased,
             [
-                'title'      => 'Grade released',
-                'body'       => "Your result for {$grade->project->title} is now available.",
+                'title'      => 'Mark released',
+                'body'       => "Your mark for {$grade->project->title} is now available.",
                 'action_url' => "/projects/{$grade->project_id}/result",
             ],
             $grade,
@@ -555,13 +664,323 @@ class EvaluationService
         return $grade->fresh();
     }
 
+    /**
+     * One student's mark, broken down by form and then by component.
+     *
+     * The aggregate is a single number; this is the same mark at the level it
+     * was actually awarded, so a student can see which part of the work earned
+     * what — and which Lampiran is still outstanding.
+     *
+     * The form list comes from the configured weights for the part (PSM 1:
+     * E, I — PSM 2: G, H, J), not from the evaluations that happen to exist, so
+     * a Lampiran nobody has returned yet still appears rather than vanishing.
+     * Any filed form the configuration does not mention is added too.
+     *
+     * The marked set is exactly what `computeFinalGrade` aggregates: submitted
+     * and released evaluations for the project's PSM part. Driving it from the
+     * mark submission's *current* expected assessors was wrong — when a panel is
+     * re-paired, a form already marked by a stood-down examiner still counts
+     * towards the released mark but dropped out of the breakdown.
+     *
+     * Panel examiners share a form, so their component marks are averaged — the
+     * same rule the aggregate applies. Draft forms contribute headings but no
+     * marks, and are excluded from that average. Projects here are
+     * single-member, so every form belongs to this student.
+     *
+     * @return array<int, array{
+     *   form_code:string, assessor_type:?string, title:?string, status:string,
+     *   evaluations:int, marked:int, marks:?float, max:float,
+     *   components:array<int, array{code:string, title:string, weight_percent:float, marks:?float, max:float}>
+     * }>
+     */
+    public function componentBreakdown(Project $project): array
+    {
+        // Same panel rule as computeFinalGrade: only the current panel's
+        // examiner forms count, so the breakdown can never show a form the
+        // released mark excluded.
+        $panelExaminerIds = ExaminerAssignment::query()
+            ->where('project_id', $project->id)
+            ->where('psm_part', $project->psm_part)
+            ->active()
+            ->pluck('examiner_id')
+            ->all();
+
+        $evaluations = Evaluation::query()
+            ->where('project_id', $project->id)
+            ->where('psm_part', $project->psm_part)
+            ->with(['rubricTemplate', 'scores'])
+            ->get()
+            ->filter(function (Evaluation $e) use ($panelExaminerIds) {
+                if ($panelExaminerIds === [] || $e->assessor_type?->value !== 'examiner') {
+                    return true;
+                }
+
+                return in_array($e->assessor_id, $panelExaminerIds, true);
+            })
+            ->groupBy(fn (Evaluation $e) => $e->rubricTemplate?->form_code ?? '—');
+
+        $formCodes = array_keys((array) config("psm.assessment_weights.{$project->psm_part}", []));
+
+        // A filed form the configuration does not mention still belongs here.
+        foreach ($evaluations->keys() as $code) {
+            if (! in_array($code, $formCodes, true)) {
+                $formCodes[] = $code;
+            }
+        }
+
+        sort($formCodes);
+
+        $forms = [];
+
+        foreach ($formCodes as $formCode) {
+            $form = $this->formBreakdown($project, $formCode, $evaluations->get($formCode) ?? collect());
+
+            if ($form !== null) {
+                $forms[] = $form;
+            }
+        }
+
+        return $forms;
+    }
+
+    /**
+     * One Lampiran, folded into component rows.
+     *
+     * @param  Collection<int, Evaluation>  $evaluations
+     */
+    private function formBreakdown(Project $project, string $formCode, Collection $evaluations): ?array
+    {
+        $template = $evaluations->first()?->rubricTemplate ?? $this->templateFor($project, $formCode);
+        $components = $this->componentShape($evaluations, $template);
+
+        if ($components === []) {
+            return null;
+        }
+
+        // Only forms an assessor has actually returned carry marks.
+        $marked = $evaluations->filter(fn (Evaluation $e) => in_array(
+            $e->status?->value,
+            [EvaluationStatus::Submitted->value, EvaluationStatus::Released->value],
+            true
+        ));
+
+        foreach ($marked as $evaluation) {
+            $perComponent = [];
+
+            foreach ($evaluation->scores as $score) {
+                $code = $score->component_code ?: '—';
+                $perComponent[$code] = ($perComponent[$code] ?? 0.0) + (float) $score->marks_awarded;
+            }
+
+            foreach ($perComponent as $code => $marks) {
+                if (isset($components[$code])) {
+                    $components[$code]['marks'][] = $marks;
+                }
+            }
+        }
+
+        $rows = collect($components)
+            ->map(fn (array $component, string $code): array => [
+                'code'           => $code,
+                'title'          => $component['title'],
+                'weight_percent' => $component['weight_percent'],
+                // Averaged across the form's *marked* assessors only, so a
+                // draft panel member cannot drag the mark down.
+                'marks'          => $component['marks'] === []
+                    ? null
+                    : round(array_sum($component['marks']) / count($component['marks']), 2),
+                'max'            => round((float) $component['max'], 2),
+            ])
+            ->values()
+            ->all();
+
+        $awarded = array_values(array_filter(
+            array_column($rows, 'marks'),
+            fn ($mark) => $mark !== null
+        ));
+
+        return [
+            'form_code'     => $formCode,
+            'assessor_type' => ($evaluations->first()?->assessor_type ?? $template?->assessor_type)?->value,
+            'title'         => $template?->name,
+            'evaluations'   => $evaluations->count(),
+            'marked'        => $marked->count(),
+            // 'pending' means no assessor has returned this form yet.
+            'status'        => $marked->isEmpty() ? 'pending' : 'marked',
+            // Raw marks in the Lampiran's own units, never rescaled to 100.
+            'marks'         => $awarded === [] ? null : round(array_sum($awarded), 2),
+            'max'           => round(array_sum(array_column($rows, 'max')), 2),
+            'components'    => $rows,
+        ];
+    }
+
+    /**
+     * Component headings and maxima for a form.
+     *
+     * Prefers the frozen snapshot of a form that was actually filed, so a
+     * historical mark reads the way it was entered; falls back to the live
+     * template so an outstanding Lampiran still shows its headings.
+     *
+     * @param  Collection<int, Evaluation>  $evaluations
+     * @return array<string, array{title:string, weight_percent:float, max:float, marks:array<int, float>}>
+     */
+    private function componentShape(Collection $evaluations, ?RubricTemplate $template): array
+    {
+        $snapshot = $evaluations->first()?->rubric_snapshot;
+        $shape = [];
+
+        if (is_array($snapshot) && ($snapshot['components'] ?? []) !== []) {
+            foreach ($snapshot['components'] as $component) {
+                $max = 0.0;
+                foreach (($component['criteria'] ?? []) as $criterion) {
+                    $max += (float) ($criterion['max_marks'] ?? 0);
+                }
+
+                $shape[$component['code']] = [
+                    'title'          => $component['title'] ?? $component['code'],
+                    'weight_percent' => (float) ($component['weight_percent'] ?? 0),
+                    'max'            => $max,
+                    'marks'          => [],
+                ];
+            }
+
+            return $shape;
+        }
+
+        if ($template === null) {
+            return [];
+        }
+
+        foreach ($template->components()->with('criteria')->orderBy('sequence')->get() as $component) {
+            $max = 0.0;
+            foreach ($component->criteria as $criterion) {
+                $max += (float) $criterion->max_marks;
+            }
+
+            $shape[$component->code] = [
+                'title'          => $component->title,
+                'weight_percent' => (float) $component->weight_percent,
+                'max'            => $max,
+                'marks'          => [],
+            ];
+        }
+
+        return $shape;
+    }
+
+    /** The published rubric for one form of one part, preferring the category match. */
+    private function templateFor(Project $project, string $formCode): ?RubricTemplate
+    {
+        return RubricTemplate::query()
+            ->where('form_code', $formCode)
+            ->where('psm_part', $project->psm_part)
+            ->where('is_active', true)
+            ->where('is_published', true)
+            ->when($project->category !== null, fn ($q) => $q->where(
+                fn ($sub) => $sub->whereNull('category')->orWhere('category', $project->category->value)
+            ))
+            // A category-specific rubric beats a category-agnostic one.
+            ->orderByRaw('CASE WHEN category IS NULL THEN 1 ELSE 0 END')
+            ->orderByDesc('version')
+            ->first();
+    }
+
+    /**
+     * Refuse a write when the coordinator's assessment window is closed.
+     *
+     * A window, once it exists, is authoritative for its batch — that is the
+     * point of the coordinator opening one. A batch that has never had a window
+     * keeps the old behaviour rather than being frozen out, so this gates only
+     * where a window has actually been declared.
+     *
+     * @throws InvalidArgumentException
+     */
+    protected function assertMarkingOpen(?Project $project, ?string $psmPart): void
+    {
+        if ($project === null) {
+            return;
+        }
+
+        $window = AssessmentWindow::governing($project);
+
+        if ($window === null || $window->acceptsMarks()) {
+            return;
+        }
+
+        throw new InvalidArgumentException(
+            $window->isClosed()
+                ? "Marking for {$psmPart} is closed. Ask the coordinator to reopen the assessment window."
+                : "Marking for {$psmPart} has not been opened yet. Ask the coordinator to start the assessment window."
+        );
+    }
+
     // -----------------------------------------------------------------
     // Internals
     // -----------------------------------------------------------------
 
     /**
+     * Refuse a per-grade release when the term has not released its results.
+     *
+     * Reads the term through the project, which is where a grade's enrolment
+     * lives — see FinalGrade::scopeForSemester for why it is not the student's
+     * own enrolment.
+     *
+     * @throws InvalidArgumentException
+     */
+    protected function assertTermAllowsRelease(FinalGrade $grade): void
+    {
+        $semester = $grade->project?->academicSemester;
+
+        if ($semester === null || $semester->is_marks_released) {
+            return;
+        }
+
+        throw new InvalidArgumentException(
+            "Results for {$semester->name} have not been released yet. "
+            .'Release the semester from Manage Semesters, then release individual grades.'
+        );
+    }
+
+    /**
      * Combine several evaluations of the same assessor type into one subtotal.
      */
+    /**
+     * Lampiran E — the supervisor's end-of-project evaluation — is gated on the
+     * project's milestones.
+     *
+     * The requirement is explicit: the supervisor evaluates "once all
+     * milestones are marked as completed". The check lives in the service
+     * rather than a controller because two paths must apply it — allocation and
+     * submission — and because a milestone can be sent back for revision after
+     * a draft form already exists, so passing at allocation is not enough.
+     *
+     * Only E is gated. G, H, I and J are seminar and progress assessments that
+     * are supposed to happen while the project is still running.
+     */
+    protected function assertMilestonesCompleteFor(?string $formCode, ?Project $project): void
+    {
+        if ($formCode !== 'E' || $project === null) {
+            return;
+        }
+
+        if ($project->allMilestonesApproved()) {
+            return;
+        }
+
+        $milestones = $project->relationLoaded('milestones')
+            ? $project->milestones
+            : $project->milestones()->get();
+
+        $outstanding = $milestones
+            ->reject(fn (Milestone $m) => $m->status === MilestoneStatus::Approved)
+            ->count();
+
+        throw new InvalidArgumentException(
+            'Lampiran E is the final PSM 1 evaluation and opens only once every milestone '
+            ."has been approved. {$outstanding} of {$milestones->count()} milestone(s) are still outstanding."
+        );
+    }
+
     protected function combineGroup(Collection $group, GradeScheme $scheme): float
     {
         $percentages = $group->map(fn (Evaluation $e) => $e->effectivePercent())->sort()->values();
@@ -583,26 +1002,68 @@ class EvaluationService
         return match ($scheme->aggregation) {
             'max' => round((float) $percentages->max(), 2),
             'min' => round((float) $percentages->min(), 2),
-            'weighted_mean' => $this->weightedMean($group),
-            // default: plain arithmetic mean
+            /**
+             * 'weighted_mean' is still accepted so an existing scheme keeps
+             * working, but it now resolves to the mean.
+             *
+             * A group is one official form, so every evaluation in it carries
+             * the same assessor role and therefore the same weight — weighting
+             * them would divide out. The old implementation weighted by the
+             * role's default share (supervisor 60 / examiner 40), which no
+             * longer exists now that weights belong to forms.
+             */
             default => round((float) $percentages->avg(), 2),
         };
     }
 
-    /** Respect each supervisor's declared share of responsibility. */
-    protected function weightedMean(Collection $group): float
-    {
-        $totalWeight = 0.0;
-        $total       = 0.0;
-
-        foreach ($group as $evaluation) {
-            $weight = (float) ($evaluation->assessor_type->defaultWeight() ?: 1.0);
-
-            $total       += $evaluation->effectivePercent() * $weight;
-            $totalWeight += $weight;
+    /**
+     * Gate the examiner component: if a panel size was declared, the mean is
+     * written only when ALL panel members have submitted. Otherwise NULL.
+     *
+     * This implements: IF Panel_1 AND Panel_2 SUBMITTED THEN mean ELSE NULL.
+     */
+    private function resolveExaminerScore(
+        array $perType,
+        ?int $expectedPanelSize,
+        Collection $evaluations
+    ): ?float {
+        if ($expectedPanelSize === null) {
+            return $perType[AssessorType::Examiner->value]['subtotal'] ?? null;
         }
 
-        return $totalWeight > 0 ? round($total / $totalWeight, 2) : 0.0;
+        $examinerCount = $evaluations
+            ->where('assessor_type', AssessorType::Examiner->value)
+            ->count();
+
+        if ($examinerCount < $expectedPanelSize) {
+            return null;
+        }
+
+        return $perType[AssessorType::Examiner->value]['subtotal'] ?? null;
+    }
+
+    /**
+     * The raw panel average (unweighted mean of examiner percentages), stored
+     * separately so the arithmetic is reproducible.
+     */
+    private function resolveExaminerPanelAverage(
+        array $perType,
+        ?int $expectedPanelSize,
+        Collection $evaluations
+    ): ?float {
+        if ($expectedPanelSize === null) {
+            return $perType[AssessorType::Examiner->value]['subtotal'] ?? null;
+        }
+
+        $examinerCount = $evaluations
+            ->where('assessor_type', AssessorType::Examiner->value)
+            ->count();
+
+        if ($examinerCount < $expectedPanelSize) {
+            return null;
+        }
+
+        return $perType[AssessorType::Examiner->value]['subtotal'] ?? null;
     }
 
     /** Flatten the snapshot into ['criterion_code' => ['component'=>..,'criterion'=>..]]. */

@@ -39,8 +39,6 @@ class ArchivedProjectResource extends JsonResource
 
             // Outcome
             'final_mark'   => $this->final_mark !== null ? (float) $this->final_mark : null,
-            'grade_letter' => $this->grade_letter,
-            'grade_point'  => $this->grade_point !== null ? (float) $this->grade_point : null,
 
             'milestone_summary' => $this->milestone_summary,
             'grade_breakdown'   => $this->when(
@@ -52,7 +50,9 @@ class ArchivedProjectResource extends JsonResource
             'document_count' => $this->documentCount(),
             'document_bytes' => $this->documentBytes(),
 
-            'keywords' => $this->keywords,
+            // A list, not the raw comma-separated column — see
+            // ArchivedProject::keywordList() for why that distinction matters.
+            'keywords' => $this->keywordList(),
             'is_public'=> (bool) $this->is_public,
 
             'archive_note' => $this->archive_note,

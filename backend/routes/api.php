@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\ArchiveController;
+use App\Http\Controllers\Api\AssessmentWindowController;
 use App\Http\Controllers\Api\AssignmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EvaluationController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\SemesterController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\PublicApi\LeaderboardController as PublicLeaderboardController;
 use Illuminate\Support\Facades\Route;
@@ -128,6 +130,43 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
     Route::post('users/{user}/reset-password', [UserController::class, 'sendPasswordReset'])->name('users.reset-password');
 
     // -----------------------------------------------------------------
+    // Module 3 — Academic semesters
+    //
+    // The scoping unit for everything below: a session holds two terms, and a
+    // term holds the PSM 1 and PSM 2 batches that run concurrently in it.
+    //
+    // Reads are open to every authenticated user because the term list feeds the
+    // filter dropdowns on the project list, the reports and the registration
+    // screen. Writes are behind coordinator roles, and are NOT expressed here as
+    // route middleware for grade release — SemesterController gates that behind
+    // SemesterPolicy::releaseMarks so a coordinator editing a term's dates cannot
+    // publish its results as a side effect.
+    // -----------------------------------------------------------------
+    Route::prefix('semesters')->name('semesters.')->group(function () {
+        // Before the {semester} wildcard, or "current" is read as an id.
+        Route::get('current', [SemesterController::class, 'current'])->name('current');
+
+        Route::get('/', [SemesterController::class, 'index'])->name('index');
+
+        Route::middleware('role:admin,coordinator')->group(function () {
+            Route::post('/', [SemesterController::class, 'store'])->name('store');
+
+            Route::patch('{semester}', [SemesterController::class, 'update'])->name('update');
+            Route::post('{semester}/close', [SemesterController::class, 'close'])->name('close');
+            // The counterpart to close: without it a closed term could never be
+            // brought back, through the API or the screen.
+            Route::post('{semester}/reopen', [SemesterController::class, 'reopen'])->name('reopen');
+
+            Route::post('{semester}/registration', [SemesterController::class, 'registration'])
+                ->name('registration');
+            Route::post('{semester}/release-marks', [SemesterController::class, 'releaseMarks'])
+                ->name('release-marks');
+        });
+
+        Route::get('{semester}', [SemesterController::class, 'show'])->name('show');
+    });
+
+    // -----------------------------------------------------------------
     // Module 2 — Assignments (supervisor pairing, examiner allocation)
     // -----------------------------------------------------------------
     Route::prefix('assignments')->name('assignments.')->middleware('role:admin,coordinator')->group(function () {
@@ -135,12 +174,33 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
         Route::post('supervisions', [AssignmentController::class, 'storeSupervision'])->name('supervisions.store');
         Route::delete('supervisions/{assignment}', [AssignmentController::class, 'destroySupervision'])->name('supervisions.destroy');
 
+        Route::get('supervisors', [AssignmentController::class, 'indexSupervisors'])->name('supervisors.index');
         Route::post('supervisors/{supervisor}/capacity', [AssignmentController::class, 'setCapacity'])->name('supervisors.capacity');
         Route::get('suggest-supervisors/{student}', [AssignmentController::class, 'suggestSupervisors'])->name('suggest-supervisors');
 
         Route::get('examiners', [AssignmentController::class, 'indexExaminers'])->name('examiners.index');
         Route::post('examiners', [AssignmentController::class, 'storeExaminer'])->name('examiners.store');
         Route::delete('examiners/{assignment}', [AssignmentController::class, 'destroyExaminer'])->name('examiners.destroy');
+
+        // One student's panel, seated as a **pair**.
+        //
+        // The routes above seat a single examiner against a project. A panel is
+        // two people and belongs to a student — the same pair decides the
+        // proposal and the final mark, and the proposal is reviewed before the
+        // project exists. `showPanel` returns the candidates with the student's
+        // own supervisor already excluded.
+        Route::get('students/{student}/panel', [AssignmentController::class, 'showPanel'])->name('students.panel.show');
+        Route::post('students/{student}/panel', [AssignmentController::class, 'storePanel'])->name('students.panel.store');
+
+        // The cohort view of the same question: every student beside every
+        // examiner who could examine them.
+        Route::get('panel-matching', [AssignmentController::class, 'panelMatching'])->name('panel-matching');
+
+        // Fixed examiner pairs — the faculty's model: examiners are grouped
+        // into standing pairs and batches of students are assigned to a pair.
+        Route::get('examiner-pairs', [AssignmentController::class, 'indexExaminerPairs'])->name('examiner-pairs.index');
+        Route::post('examiner-pairs/auto-assign', [AssignmentController::class, 'autoAssignExaminerPairs'])
+            ->name('examiner-pairs.auto-assign');
 
         Route::get('students/unassigned', [AssignmentController::class, 'unassignedStudents'])->name('students.unassigned');
     });
@@ -153,9 +213,11 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
     // -----------------------------------------------------------------
     // Module 2/3 — Registration flow (Lampiran A & B)
     // -----------------------------------------------------------------
-    // Lampiran A drives the supervisor<->student pairing; Lampiran B turns an
-    // approved agreement into a project. The pairing is only registered when
-    // JKPSM approves, which is why approve/reject sit behind coordinator roles.
+    // Lampiran A drives the supervisor<->student pairing and fixes the agreed
+    // title; Lampiran B registers that title as a project. There is no approval
+    // step between them — the supervisor's acknowledgement is the gate, and the
+    // title is judged afterwards by the panel at the project's proposal
+    // milestone (see the milestone routes below).
     Route::prefix('registrations')->name('registrations.')->group(function () {
         Route::get('agreements', [RegistrationController::class, 'indexAgreements'])
             ->name('agreements.index');
@@ -174,13 +236,34 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
         Route::post('agreements/{agreement}/title-proposal', [RegistrationController::class, 'storeTitleProposal'])
             ->middleware('role:student')
             ->name('agreements.title-proposal');
+    });
 
-        Route::middleware('role:admin,coordinator')->group(function () {
-            Route::post('agreements/{agreement}/approve', [RegistrationController::class, 'approve'])
-                ->name('agreements.approve');
-            Route::post('agreements/{agreement}/reject', [RegistrationController::class, 'reject'])
-                ->name('agreements.reject');
-        });
+    // -----------------------------------------------------------------
+    // Module 4 — the assessment window
+    // -----------------------------------------------------------------
+    // The coordinator opens it, which allocates every Lampiran the batch needs
+    // and starts accepting marks; assessors then pick a student and file their
+    // form. Closing stops new marks but keeps what was filed.
+    // -----------------------------------------------------------------
+    Route::prefix('assessment-windows')->name('assessment-windows.')->group(function () {
+        // Registered before the {window} wildcard, or "current" reads as an id.
+        Route::get('current', [AssessmentWindowController::class, 'current'])->name('current');
+
+        Route::get('/', [AssessmentWindowController::class, 'index'])
+            ->middleware('role:admin,coordinator')
+            ->name('index');
+        Route::post('/', [AssessmentWindowController::class, 'store'])
+            ->middleware('role:admin,coordinator')
+            ->name('store');
+
+        Route::get('{window}', [AssessmentWindowController::class, 'show'])->name('show');
+
+        Route::post('{window}/open', [AssessmentWindowController::class, 'open'])
+            ->middleware('role:admin,coordinator')
+            ->name('open');
+        Route::post('{window}/close', [AssessmentWindowController::class, 'close'])
+            ->middleware('role:admin,coordinator')
+            ->name('close');
     });
 
     // -----------------------------------------------------------------
@@ -207,6 +290,11 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
             Route::post('{project}/approve', [ProjectController::class, 'approve'])->name('approve');
             Route::post('{project}/reject', [ProjectController::class, 'reject'])->name('reject');
             Route::post('{project}/archive', [ProjectController::class, 'archiveProject'])->name('archive');
+
+            // PSM 1 → PSM 2. One title across two continuous terms, so PSM 2 is
+            // reached by progressing the student, not by a second Lampiran A.
+            Route::post('{project}/progress-to-psm2', [ProjectController::class, 'progressToPsm2'])
+                ->name('progress-to-psm2');
         });
 
         // Milestones live under their project for a natural URL shape
@@ -235,10 +323,47 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
             ->middleware('role:admin,coordinator,supervisor')
             ->name('request-revision');
 
+        // --- The proposal milestone: the title decision -------------------
+        // The panel's verdict on the proposal, which settles the title and
+        // gates the rest of the chain. MilestoneService refuses the generic
+        // approve/request-revision routes for the proposal, so this is the only
+        // way its verdict is recorded. The policy narrows it to the seated
+        // examiners (or a coordinator recording it on their behalf).
+        //
+        // `supervisor`, not `examiner` — there is no examiner role, and leaving
+        // the old name here locked the seated panel out of the very decision the
+        // screen exists to record. The middleware denies anyone whose role is not
+        // listed, so the failure was a flat 403 rather than anything that pointed
+        // at the cause.
+        Route::post('{milestone}/title-decision', [MilestoneController::class, 'titleDecision'])
+            ->middleware('role:admin,coordinator,supervisor')
+            ->name('title-decision');
+
+        // Lampiran C — the corrections a conditional approval required.
+        Route::post('{milestone}/lampiran-c', [MilestoneController::class, 'fileLampiranC'])
+            ->name('lampiran-c');
+
+        // Change the title after a rejection; the milestone reopens for a
+        // fresh decision.
+        Route::post('{milestone}/change-title', [MilestoneController::class, 'changeTitle'])
+            ->name('change-title');
+
         Route::post('{milestone}/deadline', [MilestoneController::class, 'changeDeadline'])
             ->middleware('role:admin,coordinator')
             ->name('deadline');
     });
+
+    /**
+     * The panel member's own proposals to decide.
+     *
+     * A panel is a *seating*, so the audience is the academic-staff role rather
+     * than a separate one — and the policy narrows it further to the people
+     * actually seated on each project. Without this the milestone screen had the
+     * form but nothing pointed a panel member at it.
+     */
+    Route::get('panel/proposals', [MilestoneController::class, 'panelProposals'])
+        ->middleware('role:admin,coordinator,supervisor')
+        ->name('panel.proposals');
 
     // -----------------------------------------------------------------
     // Module 3 — Submission files
@@ -265,11 +390,21 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
         Route::get('{evaluation}', [EvaluationController::class, 'show'])->name('show');
         Route::put('{evaluation}/marks', [EvaluationController::class, 'saveMarks'])->name('marks');
         Route::post('{evaluation}/submit', [EvaluationController::class, 'submit'])->name('submit');
-        Route::post('{evaluation}/moderate', [EvaluationController::class, 'moderate'])
-            ->middleware('role:admin,coordinator')
-            ->name('moderate');
         Route::post('{evaluation}/declare-conflict', [EvaluationController::class, 'declareConflict'])->name('declare-conflict');
     });
+
+    // -----------------------------------------------------------------
+    // Module 4 — Mark submission lifecycle (coordinator)
+    // -----------------------------------------------------------------
+    Route::prefix('projects/{project}/students/{student}/mark-submission')
+        ->middleware('role:admin,coordinator')
+        ->name('mark-submission.')
+        ->group(function () {
+            Route::post('open', [EvaluationController::class, 'openMarkSubmission'])->name('open');
+            Route::get('/', [EvaluationController::class, 'showMarkSubmission'])->name('show');
+            Route::post('lock', [EvaluationController::class, 'lockMarkSubmission'])->name('lock');
+            Route::post('unlock', [EvaluationController::class, 'unlockMarkSubmission'])->name('unlock');
+        });
 
     Route::get('rubrics', [EvaluationController::class, 'rubrics'])->name('rubrics.index');
 
@@ -280,6 +415,11 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
     });
 
     Route::get('projects/{project}/grades', [EvaluationController::class, 'projectGrades'])->name('projects.grades');
+
+    // Deliberately not coordinator-only: a student reads their own breakdown.
+    // The controller scopes a student to their own roster entry.
+    Route::get('projects/{project}/students/{student}/mark-breakdown', [EvaluationController::class, 'markBreakdown'])
+        ->name('projects.students.mark-breakdown');
     Route::post('projects/{project}/grades/release-all', [EvaluationController::class, 'releaseAll'])
         ->middleware('role:admin,coordinator')
         ->name('projects.grades.release-all');
@@ -296,10 +436,10 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
         Route::get('at-risk', [ReportController::class, 'atRisk'])->name('at-risk');
         Route::get('supervisor-workload', [ReportController::class, 'supervisorWorkload'])->name('supervisor-workload');
         Route::get('examiner-workload', [ReportController::class, 'examinerWorkload'])->name('examiner-workload');
-        Route::get('grade-distribution', [ReportController::class, 'gradeDistribution'])->name('grade-distribution');
+        Route::get('mark-distribution', [ReportController::class, 'markDistribution'])->name('mark-distribution');
         Route::get('milestone-breakdown', [ReportController::class, 'milestoneBreakdown'])->name('milestone-breakdown');
 
-        Route::get('export/grades.csv', [ReportController::class, 'exportGrades'])->name('export.grades');
+        Route::get('export/marks.csv', [ReportController::class, 'exportMarks'])->name('export.marks');
         Route::get('export/projects.csv', [ReportController::class, 'exportProjects'])->name('export.projects');
     });
 

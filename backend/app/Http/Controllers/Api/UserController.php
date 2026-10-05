@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\AuditAction;
-use App\Enums\NotificationType;
 use App\Enums\Role;
 use App\Http\Controllers\ApiController;
 use App\Http\Resources\UserResource;
+use App\Models\AcademicSemester;
 use App\Models\CoordinatorScope;
 use App\Models\StudentProfile;
 use App\Models\SupervisorProfile;
@@ -16,8 +16,8 @@ use App\Services\NotificationDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
@@ -93,7 +93,19 @@ class UserController extends ApiController
 
         $validated = $request->validate([
             'name'       => ['required', 'string', 'max:255'],
-            'email'      => ['required', 'email', 'max:255', 'unique:users,email'],
+            /**
+             * Uniqueness ignores soft-deleted rows (G3).
+             *
+             * `User` uses SoftDeletes, but a plain `unique:users,email` counts
+             * trashed rows — so deleting someone and re-adding them, a normal
+             * correction, failed with "already taken" for an account the admin
+             * cannot see anywhere in the UI. A trashed match is handled
+             * explicitly below, with a message that says what to do.
+             */
+            'email'      => [
+                'required', 'email', 'max:255',
+                Rule::unique('users', 'email')->whereNull('deleted_at'),
+            ],
             'role'       => ['required', Rule::in(Role::values())],
             'status'     => ['sometimes', Rule::in(['active', 'inactive', 'pending'])],
             'phone'      => ['nullable', 'string', 'max:32'],
@@ -107,6 +119,15 @@ class UserController extends ApiController
             'batch'          => ['required_if:role,student', 'nullable', 'string', 'max:32'],
             'faculty'        => ['nullable', 'string', 'max:255'],
             'thesis_title'   => ['nullable', 'string', 'max:255'],
+            /**
+             * The term the student is enrolling into (G2).
+             *
+             * Defaults to the active term below. It is not decoration:
+             * `AssignmentService::assignSupervisor()` scopes the supervisor
+             * capacity gate by exactly this column, so a student with no term is
+             * capacity-checked against nothing.
+             */
+            'academic_semester_id' => ['nullable', 'integer', 'exists:academic_semesters,id'],
 
             // Supervisor profile
             'staff_no'          => ['required_if:role,supervisor', 'nullable', 'string', 'max:32', 'unique:supervisor_profiles,staff_no'],
@@ -119,19 +140,76 @@ class UserController extends ApiController
             'scopes'          => ['sometimes', 'array'],
             'scopes.*.batch'  => ['nullable', 'string', 'max:32'],
             'scopes.*.program'=> ['nullable', 'string', 'max:128'],
+        ], [
+            // Name the role's requirement rather than leaving Laravel's
+            // "required when role is student", which reads like a rule the admin
+            // has to decode rather than a field they have to fill in.
+            'student_id.required_if' => 'A student needs a matric number.',
+            'program.required_if'    => 'A student needs a programme.',
+            'batch.required_if'      => 'A student needs a batch — the cohort year.',
+            'staff_no.required_if'   => 'A supervisor needs a staff number.',
+            'email.unique'           => 'That email address is already in use by an active account.',
         ]);
+
+        /**
+         * A trashed account already owns this address.
+         *
+         * Creating a second one would orphan its audit rows, submissions and
+         * marks, so it is refused — but with a message that names the remedy,
+         * because the row itself is invisible in the user list.
+         */
+        $trashed = User::onlyTrashed()
+            ->where('email', strtolower($validated['email']))
+            ->first();
+
+        if ($trashed !== null) {
+            return $this->fail(
+                "{$trashed->email} belongs to a deleted account.",
+                422,
+                ['email' => [
+                    'A deleted account already uses this address (deleted '
+                    .($trashed->deleted_at?->toDateString() ?? 'unknown date')
+                    .'). Restore that account instead of creating a second one.',
+                ]],
+            );
+        }
 
         $user = DB::transaction(function () use ($validated) {
             $user = User::create([
                 'name'                 => $validated['name'],
                 'email'                => strtolower($validated['email']),
-                'password'             => bcrypt(Str::random(32)),
+                /**
+                 * The system default, not a random secret.
+                 *
+                 * The admin is entering an address they already hold — usually
+                 * the student's institutional email — so there is nothing to
+                 * send and, on a fresh deploy, no mailer to send it with. A
+                 * random password would leave the account unreachable behind a
+                 * 201 that looks like success.
+                 *
+                 * The holder resets it themselves through the normal
+                 * forgot-password flow once they need to.
+                 */
+                'password'             => Hash::make(config('psm.default_user_password')),
                 'role'                 => $validated['role'],
                 'status'               => $validated['status'] ?? 'active',
                 'phone'                => $validated['phone'] ?? null,
-                'staff_id'             => $validated['staff_id'] ?? null,
+                /**
+                 * One staff number, written to both columns (G6).
+                 *
+                 * `users.staff_id` and `supervisor_profiles.staff_no` hold the
+                 * same value, and asking the admin for both invited them to
+                 * disagree. Academic staff are asked for `staff_no`, which is the
+                 * one the profile reads; coordinators and admins have no profile,
+                 * so their `staff_id` stands alone.
+                 */
+                'staff_id'             => $validated['role'] === Role::Supervisor->value
+                    ? ($validated['staff_no'] ?? null)
+                    : ($validated['staff_id'] ?? null),
                 'department'           => $validated['department'] ?? null,
-                'must_change_password' => true,
+                // Not forced: see `psm.default_user_password`. Flagging it would
+                // bar the new account from every route but the change form.
+                'must_change_password' => false,
             ]);
 
             match ($user->role) {
@@ -143,6 +221,17 @@ class UserController extends ApiController
                     'batch'          => $validated['batch'],
                     'faculty'        => $validated['faculty'] ?? null,
                     'thesis_title'   => $validated['thesis_title'] ?? null,
+                    /**
+                     * The enrolment term (G2).
+                     *
+                     * Defaults to the active term rather than being left null:
+                     * the supervisor capacity gate reads this column, so a
+                     * student without one is checked against nothing. A
+                     * coordinator can override it for a late or re-enrolling
+                     * student.
+                     */
+                    'academic_semester_id' => $validated['academic_semester_id']
+                        ?? AcademicSemester::current()?->id,
                 ]),
 
                 Role::Supervisor => tap(SupervisorProfile::create([
@@ -151,6 +240,10 @@ class UserController extends ApiController
                     'academic_title'   => $validated['academic_title'] ?? null,
                     'max_supervisees'  => $validated['max_supervisees']
                         ?? config('psm.supervisor_max_capacity', 8),
+                    // A new academic account can take students from the outset;
+                    // whether it is also seated on a panel is the coordinator's
+                    // decision, not a property of the account.
+                    'is_accepting_students' => true,
                 ]), function (SupervisorProfile $profile) use ($validated) {
                     if (! empty($validated['expertise_area_ids'])) {
                         $profile->expertiseAreas()->sync($validated['expertise_area_ids']);
@@ -170,9 +263,15 @@ class UserController extends ApiController
             return $user;
         });
 
-        // Send the set-password link (Module 6, account.created)
-        Password::sendResetLink(['email' => $user->email]);
-
+        /**
+         * No set-password email.
+         *
+         * The account starts on `psm.default_user_password`, so there is nothing
+         * to deliver — and sending it would fail silently on a deployment with
+         * no mailer, which is worse than not trying. Anyone who needs to change
+         * their password uses `POST /api/auth/forgot-password`; the admin can
+         * also re-send that from the user list.
+         */
         $this->audit->log(
             action: AuditAction::UserCreated,
             description: "Created {$user->role->label()} account: {$user->email}",
@@ -182,7 +281,8 @@ class UserController extends ApiController
 
         return $this->created(
             new UserResource($user->load(['studentProfile', 'supervisorProfile', 'coordinatorScopes'])),
-            'Account created. A set-password email has been sent.'
+            'Account created. It starts on the system default password — the holder can reset it '
+            .'at any time from the sign-in screen.'
         );
     }
 
@@ -415,7 +515,7 @@ class UserController extends ApiController
                         'batch'      => $u->studentProfile?->batch,
                         'program'    => $u->studentProfile?->program,
                     ],
-                    'supervisor', 'examiner' => [
+                    'supervisor' => [
                         'staff_no'   => $u->supervisorProfile?->staff_no,
                         'capacity'   => $u->supervisorProfile?->max_supervisees,
                         'load'       => $u->supervisorProfile?->currentLoad(),

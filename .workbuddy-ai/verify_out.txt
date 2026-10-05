@@ -1,0 +1,62 @@
+sheets: ['HIRARC FORM'] | active: HIRARC FORM
+dims: A1:K26 | merges: 35
+images: 1
+print_area: 'HIRARC FORM'!$A$1:$K$26
+orientation: landscape fitToPage: True fitW: 1 fitH: 1
+gridlines shown: False | fullCalcOnLoad: True
+col widths: {'A': 5.9, 'B': 24.1, 'C': 14.8, 'D': 15.2, 'E': 15.3, 'F': 8.1, 'G': 8.3, 'H': 8.3, 'I': 10.9, 'J': 13.5, 'K': 13.5}
+row heights: {1: 12.0, 2: 28.0, 3: 20.0, 4: 15.0, 5: 5.0, 6: 14.0, 7: 13.55, 8: 24.6, 9: 13.55, 10: 13.55, 11: 35.65000000000001, 12: 13.55, 13: 13.55, 14: 5.0, 15: 14.0, 16: 13.55, 17: 13.5, 18: 35.65000000000001, 19: 24.6, 20: 14.0, 21: 54.5, 22: 44.1, 23: 44.1, 24: 44.1, 25: 44.1, 26: 44.1}
+
+--- merged ranges ---
+  A1:K1        'UTHM/OSHE/BKPPS.001(2025)'
+  A2:K2        None
+  A3:K3        'HIRARC FORM'
+  A4:K4        'UNIVERSITI TUN HUSSEIN ONN MALAYSIA'
+  A6:K6        'SECTION A: GENERAL INFORMATION'
+  A7:B7        'Faculty'
+  C7:K7        ': Faculty of Computer Science and Information Technology'
+  A8:B8        'Office / Laboratory / Workshop / Store Name'
+  C8:K8        ': (your programme, e.g. Bachelor of Computer Science (Web Technology) ...'
+  A9:A10       'Location'
+  B9           'Block'
+  C9:K9        ': (e.g., Around the faculty, hostel, company/organization - if applica...'
+  B10          'Room Number'
+  C10:K10      ': N/A'
+  A11:B11      'Head of Office / Lab Manager / PSM Coordinator / Internship Coordinato...'
+  C11:K11      ': Dr. Norfaradilla binti Wahid (PSM Coordinator)'
+  A12:A13      'Tel No.'
+  B12          'Office'
+  C12:K12      ': N/A'
+  B13          'Mobile Phone'
+  C13:K13      ': (your mobile number)'
+  A15:K15      'SECTION B: HIRARC FORM'
+  A16:C16      'Work Process / Location'
+  D16:K16      ': General Office'
+  A17:C17      'Prepared by'
+  D17:K17      ': (your full name, matric No)'
+  A18:C18      'Reviewed and Approved By (Head of Department / Unit Head / Lab Manager...'
+  D18:K18      ": (your PSM supervisor name)\n\n___________________________ (supervisor'..."
+  A19:C19      'Date'
+  D19:F19      ': (the date you filled in the form)'
+  G19:I19      'Review Date'
+  J19:K19      ': (date supervisor review and sign the form)'
+  A20:D20      'HAZARD IDENTIFICATION'
+  E20:I20      'RISK ANALYSIS'
+  J20:K20      'RISK CONTROL'
+
+--- formulas ---
+  H22: =F22*G22
+  I22: =IF(OR(F22="",G22=""),"",IF(H22<=4,"Low",IF(H22<=9,"Medium",IF(H22<=15,"High","Extreme"))))
+  H23: =F23*G23
+  I23: =IF(OR(F23="",G23=""),"",IF(H23<=4,"Low",IF(H23<=9,"Medium",IF(H23<=15,"High","Extreme"))))
+  H24: =F24*G24
+  I24: =IF(OR(F24="",G24=""),"",IF(H24<=4,"Low",IF(H24<=9,"Medium",IF(H24<=15,"High","Extreme"))))
+  H25: =F25*G25
+  I25: =IF(OR(F25="",G25=""),"",IF(H25<=4,"Low",IF(H25<=9,"Medium",IF(H25<=15,"High","Extreme"))))
+  H26: =F26*G26
+  I26: =IF(OR(F26="",G26=""),"",IF(H26<=4,"Low",IF(H26<=9,"Medium",IF(H26<=15,"High","Extreme"))))
+
+--- text that overflows its row (est.) ---
+  !! A9 needs ~2 lines, row height 13.55 fits ~1
+  !! A18 needs ~4 lines, row height 35.65000000000001 fits ~3
+overflow problems: 2

@@ -5,13 +5,16 @@ namespace Database\Seeders;
 use App\Enums\AssessorType;
 use App\Enums\EvaluationStatus;
 use App\Enums\MilestoneStatus;
+use App\Models\AcademicSemester;
 use App\Models\Evaluation;
 use App\Models\ExaminerAssignment;
 use App\Models\FinalGrade;
 use App\Models\Milestone;
 use App\Models\Project;
+use App\Models\StudentProfile;
 use App\Models\User;
 use App\Services\EvaluationService;
+use App\Services\SemesterService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
 
@@ -67,15 +70,31 @@ class EvaluationSeeder extends Seeder
         ],
     ];
 
-    public function __construct(
-        protected EvaluationService $evaluations,
+public function __construct(
+    protected EvaluationService $evaluations,
+    protected SemesterService $semesters,
     ) {
     }
 
     public function run(): void
     {
         $coordinator = User::where('email', 'coordinator@psm.test')->firstOrFail();
-        $examiners   = User::where('role', 'examiner')->orderBy('id')->get();
+
+        /**
+         * The panel pool is the academic staff who supervise.
+         *
+         * This used to be `where('role', 'examiner')`. When that role was merged
+         * into `supervisor`, the query started returning **nothing** — and
+         * because the call site below guards on `isNotEmpty()`, it failed
+         * silently rather than loudly: no examiner was ever assigned, so every
+         * seeded project lost its panel. Nothing errored; the panels simply were
+         * not there, which is exactly the kind of hole a guard like that hides.
+         */
+        $examiners = User::query()
+            ->where('role', 'supervisor')
+            ->where('status', 'active')
+            ->orderBy('id')
+            ->get();
 
         $projects = Project::query()
             ->with(['students.activeSupervisions.supervisorProfile.user'])
@@ -86,6 +105,26 @@ class EvaluationSeeder extends Seeder
         foreach ($projects as $index => $project) {
             $profileName = $project->metadata['progress_profile'] ?? 'mid_project';
             $plan        = $this->plan[$profileName] ?? $this->plan['mid_project'];
+
+            /**
+             * The panel comes first, and **outside** the markable gate.
+             *
+             * A panel is seated for every project, because it is the panel that
+             * decides the proposal milestone — so every registered student has
+             * one, whatever stage they are at. Seating it only for markable
+             * projects left eight `approved` proposals with nobody appointed to
+             * have approved them, which is a contradiction the milestone screen
+             * showed as an empty panel.
+             *
+             * What varies by stage is the *evaluation*, not the panel: an
+             * external reader is only invited to mark once the project is far
+             * enough along.
+             */
+            $panel = $this->pickPanel($examiners, $project, $index);
+
+            foreach ($panel as $seat => $examiner) {
+                $this->assignExaminer($project, $examiner, $coordinator, $seat === 0 ? 'chair' : 'member');
+            }
 
             // Marking only makes sense once there is something to mark
             if (! $this->isMarkable($project)) {
@@ -107,21 +146,19 @@ class EvaluationSeeder extends Seeder
                 }
             }
 
-            // --- Examiner ---------------------------------------------------
-            // Only assign an examiner once the project is far enough along
-            // that an external reader would realistically be invited.
-            if ($plan['examiner'] !== null && $examiners->isNotEmpty() && $this->isExaminable($project)) {
-                $examiner = $examiners[$index % $examiners->count()];
-
-                $this->assignExaminer($project, $examiner, $coordinator);
-
-                $this->markAndMaybeSubmit(
-                    $project,
-                    $examiner,
-                    AssessorType::Examiner,
-                    $plan['examiner'],
-                );
-                $evaluated++;
+            // --- Examiner evaluations ---------------------------------------
+            // The panel is already seated above; this is only the marking, and
+            // only where the plan invites an external reader.
+            if ($plan['examiner'] !== null && $this->isExaminable($project)) {
+                foreach ($panel as $examiner) {
+                    $this->markAndMaybeSubmit(
+                        $project,
+                        $examiner,
+                        AssessorType::Examiner,
+                        $plan['examiner'],
+                    );
+                    $evaluated++;
+                }
             }
         }
 
@@ -252,8 +289,52 @@ class EvaluationSeeder extends Seeder
     // Examiner assignment
     // -----------------------------------------------------------------
 
-    protected function assignExaminer(Project $project, User $examiner, User $coordinator): void
+    /**
+     * A full panel of academics who do not supervise this project.
+     *
+     * Round-robin over the pool, skipping anyone who supervises one of the
+     * project's students. This is the same conflict-of-interest rule
+     * `AssignmentService` enforces, applied here because a seeded panel that
+     * broke it would show up as a contradiction the moment a coordinator opened
+     * the panel screen — and the demo data is supposed to be the thing that
+     * looks right.
+     *
+     * Returns as many seats as the pool allows (up to `psm.examiner_panel_size`),
+     * so a caller that gets an empty collection skips the project rather than
+     * seating an invalid panel.
+     *
+     * @return Collection<int, User>
+     */
+    protected function pickPanel(Collection $pool, Project $project, int $offset): Collection
     {
+        $supervisorUserIds = $project->students
+            ->flatMap(fn (StudentProfile $s) => $s->activeSupervisions
+                ->map(fn ($a) => $a->supervisorProfile?->user_id))
+            ->filter()
+            ->all();
+
+        $eligible = $pool
+            ->reject(fn (User $u) => in_array($u->id, $supervisorUserIds, true))
+            ->values();
+
+        if ($eligible->isEmpty()) {
+            return collect();
+        }
+
+        $size = (int) config('psm.examiner_panel_size', 2);
+
+        return collect(range(0, $size - 1))
+            ->map(fn (int $seat) => $eligible[($offset + $seat) % $eligible->count()])
+            ->unique('id')
+            ->values();
+    }
+
+    protected function assignExaminer(
+        Project $project,
+        User $examiner,
+        User $coordinator,
+        string $panelRole = 'member',
+    ): void {
         ExaminerAssignment::updateOrCreate(
             [
                 'project_id'  => $project->id,
@@ -261,7 +342,11 @@ class EvaluationSeeder extends Seeder
                 'psm_part'    => $project->psm_part,
             ],
             [
-                'panel_role'  => 'member',
+                // The student anchor. The panel belongs to the student — it
+                // decides their proposal and gives their final mark — and every
+                // lookup outside the evaluation path goes through this column.
+                'student_profile_id' => $project->leader()?->id,
+                'panel_role'  => $panelRole,
                 'is_active'   => true,
                 'assigned_by' => $coordinator->id,
                 'notified_at' => now()->subDays(30),
@@ -279,10 +364,43 @@ class EvaluationSeeder extends Seeder
      *
      * Released grades are mirrored onto the evaluations by the service, which
      * is why this must run after all marking has been submitted.
+     *
+     * Releasing is a per-term decision, and the term must be opened for release
+     * first: EvaluationService::releaseGrade() refuses to publish an individual
+     * grade while its semester has results withheld, precisely so that a
+     * coordinator cannot publish one result from a cohort the faculty decided
+     * to hold. This seeder performs the same two steps in the same order a
+     * coordinator would — open the term, then release the grades inside it.
      */
     protected function releaseCompletedGrades(User $coordinator): int
     {
         $count = 0;
+
+        // Which terms actually have a releasable grade? Opening a term that has
+        // nothing to release would leave a needless "results released" flag
+        // lying around on the demo data.
+        //
+        // Driven from `projects` rather than a join off `final_grades`: both
+        // tables carry a `status` column, so a hand-rolled join makes the
+        // where clauses ambiguous and MySQL rejects the query outright.
+        $termIds = Project::query()
+            ->where('status', 'completed')
+            ->whereNotNull('academic_semester_id')
+            ->whereHas('finalGrades', fn ($q) => $q
+                ->where('status', 'provisional')
+                ->whereNotNull('final_mark'))
+            ->pluck('academic_semester_id')
+            ->unique();
+
+        foreach ($termIds as $termId) {
+            $semester = AcademicSemester::find($termId);
+
+            if ($semester === null || $semester->is_marks_released) {
+                continue;
+            }
+
+            $this->semesters->setMarkRelease($semester, true, $coordinator);
+        }
 
         FinalGrade::query()
             ->with('project')
@@ -320,9 +438,25 @@ class EvaluationSeeder extends Seeder
     // Helpers
     // -----------------------------------------------------------------
 
-    /** A project can be marked once its first milestone has been approved. */
+    /**
+     * A project can be marked once there is something to mark.
+     *
+     * The readiness bar differs by part, because the forms differ. A PSM 1
+     * supervisor form is Lampiran E — the *final* PSM 1 evaluation — which
+     * EvaluationService only opens once every milestone is approved. A PSM 2
+     * supervisor form is Lampiran G, the mid-project report, which is markable
+     * as soon as anything has been approved.
+     *
+     * Applying the looser PSM 2 bar to a PSM 1 project used to abort the whole
+     * seed the moment the cohort was split across both parts, which is exactly
+     * what made the concurrent-batches requirement undemonstrable.
+     */
     protected function isMarkable(Project $project): bool
     {
+        if ($project->psm_part === 'PSM1') {
+            return $project->allMilestonesApproved();
+        }
+
         return $project->milestones()
             ->where('status', MilestoneStatus::Approved->value)
             ->exists();

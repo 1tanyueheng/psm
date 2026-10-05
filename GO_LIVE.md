@@ -194,9 +194,11 @@ MAIL_PASSWORD=...
 MAIL_FROM_ADDRESS=noreply@your-domain
 MAIL_FROM_NAME="${APP_NAME}"
 
-SANCTUM_STATEFUL_DOMAINS=YOUR-APP.vercel.app
+# Do NOT set SANCTUM_STATEFUL_DOMAINS — the SPA uses bearer tokens, not
+# cookies. Naming the Vercel host here makes every browser POST/DELETE fail
+# with 419 "CSRF token mismatch." See "Why there is no stateful domain" below.
 CORS_ALLOWED_ORIGIN_PATTERNS=          # optional; for Vercel preview URLs
-PSM_MILESTONE_BLEND_PERCENT=20
+PSM_MILESTONE_BLEND_PERCENT=0
 LEADERBOARD_TOP_N=3
 LEADERBOARD_MIN_ASSESSORS=2
 REMINDER_DAYS_BEFORE=7,3,1
@@ -320,7 +322,6 @@ Go back to **Render → Environment** and update:
 ```
 APP_URL=https://YOUR-APP.onrender.com
 FRONTEND_URL=https://your-app.vercel.app
-SANCTUM_STATEFUL_DOMAINS=your-app.vercel.app
 ```
 
 Render redeploys automatically. The backend must be *told* which frontend  
@@ -339,7 +340,24 @@ Vercel origin **exactly**:
   `https://your-app-*.vercel.app`. Testing a preview URL and getting a network
   error on login is almost always this.
 
-`SANCTUM_STATEFUL_DOMAINS` is the host only — no scheme, no trailing slash.
+### Why there is no stateful domain
+
+**Do not set `SANCTUM_STATEFUL_DOMAINS`.** The SPA stores its token in
+localStorage and sends `Authorization: Bearer`; it never fetches
+`/sanctum/csrf-cookie` and never relies on a session cookie. Declaring the
+Vercel host "stateful" tells Sanctum to treat those requests as first-party,
+which pulls in the `web` middleware group — including CSRF verification — and
+every browser `POST` / `PUT` / `PATCH` / `DELETE` is then answered
+**419 "CSRF token mismatch."**
+
+The trap is that `GET` is unaffected, because CSRF only guards state-changing
+verbs. The app browses perfectly, login works (it is CSRF-exempt), and the
+failure only appears the moment someone uploads or withdraws a file. curl and
+Postman do not send `Origin`/`Referer`, so they never reproduce it.
+
+The stateful middleware is no longer registered in
+`backend/bootstrap/app.php`, so the variable is inert — leaving it unset keeps
+it that way and stops the next person re-introducing the bug.
 
 ### If login still fails after this
 
@@ -498,5 +516,7 @@ did nothing.
 - [ ] Step 5 — Render service live, `APP_KEY` set, disk mounted
 - [ ] Step 6 — migrations run
 - [ ] Step 7 — Vercel frontend live
-- [ ] Step 8 — `FRONTEND_URL` and `SANCTUM_STATEFUL_DOMAINS` set
+- [ ] Step 8 — `FRONTEND_URL` set, `SANCTUM_STATEFUL_DOMAINS` deliberately unset
 - [ ] Step 9 — logged in on the live site, public leaderboard loads
+- [ ] Step 10 — **uploaded and withdrew a file on the live site** (the only way
+      to prove the CSRF path is right — see "Why there is no stateful domain")

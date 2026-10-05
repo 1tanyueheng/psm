@@ -39,6 +39,8 @@ class MilestoneTemplateSeeder extends Seeder
         'chapter_3'    => 21,
         'chapter_4'    => 28,
         'chapter_5'    => 21,
+        'chapter_6'    => 21,
+        'chapter_7'    => 21,
         'final_report' => 28,
     ];
 
@@ -46,13 +48,35 @@ class MilestoneTemplateSeeder extends Seeder
     protected const DOCUMENT_TYPES = ['pdf', 'doc', 'docx'];
     protected const ARCHIVE_TYPES  = ['pdf', 'doc', 'docx', 'zip', 'pptx'];
 
+    /**
+     * The template version to write, per PSM part.
+     *
+     * Versioned per part rather than globally, because a version number is a
+     * property of *that* chain: bumping PSM 2 must not mint a redundant PSM 1
+     * template whose items are identical to the ones already there.
+     *
+     *   3  PSM 1 — proposal + Chapters 1-4 + final report (unchanged)
+     *   4  PSM 2 — Chapters 5-7 + final report. Drops `chapter_4`, which was
+     *      identical to PSM 1's and meant a student running PSM 1 → PSM 2 on one
+     *      title was asked to submit the same chapter twice.
+     *
+     * Older versions are deliberately left in place: projects already in flight
+     * keep the milestones, deadlines and weights they were given at
+     * registration, while MilestoneTemplate::resolveFor() picks the highest
+     * version for every new project.
+     */
+    protected const VERSIONS = [
+        'PSM1' => 3,
+        'PSM2' => 4,
+    ];
+
     public function run(): void
     {
         foreach (ProjectCategory::cases() as $category) {
             foreach (['PSM1', 'PSM2'] as $psmPart) {
                 $template = $this->createTemplate($category, $psmPart);
 
-                foreach ($category->defaultMilestones() as $index => $definition) {
+                foreach ($category->defaultMilestones($psmPart) as $index => $definition) {
                     $this->createItem($template, $category, $definition, $index + 1);
                 }
 
@@ -69,23 +93,24 @@ class MilestoneTemplateSeeder extends Seeder
 
     /**
      * Templates are keyed on (category, psm_part, version) so this seeder can
-     * be run repeatedly without creating duplicates.
+     * be run repeatedly without creating duplicates, and so a chain change lands
+     * as a new row instead of rewriting the one in-flight projects are using.
      *
-     * Version 2 is the Proposal / Chapter 1-5 / Final Report chain. Version 1
-     * is deliberately left in place: projects already in flight keep the
-     * milestones, deadlines and weights they were given at registration, while
-     * MilestoneTemplate::resolveFor() picks up v2 for every new project.
+     * See VERSIONS for what each version's chain is.
      */
     protected function createTemplate(ProjectCategory $category, string $psmPart): MilestoneTemplate
     {
-        $lastOffset = collect($category->defaultMilestones())->max('offset_days');
-        $lastDuration = (int) (self::DURATION_DAYS['final_report'] ?? 14);
+        $chain = $category->defaultMilestones($psmPart);
+
+        $lastOffset = collect($chain)->max('offset_days');
+        $lastCode = collect($chain)->last()['code'] ?? 'final_report';
+        $lastDuration = (int) (self::DURATION_DAYS[$lastCode] ?? 14);
 
         return MilestoneTemplate::updateOrCreate(
             [
                 'category' => $category->value,
                 'psm_part' => $psmPart,
-                'version'  => 2,
+                'version'  => self::VERSIONS[$psmPart] ?? 3,
             ],
             [
                 'name'                  => sprintf('%s — %s', $category->label(), $psmPart),
@@ -136,19 +161,22 @@ class MilestoneTemplateSeeder extends Seeder
 
     protected function describe(ProjectCategory $category, string $psmPart): string
     {
-        $shape = 'proposal, chapters 1-5, final report';
+        // The two parts cover different chapters, so the note has to say which.
+        $shape = $psmPart === 'PSM2'
+            ? 'chapters 5-7 (testing, results, conclusion), final report'
+            : 'proposal, chapters 1-4, final report';
 
-        return $category === ProjectCategory::System
-            ? "Chapter-by-chapter delivery plan for a system-development {$psmPart} project: {$shape}."
-            : "Chapter-by-chapter delivery plan for a research {$psmPart} project: {$shape}.";
+        $kind = $category === ProjectCategory::System ? 'system-development' : 'research';
+
+        return "Chapter-by-chapter delivery plan for a {$kind} {$psmPart} project: {$shape}.";
     }
 
     /**
      * What the student is being asked to submit.
      *
      * The chain is shared between categories, so this is where a system build
-     * and an empirical study genuinely diverge: seven identical submissions,
-     * different expectations for what each chapter contains.
+     * and an empirical study genuinely diverge: the same chapter number,
+     * different expectations for what it contains.
      */
     protected function itemDescription(ProjectCategory $category, string $code, string $title): string
     {
@@ -158,7 +186,9 @@ class MilestoneTemplateSeeder extends Seeder
             'chapter_2'    => 'Submit Chapter 2 — Literature and requirements review: comparable systems reviewed critically, then functional and non-functional requirements elicited and specified.',
             'chapter_3'    => 'Submit Chapter 3 — System design: architecture, database design, interface specification, and the reasoning behind the alternatives rejected.',
             'chapter_4'    => 'Submit Chapter 4 — Implementation: the working build together with the source code and reproducible deployment instructions.',
-            'chapter_5'    => 'Submit Chapter 5 — Testing and evaluation: test plan, results, defect log, and user evaluation of the finished system.',
+            'chapter_5'    => 'Submit Chapter 5 — Testing: test plan, cases mapped to the Chapter 2 requirements, results and the outstanding defect log.',
+            'chapter_6'    => 'Submit Chapter 6 — Results and discussion: what the testing and user evaluation actually showed, interpreted against the objectives set out in Chapter 1.',
+            'chapter_7'    => 'Submit Chapter 7 — Conclusion: what the project achieved, the limitations of what was built, and the work that remains.',
             'final_report' => 'Submit the complete final report for examination, with all chapters consolidated into the faculty template.',
         ];
 
@@ -168,7 +198,9 @@ class MilestoneTemplateSeeder extends Seeder
             'chapter_2'    => 'Submit Chapter 2 — Literature review: a critical, thematic synthesis of existing work establishing the gap this study addresses.',
             'chapter_3'    => 'Submit Chapter 3 — Methodology: research design, sampling, instruments, data-collection procedure and ethical considerations.',
             'chapter_4'    => 'Submit Chapter 4 — Results and analysis: findings presented with appropriate tables or figures and tested against the research questions.',
-            'chapter_5'    => 'Submit Chapter 5 — Discussion and conclusion: interpretation of the findings against the literature, limitations, implications and conclusion.',
+            'chapter_5'    => 'Submit Chapter 5 — Discussion: interpretation of the findings against the literature, and what they mean for the gap identified in Chapter 2.',
+            'chapter_6'    => 'Submit Chapter 6 — Contributions and limitations: what the study establishes, where it does not generalise, and the threats to validity.',
+            'chapter_7'    => 'Submit Chapter 7 — Conclusion: the answer to each research question, and the work that remains.',
             'final_report' => 'Submit the complete final report for examination, with all chapters consolidated into the faculty template.',
         ];
 
@@ -194,6 +226,8 @@ class MilestoneTemplateSeeder extends Seeder
             'chapter_3' => 'Architecture diagram, ERD and interface mockups, with design decisions justified against the alternatives considered.',
             'chapter_4' => 'Runnable build plus source archive; setup instructions must be reproducible by the examiner on a clean machine.',
             'chapter_5' => 'Test cases mapped to the chapter 2 requirements, with pass/fail evidence and outstanding defect severity.',
+            'chapter_6' => 'Every result traced back to a specific objective or requirement, including the ones the system did not meet; user feedback reported honestly.',
+            'chapter_7' => 'Achievements stated against the original objectives, limitations owned rather than glossed, and concrete next steps.',
         ];
 
         $research = [
@@ -201,7 +235,9 @@ class MilestoneTemplateSeeder extends Seeder
             'chapter_2' => 'Minimum 15 peer-reviewed sources, synthesised thematically, not summarised one by one; the gap is stated and defended.',
             'chapter_3' => 'Justified research design, sampling strategy, instruments, and validity and ethics considerations.',
             'chapter_4' => 'Findings presented with appropriate tables or figures and discussed against the research questions set out in chapter 1.',
-            'chapter_5' => 'Findings interpreted against the literature, limitations acknowledged honestly, and conclusions traceable to the evidence gathered.',
+            'chapter_5' => 'Findings interpreted against the literature rather than restated; agreement and disagreement with prior work both addressed.',
+            'chapter_6' => 'Contribution stated in terms of what the field now knows, with the boundaries of the claim and validity threats made explicit.',
+            'chapter_7' => 'Each research question answered directly, conclusions traceable to the evidence gathered, and further work identified.',
         ];
 
         $copy = $category === ProjectCategory::System ? $system : $research;

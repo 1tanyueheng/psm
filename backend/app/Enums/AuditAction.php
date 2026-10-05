@@ -37,6 +37,17 @@ enum AuditAction: string
     case ProjectApproved   = 'project.approved';
     case ProjectRejected   = 'project.rejected';
     case ProjectArchived   = 'project.archived';
+    // A student moving from PSM 1 to PSM 2: creates the PSM 2 project from the
+    // PSM 1 title, moves the enrolment, and archives PSM 1. Distinct from
+    // `ProjectCreated` because it is a lifecycle event spanning two projects,
+    // and the trail needs to be able to answer "who progressed whom, and when".
+    case ProjectProgressed = 'project.progressed';
+
+    // The panel's verdict on a Lampiran A proposal, and the student's response
+    // to a rejection. Registration events rather than project ones: they decide
+    // the title before any project exists.
+    case ProposalReviewed    = 'proposal.reviewed';
+    case ProposalResubmitted = 'proposal.resubmitted';
     case MilestoneOpened   = 'milestone.opened';
     case MilestoneSubmitted= 'milestone.submitted';
     case MilestoneReviewed = 'milestone.reviewed';
@@ -45,6 +56,7 @@ enum AuditAction: string
     case DeadlineChanged   = 'milestone.deadline_changed';
     case FileUploaded      = 'milestone.file_uploaded';
     case FileDownloaded    = 'milestone.file_downloaded';
+    case FileWithdrawn     = 'milestone.file_withdrawn';
 
     // Evaluation (Module 4)
     case EvaluationCreated = 'evaluation.created';
@@ -66,6 +78,14 @@ enum AuditAction: string
     // Archive (Module 7)
     case ArchiveExported   = 'archive.exported';
     case ArchiveRestored   = 'archive.restored';
+
+    // Academic semesters (Module 3)
+    case SemesterCreated        = 'semester.created';
+    case SemesterUpdated        = 'semester.updated';
+    case SemesterClosed         = 'semester.closed';
+    case SemesterReopened       = 'semester.reopened';
+    case RegistrationWindowSet  = 'semester.registration_window';
+    case SemesterGradesReleased = 'semester.grades_released';
 
     public function label(): string
     {
@@ -98,12 +118,13 @@ enum AuditAction: string
             self::DeadlineChanged       => 'Changed milestone deadline',
             self::FileUploaded          => 'Uploaded file',
             self::FileDownloaded        => 'Downloaded file',
+            self::FileWithdrawn         => 'Withdrew file',
             self::EvaluationCreated     => 'Started evaluation',
             self::EvaluationUpdated     => 'Updated evaluation',
             self::EvaluationSubmitted   => 'Submitted marks',
             self::EvaluationModerated   => 'Moderated marks',
-            self::GradeReleased         => 'Released grade',
-            self::GradeRecalculated     => 'Recalculated grade',
+            self::GradeReleased         => 'Released mark',
+            self::GradeRecalculated     => 'Recalculated mark',
             self::ReportExported        => 'Exported report',
             self::ReportViewed          => 'Viewed report',
             self::LeaderboardPublished  => 'Published leaderboard',
@@ -111,6 +132,12 @@ enum AuditAction: string
             self::LeaderboardConfigChanged => 'Changed leaderboard settings',
             self::ArchiveExported       => 'Exported archive',
             self::ArchiveRestored       => 'Restored from archive',
+            self::SemesterCreated      => 'Created semester',
+            self::SemesterUpdated      => 'Updated semester',
+            self::SemesterClosed       => 'Closed semester',
+            self::SemesterReopened     => 'Reopened semester',
+            self::RegistrationWindowSet=> 'Changed registration window',
+            self::SemesterGradesReleased => 'Released marks for semester',
         };
     }
 
@@ -128,6 +155,7 @@ enum AuditAction: string
             str_starts_with($this->value, 'grade.')       => 'Evaluation & Grading',
             str_starts_with($this->value, 'report.')      => 'Reporting',
             str_starts_with($this->value, 'leaderboard.') => 'Recognitions',
+            str_starts_with($this->value, 'semester.')    => 'Semesters',
             str_starts_with($this->value, 'archive.')     => 'Archive',
             default => 'Other',
         };
@@ -147,7 +175,8 @@ enum AuditAction: string
 
             self::PasswordReset,
             self::PasswordChanged,
-            self::GradeReleased => 'critical',
+            self::GradeReleased,
+            self::SemesterGradesReleased => 'critical',
 
             default => 'info',
         };

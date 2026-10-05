@@ -1,0 +1,14 @@
+=== COLOURED / NON-BLACK RUNS ===
+(1.0, 0.0, 0.0) |: (date supervisor review and sign the form)|
+(1.0, 0.0, 0.0) |(your full name, matric No)|
+(1.0, 0.0, 0.0) |Fill up the activity (minimum 3), A-G, control measures|
+(1.0, 0.0, 0.0) |& responsible person|
+(1.0, 0.0, 0.0) |: (your programme, e.g. Bachelor of Computer Science (Web Technology) with Honors - BIW)|
+(1.0, 0.0, 0.0) |: (e.g., Around the faculty, hostel, company/organization - if applicable)|
+(1.0, 0.0, 0.0) | (your mobile number)|
+(1.0, 0.0, 0.0) |(your PSM supervisor name)|
+(1.0, 0.0, 0.0) |(the date you filled in the form)|
+
+=== total runs: 70
+
+JPEG bytes: 2239 starts: b'\xff\xd8\xff\xe0' ends: b'\xff\xd9'

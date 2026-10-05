@@ -11,10 +11,19 @@ use Illuminate\Database\Seeder;
 /**
  * Module 4 — Official marking forms (Lampiran E, G, H, I, J).
  *
- * Each form is seeded as one rubric template per project category, so the
- * Development variant (C(i)/B(i)) and the Research variant (C(ii)/B(ii)) are
- * separate templates selected by the project's category. `form_code` carries
- * the Lampiran letter and is what keeps G and H (both PSM2/supervisor) apart.
+ * This seeder is the single owner of the rubric catalogue. Nothing else may
+ * write `rubric_templates`: a rubric with no `form_code` matches no form the
+ * faculty issues and is filtered out by `RubricTemplate::scopeOfficialForms()`.
+ *
+ * Four of the five forms print a different set of items per project category —
+ * Lampiran E carries C(i) Prototype *or* C(ii) Research Framework, I carries
+ * B(i) *or* B(ii), and G and J likewise — so those four are seeded once per
+ * category and `RubricTemplate::resolveFor()` picks the matching one. Lampiran
+ * H has no variant and is seeded once with `category IS NULL`.
+ *
+ * Both totals come to the same figure either way: on the printed form C(i) and
+ * C(ii) are alternatives, each worth the same 10%, and the form's JUMLAH counts
+ * only the one actually filled.
  *
  * Weights are taken straight from the official forms. Every item is marked on
  * the 0–5 scale and every form computes its weighted mark the same way,
@@ -34,24 +43,36 @@ class MarkingFormSeeder extends Seeder
             ->value('id');
 
         foreach ($this->forms() as $form) {
-            foreach (['system', 'research'] as $category) {
+            foreach ($this->categoriesFor($form['code']) as $category) {
                 $this->seedTemplate($form, $category);
             }
         }
 
         $this->command?->info(sprintf(
             '  Marking forms: %d templates, %d components, %d criteria.',
-            RubricTemplate::whereNotNull('form_code')->count(),
+            RubricTemplate::officialForms()->count(),
             RubricComponent::count(),
             RubricCriterion::count()
         ));
+    }
+
+    /**
+     * Which project categories a form has a distinct item set for.
+     *
+     * @return array<int, string|null> `null` is the shared, category-agnostic form.
+     */
+    protected function categoriesFor(string $formCode): array
+    {
+        return in_array($formCode, ['E', 'I', 'G', 'J'], true)
+            ? ['system', 'research']
+            : [null];
     }
 
     // -----------------------------------------------------------------
     // Seeding
     // -----------------------------------------------------------------
 
-    protected function seedTemplate(array $form, string $category): void
+    protected function seedTemplate(array $form, ?string $category): void
     {
         $components = $this->componentsFor($form['code'], $category);
         $total = round(array_sum(array_column($components, 'max')), 2);
@@ -65,9 +86,13 @@ class MarkingFormSeeder extends Seeder
                 'version'       => 1,
             ],
             [
-                'name'          => sprintf('Lampiran %s — %s (%s)', $form['code'], $form['title'], ucfirst($category)),
+                'name'          => sprintf(
+                    'Lampiran %s — %s%s',
+                    $form['code'],
+                    $form['title'],
+                    $category === null ? '' : sprintf(' (%s)', ucfirst($category))
+                ),
                 'total_marks'   => $total,
-                'pass_mark'     => round($total / 2, 2),
                 'is_active'     => true,
                 'is_published'  => true,
                 'description'   => $form['description'],
@@ -120,7 +145,7 @@ class MarkingFormSeeder extends Seeder
     }
 
     /** @return array<int, array<string, mixed>> */
-    protected function componentsFor(string $form, string $category): array
+    protected function componentsFor(string $form, ?string $category): array
     {
         return match ($form) {
             'E' => $this->formE($category),
@@ -131,11 +156,46 @@ class MarkingFormSeeder extends Seeder
         };
     }
 
+    /**
+     * Lampiran E — component C differs by category.
+     *
+     * C(i) Prototype for a development project, C(ii) Research Framework for a
+     * study. Same 10% either way.
+     */
+    protected function componentE(?string $category): array
+    {
+        if ($category === 'research') {
+            return [
+                'code'        => 'C',
+                'title'       => 'C(ii) — Penilaian Kerangka Kajian',
+                'max'         => 10.00,
+                'description' => 'Research Framework assessment. For research projects, assess the research framework.',
+                'items'       => [
+                    ['code' => 'C1', 'title' => 'Alatan / Data / Kajian Kes (Tools / Data / Case Studies)', 'max' => 3.30],
+                    ['code' => 'C2', 'title' => 'Teknik / Kaedah / Algoritma (Technique / Method / Algorithm)', 'max' => 3.30],
+                    ['code' => 'C3', 'title' => 'Teknik / Kaedah Pengukuran (Measurement Technique)', 'max' => 3.40],
+                ],
+            ];
+        }
+
+        return [
+            'code'        => 'C',
+            'title'       => 'C(i) — Penilaian Prototaip',
+            'max'         => 10.00,
+            'description' => 'Prototype assessment. For development projects, assess the prototype.',
+            'items'       => [
+                ['code' => 'C1', 'title' => 'Analisis & Spesifikasi (Analysis & Specifications)', 'max' => 3.30, 'guidance' => 'Requirements captured and specified.'],
+                ['code' => 'C2', 'title' => 'Antaramuka / Papan Cerita (User Interface / Storyboard)', 'max' => 3.30, 'guidance' => 'Interface designed and described.'],
+                ['code' => 'C3', 'title' => 'Prototaip (Prototype)', 'max' => 3.40, 'guidance' => 'A working prototype demonstrates the concept.'],
+            ],
+        ];
+    }
+
     // -----------------------------------------------------------------
     // Lampiran E — PSM 1 Supervisor (max 35)
     // -----------------------------------------------------------------
 
-    protected function formE(string $category): array
+    protected function formE(?string $category): array
     {
         return [
             $this->logbook(),
@@ -153,22 +213,7 @@ class MarkingFormSeeder extends Seeder
                 ],
             ],
 
-            $this->variant(
-                $category,
-                'C',
-                'C — Prototype / Research Framework',
-                10.00,
-                [
-                    ['code' => 'C1', 'title' => 'Analysis & Specifications', 'max' => 3.30, 'guidance' => 'Requirements captured and specified.'],
-                    ['code' => 'C2', 'title' => 'User Interface / Storyboard', 'max' => 3.30, 'guidance' => 'Interface designed and described.'],
-                    ['code' => 'C3', 'title' => 'Prototype', 'max' => 3.40, 'guidance' => 'A working prototype demonstrates the concept.'],
-                ],
-                [
-                    ['code' => 'C1', 'title' => 'Tools / Data / Case Studies', 'max' => 3.30, 'guidance' => 'Instruments and data sources are appropriate.'],
-                    ['code' => 'C2', 'title' => 'Technique / Method / Algorithm', 'max' => 3.30, 'guidance' => 'Method fits the research question.'],
-                    ['code' => 'C3', 'title' => 'Measurement Technique / Method', 'max' => 3.40, 'guidance' => 'Measurement approach is defined and defensible.'],
-                ]
-            ),
+            $this->componentE($category),
         ];
     }
 
@@ -176,8 +221,32 @@ class MarkingFormSeeder extends Seeder
     // Lampiran I — PSM 1 Examiner (max 30)
     // -----------------------------------------------------------------
 
-    protected function formI(string $category): array
+    protected function formI(?string $category): array
     {
+        $b = $category === 'research'
+            ? [
+                'code'        => 'B',
+                'title'       => 'B(ii) — Pembentangan Kerangka Kajian',
+                'max'         => 15.00,
+                'description' => 'Content of the research framework presentation.',
+                'items'       => [
+                    ['code' => 'B1', 'title' => 'Alatan / Data / Kajian Kes (Tools / Data / Case Studies)', 'max' => 4.95],
+                    ['code' => 'B2', 'title' => 'Teknik / Kaedah / Algoritma (Technique / Method / Algorithm)', 'max' => 4.95],
+                    ['code' => 'B3', 'title' => 'Teknik / Kaedah Pengukuran (Measurement Technique)', 'max' => 5.10],
+                ],
+            ]
+            : [
+                'code'        => 'B',
+                'title'       => 'B(i) — Pembentangan Prototaip',
+                'max'         => 15.00,
+                'description' => 'Content of the prototype presentation.',
+                'items'       => [
+                    ['code' => 'B1', 'title' => 'Analisis & Spesifikasi (Analysis & Specifications)', 'max' => 4.95],
+                    ['code' => 'B2', 'title' => 'Antaramuka / Papan Cerita (User Interface / Storyboard)', 'max' => 4.95],
+                    ['code' => 'B3', 'title' => 'Prototaip (Prototype)', 'max' => 5.10],
+                ],
+            ];
+
         return [
             [
                 'code'        => 'A_paper',
@@ -185,32 +254,17 @@ class MarkingFormSeeder extends Seeder
                 'max'         => 10.00,
                 'description' => 'The written proceeding paper submitted for the seminar.',
                 'items'       => [
-                    ['code' => 'A1', 'title' => 'Abstract', 'max' => 1.45],
-                    ['code' => 'A2', 'title' => 'Introduction', 'max' => 1.45],
-                    ['code' => 'A3', 'title' => 'Literature Review', 'max' => 1.45],
-                    ['code' => 'A4', 'title' => 'Methodology', 'max' => 1.40],
-                    ['code' => 'A5', 'title' => 'Analysis & Design', 'max' => 1.45],
-                    ['code' => 'A6', 'title' => 'Conclusion & Reference', 'max' => 1.40],
-                    ['code' => 'A7', 'title' => 'Report Formatting', 'max' => 1.40],
+                    ['code' => 'A1', 'title' => 'Abstrak (Abstract)', 'max' => 1.45],
+                    ['code' => 'A2', 'title' => 'Pengenalan (Introduction)', 'max' => 1.45],
+                    ['code' => 'A3', 'title' => 'Kajian Literatur (Literature Review)', 'max' => 1.45],
+                    ['code' => 'A4', 'title' => 'Metodologi (Methodology)', 'max' => 1.40],
+                    ['code' => 'A5', 'title' => 'Analisis & Rekabentuk (Analysis & Design)', 'max' => 1.45],
+                    ['code' => 'A6', 'title' => 'Kesimpulan & Rujukan (Conclusion & Reference)', 'max' => 1.40],
+                    ['code' => 'A7', 'title' => 'Format Laporan (Report Formatting)', 'max' => 1.40],
                 ],
             ],
 
-            $this->variant(
-                $category,
-                'B',
-                'B — Presentation',
-                15.00,
-                [
-                    ['code' => 'B1', 'title' => 'Analysis & Specifications', 'max' => 4.95],
-                    ['code' => 'B2', 'title' => 'User Interface / Storyboard', 'max' => 4.95],
-                    ['code' => 'B3', 'title' => 'Prototype', 'max' => 5.10],
-                ],
-                [
-                    ['code' => 'B1', 'title' => 'Tools / Data / Case Studies', 'max' => 4.95],
-                    ['code' => 'B2', 'title' => 'Technique / Method / Algorithm', 'max' => 4.95],
-                    ['code' => 'B3', 'title' => 'Measurement Technique / Method', 'max' => 5.10],
-                ]
-            ),
+            $b,
 
             [
                 'code'        => 'C_delivery',
@@ -226,11 +280,51 @@ class MarkingFormSeeder extends Seeder
         ];
     }
 
+    /**
+     * Lampiran G — component C's first four items differ by category.
+     *
+     * C(i) is worded for a development project (system analysis, system design,
+     * translation of development), C(ii) for a study (analysis, design /
+     * algorithm, translation of methodology). Items 5 and 6 are worded
+     * identically on both and are therefore shared.
+     */
+    protected function componentG(?string $category): array
+    {
+        $head = $category === 'research'
+            ? [
+                ['code' => 'C1', 'title' => 'Analisa (Analysis)', 'max' => 4.19],
+                ['code' => 'C2', 'title' => 'Rekabentuk / Teknik / Algoritma (Design / Algorithm)', 'max' => 4.19],
+                ['code' => 'C3', 'title' => 'Terjemahan Metodologi (Translation of Methodology)', 'max' => 4.19],
+                ['code' => 'C4', 'title' => 'Implementasi / Simulasi (Implementation / Simulation)', 'max' => 4.19],
+            ]
+            : [
+                ['code' => 'C1', 'title' => 'Analisa Sistem (System Analysis)', 'max' => 4.19],
+                ['code' => 'C2', 'title' => 'Rekabentuk Sistem (System Design)', 'max' => 4.19],
+                ['code' => 'C3', 'title' => 'Terjemahan Pembangunan (Translation of Development)', 'max' => 4.19],
+                ['code' => 'C4', 'title' => 'Implementasi (Implementation)', 'max' => 4.19],
+            ];
+
+        $tail = [
+            ['code' => 'C5', 'title' => 'Pengujian, verifikasi dan validasi (Testing & Validation)', 'max' => 4.12],
+            ['code' => 'C6', 'title' => 'Kreatif, inovatif dan bercirikan komersial (Commercial Value)', 'max' => 4.12],
+        ];
+
+        return [
+            'code'        => 'C',
+            'title'       => $category === 'research'
+                ? 'C(ii) — Produk PSM 2 (Kajian)'
+                : 'C(i) — Produk PSM 2 (Pembangunan)',
+            'max'         => 25.00,
+            'description' => 'The completed product, system or research output.',
+            'items'       => [...$head, ...$tail],
+        ];
+    }
+
     // -----------------------------------------------------------------
     // Lampiran G — PSM 2 Supervisor (max 50)
     // -----------------------------------------------------------------
 
-    protected function formG(string $category): array
+    protected function formG(?string $category): array
     {
         return [
             $this->logbook(),
@@ -252,28 +346,7 @@ class MarkingFormSeeder extends Seeder
                 ],
             ],
 
-            $this->variant(
-                $category,
-                'C',
-                'C — PSM 2 Product',
-                25.00,
-                [
-                    ['code' => 'C1', 'title' => 'System Analysis', 'max' => 4.19],
-                    ['code' => 'C2', 'title' => 'System Design', 'max' => 4.19],
-                    ['code' => 'C3', 'title' => 'Translation of Development', 'max' => 4.19],
-                    ['code' => 'C4', 'title' => 'Implementation', 'max' => 4.19],
-                    ['code' => 'C5', 'title' => 'Testing, Verification and Validation', 'max' => 4.12],
-                    ['code' => 'C6', 'title' => 'Creative, Innovative and Commercial Value', 'max' => 4.12],
-                ],
-                [
-                    ['code' => 'C1', 'title' => 'Analysis', 'max' => 4.19],
-                    ['code' => 'C2', 'title' => 'Design / Technique / Algorithm', 'max' => 4.19],
-                    ['code' => 'C3', 'title' => 'Translation of Methodology', 'max' => 4.19],
-                    ['code' => 'C4', 'title' => 'Implementation / Simulation', 'max' => 4.19],
-                    ['code' => 'C5', 'title' => 'Testing, Verification and Validation', 'max' => 4.12],
-                    ['code' => 'C6', 'title' => 'Creative, Innovative and Commercial Value', 'max' => 4.12],
-                ]
-            ),
+            $this->componentG($category),
         ];
     }
 
@@ -298,12 +371,45 @@ class MarkingFormSeeder extends Seeder
         ];
     }
 
-    // -----------------------------------------------------------------
-    // Lampiran J — PSM 2 Examiner (max 40)
-    // -----------------------------------------------------------------
-
-    protected function formJ(string $category): array
+    /**
+     * Lampiran J — component B differs by category, mirroring Lampiran G's C.
+     *
+     * Items 1–5 are worded for the category, as on Lampiran G. Item 6 is the
+     * one real divergence between the two forms' research variants: J closes on
+     * Significance, where G still closes on Commercial Value.
+     */
+    protected function formJ(?string $category): array
     {
+        $b = $category === 'research'
+            ? [
+                'code'        => 'B',
+                'title'       => 'B(ii) — Produk Akhir PSM 2 (Kajian)',
+                'max'         => 25.00,
+                'description' => 'The completed research output, judged as a study.',
+                'items'       => [
+                    ['code' => 'B1', 'title' => 'Analisa (Analysis)', 'max' => 4.19],
+                    ['code' => 'B2', 'title' => 'Rekabentuk / Teknik / Algoritma (Design / Algorithm)', 'max' => 4.19],
+                    ['code' => 'B3', 'title' => 'Terjemahan Metodologi (Translation of Methodology)', 'max' => 4.19],
+                    ['code' => 'B4', 'title' => 'Implementasi / Simulasi (Implementation / Simulation)', 'max' => 4.19],
+                    ['code' => 'B5', 'title' => 'Pengujian, verifikasi dan validasi (Testing & Validation)', 'max' => 4.12],
+                    ['code' => 'B6', 'title' => 'Kepentingan / Signifikan kepada bidang ilmu (Significance)', 'max' => 4.12],
+                ],
+            ]
+            : [
+                'code'        => 'B',
+                'title'       => 'B(i) — Produk Akhir PSM 2 (Pembangunan)',
+                'max'         => 25.00,
+                'description' => 'The completed product or system.',
+                'items'       => [
+                    ['code' => 'B1', 'title' => 'Analisa Sistem (System Analysis)', 'max' => 4.19],
+                    ['code' => 'B2', 'title' => 'Rekabentuk Sistem (System Design)', 'max' => 4.19],
+                    ['code' => 'B3', 'title' => 'Terjemahan Pembangunan (Translation of Development)', 'max' => 4.19],
+                    ['code' => 'B4', 'title' => 'Implementasi (Implementation)', 'max' => 4.19],
+                    ['code' => 'B5', 'title' => 'Pengujian, verifikasi dan validasi (Testing & Validation)', 'max' => 4.12],
+                    ['code' => 'B6', 'title' => 'Kreatif, inovatif dan bercirikan komersial (Commercial Value)', 'max' => 4.12],
+                ],
+            ];
+
         return [
             [
                 'code'        => 'A_paper',
@@ -321,28 +427,7 @@ class MarkingFormSeeder extends Seeder
                 ],
             ],
 
-            $this->variant(
-                $category,
-                'B',
-                'B — Final Product',
-                25.00,
-                [
-                    ['code' => 'B1', 'title' => 'System Analysis', 'max' => 4.19],
-                    ['code' => 'B2', 'title' => 'System Design', 'max' => 4.19],
-                    ['code' => 'B3', 'title' => 'Translation of Development', 'max' => 4.19],
-                    ['code' => 'B4', 'title' => 'Implementation', 'max' => 4.19],
-                    ['code' => 'B5', 'title' => 'Testing, Verification and Validation', 'max' => 4.12],
-                    ['code' => 'B6', 'title' => 'Creative, Innovative and Commercial Value', 'max' => 4.12],
-                ],
-                [
-                    ['code' => 'B1', 'title' => 'Analysis', 'max' => 4.19],
-                    ['code' => 'B2', 'title' => 'Design / Technique / Algorithm', 'max' => 4.19],
-                    ['code' => 'B3', 'title' => 'Translation of Methodology', 'max' => 4.19],
-                    ['code' => 'B4', 'title' => 'Implementation / Simulation', 'max' => 4.19],
-                    ['code' => 'B5', 'title' => 'Testing, Verification and Validation', 'max' => 4.12],
-                    ['code' => 'B6', 'title' => 'Significance to the Field', 'max' => 4.12],
-                ]
-            ),
+            $b,
 
             [
                 'code'        => 'C_delivery',
@@ -377,32 +462,6 @@ class MarkingFormSeeder extends Seeder
                 ['code' => 'A3', 'title' => 'Weekly Activities / Attachments', 'max' => 1.25, 'guidance' => 'Weekly activity recorded with attachments.'],
                 ['code' => 'A4', 'title' => 'Progress Report Discussion', 'max' => 1.25, 'guidance' => 'Progress discussed openly, including slippage.'],
             ],
-        ];
-    }
-
-    /**
-     * Build the category-dependent component: Development items for `system`,
-     * Research items for `research`.
-     *
-     * @param  array<int, array{code:string,title:string,max:float,guidance?:string}>  $development
-     * @param  array<int, array{code:string,title:string,max:float,guidance?:string}>  $research
-     */
-    protected function variant(
-        string $category,
-        string $code,
-        string $title,
-        float $max,
-        array $development,
-        array $research,
-    ): array {
-        return [
-            'code'        => $code,
-            'title'       => $title.' — '.($category === 'system' ? 'Development' : 'Research'),
-            'max'         => $max,
-            'description' => $category === 'system'
-                ? 'Assessed against the development variant of the form.'
-                : 'Assessed against the research variant of the form.',
-            'items'       => $category === 'system' ? $development : $research,
         ];
     }
 

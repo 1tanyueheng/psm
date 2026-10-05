@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\AuditAction;
-use App\Enums\ProjectCategory;
 use App\Http\Controllers\ApiController;
+use App\Models\AcademicSemester;
+use App\Models\FinalGrade;
 use App\Models\Project;
+use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\ReportingService;
 use Illuminate\Http\JsonResponse;
@@ -18,6 +20,13 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  *
  * Read-only. Every endpoint is gated on cohort-analytics permission, which
  * only coordinators and admins hold.
+ *
+ * Every endpoint accepts the same three filters — `semester_id`, `psm_part` and
+ * the legacy cohort-year `batch` — because the requirement is that PSM 1 and
+ * PSM 2 run concurrently in one term and every figure has to be attributable to
+ * a term, a batch, or both. `semester_id` defaults to the active term; leaving
+ * it off should mean "the term I am working in", never "every term since the
+ * system was installed".
  */
 class ReportController extends ApiController
 {
@@ -30,129 +39,109 @@ class ReportController extends ApiController
     /**
      * GET /api/reports/dashboard
      *
-     * The single call the coordinator dashboard makes on load.
+     * The single call the coordinator dashboard makes on load. Returns the
+     * figures for the selected batch plus a `by_part` rollup so the PSM 1 /
+     * PSM 2 segmented control can render both tabs from one response.
      */
     public function dashboard(Request $request): JsonResponse
     {
-        $this->authorize('viewAnalytics', \App\Models\User::class);
+        $this->authorize('viewAnalytics', User::class);
 
-        $validated = $request->validate([
-            'batch'    => ['nullable', 'string', 'max:32'],
-            'psm_part' => ['nullable', 'in:PSM1,PSM2'],
-        ]);
+        [$batch, $psmPart, $semesterId] = $this->filters($request);
 
-        $batch   = $validated['batch'] ?? null;
-        $psmPart = $validated['psm_part'] ?? 'PSM2';
-
-        return $this->ok($this->reports->dashboardSummary($batch, $psmPart));
+        return $this->ok($this->reports->dashboardSummary($batch, $psmPart, $semesterId));
     }
 
-    /**
-     * GET /api/reports/cohort-progress
-     */
+    /** GET /api/reports/cohort-progress */
     public function cohortProgress(Request $request): JsonResponse
     {
-        $this->authorize('viewAnalytics', \App\Models\User::class);
+        $this->authorize('viewAnalytics', User::class);
 
-        $validated = $request->validate([
-            'batch'    => ['nullable', 'string', 'max:32'],
-            'psm_part' => ['nullable', 'in:PSM1,PSM2'],
-        ]);
+        [$batch, $psmPart, $semesterId] = $this->filters($request);
 
-        return $this->ok(
-            $this->reports->cohortProgress(
-                $validated['batch'] ?? null,
-                $validated['psm_part'] ?? 'PSM2'
-            )
-        );
+        return $this->ok($this->reports->cohortProgress($batch, $psmPart, $semesterId));
     }
 
     /**
      * GET /api/reports/at-risk
+     *
+     * Now batch-filterable as well as term-filterable: "how many PSM 1 students
+     * are at risk" and "how many PSM 2 students are at risk" are different
+     * questions with different remedies, and this endpoint previously could not
+     * answer either one on its own.
      */
     public function atRisk(Request $request): JsonResponse
     {
-        $this->authorize('viewAnalytics', \App\Models\User::class);
+        $this->authorize('viewAnalytics', User::class);
 
         $validated = $request->validate([
-            'batch' => ['nullable', 'string', 'max:32'],
-            'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
+            'batch'      => ['nullable', 'string', 'max:32'],
+            'limit'      => ['nullable', 'integer', 'min:1', 'max:200'],
+            'semester_id'=> ['nullable', 'integer', 'exists:academic_semesters,id'],
+            'psm_part'   => ['nullable', 'in:PSM1,PSM2'],
         ]);
 
         return $this->ok(
             $this->reports->atRiskStudents(
                 $validated['batch'] ?? null,
-                $validated['limit'] ?? 25
+                $validated['limit'] ?? 25,
+                $validated['psm_part'] ?? null,
+                AcademicSemester::resolveFilterId($validated['semester_id'] ?? null),
             )
         );
     }
 
-    /**
-     * GET /api/reports/supervisor-workload
-     */
+    /** GET /api/reports/supervisor-workload */
     public function supervisorWorkload(Request $request): JsonResponse
     {
-        $this->authorize('viewAnalytics', \App\Models\User::class);
+        $this->authorize('viewAnalytics', User::class);
 
-        return $this->ok(
-            $this->reports->supervisorWorkload($request->input('batch'))
-        );
+        [$batch, $psmPart, $semesterId] = $this->filters($request);
+
+        return $this->ok($this->reports->supervisorWorkload($batch, $psmPart, $semesterId));
     }
 
-    /**
-     * GET /api/reports/examiner-workload
-     */
+    /** GET /api/reports/examiner-workload */
     public function examinerWorkload(Request $request): JsonResponse
     {
-        $this->authorize('viewAnalytics', \App\Models\User::class);
+        $this->authorize('viewAnalytics', User::class);
 
-        return $this->ok(
-            $this->reports->examinerWorkload($request->input('batch'))
-        );
+        [$batch, $psmPart, $semesterId] = $this->filters($request);
+
+        return $this->ok($this->reports->examinerWorkload($batch, $psmPart, $semesterId));
     }
 
-    /**
-     * GET /api/reports/grade-distribution
-     */
-    public function gradeDistribution(Request $request): JsonResponse
+    /** GET /api/reports/mark-distribution */
+    public function markDistribution(Request $request): JsonResponse
     {
-        $this->authorize('viewAnalytics', \App\Models\User::class);
+        $this->authorize('viewAnalytics', User::class);
 
-        $validated = $request->validate([
-            'batch'    => ['nullable', 'string', 'max:32'],
-            'psm_part' => ['nullable', 'in:PSM1,PSM2'],
-        ]);
+        [$batch, $psmPart, $semesterId] = $this->filters($request);
 
-        return $this->ok(
-            $this->reports->gradeDistribution(
-                $validated['batch'] ?? null,
-                $validated['psm_part'] ?? 'PSM2'
-            )
-        );
+        return $this->ok($this->reports->markDistribution($batch, $psmPart, $semesterId));
     }
 
     /**
      * GET /api/reports/milestone-breakdown
      *
      * Per-milestone completion across the cohort — which stage is the
-     * bottleneck.
+     * bottleneck. Built as a raw join rather than through Eloquent because it
+     * groups on milestone columns, and the term filter is a join condition
+     * rather than a `whereHas`.
      */
     public function milestoneBreakdown(Request $request): JsonResponse
     {
-        $this->authorize('viewAnalytics', \App\Models\User::class);
+        $this->authorize('viewAnalytics', User::class);
 
-        $validated = $request->validate([
-            'batch'    => ['nullable', 'string', 'max:32'],
-            'psm_part' => ['nullable', 'in:PSM1,PSM2'],
-        ]);
-
-        $batch   = $validated['batch'] ?? null;
-        $psmPart = $validated['psm_part'] ?? 'PSM2';
+        [$batch, $psmPart, $semesterId] = $this->filters($request);
 
         $rows = DB::table('milestones')
             ->join('projects', 'projects.id', '=', 'milestones.project_id')
+            ->when($semesterId !== null, fn ($q) => $q->where('projects.academic_semester_id', $semesterId))
             ->when($batch, fn ($q) => $q->where('projects.batch', $batch))
-            ->where('projects.psm_part', $psmPart)
+            // Null part means both batches, which is what the raw join needs:
+            // the predicate is only added when a batch was actually asked for.
+            ->when($psmPart !== null, fn ($q) => $q->where('projects.psm_part', $psmPart))
             ->select(
                 'milestones.code',
                 'milestones.title',
@@ -195,33 +184,42 @@ class ReportController extends ApiController
      * Streamed rather than buffered: a full cohort export can run to
      * thousands of rows and should not be held in memory.
      */
-    public function exportGrades(Request $request): StreamedResponse
+    public function exportMarks(Request $request): StreamedResponse
     {
-        $this->authorize('export', \App\Models\FinalGrade::class);
+        $this->authorize('export', FinalGrade::class);
 
-        $batch   = $request->input('batch');
-        $psmPart = $request->input('psm_part', 'PSM2');
+        [$batch, $psmPart, $semesterId] = $this->filters($request);
 
         $this->audit->log(
             action: AuditAction::ReportExported,
-            description: "Grade report exported (batch: ".($batch ?: 'all').", {$psmPart})",
+            description: sprintf(
+                'Grade report exported (term: %s, batch: %s, part: %s)',
+                $semesterId ?? 'all',
+                $batch ?: 'all',
+                $psmPart ?? 'both'
+            ),
         );
 
-        $filename = 'psm-grades-'.($batch ?: 'all').'-'.now()->format('Ymd-His').'.csv';
+        $filename = sprintf(
+            'psm-marks-%s-%s-%s.csv',
+            $semesterId ?? 'all',
+            $psmPart ?? 'both',
+            now()->format('Ymd-His')
+        );
 
-        return response()->streamDownload(function () use ($batch, $psmPart) {
+        return response()->streamDownload(function () use ($batch, $psmPart, $semesterId) {
             $out = fopen('php://output', 'w');
 
             fputcsv($out, [
                 'Project Code', 'Title', 'Category', 'Student ID', 'Student Name',
-                'Program', 'Batch', 'Supervisor Score', 'Examiner Score',
-                'Aggregate %', 'Milestone %', 'Final Mark', 'Grade', 'Grade Point',
+                'Program', 'Batch', 'PSM Part', 'Supervisor Score', 'Examiner Score',
+                'Aggregate %', 'Milestone %', 'Final Mark',
                 'Assessors', 'Status', 'Released At',
             ]);
 
-            \App\Models\FinalGrade::query()
+            FinalGrade::query()
                 ->with(['project', 'studentProfile.user'])
-                ->where('psm_part', $psmPart)
+                ->forSemesterPart($semesterId, $psmPart)
                 ->when($batch, fn ($q) => $q->forBatch($batch))
                 ->orderByDesc('final_mark')
                 ->chunk(200, function ($grades) use ($out) {
@@ -234,13 +232,12 @@ class ReportController extends ApiController
                             $g->studentProfile?->user?->name,
                             $g->studentProfile?->program,
                             $g->project?->batch,
+                            $g->psm_part,
                             $g->supervisor_score,
                             $g->examiner_score,
                             $g->aggregate_percent,
                             $g->milestone_score,
                             $g->final_mark,
-                            $g->grade_letter,
-                            $g->grade_point,
                             $g->assessor_count,
                             $g->status,
                             $g->released_at?->toDateTimeString(),
@@ -254,24 +251,31 @@ class ReportController extends ApiController
         ]);
     }
 
-    /**
-     * GET /api/reports/export/projects.csv
-     */
+    /** GET /api/reports/export/projects.csv */
     public function exportProjects(Request $request): StreamedResponse
     {
-        $this->authorize('export', \App\Models\User::class);
+        $this->authorize('export', User::class);
 
-        $batch   = $request->input('batch');
-        $psmPart = $request->input('psm_part', 'PSM2');
+        [$batch, $psmPart, $semesterId] = $this->filters($request);
 
         $this->audit->log(
             action: AuditAction::ReportExported,
-            description: "Project report exported (batch: ".($batch ?: 'all').", {$psmPart})",
+            description: sprintf(
+                'Project report exported (term: %s, batch: %s, part: %s)',
+                $semesterId ?? 'all',
+                $batch ?: 'all',
+                $psmPart ?? 'both'
+            ),
         );
 
-        $filename = 'psm-projects-'.($batch ?: 'all').'-'.now()->format('Ymd-His').'.csv';
+        $filename = sprintf(
+            'psm-projects-%s-%s-%s.csv',
+            $semesterId ?? 'all',
+            $psmPart ?? 'both',
+            now()->format('Ymd-His')
+        );
 
-        return response()->streamDownload(function () use ($batch, $psmPart) {
+        return response()->streamDownload(function () use ($batch, $psmPart, $semesterId) {
             $out = fopen('php://output', 'w');
 
             fputcsv($out, [
@@ -282,7 +286,7 @@ class ReportController extends ApiController
 
             Project::query()
                 ->with(['students.user', 'students.activeSupervisions.supervisorProfile.user', 'milestones'])
-                ->where('psm_part', $psmPart)
+                ->forSemesterPart($semesterId, $psmPart)
                 ->when($batch, fn ($q) => $q->forBatch($batch))
                 ->orderBy('code')
                 ->chunk(200, function ($projects) use ($out) {
@@ -312,5 +316,35 @@ class ReportController extends ApiController
         }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    // -----------------------------------------------------------------
+    // Internals
+    // -----------------------------------------------------------------
+
+    /**
+     * Validate and resolve the three report filters, once.
+     *
+     * `psm_part` deliberately has no default. It previously defaulted to
+     * `'PSM2'`, so a coordinator who opened the reports screen with no filters
+     * was shown PSM 2 figures with nothing on screen indicating that the PSM 1
+     * half of the cohort had been silently dropped. Null means "both batches",
+     * which is the honest reading of an unfiltered report.
+     *
+     * @return array{0: ?string, 1: ?string, 2: ?int} batch, psm_part, semester_id
+     */
+    protected function filters(Request $request): array
+    {
+        $validated = $request->validate([
+            'batch'       => ['nullable', 'string', 'max:32'],
+            'psm_part'    => ['nullable', 'in:PSM1,PSM2'],
+            'semester_id' => ['nullable', 'integer', 'exists:academic_semesters,id'],
+        ]);
+
+        return [
+            $validated['batch'] ?? null,
+            $validated['psm_part'] ?? null,
+            AcademicSemester::resolveFilterId($validated['semester_id'] ?? null),
+        ];
     }
 }

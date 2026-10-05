@@ -55,7 +55,7 @@ class RubricComponent extends Model
      * Whether this component is scored against one project milestone.
      *
      * True for the supervisor's chapter components, false for components that
-     * are not tied to a single submission — an exam defence, say.
+     * are not tied to a single submission — a final presentation, say.
      */
     public function isMilestoneScoped(): bool
     {

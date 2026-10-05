@@ -6,6 +6,8 @@ import {
   ErrorState, Button, DataTable, Td, ProgressBar, Select,
 } from '../../components/ui'
 import { formatPercent, formatMark } from '../../lib/format'
+import { useSemesters } from '../../context/SemesterContext'
+import { PSM_PARTS, partLabel } from '../../lib/psmPart'
 
 /**
  * Reporting & analytics (Module 5).
@@ -13,32 +15,36 @@ import { formatPercent, formatMark } from '../../lib/format'
  * Everything here is aggregated, so the page is organised as a small dashboard
  * rather than a set of tables: cohort health at the top, then the breakdowns a
  * coordinator actually acts on (where the cohort is stuck, and by batch),
- * then outcomes (grade distribution) and the two operational tables —
+ * then outcomes (mark distribution) and the two operational tables —
  * milestone completion and supervision load.
  *
  * Every figure below is read from the shape the API actually returns:
  * `/reports/dashboard` answers with `{ cohort, awaiting_review, at_risk,
- * grades, categories }`, `cohort-progress` with the bare `cohort` object, and
+ * marks, categories }`, `cohort-progress` with the bare `cohort` object, and
  * the workload and milestone endpoints with flat row arrays.
+ *
+ * Because both batches run in one term, every report is scoped by a selected
+ * semester (defaulting to the active term) and a batch filter, mirroring the
+ * three filters the API accepts: `semester_id`, `psm_part`, `batch`.
  */
 export default function ReportPage() {
+  const { selectedId, selectSemester, semesters: contextSemesters } = useSemesters()
   const [batch, setBatch] = useState('')
   const [batches, setBatches] = useState([])
+  const [part, setPart] = useState('')
   const [summary, setSummary] = useState(null)
   const [cohort, setCohort] = useState(null)
   const [stages, setStages] = useState([])
-  const [bands, setBands] = useState([])
+  const [ranges, setRanges] = useState([])
   const [breakdown, setBreakdown] = useState([])
   const [workload, setWorkload] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [exportError, setExportError] = useState(null)
 
-  // The batch list has to come from an unfiltered read: a filtered one returns
-  // only the selected batch, which would collapse the dropdown to one option.
+  // Load unfiltered batches.
   useEffect(() => {
     let cancelled = false
-
     reportApi
       .cohortProgress()
       .then((res) => {
@@ -48,7 +54,6 @@ export default function ReportPage() {
       .catch(() => {
         // The filter simply stays empty; the page below still loads.
       })
-
     return () => {
       cancelled = true
     }
@@ -61,7 +66,10 @@ export default function ReportPage() {
       setLoading(true)
       setError(null)
       try {
-        const params = batch ? { batch } : {}
+        const params = {}
+        if (selectedId) params.semester_id = selectedId
+        if (part) params.psm_part = part
+        if (batch) params.batch = batch
 
         const [summaryRes, cohortRes, workloadRes, breakdownRes, distRes] =
           await Promise.allSettled([
@@ -69,7 +77,7 @@ export default function ReportPage() {
             reportApi.cohortProgress(params),
             reportApi.supervisorWorkload(params),
             reportApi.milestoneBreakdown(params),
-            reportApi.gradeDistribution(params),
+            reportApi.markDistribution(params),
           ])
 
         if (summaryRes.status === 'rejected') throw summaryRes.reason
@@ -85,7 +93,7 @@ export default function ReportPage() {
             .map(([status, stage]) => ({ ...stage, status }))
             .filter((stage) => stage.count > 0)
         )
-        setBands(distRes.status === 'fulfilled' ? unwrap(distRes.value)?.by_band ?? [] : [])
+        setRanges(distRes.status === 'fulfilled' ? unwrap(distRes.value)?.by_range ?? [] : [])
         setBreakdown(
           breakdownRes.status === 'fulfilled' ? unwrap(breakdownRes.value) ?? [] : []
         )
@@ -101,18 +109,17 @@ export default function ReportPage() {
     return () => {
       cancelled = true
     }
-  }, [batch])
+  }, [selectedId, part, batch])
 
   const k = summary ?? {}
-  const grades = k.grades ?? {}
+  const marks = k.marks ?? {}
 
   const kpis = {
     projects: cohort?.total_projects ?? 0,
     students: cohort?.total_students ?? 0,
     awaiting: k.awaiting_review ?? 0,
     atRisk: k.at_risk ?? 0,
-    passRate: grades.pass_rate ?? 0,
-    mean: grades.stats?.mean ?? null,
+    mean: marks.stats?.mean ?? null,
   }
 
   if (loading) return <Spinner label="Building the analytics view" />
@@ -123,14 +130,40 @@ export default function ReportPage() {
       <PageHeader
         title="Reports & analytics"
         subtitle="Cohort progress, supervision load, and assessment outcomes"
-        actions={
+        action={
           <div className="flex flex-wrap items-center gap-2">
+            {contextSemesters.length > 0 && (
+              <Select
+                value={selectedId ?? ''}
+                onChange={(e) => selectSemester(e.target.value || null)}
+                aria-label="Semester"
+              >
+                <option value="">All semesters</option>
+                {contextSemesters.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+            <Select
+              value={part}
+              onChange={(e) => setPart(e.target.value)}
+              aria-label="Batch type"
+            >
+              <option value="">All batches</option>
+              {PSM_PARTS.map((p) => (
+                <option key={p} value={p}>
+                  {partLabel(p)}
+                </option>
+              ))}
+            </Select>
             <Select
               value={batch}
               onChange={(e) => setBatch(e.target.value)}
-              aria-label="Batch"
+              aria-label="Cohort year"
             >
-              <option value="">All batches</option>
+              <option value="">All cohorts</option>
               {batches.map((b) => (
                 <option key={b} value={b}>
                   Batch {b}
@@ -138,8 +171,8 @@ export default function ReportPage() {
               ))}
             </Select>
             <ExportButton
-              label="Export grades"
-              kind="grades"
+              label="Export marks"
+              kind="marks"
               batch={batch}
               onError={setExportError}
             />
@@ -171,14 +204,9 @@ export default function ReportPage() {
           tone={kpis.atRisk > 0 ? 'danger' : 'success'}
         />
         <StatCard
-          label="Pass rate"
-          value={formatPercent(kpis.passRate, 0)}
-          tone={kpis.passRate >= 80 ? 'success' : kpis.passRate >= 50 ? 'warning' : 'danger'}
-        />
-        <StatCard
           label="Mean mark"
           value={kpis.mean != null ? formatMark(kpis.mean) : '—'}
-          hint={`${grades.total ?? 0} released`}
+          hint={`${marks.total ?? 0} released`}
         />
       </div>
 
@@ -211,11 +239,11 @@ export default function ReportPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Grade distribution" subtitle="Released grades by band" />
-          {bands.length === 0 ? (
-            <EmptyState title="No grades" message="Nothing has been graded yet." />
+          <CardHeader title="Mark distribution" subtitle="Released marks by range" />
+          {ranges.length === 0 ? (
+            <EmptyState title="No marks" message="Nothing has been marked yet." />
           ) : (
-            <DistributionBars rows={bands} />
+            <DistributionBars rows={ranges} />
           )}
         </Card>
       </div>
@@ -412,13 +440,13 @@ function DistributionBars({ rows }) {
   return (
     <div className="space-y-3">
       {rows.map((row) => {
-        const grade = row.grade ?? row.label
+        const range = row.range ?? row.label
         return (
-          <div key={grade} className="flex items-center gap-3">
-            <span className="w-10 shrink-0 text-sm font-semibold text-slate-700">{grade}</span>
+          <div key={range} className="flex items-center gap-3">
+            <span className="w-14 shrink-0 text-sm font-semibold text-slate-700">{range}</span>
             <div className="h-6 flex-1 overflow-hidden rounded bg-slate-100">
               <div
-                className={`h-full rounded ${BAR_TONES[bandGroup(grade)] ?? 'bg-slate-400'}`}
+                className={`h-full rounded ${RANGE_TONES[range] ?? 'bg-slate-400'}`}
                 style={{ width: `${((row.count ?? 0) / max) * 100}%` }}
               />
             </div>
@@ -432,17 +460,14 @@ function DistributionBars({ rows }) {
   )
 }
 
-const BAR_TONES = {
-  A: 'bg-emerald-500',
-  B: 'bg-sky-500',
-  C: 'bg-amber-500',
-  D: 'bg-orange-500',
-  F: 'bg-rose-500',
-}
-
-/** 'A+' / 'B-' / 'C' → the band letter, which is what the colour map keys on. */
-function bandGroup(grade) {
-  return String(grade ?? '').charAt(0).toUpperCase()
+/** Mark range → bar colour. Ranges are descriptive, not evaluative. */
+const RANGE_TONES = {
+  '80+':   'bg-emerald-500',
+  '70-79': 'bg-sky-500',
+  '60-69': 'bg-amber-500',
+  '50-59': 'bg-orange-500',
+  '40-49': 'bg-rose-500',
+  '0-39':  'bg-red-600',
 }
 
 /**

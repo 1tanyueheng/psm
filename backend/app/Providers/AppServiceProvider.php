@@ -2,10 +2,13 @@
 
 namespace App\Providers;
 
+use App\Models\AcademicSemester;
 use App\Models\ArchivedProject;
 use App\Models\Evaluation;
 use App\Models\FinalGrade;
 use App\Models\Leaderboard;
+use App\Models\AssessmentWindow;
+use App\Models\MarkSubmission;
 use App\Models\Milestone;
 use App\Models\Project;
 use App\Models\SupervisionAssignment;
@@ -14,18 +17,27 @@ use App\Policies\ArchivePolicy;
 use App\Policies\EvaluationPolicy;
 use App\Policies\FinalGradePolicy;
 use App\Policies\LeaderboardPolicy;
+use App\Policies\AssessmentWindowPolicy;
+use App\Policies\MarkSubmissionPolicy;
 use App\Policies\MilestonePolicy;
 use App\Policies\ProjectPolicy;
+use App\Policies\SemesterPolicy;
 use App\Policies\SupervisionPolicy;
+use App\Policies\SupervisorAgreementPolicy;
 use App\Policies\UserPolicy;
 use App\Services\ArchiveService;
 use App\Services\AssignmentService;
 use App\Services\AuditLogger;
 use App\Services\EvaluationService;
+use App\Services\ExaminerPairingService;
 use App\Services\LeaderboardService;
+use App\Services\AssessmentWindowService;
+use App\Services\MarkSubmissionService;
 use App\Services\MilestoneService;
 use App\Services\NotificationDispatcher;
+use App\Services\ProposalReviewService;
 use App\Services\ReportingService;
+use App\Services\SemesterService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
@@ -42,9 +54,12 @@ class AppServiceProvider extends ServiceProvider
         Evaluation::class            => EvaluationPolicy::class,
         FinalGrade::class            => FinalGradePolicy::class,
         SupervisionAssignment::class => SupervisionPolicy::class,
+        AcademicSemester::class      => SemesterPolicy::class,
         \App\Models\SupervisorAgreement::class => \App\Policies\SupervisorAgreementPolicy::class,
         Leaderboard::class           => LeaderboardPolicy::class,
         ArchivedProject::class       => ArchivePolicy::class,
+        MarkSubmission::class        => MarkSubmissionPolicy::class,
+        AssessmentWindow::class      => AssessmentWindowPolicy::class,
     ];
 
     public function register(): void
@@ -60,10 +75,15 @@ class AppServiceProvider extends ServiceProvider
         foreach ([
             MilestoneService::class,
             EvaluationService::class,
+            MarkSubmissionService::class,
             AssignmentService::class,
             ReportingService::class,
             LeaderboardService::class,
             ArchiveService::class,
+            ProposalReviewService::class,
+            AssessmentWindowService::class,
+            ExaminerPairingService::class,
+            SemesterService::class,
         ] as $service) {
             $this->app->singleton($service);
         }

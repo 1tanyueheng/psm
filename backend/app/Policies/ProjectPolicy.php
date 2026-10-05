@@ -32,17 +32,17 @@ class ProjectPolicy
             return $this->isMember($actor, $project);
         }
 
-        // A supervisor sees projects they supervise
+        /**
+         * Academic staff see a project they supervise *or* one they are
+         * allocated to as a panel examiner.
+         *
+         * Both halves matter. Being on a panel is a seating, not a role, so a
+         * supervisor examining someone else's student must reach that project —
+         * otherwise they cannot read, or decide the proposal milestone of, the
+         * work they were appointed to examine.
+         */
         if ($actor->isSupervisor()) {
-            return $this->supervises($actor, $project);
-        }
-
-        // An examiner sees only projects they are allocated to
-        if ($actor->isExaminer()) {
-            return $project->examinerAssignments()
-                ->where('examiner_id', $actor->id)
-                ->where('is_active', true)
-                ->exists();
+            return $this->supervises($actor, $project) || $this->examines($actor, $project);
         }
 
         return false;
@@ -121,6 +121,19 @@ class ProjectPolicy
         return $this->approve($actor, $project);
     }
 
+    /**
+     * Move a PSM 1 student into PSM 2.
+     *
+     * Same audience as approving a project, plus a part restriction: the action
+     * archives the project it is called on and creates the PSM 2 successor, so
+     * it must not be reachable against a PSM 2 or BOTH project.
+     */
+    public function progress(User $actor, Project $project): bool
+    {
+        return $this->approve($actor, $project)
+            && $project->psm_part === 'PSM1';
+    }
+
     /** Hard deletion is admin-only and rare; archiving is the normal path. */
     public function delete(User $actor, Project $project): bool
     {
@@ -160,6 +173,22 @@ class ProjectPolicy
             ->whereHas('studentProfile.activeSupervisions', function ($q) use ($supervisorId) {
                 $q->where('supervisor_profile_id', $supervisorId);
             })
+            ->exists();
+    }
+
+    /**
+     * Is this user seated as an examiner on the project?
+     *
+     * Read from `examiner_assignments` — anchored on the student while the panel
+     * is allocated, and stamped with `project_id` once Lampiran B creates the
+     * project. Role is deliberately not checked: the panel is drawn from
+     * supervisors as well as examiners.
+     */
+    protected function examines(User $actor, Project $project): bool
+    {
+        return $project->examinerAssignments()
+            ->where('examiner_id', $actor->id)
+            ->where('is_active', true)
             ->exists();
     }
 

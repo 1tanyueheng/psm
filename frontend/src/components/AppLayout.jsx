@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import ErrorBoundary from './ErrorBoundary'
 import { useAuth } from '../context/AuthContext'
-import { notificationApi } from '../api/endpoints'
+import { notificationApi, registrationApi } from '../api/endpoints'
 import { roleLabel, roleTone } from '../lib/permissions'
 import { initials } from '../lib/format'
 
@@ -25,48 +26,56 @@ const MENU = [
     items: [
       { to: '/student/dashboard', label: 'My Project', roles: ['student'] },
       { to: '/supervisor/dashboard', label: 'My Supervisees', roles: ['supervisor'] },
+      // Same role as the line above, and both are shown to it: a panel is drawn
+      // from the people who supervise, so one account supervises its own
+      // students and sits on the panel of someone else's.
+      { to: '/panel/dashboard', label: 'My Panel Work', roles: ['supervisor'] },
       { to: '/coordinator/dashboard', label: 'Cohort Overview', roles: ['coordinator', 'admin'] },
-      { to: '/examiner/dashboard', label: 'My Assignments', roles: ['examiner'] },
       { to: '/admin/dashboard', label: 'System Overview', roles: ['admin'] },
     ],
   },
   {
-    group: 'Projects',
+    group: 'Cohort',
     items: [
-      { to: '/projects', label: 'All Projects', roles: ['student', 'supervisor', 'coordinator', 'examiner', 'admin'] },
-      { to: '/milestones', label: 'Milestones', roles: ['student', 'supervisor', 'coordinator', 'examiner'] },
+      // The term owns both PSM batches, so it sits above Projects in the
+      // reading order even though almost every screen is scoped by it.
+      { to: '/semesters', label: 'Semesters', roles: ['coordinator', 'admin'] },
+      { to: '/projects', label: 'All Projects', roles: ['student', 'supervisor', 'coordinator', 'admin'] },
+      { to: '/milestones', label: 'Milestones', roles: ['student', 'supervisor', 'coordinator'] },
       { to: '/assignments', label: 'Supervision', roles: ['coordinator', 'admin'] },
+      // Seating a panel is the coordinator's other pairing decision: two
+      // examiners per student, never including their own supervisor.
+      { to: '/assignments/panels', label: 'Examiner Panels', roles: ['coordinator', 'admin'] },
+
+      // Lampiran A → Lampiran B. The student files, the supervisor acknowledges.
+      // The panel does not need this screen: it decides the title at the
+      // project's proposal milestone, which it reaches from its own dashboard.
+      { to: '/registrations', label: 'Registration', roles: ['student', 'supervisor', 'coordinator', 'admin'] },
     ],
   },
   {
     group: 'Assessment',
     items: [
-      { to: '/evaluations', label: 'My Marking', roles: ['supervisor', 'examiner'] },
-      { to: '/grades', label: 'Grades & Release', roles: ['coordinator', 'admin'] },
-      { to: '/rubrics', label: 'Rubrics', roles: ['supervisor', 'examiner', 'coordinator', 'admin'] },
+      { to: '/evaluations', label: 'My Marking', roles: ['supervisor'] },
+      { to: '/assessment', label: 'Assessment', roles: ['coordinator', 'admin'] },
+      { to: '/marks', label: 'Marks & Release', roles: ['coordinator', 'admin'] },
+      { to: '/rubrics', label: 'Rubrics', roles: ['supervisor', 'coordinator', 'admin'] },
     ],
   },
   {
     group: 'Insight',
     items: [
       { to: '/reports', label: 'Reports', roles: ['coordinator', 'admin'] },
-      { to: '/archive', label: 'Archive', roles: ['student', 'supervisor', 'coordinator', 'examiner', 'admin'] },
+      { to: '/archive', label: 'Archive', roles: ['student', 'supervisor', 'coordinator', 'admin'] },
       { to: '/audit', label: 'Audit Log', roles: ['coordinator', 'admin'] },
       { to: '/users', label: 'User Accounts', roles: ['admin'] },
     ],
   },
   {
-    group: 'Recognition',
-    items: [
-      { to: '/leaderboards', label: 'Leaderboards', roles: ['coordinator', 'admin'] },
-      { to: '/leaderboard', label: 'Public Page', roles: ['coordinator', 'admin'], external: true },
-    ],
-  },
-  {
     group: 'Account',
     items: [
-      { to: '/notifications', label: 'Notifications', roles: ['student', 'supervisor', 'coordinator', 'examiner', 'admin'] },
-      { to: '/profile', label: 'My Profile', roles: ['student', 'supervisor', 'coordinator', 'examiner', 'admin'] },
+      { to: '/notifications', label: 'Notifications', roles: ['student', 'supervisor', 'coordinator', 'admin'] },
+      { to: '/profile', label: 'My Profile', roles: ['student', 'supervisor', 'coordinator', 'admin'] },
     ],
   },
 ]
@@ -85,6 +94,7 @@ export default function AppLayout() {
   const location = useLocation()
 
   const [unread, setUnread] = useState(0)
+  const [pendingAcks, setPendingAcks] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
 
   const sections = visibleMenu(user?.role)
@@ -108,6 +118,38 @@ export default function AppLayout() {
       cancelled = true
     }
   }, [location.pathname])
+
+  /**
+   * Lampiran A waiting on this supervisor's acknowledgement.
+   *
+   * Only a supervisor has an action here — a student's own forms and JKPSM's
+   * approval queue are not "waiting on you" in the same sense, so the badge is
+   * scoped to that role rather than shown to everyone who can see the page.
+   *
+   * Same reasoning as the unread count: refetched on navigation, and a failure
+   * is swallowed because the badge is decoration.
+   */
+  useEffect(() => {
+    if (user?.role !== 'supervisor') {
+      setPendingAcks(0)
+      return
+    }
+
+    let cancelled = false
+
+    registrationApi
+      .agreements({ status: 'pending_supervisor' })
+      .then((rows) => {
+        if (!cancelled) setPendingAcks(Array.isArray(rows) ? rows.length : 0)
+      })
+      .catch(() => {
+        // Decoration — see above.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [user?.role, location.pathname])
 
   // Close the mobile drawer on navigation
   useEffect(() => {
@@ -169,6 +211,14 @@ export default function AppLayout() {
                         {item.to === '/notifications' && unread > 0 && (
                           <span className="bg-rose-500 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full">
                             {unread > 99 ? '99+' : unread}
+                          </span>
+                        )}
+                        {item.to === '/registrations' && pendingAcks > 0 && (
+                          <span
+                            className="bg-amber-500 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                            title="Lampiran A awaiting your acknowledgement"
+                          >
+                            {pendingAcks > 99 ? '99+' : pendingAcks}
                           </span>
                         )}
                         {item.external && (
@@ -240,7 +290,11 @@ export default function AppLayout() {
         </div>
 
         <main id="main" className="p-4 sm:p-6 lg:p-8 max-w-[1400px]">
-          <Outlet />
+          {/* Keyed on the path so navigating to another page clears a caught
+              error instead of leaving the fallback on screen. */}
+          <ErrorBoundary key={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

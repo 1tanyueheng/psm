@@ -6,7 +6,7 @@ import {
   Card, PageHeader, Badge, EmptyState, Spinner, ErrorState,
   Button, Input, Select, DataTable, Td,
 } from '../../components/ui'
-import { formatMark, gradeTone, CATEGORY_LABELS } from '../../lib/format'
+import { formatMark, CATEGORY_LABELS } from '../../lib/format'
 
 /**
  * Project archive (Module 7).
@@ -181,7 +181,7 @@ export default function ArchivePage() {
             message={
               hasFilters
                 ? 'No archived project matches those filters.'
-                : 'The archive is empty. Projects are added once grades are released.'
+                : 'The archive is empty. Projects are added once marks are released.'
             }
           />
         </Card>
@@ -212,7 +212,11 @@ export default function ArchivePage() {
                         )}
                         {row.is_public && <Badge tone="success">public</Badge>}
                       </div>
-                      {row.keywords?.length > 0 && (
+                      {/* Array.isArray, not `?.length`: a string also has a
+                          length, and when the keyword column arrived as a
+                          comma-separated string `.slice().map()` threw and
+                          blanked the page. */}
+                      {Array.isArray(row.keywords) && row.keywords.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
                           {row.keywords.slice(0, 4).map((kw) => (
                             <span
@@ -255,19 +259,12 @@ export default function ArchivePage() {
                         .join(', ') || '—'}
                     </Td>
                     <Td>
-                      {row.grade_letter ? (
-                        <span
-                          className={`rounded px-1.5 py-0.5 text-sm font-semibold ${gradeTone(row.grade_letter)}`}
-                        >
-                          {row.grade_letter}
+                      {row.final_mark != null ? (
+                        <span className="text-sm font-semibold tabular-nums text-slate-700">
+                          {formatMark(row.final_mark)}
                         </span>
                       ) : (
                         <span className="text-sm text-slate-400">—</span>
-                      )}
-                      {row.final_mark != null && (
-                        <div className="mt-0.5 text-xs tabular-nums text-slate-400">
-                          {formatMark(row.final_mark)}
-                        </div>
                       )}
                     </Td>
                   </tr>

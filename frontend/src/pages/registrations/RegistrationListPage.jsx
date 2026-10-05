@@ -16,8 +16,7 @@ import {
  */
 const STATUS = {
   pending_supervisor: { label: 'Awaiting supervisor', tone: 'amber' },
-  pending_jkpsm:      { label: 'Awaiting JKPSM',      tone: 'sky' },
-  approved:           { label: 'Approved',            tone: 'emerald' },
+  approved:           { label: 'Acknowledged',        tone: 'emerald' },
   rejected:           { label: 'Rejected',            tone: 'rose' },
   cancelled:          { label: 'Cancelled',           tone: 'slate' },
 }
@@ -99,14 +98,14 @@ export default function RegistrationListPage() {
                   <tr key={row.id} className="border-t border-slate-100">
                     <td className="px-4 py-3">
                       <span className="font-medium text-slate-700">
-                        {row.student_profile?.user?.name ?? '—'}
+                        {row.student?.name ?? '—'}
                       </span>
                       <span className="block text-xs text-slate-400">
-                        {row.student_profile?.student_id}
+                        {row.student?.student_id}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                      {row.supervisor_profile?.user?.name ?? '—'}
+                      {row.supervisor?.name ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-slate-600">{row.session}</td>
                     <td className="px-4 py-3 text-slate-600">{row.psm_part}</td>

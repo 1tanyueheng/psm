@@ -2,11 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { projectApi } from '../../api/endpoints'
 import { useAuth } from '../../context/AuthContext'
+import { useSemesters } from '../../context/SemesterContext'
 import {
   Card, PageHeader, Badge, Avatar, ProgressBar, EmptyState,
   Spinner, ErrorState, Button, Select, Input, DataTable, Td,
+  FilterBar, FilterField, SegmentedControl,
 } from '../../components/ui'
 import { formatDate, isOverdue, CATEGORY_LABELS, PROJECT_STATUS, statusMeta } from '../../lib/format'
+import { PSM_PART_BADGE_TONES, PSM_PARTS, partLabel, normalisePart } from '../../lib/psmPart'
 
 /**
  * Project list.
@@ -16,10 +19,16 @@ import { formatDate, isOverdue, CATEGORY_LABELS, PROJECT_STATUS, statusMeta } fr
  * own roster, a coordinator wants unpaired projects, an examiner wants the ones
  * they assess. The API scopes results to the caller, so the filters refine
  * rather than broaden.
+ *
+ * The term comes from SemesterContext rather than the URL, so it stays in step
+ * with every other screen — a report and a project list showing different terms
+ * would be worse than a link that does not encode one. Batch, status, category
+ * and search stay in the URL because they are specific to this screen.
  */
 export default function ProjectListPage() {
   const { user } = useAuth()
   const [params, setParams] = useSearchParams()
+  const { selected, selectedId, options: semesterOptions, selectSemester } = useSemesters()
 
   const [rows, setRows] = useState([])
   const [meta, setMeta] = useState(null)
@@ -29,7 +38,7 @@ export default function ProjectListPage() {
   const search = params.get('q') ?? ''
   const status = params.get('status') ?? ''
   const category = params.get('category') ?? ''
-  const psmPart = params.get('psm_part') ?? ''
+  const psmPart = normalisePart(params.get('psm_part')) ?? ''
   const page = Number(params.get('page') ?? 1)
 
   const setFilter = useCallback(
@@ -53,14 +62,23 @@ export default function ProjectListPage() {
       setError(null)
       try {
         const res = await projectApi.list({
-          q: search || undefined,
+          // The API's parameter is `search`, not `q` — sending `q` was silently
+          // ignored, so typing in the search box appeared to do nothing.
+          search: search || undefined,
           status: status || undefined,
           category: category || undefined,
+          // An empty part is left out rather than sent blank: the API reads a
+          // missing `psm_part` as *both* batches, which is what "All batches"
+          // should mean.
           psm_part: psmPart || undefined,
+          semester_id: selectedId ?? undefined,
           page,
           per_page: 15,
         })
-        const { items, meta: pageMeta } = unwrapPagedLocal(res)
+        // projectApi.list already normalises the envelope to { items, meta },
+        // so it is used as-is. Re-reading `res.data` here yielded undefined and
+        // the list silently rendered as empty.
+        const { items, meta: pageMeta } = res
         if (cancelled) return
         setRows(items)
         setMeta(pageMeta)
@@ -75,7 +93,7 @@ export default function ProjectListPage() {
     return () => {
       cancelled = true
     }
-  }, [search, status, category, psmPart, page])
+  }, [search, status, category, psmPart, selectedId, page])
 
   const canRegister = user?.role === 'student'
 
@@ -83,36 +101,53 @@ export default function ProjectListPage() {
     <div className="space-y-6">
       <PageHeader
         title="Projects"
-        subtitle={meta ? `${meta.total} project${meta.total === 1 ? '' : 's'}` : undefined}
-        actions={
+        subtitle={
+          [
+            meta ? `${meta.total} project${meta.total === 1 ? '' : 's'}` : null,
+            selected?.name,
+          ]
+            .filter(Boolean)
+            .join(' · ') || undefined
+        }
+        action={
           canRegister ? (
-            <Link to="/projects/register">
+            <Link to="/registrations/new">
               <Button>Register a project</Button>
             </Link>
           ) : null
         }
       />
 
-      <Card>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Input
-            type="search"
-            placeholder="Search title or student"
-            defaultValue={search}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') setFilter('q', e.currentTarget.value.trim())
-            }}
-            aria-label="Search projects"
-          />
+      <FilterBar>
+        <FilterField label="Semester">
           <Select
-            value={psmPart}
-            onChange={(e) => setFilter('psm_part', e.target.value)}
-            aria-label="Filter by PSM part"
+            value={selectedId ?? ''}
+            onChange={(event) => selectSemester(event.target.value)}
+            className="min-w-[12rem]"
+            aria-label="Filter by semester"
           >
-            <option value="">All parts</option>
-            <option value="PSM1">PSM1</option>
-            <option value="PSM2">PSM2</option>
+            {semesterOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+                {option.active ? ' (active)' : ''}
+              </option>
+            ))}
           </Select>
+        </FilterField>
+
+        <FilterField label="Batch">
+          <SegmentedControl
+            value={psmPart}
+            onChange={(value) => setFilter('psm_part', value)}
+            name="project_part"
+            options={[
+              { value: '', label: 'All batches' },
+              ...PSM_PARTS.map((value) => ({ value, label: partLabel(value, { short: true }) })),
+            ]}
+          />
+        </FilterField>
+
+        <FilterField label="Category" className="min-w-[10rem]">
           <Select
             value={category}
             onChange={(e) => setFilter('category', e.target.value)}
@@ -125,32 +160,48 @@ export default function ProjectListPage() {
               </option>
             ))}
           </Select>
+        </FilterField>
+
+        <FilterField label="Status">
           <Select
             value={status}
             onChange={(e) => setFilter('status', e.target.value)}
             aria-label="Filter by status"
           >
             <option value="">All statuses</option>
-            {Object.entries(PROJECT_STATUS).map(([value, meta]) => (
+            {Object.entries(PROJECT_STATUS).map(([value, meta2]) => (
               <option key={value} value={value}>
-                {meta.label}
+                {meta2.label}
               </option>
             ))}
           </Select>
+        </FilterField>
+
+        <FilterField label="Search" className="min-w-[14rem] flex-1">
+          <Input
+            type="search"
+            placeholder="Title, code, or student"
+            defaultValue={search}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') setFilter('q', e.currentTarget.value.trim())
+            }}
+            aria-label="Search projects"
+          />
+        </FilterField>
+      </FilterBar>
+
+      {(search || status || category || psmPart) && (
+        <div className="flex items-center gap-2 text-sm text-slate-500">
+          <span>Filters active</span>
+          <button
+            type="button"
+            onClick={() => setParams(new URLSearchParams(), { replace: true })}
+            className="font-medium text-brand-700 hover:underline"
+          >
+            Clear all
+          </button>
         </div>
-        {(search || status || category || psmPart) && (
-          <div className="mt-3 flex items-center gap-2 text-sm text-slate-500">
-            <span>Filters active</span>
-            <button
-              type="button"
-              onClick={() => setParams(new URLSearchParams(), { replace: true })}
-              className="font-medium text-brand-700 hover:underline"
-            >
-              Clear all
-            </button>
-          </div>
-        )}
-      </Card>
+      )}
 
       {loading ? (
         <Spinner label="Loading projects" />
@@ -169,7 +220,7 @@ export default function ProjectListPage() {
             }
             action={
               canRegister && !search && !status ? (
-                <Link to="/projects/register">
+                <Link to="/registrations/new">
                   <Button>Register a project</Button>
                 </Link>
               ) : null
@@ -180,7 +231,7 @@ export default function ProjectListPage() {
         <Card className="overflow-hidden p-0">
           <div className="overflow-x-auto">
             <DataTable
-              columns={['Project', 'Student', 'Part', 'Category', 'Progress', 'Next milestone', 'Status']}
+              columns={['Project', 'Student', 'Part', 'Semester', 'Category', 'Progress', 'Next milestone', 'Status']}
             >
               {rows.map((project) => (
                 <tr key={project.id} className="hover:bg-slate-50/60">
@@ -209,9 +260,17 @@ export default function ProjectListPage() {
                     </div>
                   </Td>
                   <Td>
-                    <Badge tone={project.psm_part === 'PSM2' ? 'brand' : 'neutral'}>
-                      {project.psm_part}
-                    </Badge>
+                    <span
+                      className={`inline-block rounded border px-1.5 py-0.5 text-[11px] font-medium ${
+                        PSM_PART_BADGE_TONES[normalisePart(project.psm_part)] ??
+                        PSM_PART_BADGE_TONES.BOTH
+                      }`}
+                    >
+                      {partLabel(project.psm_part, { short: true })}
+                    </span>
+                  </Td>
+                  <Td className="text-xs text-slate-500">
+                    {project.academic_semester?.name ?? project.academic_session ?? '—'}
                   </Td>
                   <Td className="text-sm text-slate-600">
                     {CATEGORY_LABELS[project.category] ?? project.category}
@@ -220,27 +279,27 @@ export default function ProjectListPage() {
                     <div className="flex items-center gap-2">
                       <div className="w-20">
                         <ProgressBar
-                          value={project.progress_percent ?? 0}
-                          tone={project.progress_percent >= 70 ? 'success' : 'brand'}
+                          value={project.milestone_progress ?? 0}
+                          tone={(project.milestone_progress ?? 0) >= 70 ? 'success' : 'brand'}
                         />
                       </div>
                       <span className="text-xs tabular-nums text-slate-500">
-                        {project.progress_percent ?? 0}%
+                        {project.milestone_progress ?? 0}%
                       </span>
                     </div>
                   </Td>
                   <Td>
-                    {project.next_milestone_name ? (
+                    {project.next_milestone ? (
                       <>
-                        <div className="text-sm text-slate-700">{project.next_milestone_name}</div>
+                        <div className="text-sm text-slate-700">{project.next_milestone.title}</div>
                         <div
                           className={`text-xs ${
-                            isOverdue(project.next_milestone_due_at)
+                            isOverdue(project.next_milestone.due_at)
                               ? 'text-rose-600'
                               : 'text-slate-400'
                           }`}
                         >
-                          {formatDate(project.next_milestone_due_at, { fallback: 'no date' })}
+                          {formatDate(project.next_milestone.due_at, { fallback: 'no date' })}
                         </div>
                       </>
                     ) : (
@@ -284,15 +343,6 @@ export default function ProjectListPage() {
       )}
     </div>
   )
-}
-
-/** Paged responses carry `meta` alongside `data` — see `ApiController::paginated()`. */
-function unwrapPagedLocal(response) {
-  const body = response?.data ?? {}
-  return {
-    items: body.data ?? [],
-    meta: body.meta ?? null,
-  }
 }
 
 export function StatusBadge({ status }) {
