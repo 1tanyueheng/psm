@@ -6,8 +6,8 @@ import api, { unwrap, unwrapPaged, saveDownload } from './client'
  * Method names follow the backend routes (`routes/api.php`) so that a route
  * and its client are easy to match up. A few aliases exist where a screen has
  * a natural name for an operation that differs from the controller — for
- * example `projectApi.registerMeta` for `/projects/options`. Every alias is
- * annotated so the real route stays discoverable.
+ * example `projectApi.registerMeta` for `/projects/registration-meta`. Every
+ * alias is annotated so the real route stays discoverable.
  *
  * Components never touch Axios directly, so a change to the transport stays in
  * this file plus `client.js`.
@@ -277,8 +277,19 @@ export const projectApi = {
     api.post('/projects/rollover', { project_ids: projectIds }).then(unwrap),
 
   // --- Aliases -----------------------------------------------------------
-  /** Registration screen metadata — categories, sessions, supervisor list. */
-  registerMeta: () => api.get('/projects/options').then(unwrap),
+  /**
+   * Registration screen metadata — supervisors with room, PSM parts, and the
+   * term registration is open for.
+   *
+   * Points at `/projects/registration-meta`, **not** `/projects/options`. The
+   * two are unrelated: `options` returns a value/label list of *projects* for a
+   * `<Select>`, while `registration-meta` is the payload the Lampiran A and
+   * register-a-project forms read `supervisors` from. This alias used to call
+   * `options`, so `data.supervisors` was always undefined and both forms
+   * silently rendered an empty supervisor dropdown — with no error, because a
+   * missing key reads as an empty list.
+   */
+  registerMeta: () => api.get('/projects/registration-meta').then(unwrap),
 }
 
 export const milestoneApi = {
