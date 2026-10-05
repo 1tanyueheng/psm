@@ -77,6 +77,16 @@ class RegistrationController extends ApiController
              * working while it is migrated to reading the semester from context.
              */
             'session'               => ['nullable', 'string', 'max:32'],
+
+            /**
+             * Accepted and ignored.
+             *
+             * Lampiran A registers PSM 1 only — `submitAgreement()` hard-codes
+             * the part. PSM 2 is inherited through progression, so it has no
+             * registration step to file. The field is kept in the rules rather
+             * than removed so a client still sending it is not rejected for a
+             * field the server simply ignores.
+             */
             'psm_part'              => ['nullable', 'in:PSM1,PSM2,BOTH'],
 
             /**

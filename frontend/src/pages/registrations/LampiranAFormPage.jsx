@@ -113,12 +113,21 @@ export default function LampiranAFormPage() {
                 placeholder="e.g. 2025/2026 Semester I"
               />
             </Field>
-            <Field label="PSM part" htmlFor="psm_part" required error={errors?.psm_part}>
-              <Select id="psm_part" value={form.psm_part} onChange={update('psm_part')} required>
-                <option value="PSM1">PSM1</option>
-                <option value="PSM2">PSM2</option>
-                <option value="BOTH">BOTH</option>
-              </Select>
+            {/*
+              Fixed to PSM 1, shown rather than chosen.
+
+              PSM 2 is not registered by a student — it is inherited. PSM 1 and
+              PSM 2 are one project across two continuous terms on one title, and
+              the move into PSM 2 happens through the PSM 2 Rollover screen,
+              which carries the title, supervisor and panel forward. Offering
+              PSM 2 here invited a second Lampiran A for a part that has no
+              registration step.
+            */}
+            <Field
+              label="PSM part"
+              hint="Lampiran A registers PSM 1. PSM 2 continues this project and is carried over, not registered again."
+            >
+              <Input value="PSM 1" readOnly disabled />
             </Field>
           </div>
         </Card>

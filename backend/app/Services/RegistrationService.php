@@ -63,6 +63,24 @@ class RegistrationService
         $semester = $this->semesters->assertRegistrationOpen();
         $supervisor = SupervisorProfile::findOrFail($data['supervisor_profile_id']);
 
+        $this->assertStudentMayRegister($student, $semester);
+
+        /**
+         * Lampiran A registers **PSM 1 only**.
+         *
+         * PSM 2 is not registered by a student — it is inherited. PSM 1 and
+         * PSM 2 are one project across two continuous terms on one title:
+         * `ProgressionService` carries the title, supervisor and panel forward
+         * and creates the PSM 2 project itself. Accepting `psm_part = PSM2` here
+         * let a student file a second Lampiran A for a part that has no
+         * registration step, which put a PSM 2 agreement on record with no
+         * project behind it and no progression to answer for it.
+         *
+         * Hard-coded rather than validated-and-rejected, so there is no value a
+         * client can send that produces a PSM 2 agreement.
+         */
+        $psmPart = 'PSM1';
+
         $agreement = SupervisorAgreement::create([
             'student_profile_id'    => $student->id,
             'supervisor_profile_id' => $supervisor->id,
@@ -94,7 +112,7 @@ class RegistrationService
              * returns nothing to its own student.
              */
             'academic_semester_id'  => $semester->id,
-            'psm_part'              => $data['psm_part'] ?? 'BOTH',
+            'psm_part'              => $psmPart,
             'proposed_title_1'      => $data['proposed_title_1'],
             'proposed_title_2'      => $data['proposed_title_2'] ?? null,
             'proposed_title_3'      => $data['proposed_title_3'] ?? null,
@@ -237,6 +255,77 @@ class RegistrationService
 
             return $agreement->fresh();
         });
+    }
+
+    /**
+     * May this student start a registration in this term?
+     *
+     * Two ways they may not, and the second is the one that actually bit:
+     *
+     *  1. **A project already exists.** They registered successfully. Lampiran A
+     *     is where a title is proposed and a supervisor is agreed; a student who
+     *     already holds that project has nothing left to propose, and a second
+     *     agreement would leave two registrations that no rule reconciles.
+     *     Checked *before* the agreement check so the message names the project
+     *     the student already has.
+     *
+     *  2. **An agreement is already open.** Pending or approved means the
+     *     registration is in flight. Refiling would abandon the first one — and
+     *     if the supervisor had already acknowledged it and registered the
+     *     pairing, the replacement would silently disagree with that decision.
+     *
+     * A cancelled or rejected agreement is deliberately *not* a block: a student
+     * whose supervisor declined must be able to name someone else, and a
+     * cancelled attempt is exactly the case re-registration exists for.
+     *
+     * Scoped to the term, so a previous term's registration never blocks this
+     * one — which is what would otherwise stop every progressing student from
+     * ever registering again.
+     *
+     * @throws InvalidArgumentException
+     */
+    protected function assertStudentMayRegister(StudentProfile $student, AcademicSemester $semester): void
+    {
+        $existingProject = $student->projects()
+            ->where('academic_semester_id', $semester->id)
+            ->whereNull('archived_at')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($existingProject !== null) {
+            throw new InvalidArgumentException(
+                "You already have a project registered for {$semester->name} — "
+                ."{$existingProject->code} ({$existingProject->title}). "
+                .'A title is registered once. Submit work against that project instead, or ask '
+                .'your coordinator if you need to register a different one.'
+            );
+        }
+
+        $openAgreement = SupervisorAgreement::query()
+            ->where('student_profile_id', $student->id)
+            ->when(
+                $semester->id !== null,
+                fn ($q) => $q->where('academic_semester_id', $semester->id)
+            )
+            ->whereIn('status', [
+                SupervisorAgreement::STATUS_PENDING_SUPERVISOR,
+                SupervisorAgreement::STATUS_APPROVED,
+            ])
+            ->orderByDesc('id')
+            ->first();
+
+        if ($openAgreement === null) {
+            return;
+        }
+
+        throw new InvalidArgumentException(
+            $openAgreement->status === SupervisorAgreement::STATUS_APPROVED
+                ? 'Your Lampiran A for this semester has already been acknowledged by your '
+                    .'supervisor, so there is nothing left to submit. File Lampiran B to register '
+                    .'the agreed title.'
+                : 'You already have a Lampiran A awaiting your supervisor\'s acknowledgement for '
+                    .'this semester. Withdraw it first if you need to name a different supervisor.'
+        );
     }
 
     // -----------------------------------------------------------------
