@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AuditAction;
 use App\Models\ArchivedProject;
 use App\Models\Project;
+use App\Models\SupervisionAssignment;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -83,6 +84,8 @@ class ArchiveService
                 'archived_at' => now(),
             ]);
 
+            $this->closeSupervisionIfStudentHasNoLiveProject($project);
+
             $this->audit->log(
                 action: AuditAction::ProjectArchived,
                 description: "Archived {$project->code} ({$project->title})",
@@ -92,6 +95,55 @@ class ArchiveService
 
             return $record;
         });
+    }
+
+    /**
+     * End the supervisions that this archive actually ended.
+     *
+     * Archiving used to leave the `supervision_assignments` rows `is_active`, so
+     * a retired project kept consuming its supervisor's capacity forever. The
+     * capacity gate happens to scope its count to live projects in the current
+     * term, which hid the drift there — but the unscoped reads (`currentLoad()`,
+     * `isFull()`, and so the `available` flag on every supervisor picker) counted
+     * the stale rows, and one supervisor was showing three PSM 1 students
+     * against a ceiling of two.
+     *
+     * **Only when the student has no other live project.** That distinction is
+     * the whole subtlety: `ProgressionService` archives the PSM 1 project while
+     * the student continues into PSM 2 under the *same* supervision, which it
+     * has just widened to `BOTH` — and it archives at the end of its
+     * transaction, after that widening. Closing the pairing here would therefore
+     * un-supervise every progressing student. A student with a live project
+     * still needs supervising; a student with none does not.
+     *
+     * Matched on the project's own members rather than a single leader: a
+     * project may in principle have co-members, and each of their pairings is
+     * ended by the same logic.
+     */
+    protected function closeSupervisionIfStudentHasNoLiveProject(Project $project): void
+    {
+        foreach ($project->members as $member) {
+            $studentId = $member->student_profile_id;
+
+            $stillLive = Project::query()
+                ->whereHas('members', fn ($q) => $q->where('student_profile_id', $studentId))
+                ->whereNull('archived_at')
+                ->whereKeyNot($project->id)
+                ->exists();
+
+            if ($stillLive) {
+                continue;
+            }
+
+            SupervisionAssignment::query()
+                ->where('student_profile_id', $studentId)
+                ->where('is_active', true)
+                ->update([
+                    'is_active'  => false,
+                    'ended_at'   => now(),
+                    'end_reason' => "Project {$project->code} archived",
+                ]);
+        }
     }
 
     /**

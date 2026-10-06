@@ -500,30 +500,79 @@ class UserController extends ApiController
     {
         $role = $request->input('role', 'supervisor');
 
+        /**
+         * Capacity is reported the way it is *enforced*.
+         *
+         * This used to return `max_supervisees` (the legacy flat column) as
+         * `capacity` and `currentLoad()` (every term, ever) as `load`, while the
+         * allocation gate checks `capacityForPart()` against
+         * `currentLoadByPartInSemester()`. The two disagreed, so a picker could
+         * show "3 / 8 — available" for a supervisor whose real PSM 1 ceiling was
+         * 2 and who was already at 2/2, and the allocation was then refused with
+         * a message about a limit the screen had never displayed.
+         *
+         * The per-part figures travel alongside, because a single number cannot
+         * express the rule: a supervisor can be full in PSM 1 and still have
+         * room in PSM 2, and the picker needs to say which.
+         */
+        $semesterId = AcademicSemester::resolveFilterId($request->input('semester_id'));
+
         $users = User::query()
             ->active()
             ->withRole($role)
             ->with(['supervisorProfile', 'studentProfile'])
             ->orderBy('name')
             ->get()
-            ->map(fn (User $u) => [
-                'value' => $u->id,
-                'label' => $u->displayName(),
-                'meta'  => match ($role) {
-                    'student' => [
-                        'student_id' => $u->studentProfile?->student_id,
-                        'batch'      => $u->studentProfile?->batch,
-                        'program'    => $u->studentProfile?->program,
+            ->map(function (User $u) use ($role, $semesterId) {
+                if ($role !== 'supervisor') {
+                    return [
+                        'value' => $u->id,
+                        'label' => $u->displayName(),
+                        'meta'  => match ($role) {
+                            'student' => [
+                                'student_id' => $u->studentProfile?->student_id,
+                                'batch'      => $u->studentProfile?->batch,
+                                'program'    => $u->studentProfile?->program,
+                            ],
+                            default => [],
+                        },
+                    ];
+                }
+
+                $profile = $u->supervisorProfile;
+
+                $capacityByPart = $profile?->capacityByPart() ?? [];
+                $loadByPart = $profile?->currentLoadByPartInSemester($semesterId) ?? [];
+
+                // Room left in each part, so a picker can say *which* batch a
+                // supervisor is full in rather than only that they are full.
+                $remainingByPart = [];
+
+                foreach (array_keys($capacityByPart) as $part) {
+                    $remainingByPart[$part] = max(0, $capacityByPart[$part] - ($loadByPart[$part] ?? 0));
+                }
+
+                return [
+                    'value' => $u->id,
+                    'label' => $u->displayName(),
+                    'meta'  => [
+                        'staff_no'          => $profile?->staff_no,
+                        // The aggregate, kept for callers that predate per-part
+                        // caps — and measured the same way the gate measures it,
+                        // so it cannot contradict the parts beside it.
+                        'capacity'          => $profile?->effectiveTotalCapacity(),
+                        'load'              => array_sum($loadByPart),
+                        'capacity_by_part'  => $capacityByPart,
+                        'load_by_part'      => $loadByPart,
+                        'remaining_by_part' => $remainingByPart,
+                        // "Has room in some batch" — the same meaning as before,
+                        // but scoped to the term being allocated into.
+                        'available'         => $profile !== null
+                            && $profile->is_accepting_students
+                            && ! $profile->isFullInSemester($semesterId),
                     ],
-                    'supervisor' => [
-                        'staff_no'   => $u->supervisorProfile?->staff_no,
-                        'capacity'   => $u->supervisorProfile?->max_supervisees,
-                        'load'       => $u->supervisorProfile?->currentLoad(),
-                        'available'  => $u->isAvailableSupervisor(),
-                    ],
-                    default => [],
-                },
-            ]);
+                ];
+            });
 
         return $this->ok($users);
     }
