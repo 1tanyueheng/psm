@@ -85,6 +85,19 @@ class AssignmentService
             );
         }
 
+        /**
+         * Programme first, then capacity.
+         *
+         * Order matters for the message the coordinator reads: "no capacity" is
+         * misleading when the real reason is that this supervisor could never
+         * take this student, and a coordinator would go looking for a free slot
+         * that does not exist for them. The programme is a property of who the
+         * person is, so it is the more fundamental refusal.
+         */
+        if ($refusal = $supervisor->programmeRefusal($student->program_code, $student->student_id)) {
+            throw new InvalidArgumentException($refusal);
+        }
+
         // The student's own enrolment decides which term's cap applies. Taking it from
         // the student rather than a new parameter means the gate cannot be called
         // the old all-terms way by a caller that simply forgets to pass one — a
@@ -522,6 +535,26 @@ class AssignmentService
                 "{$examiner->name} supervises this student and cannot also examine them "
                 .'(conflict of interest).'
             );
+        }
+
+        /**
+         * An examiner examines only their own programme, same as supervision.
+         *
+         * This is the rule the faculty actually states, and it is not the same as
+         * the conflict-of-interest check above: that one stops a *supervisor*
+         * examining their own student, this one stops anyone examining outside
+         * their programme. A panel could otherwise be fully "legal" by the
+         * conflict rule while every member came from the wrong programme.
+         *
+         * Read through the examiner's supervisor profile, because a panel is drawn
+         * from the people who supervise — there is no separate examiner record.
+         */
+        $examinerProfile = $examiner->supervisorProfile;
+
+        if ($examinerProfile !== null
+            && ($refusal = $examinerProfile->programmeRefusal($student->program_code, $student->student_id))
+        ) {
+            throw new InvalidArgumentException($refusal);
         }
 
         $existing = ExaminerAssignment::query()

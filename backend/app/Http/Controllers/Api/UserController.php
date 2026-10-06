@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\AuditAction;
+use App\Enums\Programme;
 use App\Enums\Role;
 use App\Http\Controllers\ApiController;
 use App\Http\Resources\UserResource;
@@ -131,6 +132,17 @@ class UserController extends ApiController
 
             // Supervisor profile
             'staff_no'          => ['required_if:role,supervisor', 'nullable', 'string', 'max:32', 'unique:supervisor_profiles,staff_no'],
+            /**
+             * FSKTM programme ownership.
+             *
+             * Required for a supervisor: this field decides which students they
+             * may supervise and examine, so an account created without it can
+             * take anyone — which is exactly the cross-programme allocation the
+             * rule exists to prevent. Optional at the database level (a legacy
+             * row may predate the rule) but not at this entry point, which is
+             * the only place a supervisor is created.
+             */
+            'programme'         => ['required_if:role,supervisor', 'nullable', Rule::in(Programme::values())],
             'academic_title'    => ['nullable', 'string', 'max:64'],
             'max_supervisees'   => ['nullable', 'integer', 'min:0', 'max:50'],
             'expertise_area_ids'=> ['sometimes', 'array'],
@@ -237,6 +249,7 @@ class UserController extends ApiController
                 Role::Supervisor => tap(SupervisorProfile::create([
                     'user_id'          => $user->id,
                     'staff_no'         => $validated['staff_no'],
+                    'programme'        => $validated['programme'] ?? null,
                     'academic_title'   => $validated['academic_title'] ?? null,
                     'max_supervisees'  => $validated['max_supervisees']
                         ?? config('psm.supervisor_max_capacity', 8),
@@ -311,6 +324,7 @@ class UserController extends ApiController
             'batch'        => ['sometimes', 'string', 'max:32'],
             'thesis_title' => ['nullable', 'string', 'max:255'],
 
+            'programme'        => ['sometimes', 'nullable', Rule::in(Programme::values())],
             'academic_title'   => ['nullable', 'string', 'max:64'],
             'max_supervisees'  => ['sometimes', 'integer', 'min:0', 'max:50'],
             'is_accepting_students' => ['sometimes', 'boolean'],
@@ -342,7 +356,7 @@ class UserController extends ApiController
 
             if ($user->isSupervisor() && $user->supervisorProfile) {
                 $user->supervisorProfile->fill(collect($validated)->only([
-                    'academic_title', 'max_supervisees', 'is_accepting_students',
+                    'programme', 'academic_title', 'max_supervisees', 'is_accepting_students',
                 ])->all())->save();
 
                 if (array_key_exists('expertise_area_ids', $validated)) {

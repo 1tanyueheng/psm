@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Programme;
 use App\Enums\PsmPart;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,6 +24,7 @@ class SupervisorProfile extends Model
     protected $fillable = [
         'user_id',
         'staff_no',
+        'programme',
         'academic_title',
         'office_location',
         'max_supervisees',
@@ -41,12 +43,73 @@ class SupervisorProfile extends Model
             'max_supervisees_psm2'    => 'integer',
             'is_accepting_students'   => 'boolean',
             'workload_release_percent'=> 'decimal:2',
+            'programme'               => Programme::class,
         ];
     }
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    // -----------------------------------------------------------------
+    // Programme ownership
+    // -----------------------------------------------------------------
+
+    /**
+     * May this supervisor take students from the given programme?
+     *
+     * FSKTM's rule: a supervisor supervises — and an examiner examines — only
+     * students from their own programme. Enforced through one method so the
+     * allocation gate, the panel gate and the suggestion lists cannot drift
+     * apart, which is how the capacity rule drifted before it.
+     *
+     * **An unknown programme on either side permits the pairing.** That is a
+     * deliberate fail-open, and the reasoning is worth stating because it is the
+     * opposite of the usual instinct: this rule is additive and new, most
+     * existing staff rows have no programme recorded, and failing closed would
+     * refuse every allocation in the faculty until somebody filled in a field
+     * that did not exist yesterday. The rule bites as soon as the data is there,
+     * and a null is visibly "not yet recorded" rather than silently "matches".
+     *
+     * Compare `hasCapacityForInSemester()`, which fails *closed* — there, a null
+     * means capacity zero and permitting would over-allocate a real person.
+     */
+    public function canSuperviseProgramme(mixed $programme): bool
+    {
+        $student = Programme::tryParse($programme);
+
+        if ($student === null || $this->programme === null) {
+            return true;
+        }
+
+        return $this->programme === $student;
+    }
+
+    /**
+     * The refusal message, or null when the pairing is allowed.
+     *
+     * Returned rather than thrown so the caller can compose it with the capacity
+     * refusal — a coordinator needs to know *which* rule blocked them, and
+     * "no capacity" would be misleading when the real reason is the programme.
+     */
+    public function programmeRefusal(mixed $programme, ?string $studentLabel = null): ?string
+    {
+        if ($this->canSuperviseProgramme($programme)) {
+            return null;
+        }
+
+        $student = Programme::tryParse($programme);
+        $who = $studentLabel !== null ? $studentLabel : 'This student';
+
+        return sprintf(
+            '%s is on %s, but %s supervises %s. FSKTM pairs staff with students from their '
+            .'own programme only.',
+            $who,
+            $student?->label() ?? (string) $programme,
+            $this->user?->name ?? 'this supervisor',
+            $this->programme?->label() ?? 'a different programme',
+        );
     }
 
     // -----------------------------------------------------------------
