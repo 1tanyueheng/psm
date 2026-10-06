@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { assessmentWindowApi } from '../../api/endpoints'
 import { unwrap } from '../../api/client'
@@ -13,11 +13,11 @@ import { PSM_PARTS, partLabel, PSM_PART_BADGE_TONES } from '../../lib/psmPart'
 import { formatDateTime } from '../../lib/format'
 
 /**
- * Coordinator — the assessment window.
+ * Coordinator â€” the assessment window.
  *
  * One event per (term, batch) that the coordinator opens when marking should
  * begin. Opening it is the whole job: it allocates every Lampiran the batch
- * needs — Lampiran E to each supervisor, I to both panel examiners for PSM 1 —
+ * needs â€” Lampiran E to each supervisor, I to both panel examiners for PSM 1 â€”
  * and only then does it start accepting marks. Assessors then pick a student
  * and file their form.
  *
@@ -52,7 +52,7 @@ export default function AssessmentWindowPage() {
    * A single source of truth on purpose. It used to be duplicated: a
    * `windowId` state for "which row is selected" *and* an inline fetch that set
    * `detail`. Selecting a row then called `act()`, which reloaded the list, and
-   * `load` read the id frozen in its closure — the previous window — found it
+   * `load` read the id frozen in its closure â€” the previous window â€” found it
    * still present, and re-selected it. Clicking a window appeared to do nothing.
    */
   const [needsDetail, setNeedsDetail] = useState(null)
@@ -79,7 +79,7 @@ export default function AssessmentWindowPage() {
    * Read the window list.
    *
    * `quiet` skips the full-page skeleton for a refresh the user did not ask for
-   * and does not need to see — after an open/close the button already shows a
+   * and does not need to see â€” after an open/close the button already shows a
    * busy state, and replacing the whole page with "Loading assessment windows"
    * loses their place.
    */
@@ -115,7 +115,7 @@ export default function AssessmentWindowPage() {
   }, [load])
 
   // The detail fetch is a separate effect so `load` does not have to be async
-  // about two different things — and so selecting a window does not refetch the
+  // about two different things â€” and so selecting a window does not refetch the
   // list it was selected from.
   useEffect(() => {
     if (needsDetail == null) {
@@ -213,7 +213,7 @@ export default function AssessmentWindowPage() {
           onCreated={async (created) => {
             setShowCreate(false)
             // Select the new window through the same path a click uses, then
-            // refresh the list — the ref keeps the selection across that reload.
+            // refresh the list â€” the ref keeps the selection across that reload.
             if (created?.id != null) selectWindow(created.id)
             await load()
             setNotice('Assessment window created. Open it when marking should begin.')
@@ -238,7 +238,7 @@ export default function AssessmentWindowPage() {
                 <li key={w.id}>
                   <button
                     type="button"
-                    // Selecting is a local, synchronous act — no reload, so the
+                    // Selecting is a local, synchronous act â€” no reload, so the
                     // choice cannot be overwritten by the list refetching itself.
                     onClick={() => selectWindow(w.id)}
                     className={`w-full py-3 pl-3 text-left transition ${
@@ -254,7 +254,7 @@ export default function AssessmentWindowPage() {
                       <span className="truncate text-sm font-medium text-slate-800">{w.name}</span>
                     </div>
                     <p className="mt-1 text-xs text-slate-500">
-                      {w.semester ?? w.academic_session} · {w.window_label}
+                      {w.semester ?? w.academic_session} Â· {w.window_label}
                     </p>
                     <div className="mt-1">
                       <Badge tone={w.accepts_marks ? 'success' : w.is_open ? 'warning' : 'neutral'}>
@@ -273,7 +273,7 @@ export default function AssessmentWindowPage() {
                 <Card>
                   <CardHeader
                     title={detail.name}
-                    subtitle={`${detail.semester ?? detail.academic_session} · ${detail.window_label}`}
+                    subtitle={`${detail.semester ?? detail.academic_session} Â· ${detail.window_label}`}
                     action={
                       canManage ? (
                         <div className="flex gap-2">
@@ -337,17 +337,16 @@ export default function AssessmentWindowPage() {
                         <Badge tone={PSM_PART_BADGE_TONES[detail.psm_part] ?? 'neutral'}>
                           {partLabel(detail.psm_part)}
                         </Badge>{' '}
-                        only — of {detail.semester ?? detail.academic_session}. Who has been
+                        only â€” of {detail.semester ?? detail.academic_session}. Who has been
                         marked, and who has not.
                       </>
                     }
                   />
-                  <div className="overflow-x-auto">
-                    <DataTable columns={['Student', 'Project', 'Lampiran', 'Filed', '']}>
+                  <DataTable columns={['Student', 'Project', 'Lampiran', 'Filed', '']}>
                       {(detail.roster ?? []).map((row) => (
                         <tr key={row.project_id} className="hover:bg-slate-50/60">
                           <Td>
-                            <div className="text-sm font-medium text-slate-800">{row.name ?? '—'}</div>
+                            <div className="text-sm font-medium text-slate-800">{row.name ?? 'â€”'}</div>
                             <div className="font-mono text-xs text-slate-400">{row.student}</div>
                           </Td>
                           <Td className="font-mono text-xs text-slate-500">{row.code}</Td>
@@ -362,7 +361,7 @@ export default function AssessmentWindowPage() {
                                       : 'neutral'
                                   }
                                 >
-                                  {f.form_code ?? '—'}
+                                  {f.form_code ?? 'â€”'}
                                 </Badge>
                               ))}
                             </div>
@@ -381,7 +380,6 @@ export default function AssessmentWindowPage() {
                         </tr>
                       ))}
                     </DataTable>
-                  </div>
                 </Card>
               </>
             ) : (
@@ -402,13 +400,13 @@ export default function AssessmentWindowPage() {
 function CreateWindowForm({ semesters, activeSemester, defaultPart, onCreated, onError }) {
   const [form, setForm] = useState({
     name: '',
-    // Always the running term. The server refuses anything else — a window
+    // Always the running term. The server refuses anything else â€” a window
     // opened against a closed or not-yet-started term lists whatever projects
     // that term happens to hold, which is how a window named "PSM 2" ended up
     // showing a PSM 1 cohort with nothing on screen to contradict it.
     academic_semester_id: activeSemester?.id ?? '',
     // Defaults to the batch the coordinator arrived from, and to PSM 1
-    // otherwise — the batch whose marking opens first in a term.
+    // otherwise â€” the batch whose marking opens first in a term.
     psm_part: defaultPart || 'PSM1',
     scheduled_start_at: '',
     scheduled_end_at: '',
@@ -428,7 +426,7 @@ function CreateWindowForm({ semesters, activeSemester, defaultPart, onCreated, o
       const created = await assessmentWindowApi.create({
         ...form,
         academic_semester_id: Number(form.academic_semester_id),
-        // Empty date inputs must not be sent as "" — the API expects null.
+        // Empty date inputs must not be sent as "" â€” the API expects null.
         scheduled_start_at: form.scheduled_start_at || null,
         scheduled_end_at: form.scheduled_end_at || null,
         notes: form.notes || null,
@@ -447,7 +445,7 @@ function CreateWindowForm({ semesters, activeSemester, defaultPart, onCreated, o
         <CardHeader title="New assessment window" />
         <p className="text-sm text-amber-800">
           No semester is active, so marking cannot be opened. Activate a semester
-          on the Semesters screen first — a window has to belong to the term the
+          on the Semesters screen first â€” a window has to belong to the term the
           students are actually enrolled in.
         </p>
       </Card>
@@ -458,7 +456,7 @@ function CreateWindowForm({ semesters, activeSemester, defaultPart, onCreated, o
     <Card>
       <CardHeader
         title="New assessment window"
-        subtitle="One per batch per term — opening it allocates the forms"
+        subtitle="One per batch per term â€” opening it allocates the forms"
       />
       <form onSubmit={submit} className="space-y-4">
         <FieldErrors errors={errors} />
@@ -467,7 +465,7 @@ function CreateWindowForm({ semesters, activeSemester, defaultPart, onCreated, o
           <Input
             value={form.name}
             onChange={set('name')}
-            placeholder={`e.g. PSM 1 Assessment — ${activeSemester.name}`}
+            placeholder={`e.g. PSM 1 Assessment â€” ${activeSemester.name}`}
             required
           />
         </Field>
@@ -481,7 +479,7 @@ function CreateWindowForm({ semesters, activeSemester, defaultPart, onCreated, o
           */}
           <Field
             label="Term"
-            hint="Fixed to the active semester — marking can only be opened for the term students are enrolled in"
+            hint="Fixed to the active semester â€” marking can only be opened for the term students are enrolled in"
           >
             <Input value={activeSemester.name} readOnly disabled />
           </Field>
@@ -500,13 +498,13 @@ function CreateWindowForm({ semesters, activeSemester, defaultPart, onCreated, o
             </Select>
           </Field>
 
-          <Field label="Opens at" hint="Optional — leave blank for no start time">
+          <Field label="Opens at" hint="Optional â€” leave blank for no start time">
             <Input type="datetime-local" value={form.scheduled_start_at} onChange={set('scheduled_start_at')} />
           </Field>
 
           <Field
             label="Closes at"
-            hint="Optional — a window left open past this stops accepting marks"
+            hint="Optional â€” a window left open past this stops accepting marks"
           >
             <Input type="datetime-local" value={form.scheduled_end_at} onChange={set('scheduled_end_at')} />
           </Field>
@@ -525,7 +523,7 @@ function CreateWindowForm({ semesters, activeSemester, defaultPart, onCreated, o
 
         <div className="flex justify-end gap-2">
           <Button type="submit" disabled={busy}>
-            {busy ? 'Creating…' : 'Create window'}
+            {busy ? 'Creatingâ€¦' : 'Create window'}
           </Button>
         </div>
       </form>

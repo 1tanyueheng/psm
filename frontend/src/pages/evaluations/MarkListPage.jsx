@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+﻿import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { markApi } from '../../api/endpoints'
 import { unwrapPaged } from '../../api/client'
@@ -11,7 +11,7 @@ import { formatMark, formatDate, CATEGORY_LABELS } from '../../lib/format'
 import { PSM_PARTS, partLabel, PSM_PART_BADGE_TONES } from '../../lib/psmPart'
 
 /**
- * Mark list — read-only oversight (Module 4 tail end).
+ * Mark list â€” read-only oversight (Module 4 tail end).
  *
  * This page used to be a release surface: coordinators came here to check
  * computed marks and publish them one at a time or in bulk. Marks now publish
@@ -19,7 +19,7 @@ import { PSM_PARTS, partLabel, PSM_PART_BADGE_TONES } from '../../lib/psmPart'
  * release and no button to offer.
  *
  * What a coordinator still needs from this screen is the *completeness*
- * picture — which students' forms are all in and which are not — because that
+ * picture â€” which students' forms are all in and which are not â€” because that
  * is what gates closing the semester. The lock column answers that.
  */
 export default function MarkListPage() {
@@ -121,7 +121,7 @@ export default function MarkListPage() {
             </Select>
             <Input
               type="search"
-              placeholder="Search student, matric, project…"
+              placeholder="Search student, matric, projectâ€¦"
               value={search}
               onChange={(e) => setFilter('q', e.target.value)}
               className="w-64"
@@ -139,7 +139,7 @@ export default function MarkListPage() {
             submissions are complete
             {marks.outstanding > 0 && (
               <>
-                {' — '}
+                {' â€” '}
                 <span className="text-amber-700">
                   {marks.outstanding} still waiting on a form
                 </span>
@@ -160,8 +160,7 @@ export default function MarkListPage() {
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">
-          <div className="overflow-x-auto">
-            <DataTable
+          <DataTable
               columns={[
                 'Project',
                 'Student',
@@ -185,10 +184,10 @@ export default function MarkListPage() {
                   </Td>
                   <Td>
                     <div className="flex items-center gap-2">
-                      <Avatar name={mark.student?.name ?? '—'} size="sm" />
+                      <Avatar name={mark.student?.name ?? 'â€”'} size="sm" />
                       <div className="min-w-0">
                         <div className="truncate text-sm text-slate-700">
-                          {mark.student?.name ?? '—'}
+                          {mark.student?.name ?? 'â€”'}
                         </div>
                         <div className="font-mono text-xs text-slate-400">
                           {mark.student?.student_id}
@@ -202,7 +201,7 @@ export default function MarkListPage() {
                     </Badge>
                   </Td>
                   <Td className="text-sm text-slate-600">
-                    {mark.project?.category_label ?? CATEGORY_LABELS[mark.project?.category] ?? '—'}
+                    {mark.project?.category_label ?? CATEGORY_LABELS[mark.project?.category] ?? 'â€”'}
                   </Td>
                   <Td className="text-center tabular-nums text-slate-600">
                     {mark.assessor_count ?? 0}
@@ -218,7 +217,7 @@ export default function MarkListPage() {
                       like it disagreed with itself.
                     */}
                     <div className="font-semibold text-slate-800">
-                      {mark.final_mark != null ? formatMark(mark.final_mark) : '—'}
+                      {mark.final_mark != null ? formatMark(mark.final_mark) : 'â€”'}
                     </div>
                     <div className="text-xs text-slate-400">internal scale</div>
                   </Td>
@@ -242,7 +241,6 @@ export default function MarkListPage() {
                 </tr>
               ))}
             </DataTable>
-          </div>
         </Card>
       )}
     </div>

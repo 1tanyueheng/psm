@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { userApi } from '../../api/endpoints'
 import { unwrapPaged } from '../../api/client'
@@ -23,7 +23,7 @@ const ROLES = [
   {
     value: 'student',
     label: 'Student',
-    hint: 'Registers a project — needs a matric number, a programme and a batch.',
+    hint: 'Registers a project â€” needs a matric number, a programme and a batch.',
   },
   {
     value: 'supervisor',
@@ -84,7 +84,7 @@ function payloadFor(form) {
        * `AssignmentService` capacity-checks a supervisor against, and what
        * makes a student appear in a term's cohort at all. The API defaults it
        * to the active term when omitted, which is why its absence was invisible
-       * — an admin could not put the new intake into a term that was not the
+       * â€” an admin could not put the new intake into a term that was not the
        * active one, and could not see which term they had landed in either.
        */
       academic_semester_id: form.academic_semester_id === ''
@@ -106,7 +106,7 @@ function payloadFor(form) {
 }
 
 /**
- * Module 2 — user administration.
+ * Module 2 â€” user administration.
  *
  * The job of this screen is account lifecycle: an admin arrives here to add an
  * account, find one, unblock it, or issue a password reset.
@@ -118,7 +118,7 @@ function payloadFor(form) {
  *    answer. Deactivating is reversible; deleting hides a student's history.
  *  - The create form does **not** ask for a password. New accounts start on the
  *    system default (`psm.default_user_password`) and the holder resets it from
- *    the sign-in screen — the admin only ever holds an address, so there is
+ *    the sign-in screen â€” the admin only ever holds an address, so there is
  *    nothing to choose and nothing to deliver.
  */
 export default function UserListPage() {
@@ -181,7 +181,7 @@ export default function UserListPage() {
    *
    * Every action here changes server state that other people depend on
    * (a suspended supervisor stops being assignable), so the list is reloaded
-   * rather than patched locally — the response is the source of truth.
+   * rather than patched locally â€” the response is the source of truth.
    */
   async function act(key, fn, successMessage) {
     setBusy(key)
@@ -202,7 +202,7 @@ export default function UserListPage() {
    * Create an account, then refresh.
    *
    * Field-level 422s are mapped back onto the form rather than shown as a
-   * banner, so the message lands beside the field that caused it — the server is
+   * banner, so the message lands beside the field that caused it â€” the server is
    * the authority on which role needs which field.
    */
   async function submitCreate() {
@@ -218,7 +218,7 @@ export default function UserListPage() {
       setForm(blankForm())
       setNotice(
         `Account created for ${created?.email ?? form.email}. It starts on the system default `
-        + 'password — tell the holder to reset it from the sign-in screen.',
+        + 'password â€” tell the holder to reset it from the sign-in screen.',
       )
       await load()
     } catch (err) {
@@ -354,8 +354,7 @@ export default function UserListPage() {
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">
-          <div className="overflow-x-auto">
-            <DataTable
+          <DataTable
               columns={['Name', 'Role', 'Identifier', 'Status', 'Last signed in', 'Actions']}
             >
               {rows.map((row) => {
@@ -384,7 +383,7 @@ export default function UserListPage() {
                       <Badge tone={roleTone(row.role)}>{roleLabel(row.role)}</Badge>
                     </Td>
                     <Td className="font-mono text-xs text-slate-500">
-                      {row.student_id ?? row.staff_no ?? '—'}
+                      {row.student_id ?? row.staff_no ?? 'â€”'}
                     </Td>
                     <Td>
                       <Badge tone={suspended ? 'danger' : 'success'}>
@@ -431,7 +430,7 @@ export default function UserListPage() {
                           }
                         >
                           {busy === `toggle-${row.id}`
-                            ? 'Working…'
+                            ? 'Workingâ€¦'
                             : suspended
                               ? 'Reactivate'
                               : 'Suspend'}
@@ -449,7 +448,7 @@ export default function UserListPage() {
                             )
                           }
                         >
-                          {busy === `reset-${row.id}` ? 'Sending…' : 'Reset password'}
+                          {busy === `reset-${row.id}` ? 'Sendingâ€¦' : 'Reset password'}
                         </Button>
 
                         {row.locked_at && (
@@ -474,7 +473,6 @@ export default function UserListPage() {
                 )
               })}
             </DataTable>
-          </div>
         </Card>
       )}
 
@@ -535,7 +533,7 @@ function CreateUserPanel({
   const role = ROLES.find((r) => r.value === form.role)
 
   // Seed the term on first render. Doing it here rather than in the parent's
-  // state keeps `blankForm()` free of a value the parent may not have yet —
+  // state keeps `blankForm()` free of a value the parent may not have yet â€”
   // the term list is still loading when the panel first mounts.
   const semesterValue = form.academic_semester_id || defaultSemesterId || ''
 
@@ -565,7 +563,7 @@ function CreateUserPanel({
             required
             errors={errors}
             field="email"
-            hint="Their institutional address — the password reset goes here"
+            hint="Their institutional address â€” the password reset goes here"
           >
             <Input id="new_email" type="email" value={form.email} onChange={set('email')} maxLength={255} />
           </Field>
@@ -610,7 +608,7 @@ function CreateUserPanel({
               hint={
                 semesters?.length
                   ? 'The term this intake belongs to. Defaults to the active one.'
-                  : 'No semesters exist yet — create one before adding students.'
+                  : 'No semesters exist yet â€” create one before adding students.'
               }
             >
               <Select
@@ -623,7 +621,7 @@ function CreateUserPanel({
                 {(semesters ?? []).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
-                    {s.is_active ? ' — active' : ''}
+                    {s.is_active ? ' â€” active' : ''}
                   </option>
                 ))}
               </Select>
@@ -692,7 +690,7 @@ function CreateUserPanel({
             onClick={onSubmit}
             disabled={saving || !form.name.trim() || !form.email.trim()}
           >
-            {saving ? 'Creating…' : 'Create account'}
+            {saving ? 'Creatingâ€¦' : 'Create account'}
           </Button>
         </div>
       </div>

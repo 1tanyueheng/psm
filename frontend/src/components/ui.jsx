@@ -290,10 +290,27 @@ export function Field({ label, hint, required, errors, field, children }) {
         {required && <span className="text-rose-500 ml-0.5">*</span>}
       </label>
       {children}
-      {hint && !errors?.[field] && <p className="text-xs text-slate-400 mt-1">{hint}</p>}
+      {/*
+        `text-slate-500`, not `slate-400`. Hints are not decoration — they are
+        frequently the only place a field explains itself ("the term this intake
+        belongs to", "a window left open past this stops accepting marks"), and
+        slate-400 on white is about 2.9:1, under the 4.5:1 that WCAG AA asks for
+        body text. slate-500 is roughly 4.8:1 and still reads as secondary
+        against the slate-700 label above it.
+      */}
+      {hint && !errors?.[field] && <p className="text-xs text-slate-500 mt-1">{hint}</p>}
       <FieldErrors errors={errors} field={field} />
     </div>
   )
+}
+
+/**
+ * The same hint, for controls that are not wrapped in `Field`.
+ *
+ * Kept next to `Field`'s hint so the two cannot drift apart in weight or colour.
+ */
+export function Hint({ children, className = '' }) {
+  return <span className={`mt-1 block text-xs text-slate-500 ${className}`}>{children}</span>
 }
 
 const INPUT_CLASS =
@@ -362,7 +379,7 @@ export function SegmentedControl({ value, onChange, options, size = 'md', classN
             {option.label}
             {option.count != null && (
               <span
-                className={`ml-1.5 tabular-nums ${active ? 'text-brand-500' : 'text-slate-400'}`}
+                className={`ml-1.5 tabular-nums ${active ? 'text-brand-500' : 'text-slate-500'}`}
               >
                 {option.count}
               </span>
@@ -403,7 +420,8 @@ export function FilterField({ label, hint, children, className = '' }) {
     <label className={`block ${className}`}>
       <span className="mb-1 block text-xs font-medium text-slate-500">{label}</span>
       {children}
-      {hint && <span className="mt-1 block text-[11px] text-slate-400">{hint}</span>}
+      {/* Same weight and colour as `Field`'s hint — see the note there. */}
+      {hint && <Hint>{hint}</Hint>}
     </label>
   )
 }
@@ -517,14 +535,62 @@ export function Button({
 /**
  * Thin table wrapper.
  *
- * Two supported styles, both rendered into the same <tbody>:
+ * Two supported shapes, both rendered into the same <tbody>:
  *   1. rows as children — <DataTable columns={['A','B']}> <tr>…</tr> </DataTable>
- *   2. rows + render     — <DataTable columns={[…]} rows={data} render={r => <tr>…</tr>} />
+ *   2. rows + render    — <DataTable columns={[…]} rows={data} render={r => <tr>…</tr>} />
  *
  * `columns` is a list of header strings or { key, label, align?, width? }.
  * `render` must return a full <tr>; the row's cells are its <Td> children.
+ *
+ * ## Column widths need `fixed`
+ *
+ * In a table's default `auto` layout the browser ignores percentage widths on
+ * `<th>` and sizes every column by its content. Declaring `width: '24%'` on the
+ * title column therefore did nothing: the title was still the column being
+ * squeezed, because its content happens to be the longest.
+ *
+ * Passing `fixed` switches to `table-layout: fixed`, which honours the declared
+ * widths — that is what makes the percentages load-bearing. It is opt-in because
+ * fixed layout also *stops* the table adapting to content, so a table with no
+ * declared widths is better left alone.
+ *
+ * The table keeps `w-full`, so it fills its container when there is room and
+ * falls back to `minWidth` (and scrolls) when there is not.
+ *
+ * ## Width and scrolling
+ *
+ * The table is wider than a phone, so it scrolls horizontally. `minWidth`
+ * defaults to 640px and should be *raised* for a dense table rather than
+ * lowered — below about 600px the cells become narrower than their contents and
+ * text breaks mid-phrase, which reads worse than scrolling does.
+ *
+ * The `-mx-5` cancels the Card's padding so the table's edge padding lines up
+ * with the card's content. On a narrow screen that would also push the first
+ * column flush against the card edge, so the negative margin is dropped below
+ * `sm`.
+ *
+ * ## Scrolling, honestly
+ *
+ * These tables scroll horizontally below roughly 1000px and there is no card
+ * fallback. That is a real limitation, stated rather than hidden: a seven-column
+ * table is about 1080px of information and a phone offers ~320px, so something
+ * has to give, and reflowing every table into cards is a change to every screen
+ * rather than to this component.
+ *
+ * What this component does guarantee is that the *content* stops breaking:
+ * headers no longer wrap mid-word, and `minWidth` can be raised so a dense table
+ * scrolls instead of shattering its cells into one word per line.
  */
-export function DataTable({ columns, rows, render, empty, keyField = 'id', children }) {
+export function DataTable({
+  columns,
+  rows,
+  render,
+  empty,
+  keyField = 'id',
+  children,
+  minWidth = 640,
+  fixed = false,
+}) {
   const headerFor = (column) => (typeof column === 'string' ? column : column.label)
 
   let body = []
@@ -548,15 +614,21 @@ export function DataTable({ columns, rows, render, empty, keyField = 'id', child
   }
 
   return (
-    <div className="overflow-x-auto -mx-5">
-      <table className="w-full text-sm min-w-[640px]">
+    <div className="overflow-x-auto sm:-mx-5">
+      <table
+        className="w-full text-sm"
+        style={{ minWidth, tableLayout: fixed ? 'fixed' : undefined }}
+      >
         <thead>
           <tr className="border-b border-slate-200">
             {columns.map((column, index) => (
               <th
                 key={(typeof column === 'string' ? column : column.key) ?? index}
-                className={`px-5 py-2.5 text-xs font-medium text-slate-500 ${
-                  (typeof column === 'object' && column?.align === 'right') ? 'text-right' : 'text-left'
+                scope="col"
+                className={`whitespace-nowrap px-5 py-2.5 text-xs font-medium text-slate-500 ${
+                  typeof column === 'object' && column?.align === 'right'
+                    ? 'text-right'
+                    : 'text-left'
                 }`}
                 style={
                   typeof column === 'object' && column?.width
@@ -575,12 +647,20 @@ export function DataTable({ columns, rows, render, empty, keyField = 'id', child
   )
 }
 
-export function Td({ children, align = 'left', className = '' }) {
+/**
+ * A cell.
+ *
+ * `align="right"` is for figures that should line up on the decimal — money,
+ * marks, counts — not for text. Pair it with `tabular-nums` on the cell, or the
+ * digits still will not align.
+ */
+export function Td({ children, align = 'left', className = '', ...rest }) {
   return (
     <td
       className={`px-5 py-3 align-middle ${
         align === 'right' ? 'text-right' : 'text-left'
       } ${className}`}
+      {...rest}
     >
       {children}
     </td>

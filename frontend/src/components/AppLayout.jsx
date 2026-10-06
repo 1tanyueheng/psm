@@ -194,7 +194,20 @@ export default function AppLayout() {
         <nav className="flex-1 overflow-y-auto px-2 py-3">
           {sections.map((section) => (
             <div key={section.group} className="mb-4 last:mb-0">
-              <p className="px-3 mb-1 text-[11px] font-medium text-slate-400 uppercase tracking-wide">
+              {/*
+                Section headings and the unread badges.
+                
+                The headings were 11px `slate-400` on white — about 2.9:1, under
+                WCAG AA, and small enough that they were genuinely hard to read
+                rather than merely faint. They are wayfinding for a long nav, so
+                they need to be legible; 12px `slate-500` clears 4.5:1 and still
+                sits clearly below the slate-600 items in hierarchy.
+                
+                The badges are counts — information, not ornament — so they move
+                from 10px to 11px. They keep white-on-rose/amber, which is fixed
+                by the background colour rather than by the size.
+              */}
+              <p className="px-3 mb-1 text-xs font-medium text-slate-500 uppercase tracking-wide">
                 {section.group}
               </p>
               <ul>
@@ -213,13 +226,13 @@ export default function AppLayout() {
                       <span className="flex items-center justify-between gap-2">
                         {item.label}
                         {item.to === '/notifications' && unread > 0 && (
-                          <span className="bg-rose-500 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full">
+                          <span className="bg-rose-500 text-white text-[11px] font-medium px-1.5 py-0.5 rounded-full">
                             {unread > 99 ? '99+' : unread}
                           </span>
                         )}
                         {item.to === '/registrations' && pendingAcks > 0 && (
                           <span
-                            className="bg-amber-500 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                            className="bg-amber-500 text-white text-[11px] font-medium px-1.5 py-0.5 rounded-full"
                             title="Lampiran A awaiting your acknowledgement"
                           >
                             {pendingAcks > 99 ? '99+' : pendingAcks}
@@ -248,7 +261,7 @@ export default function AppLayout() {
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-slate-900 truncate">{user?.name}</p>
               <span
-                className={`inline-block mt-0.5 px-1.5 py-0 rounded border text-[10px] font-medium ${roleTone(
+                className={`inline-block mt-0.5 px-1.5 py-0 rounded border text-[11px] font-medium ${roleTone(
                   user?.role,
                 )}`}
               >

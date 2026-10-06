@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+﻿import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { auditApi } from '../../api/endpoints'
 import { unwrap, unwrapPaged } from '../../api/client'
@@ -131,7 +131,7 @@ export default function AuditLogPage() {
         title="Audit log"
         subtitle={
           meta
-            ? `${meta.total} recorded event${meta.total === 1 ? '' : 's'} — append-only, never edited`
+            ? `${meta.total} recorded event${meta.total === 1 ? '' : 's'} â€” append-only, never edited`
             : undefined
         }
       />
@@ -195,8 +195,7 @@ export default function AuditLogPage() {
       ) : (
         <>
           <Card className="overflow-hidden p-0">
-            <div className="overflow-x-auto">
-              <DataTable
+            <DataTable
                 columns={['When', 'Actor', 'Action', 'Description', 'Severity', '']}
               >
                 {rows.map((entry) => {
@@ -281,13 +280,12 @@ export default function AuditLogPage() {
                   )
                 })}
               </DataTable>
-            </div>
           </Card>
 
           {meta && meta.last_page > 1 && (
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-500">
-                Showing {meta.from}–{meta.to} of {meta.total}
+                Showing {meta.from}â€“{meta.to} of {meta.total}
               </p>
               <div className="flex gap-2">
                 <Button
@@ -394,7 +392,7 @@ function AuditDetail({ entry }) {
 }
 
 function Value({ value }) {
-  if (value === undefined) return <span className="text-slate-300">—</span>
+  if (value === undefined) return <span className="text-slate-300">â€”</span>
   if (value === null) return <span className="italic text-slate-400">null</span>
   if (typeof value === 'object') {
     return <span className="font-mono text-xs">{JSON.stringify(value)}</span>

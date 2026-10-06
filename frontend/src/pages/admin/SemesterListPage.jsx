@@ -289,14 +289,15 @@ export default function SemesterListPage() {
           />
         ) : (
           <DataTable
+            minWidth={1080}
             columns={[
-              { key: 'name', label: 'Semester' },
-              { key: 'dates', label: 'Dates' },
-              { key: 'psm1', label: 'PSM 1' },
-              { key: 'psm2', label: 'PSM 2' },
-              { key: 'registration', label: 'Registration' },
-              { key: 'marks', label: 'Marks' },
-              { key: 'actions', label: 'Actions' },
+              { key: 'name', label: 'Semester', width: '26%' },
+              { key: 'dates', label: 'Dates', width: '14%' },
+              { key: 'psm1', label: 'PSM 1', width: '9%' },
+              { key: 'psm2', label: 'PSM 2', width: '9%' },
+              { key: 'registration', label: 'Registration', width: '12%' },
+              { key: 'marks', label: 'Marking', width: '14%' },
+              { key: 'actions', label: 'Actions', align: 'right', width: '16%' },
             ]}
             rows={semesters}
             render={(row) => {
@@ -311,21 +312,33 @@ export default function SemesterListPage() {
                   <Td>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-slate-800">{row.name}</span>
+                      {/*
+                        One state badge, not two. This used to carry "Closed"
+                        here *and* "Term closed" in the Registration column —
+                        the same fact printed twice, and the second copy made the
+                        registration column look like it was about registration
+                        when it was about the term.
+                      */}
                       {row.is_active && <Badge tone="success">Active</Badge>}
-                      {row.is_closed && <Badge tone="neutral">Closed</Badge>}
+                      {!row.is_active && row.is_closed && <Badge tone="neutral">Closed</Badge>}
                       {selected && <Badge tone="brand">Viewing</Badge>}
                     </div>
-                    <div className="text-xs text-slate-400">
+                    <div className="text-xs text-slate-500">
                       {row.academic_session} · Semester {row.semester_number}
                     </div>
                   </Td>
 
-                  <Td className="text-xs text-slate-500">
+                  {/*
+                    One date per line, and `whitespace-nowrap` so a phone cannot
+                    shatter "17 Aug 2026" into three rows of one word each.
+                  */}
+                  <Td className="text-xs text-slate-500 whitespace-nowrap">
                     {row.starts_at || row.ends_at ? (
                       <>
-                        {formatDate(row.starts_at)}
-                        <br />
-                        {formatDate(row.ends_at)}
+                        <div>{formatDate(row.starts_at, { fallback: '—' })}</div>
+                        <div className="text-slate-400">
+                          to {formatDate(row.ends_at, { fallback: '—' })}
+                        </div>
                       </>
                     ) : (
                       '—'
@@ -337,30 +350,32 @@ export default function SemesterListPage() {
 
                   <Td>
                     {row.is_closed ? (
-                      <Badge tone="neutral">Term closed</Badge>
-                    ) : row.registration_open ? (
-                      <Badge tone="success">Open</Badge>
+                      <span className="text-xs text-slate-400">Registration shut</span>
                     ) : (
-                      <Badge tone="warning">Closed</Badge>
+                      <>
+                        <Badge tone={row.registration_open ? 'success' : 'warning'}>
+                          {row.registration_open ? 'Open' : 'Closed'}
+                        </Badge>
+                        <div className="mt-1.5">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={busy}
+                            onClick={() =>
+                              run(
+                                row.id,
+                                () => semesterApi.setRegistration(row.id, !row.registration_open),
+                                row.registration_open
+                                  ? `Registration closed for ${row.name}.`
+                                  : `Registration open for ${row.name}.`
+                              )
+                            }
+                          >
+                            {row.registration_open ? 'Close' : 'Open'}
+                          </Button>
+                        </div>
+                      </>
                     )}
-                    <div className="mt-1">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={busy || row.is_closed}
-                        onClick={() =>
-                          run(
-                            row.id,
-                            () => semesterApi.setRegistration(row.id, !row.registration_open),
-                            row.registration_open
-                              ? `Registration closed for ${row.name}.`
-                              : `Registration open for ${row.name}.`
-                          )
-                        }
-                      >
-                        {row.registration_open ? 'Close' : 'Open'}
-                      </Button>
-                    </div>
                   </Td>
 
                   {/*
@@ -388,8 +403,21 @@ export default function SemesterListPage() {
                     )}
                   </Td>
 
-                  <Td>
-                    <div className="flex flex-col gap-1">
+                  {/*
+                    One row of actions, not a four-deep column.
+                    
+                    Stacked vertically, this cell made every row about 140px
+                    tall for four short labels — three terms filled the viewport
+                    with nine words. Wrapped horizontally, the same actions fit
+                    in one 32px line and a coordinator can see several terms at
+                    once, which is the whole point of the screen.
+                    
+                    Wrapping is kept (`flex-wrap`) so a narrow window pushes
+                    buttons onto a second line rather than overflowing; the
+                    table's own horizontal scroll covers anything narrower still.
+                  */}
+                  <Td align="right">
+                    <div className="flex items-center justify-end gap-1 whitespace-nowrap">
                       {!selected && (
                         <Button
                           size="sm"
@@ -413,8 +441,7 @@ export default function SemesterListPage() {
                         // Closing used to be a one-way door: the button simply
                         // disappeared once a term was closed, with nothing to
                         // undo it. Reopening restores the term as live but
-                        // leaves registration closed, so the message says so —
-                        // the Open button is the next column along.
+                        // leaves registration closed, so the message says so.
                         <Button
                           size="sm"
                           variant="ghost"
@@ -427,7 +454,7 @@ export default function SemesterListPage() {
                             )
                           }
                         >
-                          Reopen term
+                          Reopen
                         </Button>
                       ) : (
                         <Button
@@ -559,20 +586,26 @@ export default function SemesterListPage() {
   )
 }
 
-/** One batch column: live projects, and how many are missing a supervisor. */
+/**
+ * One batch column: how many projects, and how many students are on them.
+ *
+ * The count is right-aligned so it sits under the right-aligned header and lines
+ * up with the neighbouring batch column — the two numbers are meant to be
+ * compared, and centred or left-aligned figures in adjacent columns cannot be.
+ */
 function PartCell({ stats }) {
-  if (!stats) return <Td className="text-xs text-slate-400">—</Td>
+  if (!stats) return <Td align="right" className="text-xs text-slate-400">—</Td>
 
   const unpaired = Math.max(0, (stats.total ?? 0) - (stats.with_supervisor ?? 0))
 
   return (
-    <Td className="tabular-nums">
+    <Td align="right" className="tabular-nums">
       <div className="text-slate-800">{stats.total ?? 0}</div>
-      <div className="text-xs text-slate-400">
+      <div className="text-xs text-slate-500">
         {stats.students ?? 0} student{stats.students === 1 ? '' : 's'}
       </div>
       {unpaired > 0 && (
-        <div className="text-xs text-amber-600">{unpaired} without supervisor</div>
+        <div className="text-xs text-amber-600">{unpaired} unassigned</div>
       )}
     </Td>
   )

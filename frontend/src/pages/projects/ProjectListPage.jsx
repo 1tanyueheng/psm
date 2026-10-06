@@ -229,9 +229,45 @@ export default function ProjectListPage() {
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">
-          <div className="overflow-x-auto">
-            <DataTable
-              columns={['Project', 'Student', 'Part', 'Semester', 'Category', 'Progress', 'Next milestone', 'Status']}
+          {/*
+            No wrapper `overflow-x-auto` here. `DataTable` already provides one,
+            and nesting two made the outer one win: the table could never grow
+            past the outer width, so `minWidth` and the column percentages were
+            ignored and every column fell back to content width — which is what
+            wrapped the titles over four lines.
+          */}
+          <DataTable
+            minWidth={1100}
+            fixed
+              /*
+                Explicit widths, and `fixed` below to make them binding.
+                Eight columns each sized by their own content squeezed the
+                *title* — the one field a reader actually scans — to 152px,
+                wrapping it over four lines.
+
+                The shares below were measured, not guessed: `Category` needs
+                enough room for "System Development" to sit on one line, and
+                `Student` enough for a full name before it truncates, because
+                with `table-layout: fixed` a column that is too narrow clips its
+                neighbour rather than negotiating.
+              */
+              columns={[
+                { key: 'project', label: 'Project', width: '20%' },
+                { key: 'student', label: 'Student', width: '14%' },
+                { key: 'part', label: 'Part', width: '7%' },
+                { key: 'semester', label: 'Semester', width: '9%' },
+                { key: 'category', label: 'Category', width: '12%' },
+                { key: 'progress', label: 'Progress', width: '13%' },
+                { key: 'next', label: 'Next milestone', width: '11%' },
+                /*
+                  "Pending approval" is the longest status label. Badges are
+                  `whitespace-nowrap` by design — a label broken across two
+                  lines reads as two labels — so the column has to be at least
+                  as wide as the widest badge plus the cell's padding. Measured
+                  at 133px + 40px, which is 14% of the 1196px table.
+                */
+                { key: 'status', label: 'Status', width: '14%' },
+              ]}
             >
               {rows.map((project) => (
                 <tr key={project.id} className="hover:bg-slate-50/60">
@@ -269,21 +305,43 @@ export default function ProjectListPage() {
                       {partLabel(project.psm_part, { short: true })}
                     </span>
                   </Td>
-                  <Td className="text-xs text-slate-500">
-                    {project.academic_semester?.name ?? project.academic_session ?? '—'}
+                  {/*
+                    The session, not the term's display name. Both carry the same
+                    information ("2025/2026 Semester II" is "2025/2026" plus
+                    "Semester II"), but the display name needed three wrapped
+                    lines to say it in a column this narrow, and every row on the
+                    screen is in the same session anyway — the batch badge beside
+                    it already distinguishes PSM 1 from PSM 2.
+                  */}
+                  <Td className="text-xs text-slate-500 whitespace-nowrap">
+                    {project.academic_session ?? project.academic_semester?.name ?? '—'}
                   </Td>
+                  {/*
+                    `truncate` on the category: with `table-layout: fixed` a
+                    long value does not widen its column, it spills over the
+                    next one. An ellipsis plus a `title` keeps the cell honest
+                    and the value still readable on hover.
+                  */}
                   <Td className="text-sm text-slate-600">
-                    {CATEGORY_LABELS[project.category] ?? project.category}
+                    <span
+                      className="block truncate"
+                      title={CATEGORY_LABELS[project.category] ?? project.category}
+                    >
+                      {CATEGORY_LABELS[project.category] ?? project.category}
+                    </span>
                   </Td>
                   <Td>
+                    {/* The bar flexes and the percentage holds its width, so a
+                        narrow column shrinks the bar rather than pushing the
+                        number out of the cell. */}
                     <div className="flex items-center gap-2">
-                      <div className="w-20">
+                      <div className="min-w-0 flex-1">
                         <ProgressBar
                           value={project.milestone_progress ?? 0}
                           tone={(project.milestone_progress ?? 0) >= 70 ? 'success' : 'brand'}
                         />
                       </div>
-                      <span className="text-xs tabular-nums text-slate-500">
+                      <span className="shrink-0 text-xs tabular-nums text-slate-500">
                         {project.milestone_progress ?? 0}%
                       </span>
                     </div>
@@ -312,7 +370,6 @@ export default function ProjectListPage() {
                 </tr>
               ))}
             </DataTable>
-          </div>
         </Card>
       )}
 
