@@ -40,12 +40,29 @@ services:
       # never reuse this value in production, and never commit a real one.
       APP_KEY: "base64:1hZJov/zaokY9mLf4VOpfEwH8GQAr5u8DfmAXxYQzy8="
 
-      DB_CONNECTION: mysql
-      DB_HOST: db
-      DB_PORT: 3306
-      DB_DATABASE: psm_system
-      DB_USERNAME: psm
-      DB_PASSWORD: secret
+      # Database connection.
+      #
+      # Read from the root .env (gitignored) so a hosted database can be used
+      # without editing this committed file — real environment variables win
+      # over Laravel's .env, so hardcoding these here would silently override
+      # whatever backend/.env said. The defaults keep the bundled MySQL working
+      # for anyone who has not configured anything.
+      #
+      # To point at Supabase Postgres instead, set in the root .env:
+      #   DB_CONNECTION=pgsql
+      #   DB_HOST=aws-0-<region>.pooler.supabase.com
+      #   DB_PORT=5432
+      #   DB_DATABASE=postgres
+      #   DB_USERNAME=postgres.<project-ref>
+      #   DB_PASSWORD=...
+      #   DB_SSLMODE=require
+      DB_CONNECTION: "${DB_CONNECTION:-mysql}"
+      DB_HOST: "${DB_HOST:-db}"
+      DB_PORT: "${DB_PORT:-3306}"
+      DB_DATABASE: "${DB_DATABASE:-psm_system}"
+      DB_USERNAME: "${DB_USERNAME:-psm}"
+      DB_PASSWORD: "${DB_PASSWORD:-secret}"
+      DB_SSLMODE: "${DB_SSLMODE:-prefer}"
 
       CACHE_STORE: database
       SESSION_DRIVER: database
@@ -77,6 +94,20 @@ services:
       SUPERVISOR_MAX_CAPACITY: "8"
       SUBMISSION_MAX_MB: "25"
       AUDIT_RETAIN_YEARS: "7"
+
+      # --- File storage ---
+      #
+      # Also read from the root .env, and for the same reason as the database:
+      # these are environment variables, so they win over backend/.env. The
+      # `local` default keeps uploads on the container disk for anyone who has
+      # not configured object storage.
+      FILESYSTEM_DISK: "${FILESYSTEM_DISK:-local}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
+      AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION:-}"
+      AWS_BUCKET: "${AWS_BUCKET:-}"
+      AWS_ENDPOINT: "${AWS_ENDPOINT:-}"
+      AWS_USE_PATH_STYLE_ENDPOINT: "${AWS_USE_PATH_STYLE_ENDPOINT:-false}"
 
       # Auto-migrate on boot for convenience in development only
       RUN_MIGRATIONS: "true"
