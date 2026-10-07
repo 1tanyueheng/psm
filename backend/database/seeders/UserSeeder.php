@@ -123,14 +123,26 @@ $supervisorData = array_map(
 );
 
 foreach ($supervisorData as [$title, $name, $staffNo, $capacity, $areas, $psm1Cap, $psm2Cap]) {
+            /**
+             * Keyed on `staff_id`, not the generated email.
+             *
+             * The demo supervisor below is renamed to `supervisor@psm.test`, so
+             * looking this row up by its generated address missed on every
+             * re-run and fell through to an insert — which then collided with
+             * the existing `staff_id` and failed the whole seed. `staff_id` is
+             * the value nothing rewrites, so it identifies the person reliably.
+             *
+             * The email is still set on create; the rename below owns it
+             * afterwards.
+             */
             $user = User::updateOrCreate(
-                ['email' => strtolower(str_replace([' ', '.'], ['.', ''], $staffNo)).'@psm.test'],
+                ['staff_id' => $staffNo],
                 [
+                    'email'      => strtolower(str_replace([' ', '.'], ['.', ''], $staffNo)).'@psm.test',
                     'name'       => $name,
                     'password'   => Hash::make('password'),
                     'role'       => Role::Supervisor,
                     'status'     => 'active',
-                    'staff_id'   => $staffNo,
                     'department' => 'Faculty of Computing',
                 ]
             );
@@ -182,14 +194,17 @@ foreach ($supervisorData as [$title, $name, $staffNo, $capacity, $areas, $psm1Ca
         ];
 
         foreach ($staffData as [$title, $name, $staffNo, $areas]) {
+            // Keyed on `staff_id` for the same reason as the block above: the
+            // first of these is renamed to `examiner@psm.test` below, so its
+            // generated address is not a stable lookup key.
             $user = User::updateOrCreate(
-                ['email' => strtolower($staffNo).'@psm.test'],
+                ['staff_id' => $staffNo],
                 [
+                    'email'      => strtolower($staffNo).'@psm.test',
                     'name'       => $name,
                     'password'   => Hash::make('password'),
                     'role'       => Role::Supervisor,
                     'status'     => 'active',
-                    'staff_id'   => $staffNo,
                     'department' => 'Faculty of Computing',
                 ]
             );
