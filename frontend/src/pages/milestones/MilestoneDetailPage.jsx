@@ -30,8 +30,23 @@ export default function MilestoneDetailPage() {
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  /**
+   * Re-read the milestone.
+   *
+   * `silent` skips the full-page spinner. Without it, every action — upload,
+   * approve, withdraw, add a comment — swapped the entire screen for a
+   * "Loading milestone" placeholder and then rebuilt it. On a hosted database
+   * each of these round trips costs a few hundred milliseconds, so the page
+   * flashed empty and came back: it read as a browser refresh, and it lost the
+   * user's place each time.
+   *
+   * The first load still shows the spinner, because there is genuinely nothing
+   * to show yet. A refresh after an action has content on screen already, so
+   * the honest thing is to leave it there and swap in the new data when it
+   * arrives.
+   */
+  const load = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true)
     setError(null)
     try {
       // milestoneApi.get() already unwraps the envelope.
@@ -39,7 +54,7 @@ export default function MilestoneDetailPage() {
     } catch (err) {
       setError(err)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [id])
 
@@ -52,7 +67,7 @@ export default function MilestoneDetailPage() {
     setActionError(null)
     try {
       await fn()
-      await load()
+      await load({ silent: true })
     } catch (err) {
       setActionError(err?.message ?? 'That action could not be completed.')
     } finally {
@@ -170,7 +185,10 @@ export default function MilestoneDetailPage() {
             // for a short window after submitting, which `accepts_submission`
             // alone does not describe.
             canWithdraw={milestone.can_withdraw}
-            onChanged={load}
+            // Wrapped, not passed directly: React hands a callback its event as
+            // the first argument, which would arrive as the `options` object and
+            // be destructured for `silent`. The wrapper keeps the call explicit.
+            onChanged={() => load({ silent: true })}
           />
 
           {/* Decision history — the audit trail of this specific milestone. */}

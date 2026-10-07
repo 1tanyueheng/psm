@@ -91,8 +91,26 @@ class Project extends Model
         )->withPivot(['is_leader', 'contribution_percent'])->withTimestamps();
     }
 
+    /**
+     * The project's lead student, falling back to the first member.
+     *
+     * Uses the loaded `students` relation when there is one. It previously
+     * always called `$this->students()`, which issues a **fresh query** each
+     * time and ignores anything the caller already eager-loaded — so a page
+     * that rendered this once per row paid a query per row for data it already
+     * had. On a hosted database each of those is a network round trip, which
+     * turned a screen that should be instant into one that took seconds.
+     *
+     * Falls back to querying when the relation is not loaded, so callers that
+     * have not eager-loaded still get a correct answer.
+     */
     public function leader(): ?StudentProfile
     {
+        if ($this->relationLoaded('students')) {
+            return $this->students->firstWhere('pivot.is_leader', true)
+                ?? $this->students->first();
+        }
+
         return $this->students()->wherePivot('is_leader', true)->first()
             ?? $this->students()->first();
     }

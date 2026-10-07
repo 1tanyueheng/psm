@@ -217,7 +217,14 @@ class ProposalReviewService
         return ExaminerAssignment::query()
             ->forStudent($studentId)
             ->where('is_active', true)
-            ->with('examiner')
+            /**
+             * `examiner.supervisorProfile` is eager-loaded because
+             * `User::displayName()` reads the academic title from it. Without
+             * this the panel cost one query per examiner for a value that was
+             * already reachable — and on a hosted database each one is a
+             * network round trip, so a two-person panel paid two.
+             */
+            ->with('examiner.supervisorProfile')
             ->orderBy('id')
             ->get()
             ->map(function (ExaminerAssignment $assignment) {
