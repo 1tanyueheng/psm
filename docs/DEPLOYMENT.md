@@ -29,11 +29,12 @@ provide.
 1. **A filesystem that survives the request.** Vercel gives each invocation a
    read-only filesystem with a temporary `/tmp` that is discarded afterwards.
    This system lets students **upload thesis files** —
-   `MilestoneController::submit()` calls `storeAs(..., 'local')`, and
-   `download()` later reads that path back with `Storage::disk($file->disk)`.
-   On Vercel every upload would be gone within seconds of being accepted. This
-   is silent data loss, and collecting those documents is the point of
-   Module 3.
+   `MilestoneController::submit()` writes them through the configured disk and
+   `download()` later reads each path back with `Storage::disk($file->disk)`.
+   The disk is configurable (section 5), so uploads can live in object storage;
+   on Vercel the *default* local disk would lose every upload within seconds of
+   accepting it. That is silent data loss, and collecting those documents is
+   the point of Module 3.
 
 2. **A process that is always running.** Deadline reminders are scheduled in
    `routes/console.php` via `Schedule::command(SendDeadlineRemindersCommand::class)`,
@@ -42,10 +43,11 @@ provide.
    there is nothing left alive to run a scheduler or a worker. Module 6 would
    silently never fire.
 
-Making Laravel fit Vercel would mean moving uploads to S3, replacing the queue
-with an external service, and moving the scheduler to an external cron — a
-re-architecture of three modules to suit the host, rather than picking a host
-that suits the application. **Use a container host instead.**
+Making Laravel fit Vercel would mean replacing the queue with an external
+service and moving the scheduler to an external cron — a re-architecture of two
+modules to suit the host, rather than picking a host that suits the
+application. (Uploads are no longer part of that list: they are a
+configuration change, see section 5.) **Use a container host instead.**
 
 ### The frontend and backend look swapped
 
@@ -155,7 +157,7 @@ missing, in priority order.
 
 | # | What | Why it is required | Options |
 |---|---|---|---|
-| 1 | **Object storage** | Uploaded thesis files live on the local disk. **Container disks are ephemeral** — every redeploy wipes them, even on Render. Students would lose their submissions. | Cloudflare R2 (cheapest, no egress fees), AWS S3, Backblaze B2, Supabase Storage |
+| 1 | **Object storage** | The `local` disk writes into the container. **Container disks are ephemeral** — every redeploy wipes them, even on Render. Students would lose their submissions. The code path is ready: set `FILESYSTEM_DISK=s3` and the credentials. | Cloudflare R2 (cheapest, no egress fees), Supabase Storage, AWS S3, Backblaze B2 |
 | 2 | **Email provider** | Module 6 sends notifications and deadline reminders. Render has no mail server. | Resend, Postmark, Mailgun, Amazon SES |
 | 3 | **A Git repository** | Render and Vercel both deploy from Git. | GitHub (free) |
 | 4 | **Background worker** | Only needed if you pick Option B. The queue must be processed or no email ever sends. | Render Background Worker, `php artisan queue:work` |
@@ -187,29 +189,36 @@ If you only do two things from this list, do these:
 2. **Set up an email provider.** Without it Module 6 does nothing at all, and
    that is one of your eight required modules.
 
+See section 4 for the database, and section 5 for object storage — both are
+configuration-only changes now, with the code already in place.
+
 ---
 
 ## 4. Choosing the database
 
-### The recommendation: Neon (PostgreSQL)
+### The options
 
 | Option | Engine | Free tier | Catch |
 |---|---|---|---|
-| **Neon** | Postgres | 0.5 GB | Scales to zero when idle — first query is slow |
-| Supabase | Postgres | 500 MB | Pauses after about a week of inactivity |
+| **Neon** | Postgres | 1 GB | Scales to zero when idle — first query is slow, but it wakes on connect |
+| **Supabase** | Postgres | 1 GB | **Pauses after 7 days of low activity**; restore is a manual click |
 | Render | Postgres | 1 GB | **Deleted 30 days after creation on the free tier** |
 | Aiven | MySQL | 1 GB | Fewer regions, slower support |
 | TiDB Cloud | MySQL-compatible | 5 GB | Compatible, not actually MySQL |
 
-**Pick Neon** if you want the least friction. The free tier does not expire,
-which matters for a project that has to survive a semester and a demo. The
-"scales to zero" behaviour costs you a slow first page load, nothing worse.
+**Pick Neon or Supabase.** Both are Postgres and both work with this codebase
+unchanged. The difference that matters is what happens when the project is idle:
 
-**Pick Render MySQL** instead if you want development and production to be
-identical — your local `docker-compose.yml` runs MySQL 8, so staying on MySQL
-removes any doubt about engine differences. The trade is that Render's free
-database is deleted after 30 days, so you would need to move to a paid plan or
-re-create it before then.
+- **Neon** scales to zero but **wakes automatically on the next connection**.
+  A dormant semester costs one slow query, nothing more.
+- **Supabase** pauses the whole project after a week of low *database* activity
+  and needs a **manual "Resume project"** from the dashboard. The docs warn by
+  email about a week ahead, and the restore window is a year, so nothing is
+  lost — but the app is down until someone clicks.
+
+That distinction shapes the advice on storage below: a Supabase project kept
+alive only by file uploads may still be judged inactive, because the pause
+heuristic counts *database* queries.
 
 Note that free tiers change often. Verify current limits before committing.
 
@@ -237,16 +246,146 @@ Then run the migrations as normal:
 php artisan migrate --force
 ```
 
-Do not add `--seed` against production. See the pre-flight checklist in
-section 6.
+   Do not add `--seed` against production. See the pre-flight checklist in
+   section 7.
 
-**Note on serverless Postgres:** Neon and Supabase both need connection
-pooling when used from a serverless host, because each function invocation
-opens a connection. From a container host (Option A or B) this is not an issue.
+### Supabase specifics (verified against a live project)
+
+Three things about Supabase are not obvious and each one costs an afternoon if
+you meet it cold.
+
+**1. The direct database host is IPv6-only.**
+
+`db.<project-ref>.supabase.co` resolves to an **AAAA record only**. A container
+host without a global IPv6 address cannot reach it — the connection simply
+fails to resolve, which reads like a DNS problem rather than an addressing one.
+
+Use the **pooler** instead, which has IPv4:
+
+```
+DB_HOST=aws-0-<region>.pooler.supabase.com
+DB_PORT=5432
+DB_USERNAME=postgres.<project-ref>      # the ref suffix is REQUIRED
+DB_PASSWORD=<database password>
+DB_SSLMODE=require
+```
+
+The username is the trap: bare `postgres` is **rejected** by the pooler. It has
+to carry the project ref as a suffix. Find the exact string in the dashboard
+under **Project Settings → Database → Connection string**.
+
+Port `5432` is the session pooler, which is what migrations and long-lived
+connections want; `6543` is the transaction pooler. Both were tested and both
+run DDL inside a transaction and hold advisory locks, so either works here —
+5432 is the safer default.
+
+**2. The database password is not the S3 secret key.**
+
+They are separate credentials shown in different places, and mixing them up
+produces an authentication failure that looks like a wrong password. The
+database password is under **Project Settings → Database**; the S3 keys are
+under **Storage → S3**.
+
+**3. A half-finished migration cannot simply be re-run.**
+
+If `migrate` is interrupted, Postgres keeps the types it already created, and
+the retry fails with:
+
+```
+SQLSTATE[23505]: duplicate key value violates unique constraint "pg_type_typname_nsp_index"
+DETAIL: Key (typname, typnamespace)=(milestones, ...) already exists.
+```
+
+The schema is genuinely half-built at that point — table types exist for tables
+that were never created. On an **empty** database the clean fix is to drop and
+recreate the `public` schema and start again:
+
+```sql
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+GRANT ALL ON SCHEMA public TO postgres;
+GRANT ALL ON SCHEMA public TO public;
+```
+
+**Never run that against a database holding real data.** It is only safe on a
+fresh project, which is the situation that produces the error.
+
+**On connection pooling:** from a container host (Option A or B) pooling is not
+required, because the container holds a small fixed set of long-lived
+connections. It matters for serverless hosts, where every invocation opens a
+new one.
+
+### A note on latency
+
+A remote database makes every screen feel slower, and it is worth measuring
+before judging the app. Seeding this project against a project in
+`ap-northeast-1` took roughly **11 minutes**, against well under a minute
+locally — thousands of round trips at ~200 ms each. Ordinary page loads are
+fine; bulk operations are not. **Choose the region closest to the people using
+the system**, not the one closest to you.
 
 ---
 
-## 5. Recommended environment variables for production
+## 5. Object storage for uploaded files
+
+`local` writes into `storage/app/private` inside the container. That is correct
+for development and **wrong for any container host**: the filesystem is
+ephemeral, so a redeploy destroys every uploaded thesis while the database rows
+still point at them.
+
+Point it at an S3-compatible store by setting `FILESYSTEM_DISK=s3` plus the
+`AWS_*` variables from section 6. R2 and Supabase Storage are both verified to
+work with this driver; no application code changes.
+
+### Migrating files already uploaded
+
+`submission_files.disk` records the disk **per row**, so the move is
+incremental and needs no downtime: existing files keep resolving from wherever
+they are while new uploads go to the new disk.
+
+A command does the work:
+
+```sh
+# See what would move, without moving it
+php artisan psm:migrate-submission-files --to=s3 --dry-run
+
+# Copy across, verifying each file
+php artisan psm:migrate-submission-files --to=s3
+
+# Only once downloads are confirmed working: reclaim the old disk
+php artisan psm:migrate-submission-files --to=s3 --prune
+```
+
+It reads each copy back and compares **SHA-256** before flipping the row, skips
+files already migrated (so an interrupted run is safe to repeat), and **never
+deletes the source** unless you pass `--prune`. A copy that returns without
+throwing is not proof the bytes landed — a truncated upload can succeed at the
+HTTP level — so the first two properties are what make this safe. A bad
+credential or a misconfigured bucket then costs you a no-op rather than data.
+
+### Two provider details that are easy to get wrong
+
+- **Region is not interchangeable.** R2 uses `auto`; Supabase wants the
+  project's real region (`ap-northeast-1`). Sending `auto` to Supabase fails.
+- **Supabase's endpoint is not the bare host.** It needs the S3 path suffix:
+  `https://<project-ref>.storage.supabase.co/storage/v1/s3`.
+
+### Why the disk is configured to throw
+
+The `s3` disk sets `'throw' => true`, and `MilestoneController::submit()` also
+checks the return value. With `throw => false`, Flysystem reports a failed write
+by *returning* `false`, and the caller has to remember to check — so a failed
+upload silently became a database row pointing at nothing: the student saw
+"submission received", and the reviewer got a 404 weeks later. Both guards
+together mean that can no longer happen.
+
+`exists_on_disk` is **opt-in** (`?with_exists=1`). It asks the storage backend
+once per file, which is free locally but a network round trip per file in a
+list on object storage — and nothing in the SPA reads it.
+
+---
+
+## 6. Recommended environment variables for production
 
 ```sh
 APP_NAME="PSM Management System"
@@ -256,10 +395,13 @@ APP_DEBUG=false               # never true in production
 APP_URL=https://your-domain
 
 DB_CONNECTION=pgsql           # or mysql
-DB_HOST=...
+# Neon:
+DB_HOST=<project>.neon.tech
+# Supabase (IPv4 pooler — the direct host is IPv6-only, see section 4):
+# DB_HOST=aws-0-<region>.pooler.supabase.com
 DB_PORT=5432
-DB_DATABASE=psm_system
-DB_USERNAME=...
+DB_DATABASE=psm_system        # Supabase names its database `postgres`
+DB_USERNAME=...               # Supabase: postgres.<project-ref>
 DB_PASSWORD=...
 DB_SSLMODE=require
 
@@ -270,10 +412,20 @@ QUEUE_CONNECTION=database
 FILESYSTEM_DISK=s3            # once uploads move off the local disk
 AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
+# Region is per provider, NOT interchangeable:
+#   Cloudflare R2  -> auto
+#   Supabase       -> the project's real region, e.g. ap-northeast-1
 AWS_DEFAULT_REGION=auto
 AWS_BUCKET=psm-submissions
-AWS_ENDPOINT=https://<account>.r2.cloudflarestorage.com   # if using R2
+# Point at whichever provider you chose:
+#   R2:       https://<account>.r2.cloudflarestorage.com
+#   Supabase: https://<project-ref>.storage.supabase.co/storage/v1/s3
+AWS_ENDPOINT=https://<account>.r2.cloudflarestorage.com
 AWS_USE_PATH_STYLE_ENDPOINT=true
+
+# Do NOT set AWS_URL. It makes Laravel hand out public object URLs, and
+# submission files must only ever be served through the policy-checked,
+# audited download route (/api/submissions/{id}/download).
 
 MAIL_MAILER=smtp
 MAIL_HOST=...
@@ -298,16 +450,25 @@ AUDIT_RETAIN_YEARS=7
 
 ---
 
-## 6. Pre-flight checklist
+## 7. Pre-flight checklist
 
 Before pointing a real cohort at this:
 
 - [ ] `composer.lock` and `package-lock.json` generated and committed
       (see `frontend/LOCKFILE.md`)
+- [ ] **The deployed image was built after `composer.lock` last changed.** The
+      S3 adapter is in the lock file but not in older images, so a stale image
+      fails at `Storage::disk('s3')` with *"Class
+      League\Flysystem\AwsS3V3\PortableVisibilityConverter not found"* — which
+      reads like a missing package rather than a stale build. Rebuild with
+      `docker compose build` (or redeploy) after any lock-file change.
 - [ ] `APP_KEY` set, and **never regenerated** — doing so invalidates every
       session and encrypted value
 - [ ] `APP_DEBUG=false`
 - [ ] Uploads moved to object storage, and a test upload survives a redeploy
+- [ ] **The storage bucket is private.** Fetch an object path anonymously and
+      confirm it is refused (`403`); a public bucket exposes every student's
+      thesis. Downloads must go through `/api/submissions/{id}/download`.
 - [ ] Email provider configured, and a test notification actually arrives
 - [ ] Queue worker running (`queue:work`), and a queued job is processed
 - [ ] Scheduler running (`schedule:run` each minute), and `schedule:list` shows
@@ -317,8 +478,12 @@ Before pointing a real cohort at this:
 - [ ] `php artisan migrate --force` run as a deploy step, not on every boot
 - [ ] Seeder **not** run against production (it creates demo accounts with the
       password `password`)
-- [ ] HTTPS working, and `SANCTUM_STATEFUL_DOMAINS` matches the real frontend
-      origin
+- [ ] **If the host database is Supabase on the free plan, something keeps it
+      awake.** It pauses after 7 days without *database* activity, and file
+      uploads alone may not count. Point the app's database at it (so ordinary
+      use counts) rather than using it purely as a file store, or expect a
+      manual "Resume project" after quiet periods.
+- [ ] HTTPS working, and `SANCTUM_STATEFUL_DOMAINS` left **unset**
 - [ ] A CORS preflight from the real frontend origin returns
       `Access-Control-Allow-Origin` (see section 8)
 - [ ] The public leaderboard loads without logging in
@@ -327,7 +492,7 @@ Before pointing a real cohort at this:
 
 ---
 
-## 7. Troubleshooting the two failures that actually happened
+## 8. Troubleshooting the failures that actually happened
 
 Both of these were hit on a real deploy. Both are fixed in the repository, and
 both are recorded here because each is easy to misdiagnose.
@@ -446,7 +611,7 @@ When debugging, remember:
 
 ---
 
-## 8. Where to go next
+## 9. Where to go next
 
 - `WHAT_TO_DO_NEXT.md` — getting it running locally first, in plain language
 - `docs/SETUP.md` — full setup, including the Render section

@@ -12,8 +12,8 @@ their way to the authoritative one instead of a second, drifting copy.
 |---|---|---|
 | Frontend (React) | **Vercel** — best-in-class static hosting | Free |
 | Backend (Laravel) | **Render**, from the existing `Dockerfile` | Free, or $7/mo |
-| Database | **Neon** (PostgreSQL) or Render MySQL | Free |
-| Uploaded files | Cloudflare R2 / S3 — **not** the container disk | Free tier |
+| Database | **Neon** or **Supabase** (PostgreSQL) — MySQL also supported | Free |
+| Uploaded files | **Cloudflare R2** or **Supabase Storage** — **not** the container disk | Free tier |
 | Email | Resend / Postmark / Mailgun | Free tier |
 
 ## The one thing to remember
@@ -22,7 +22,7 @@ their way to the authoritative one instead of a second, drifting copy.
 can, through Docker and FrankenPHP — but because it runs code as short-lived
 serverless functions, and this application needs:
 
-1. a disk that still has the file tomorrow (student thesis uploads), and
+1. a filesystem that outlives the request (student thesis uploads), and
 2. a process that is always awake (the deadline reminder scheduler).
 
 Vercel is excellent for the frontend half. Render is the right home for the
