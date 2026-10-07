@@ -326,6 +326,38 @@ class Project extends Model
     }
 
     /**
+     * Projects this user **supervises**, and only those.
+     *
+     * `visibleTo()` deliberately returns supervised *and* examined projects,
+     * because being seated on a panel is a reason to read a project. But a
+     * roster is a different question from a permission: "my supervisees" must
+     * not include the students someone merely examines, or the supervisor's
+     * PSM 1 window lists other people's students under this supervisor's name.
+     */
+    public function scopeSupervisedBy(Builder $query, User $user): Builder
+    {
+        $supervisorId = $user->supervisorProfile?->id;
+
+        if ($supervisorId === null) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas(
+            'members.studentProfile.activeSupervisions',
+            fn ($sub) => $sub->where('supervisor_profile_id', $supervisorId)
+        );
+    }
+
+    /** Projects this user is seated on as an examiner, and only those. */
+    public function scopeExaminedBy(Builder $query, User $user): Builder
+    {
+        return $query->whereHas(
+            'examinerAssignments',
+            fn ($sub) => $sub->where('examiner_id', $user->id)->where('is_active', true)
+        );
+    }
+
+    /**
      * Projects that are not archived.
      *
      * `archived_at` is the retirement marker, but the soft-delete column is
@@ -405,8 +437,7 @@ class Project extends Model
                     'examinerAssignments',
                     fn ($sub) => $sub->where('examiner_id', $user->id)->where('is_active', true)
                 );
-            });
-        }
+            });        }
 
         return $query->whereRaw('1 = 0');
     }

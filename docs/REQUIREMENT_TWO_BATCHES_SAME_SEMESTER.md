@@ -193,7 +193,7 @@ generic update path where a stray `{"is_grades_released": true}` would silently 
 
 | Endpoint | Change | Status |
 |----------|--------|--------|
-| `GET /api/projects` | `?semester_id=`, `?psm_part=`; defaults to active term | Done |
+| `GET /api/projects` | `?semester_id=`, `?psm_part=`, `?role=supervisor\|examiner`; defaults to active term | Done |
 | `POST /api/projects` | Persists `academic_semester_id`; one live project per (student, term, part) | Done |
 | `GET /api/dashboard` | Adds `by_part.{PSM1,PSM2} = {label, cohort, grades, at_risk}` | Done |
 | `POST /api/assignments/supervisors` | Accepts `psm_part`; enforces per-part capacity in the student's term | Done |

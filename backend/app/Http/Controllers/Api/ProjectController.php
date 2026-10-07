@@ -54,6 +54,18 @@ class ProjectController extends ApiController
 
         $paginator = Project::query()
             ->visibleTo($request->user())
+            // `role` narrows the permission-scoped list to one *relationship*.
+            // `visibleTo()` returns supervised **and** examined projects because
+            // being on a panel is a reason to read a project — but the
+            // supervisor's roster is a list of supervisees, and returning the
+            // examined ones there showed other people's students as this
+            // supervisor's. Absent `role` keeps the old, wider behaviour.
+            ->when(
+                in_array($request->input('role'), ['supervisor', 'examiner'], true),
+                fn ($q) => $request->input('role') === 'supervisor'
+                    ? $q->supervisedBy($request->user())
+                    : $q->examinedBy($request->user())
+            )
             // `academicSemester` for the term column, `milestones` for the
             // progress bar and next-milestone date the list renders. Without
             // the latter the list showed 0% and "—" on every row.
