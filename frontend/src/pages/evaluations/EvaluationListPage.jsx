@@ -93,6 +93,27 @@ export default function EvaluationListPage() {
     }
   }, [rows])
 
+  /**
+   * Is any batch this assessor works in actually open for marking?
+   *
+   * Read from the windows, not inferred from the form list: the server hides
+   * unfiled drafts while marking is shut, so an empty list and a closed window
+   * look identical from here. This is what tells them apart, and it is why the
+   * page can say "not opened yet" rather than "nothing outstanding" — the
+   * latter reads as "you are done" when the truth is "you may not start".
+   */
+  const markingOpen = windows.some((w) => w.accepts_marks)
+
+  /**
+   * Did the server actually gate this list?
+   *
+   * `marking_gated` is the server's own answer — it is the same predicate that
+   * decided which rows to send — so the UI never has to re-derive "am I exempt"
+   * from the role and risk disagreeing with the filter. Falls back to the role
+   * check for an older payload.
+   */
+  const gated = meta?.marking_gated ?? !['coordinator', 'admin'].includes(user?.role)
+
   if (loading) return <Spinner label="Loading assessments" />
   if (error) return <ErrorState error={error} />
 
@@ -125,6 +146,20 @@ export default function EvaluationListPage() {
           </div>
         </Card>
       ))}
+
+      {/*
+        The locked notice. Shown in place of the form list so the assessor is
+        told *why* there is nothing to mark, rather than being handed an empty
+        queue that reads as completed work.
+      */}
+      {!markingOpen && gated && (
+        <Card className="border-amber-200 bg-amber-50/60">
+          <EmptyState
+            title="Marking has not been opened yet"
+            message="Your coordinator opens marking for each batch. Once they do, your forms will appear here — nothing is missing from your side."
+          />
+        </Card>
+      )}
 
       <Card>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -180,8 +215,12 @@ export default function EvaluationListPage() {
         />
         {open.length === 0 ? (
           <EmptyState
-            title="Nothing outstanding"
-            message="You have no draft assessment forms waiting to be completed."
+            title={markingOpen || !gated ? 'Nothing outstanding' : 'Not open for marking'}
+            message={
+              markingOpen || !gated
+                ? 'You have no draft assessment forms waiting to be completed.'
+                : 'Draft forms appear here once your coordinator opens marking for the batch.'
+            }
           />
         ) : (
           <ul className="divide-y divide-slate-100">

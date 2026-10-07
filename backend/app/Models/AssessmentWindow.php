@@ -161,6 +161,76 @@ class AssessmentWindow extends Model
     }
 
     /**
+     * Windows that are accepting marks *right now* — the SQL twin of
+     * `acceptsMarks()`.
+     *
+     * The two must agree exactly: this one decides which draft forms an
+     * assessor is allowed to see in a list, and the method decides whether a
+     * write is permitted. If they drifted, a form would be listed but not
+     * saveable (or worse, saveable but invisible).
+     */
+    public function scopeAcceptingMarks(Builder $query): Builder
+    {
+        return $query
+            ->where('status', self::STATUS_OPEN)
+            ->where(fn ($q) => $q
+                ->whereNull('scheduled_end_at')
+                ->orWhere('scheduled_end_at', '>=', now()));
+    }
+
+    /**
+     * Is marking open for this project's batch, right now?
+     *
+     * **Fail-closed.** A batch with no window has not been opened, so its marks
+     * are not being taken. This is the deliberate inverse of the original
+     * reading, where a missing window meant "ungated" — that let an assessor
+     * mark a cohort whose marking the coordinator had never started, which is
+     * exactly what the window exists to prevent. Windows are provisioned
+     * automatically when a term is created, so a missing one means the term
+     * predates that, not that marking should be allowed.
+     */
+    public static function markingOpenFor(?Project $project): bool
+    {
+        if ($project?->academic_semester_id === null || $project->psm_part === null) {
+            return false;
+        }
+
+        return static::query()
+            ->forSemesterPart($project->academic_semester_id, $project->psm_part)
+            ->acceptingMarks()
+            ->exists();
+    }
+
+    /**
+     * The stable key for a (term, part) pair.
+     *
+     * Nulls are spelled out rather than interpolated so an unset term cannot
+     * collide with a real id.
+     */
+    public static function termPartKey(?int $semesterId, ?string $psmPart): string
+    {
+        return ($semesterId ?? 'null') . ':' . ($psmPart ?? 'null');
+    }
+
+    /**
+     * Every (term, part) pair currently accepting marks.
+     *
+     * One query for a whole list, so a resource can answer "is this form's
+     * marking open?" without a query per row. Controllers put the result on the
+     * request for the resource to read; see EvaluationController.
+     *
+     * @return array<int, string>
+     */
+    public static function openTermPartKeys(): array
+    {
+        return static::query()
+            ->acceptingMarks()
+            ->get(['academic_semester_id', 'psm_part'])
+            ->map(fn (self $w) => self::termPartKey($w->academic_semester_id, $w->psm_part))
+            ->all();
+    }
+
+    /**
      * The window that governs a project, or null when marking is ungated.
      *
      * Null is a real answer: a batch that has never had a window keeps the old

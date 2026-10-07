@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { evaluationApi, milestoneApi } from '../../api/endpoints'
+import { assessmentWindowApi, evaluationApi, milestoneApi } from '../../api/endpoints'
 import { unwrapPaged } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -38,6 +38,14 @@ export default function PanelWorkPage() {
   // The proposals this panel has to rule on — the title decision, which is the
   // panel's other job and the one that gates the rest of a student's chain.
   const [proposals, setProposals] = useState([])
+  /**
+   * The coordinator's marking windows for the batches this panel works in.
+   *
+   * Only the *forms* are gated by these — the proposals below are not. The
+   * title decision is the panel's own job and happens before any assessment
+   * window exists, so it must stay reachable while marking is shut.
+   */
+  const [windows, setWindows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedPart, setSelectedPart] = useState('all')
@@ -52,14 +60,16 @@ export default function PanelWorkPage() {
         // Both jobs at once: the forms to mark, and the proposals to decide.
         // A panel is appointed to do two things, and the second one gates the
         // student's whole milestone chain — it should not be the harder to find.
-        const [formsRes, proposalsRes] = await Promise.all([
+        const [formsRes, proposalsRes, windowsRes] = await Promise.all([
           evaluationApi.list({ mine: true, as: 'examiner', per_page: 100 }),
           milestoneApi.panelProposals().catch(() => []),
+          assessmentWindowApi.current().catch(() => []),
         ])
 
         if (!cancelled) {
           setForms(unwrapPaged(formsRes).items)
           setProposals(Array.isArray(proposalsRes) ? proposalsRes : [])
+          setWindows(Array.isArray(windowsRes) ? windowsRes : [])
         }
       } catch (err) {
         if (!cancelled) setError(err)
@@ -96,6 +106,25 @@ export default function PanelWorkPage() {
     }
   }, [filteredForms])
 
+  /**
+   * Is marking open for any batch this panel works in?
+   *
+   * The server hides unfiled drafts while it is shut, so an empty form list
+   * cannot distinguish "nothing to mark" from "not allowed to mark yet". This
+   * is what tells them apart.
+   */
+  const markingOpen = windows.some((w) => w.accepts_marks)
+
+  /**
+   * The batches actually open for marking.
+   *
+   * Per part, not one flag: a panel can be open for PSM 2 while PSM 1 is still
+   * shut, and a single flag would then label the shut batch "All caught up" —
+   * telling an examiner they were finished when they were not yet allowed to
+   * start.
+   */
+  const openParts = new Set(windows.filter((w) => w.accepts_marks).map((w) => w.psm_part))
+
   if (loading) return <Spinner label="Loading your examination assignments" />
   if (error) return <ErrorState error={error} />
 
@@ -117,11 +146,15 @@ export default function PanelWorkPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Assigned" value={stats.total} hint="Evaluation forms" />
+        <StatCard
+          label="Assigned"
+          value={stats.total}
+          hint={markingOpen ? 'Evaluation forms' : 'Forms in opened batches'}
+        />
         <StatCard
           label="Outstanding"
           value={stats.outstanding}
-          hint="Draft, not submitted"
+          hint={markingOpen ? 'Draft, not submitted' : 'No batch open to mark'}
           tone={stats.outstanding > 0 ? 'warning' : 'default'}
         />
         <StatCard label="Submitted" value={stats.done} hint="Locked and counted" tone="success" />
@@ -132,6 +165,25 @@ export default function PanelWorkPage() {
           tone={stats.conflicts > 0 ? 'danger' : 'default'}
         />
       </div>
+
+      {/*
+        Marking shut: say so instead of showing an empty form list. Proposals
+        are deliberately *not* hidden by this — the title decision is the
+        panel's own job and is not governed by the assessment window.
+      */}
+      {!markingOpen && (
+        <Card className="border-amber-200 bg-amber-50/60">
+          <div className="flex flex-wrap items-center gap-3 p-1">
+            <div className="flex-1">
+              <p className="font-medium text-amber-900">Marking has not been opened yet</p>
+              <p className="text-sm text-amber-800">
+                Your coordinator opens marking for each batch. Your examination forms will appear
+                here once they do — any proposal awaiting your decision is still available below.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {proposals.length > 0 && (
         <Card>
@@ -205,10 +257,23 @@ export default function PanelWorkPage() {
           <Card key={part}>
             <CardHeader
               title={`Pending ${partLabel(part)} assessments`}
-              subtitle={partDrafts.length === 0 ? 'All caught up' : `${partDrafts.length} form${partDrafts.length === 1 ? '' : 's'} to complete`}
+              subtitle={
+                partDrafts.length > 0
+                  ? `${partDrafts.length} form${partDrafts.length === 1 ? '' : 's'} to complete`
+                  : openParts.has(part)
+                    ? 'All caught up'
+                    : 'Marking not open yet'
+              }
             />
             {partDrafts.length === 0 ? (
-              <EmptyState title="Nothing outstanding" message="Every form assigned to you has been submitted. Thank you." />
+              openParts.has(part) ? (
+                <EmptyState title="Nothing outstanding" message="Every form assigned to you has been submitted. Thank you." />
+              ) : (
+                <EmptyState
+                  title={`${partLabel(part)} marking is not open yet`}
+                  message="Your coordinator opens marking for each batch. Your forms will appear here once they do."
+                />
+              )
             ) : (
               <ul className="divide-y divide-slate-100">
                 {partDrafts.map((form) => (

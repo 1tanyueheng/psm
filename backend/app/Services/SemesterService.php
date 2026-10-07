@@ -111,6 +111,11 @@ class SemesterService
                 $this->deactivateOthers($semester);
             }
 
+            // Both batches get their (closed) window now, so "marking has not
+            // been opened" is a state the coordinator can act on from the first
+            // day rather than a missing row.
+            $this->provisionAssessmentWindows($semester, $actor);
+
             $this->audit->log(
                 action: AuditAction::SemesterCreated,
                 description: "Semester created — {$semester->name}",
@@ -177,6 +182,13 @@ class SemesterService
             if ($semester->is_active) {
                 $this->deactivateOthers($semester);
             }
+
+            // A term created before windows were provisioned — or one whose rows
+            // were removed by hand — gets them back when it is activated. This is
+            // the upgrade path as well as a repair: activating is the moment the
+            // term starts being marked, so it is the right moment to guarantee
+            // the windows exist.
+            $this->provisionAssessmentWindows($semester, $actor);
 
             $this->audit->log(
                 action: AuditAction::SemesterUpdated,
@@ -338,6 +350,11 @@ class SemesterService
             // Exactly one term is live per faculty, so reactivating this one
             // retires whichever term was active instead.
             $this->deactivateOthers($semester);
+
+            // A term reopened for marking must be markable, so it gets the same
+            // guarantee activation does. Windows that already exist are untouched
+            // — a reopened term does not silently reopen its marking.
+            $this->provisionAssessmentWindows($semester, $actor);
 
             $this->audit->log(
                 action: AuditAction::SemesterReopened,
@@ -660,6 +677,38 @@ class SemesterService
         if ($clash) {
             throw new InvalidArgumentException(
                 "{$session} Semester " . ($number === 2 ? 'II' : 'I') . ' already exists.'
+            );
+        }
+    }
+
+    /**
+     * Provision the two assessment windows for a term, closed.
+     *
+     * Every term has exactly two batches, and marking for each needs a window
+     * before anyone may file a mark. Creating them up front — `scheduled`, so
+     * not accepting marks — means the coordinator's "open marking" is a single
+     * deliberate act rather than also being a data-entry task, and it removes
+     * the "no window yet" case that used to read as *permission* to mark.
+     *
+     * `firstOrCreate` keyed on (term, part), which the table's unique index also
+     * enforces, so re-activating a term or racing two requests cannot duplicate.
+     * Existing windows are left exactly as they are: re-provisioning must never
+     * reopen marking a coordinator deliberately closed.
+     */
+    public function provisionAssessmentWindows(AcademicSemester $semester, ?User $actor = null): void
+    {
+        foreach ([PsmPart::Psm1, PsmPart::Psm2] as $part) {
+            AssessmentWindow::firstOrCreate(
+                [
+                    'academic_semester_id' => $semester->id,
+                    'psm_part'             => $part->value,
+                ],
+                [
+                    'name'             => $part->label(),
+                    'academic_session' => $semester->academic_session,
+                    'status'           => AssessmentWindow::STATUS_SCHEDULED,
+                    'created_by'       => $actor?->id,
+                ],
             );
         }
     }

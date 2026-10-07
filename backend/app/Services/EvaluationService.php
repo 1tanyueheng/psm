@@ -1019,12 +1019,14 @@ class EvaluationService
     }
 
     /**
-     * Refuse a write when the coordinator's assessment window is closed.
+     * Refuse a write unless the coordinator has opened marking for this batch.
      *
-     * A window, once it exists, is authoritative for its batch — that is the
-     * point of the coordinator opening one. A batch that has never had a window
-     * keeps the old behaviour rather than being frozen out, so this gates only
-     * where a window has actually been declared.
+     * **Fail-closed.** A batch with no window is *not* open for marking: the
+     * window is the coordinator's explicit "start marking" act, and treating a
+     * missing one as permission is what let assessors file marks for a cohort
+     * nobody had started. Windows are provisioned automatically when a term is
+     * created (see SemesterService), so the absent case is a term that predates
+     * that, not an invitation.
      *
      * @throws InvalidArgumentException
      */
@@ -1034,14 +1036,14 @@ class EvaluationService
             return;
         }
 
-        $window = AssessmentWindow::governing($project);
-
-        if ($window === null || $window->acceptsMarks()) {
+        if (AssessmentWindow::markingOpenFor($project)) {
             return;
         }
 
+        $window = AssessmentWindow::governing($project);
+
         throw new InvalidArgumentException(
-            $window->isClosed()
+            $window?->isClosed()
                 ? "Marking for {$psmPart} is closed. Ask the coordinator to reopen the assessment window."
                 : "Marking for {$psmPart} has not been opened yet. Ask the coordinator to start the assessment window."
         );

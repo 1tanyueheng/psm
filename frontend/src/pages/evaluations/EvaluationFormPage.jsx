@@ -153,6 +153,24 @@ export default function EvaluationFormPage() {
   }
 
   if (loading) return <Spinner label="Loading the marking form" />
+
+  // Checked *before* the generic error state: the server refuses to hand over a
+  // draft whose batch is not open for marking, and "marking has not been opened
+  // yet" is a state to explain, not a failure to report. This only fires on a
+  // stale tab or a bookmark, since the list hides these forms too.
+  if (error?.status === 403) {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <Card className="border-amber-200 bg-amber-50/60">
+          <EmptyState
+            title="Marking has not been opened yet"
+            message="Your coordinator opens marking for each batch. This form becomes available once they do."
+          />
+        </Card>
+      </div>
+    )
+  }
+
   if (error) return <ErrorState error={error} />
   if (!evaluation) return <ErrorState error={{ message: 'Evaluation not found.' }} />
 

@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\AssessorType;
 use App\Enums\AuditAction;
+use App\Enums\EvaluationStatus;
 use App\Http\Controllers\ApiController;
 use App\Http\Resources\EvaluationResource;
 use App\Http\Resources\RubricTemplateResource;
 use App\Models\AcademicSemester;
+use App\Models\AssessmentWindow;
 use App\Models\Evaluation;
 use App\Models\FinalGrade;
 use App\Models\MarkSubmission;
@@ -55,6 +57,24 @@ class EvaluationController extends ApiController
         // Handle `as=examiner|supervisor` - filter by assessor type
         $as = $request->input('as');
 
+        /**
+         * Hide unfiled work while the coordinator has marking shut.
+         *
+         * Marking is gated on the assessment window, and that gate is per
+         * (term, batch). A draft form in a batch whose window is not accepting
+         * marks cannot be filed — the write would be refused — so listing it
+         * only offers the assessor work they are not allowed to do. Filed forms
+         * stay visible: they are the assessor's own record of what they
+         * submitted, and hiding those would look like data loss.
+         *
+         * Coordinators and admins are exempt. They need to see the drafts that
+         * exist to know what is outstanding, and they are the ones who open the
+         * window in the first place.
+         */
+        $gated = ! $user->hasRole('admin', 'coordinator');
+
+        $openKeys = $gated ? AssessmentWindow::openTermPartKeys() : [];
+
         $paginator = Evaluation::query()
             ->with(['project.students.user', 'assessor', 'rubricTemplate'])
             ->when(
@@ -66,6 +86,25 @@ class EvaluationController extends ApiController
                     fn ($sub) => $sub->where('assessor_id', $user->id)
                 )
             )
+            ->when($gated, fn ($q) => $q->where(function ($sub) use ($openKeys) {
+                // Keep every filed form regardless of window state…
+                $sub->whereIn('status', [
+                    EvaluationStatus::Submitted->value,
+                    EvaluationStatus::Moderated->value,
+                    EvaluationStatus::Released->value,
+                    EvaluationStatus::Recused->value,
+                ]);
+
+                // …and a draft only where its own batch is open for marking.
+                foreach ($openKeys as $key) {
+                    [$semesterId, $part] = explode(':', $key, 2);
+
+                    $sub->orWhere(fn ($draft) => $draft
+                        ->where('status', EvaluationStatus::Draft->value)
+                        ->where('psm_part', $part)
+                        ->whereHas('project', fn ($p) => $p->where('academic_semester_id', $semesterId)));
+                }
+            }))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
             ->when($request->filled('project_id'), fn ($q) => $q->where('project_id', $request->integer('project_id')))
             ->when($request->filled('assessor_type'), fn ($q) => $q->where('assessor_type', $request->input('assessor_type')))
@@ -75,7 +114,13 @@ class EvaluationController extends ApiController
 
         return $this->paginated(
             $paginator,
-            fn (Evaluation $e) => (new EvaluationResource($e))->resolve($request)
+            fn (Evaluation $e) => (new EvaluationResource($e))->resolve($request),
+            // Lets the UI say "marking has not been opened yet" instead of
+            // showing an empty queue, which reads as "nothing to do".
+            [
+                'marking_gated' => $gated,
+                'open_term_parts' => $openKeys,
+            ]
         );
     }
 
@@ -85,6 +130,18 @@ class EvaluationController extends ApiController
     public function show(Request $request, Evaluation $evaluation): JsonResponse
     {
         $this->authorize('view', $evaluation);
+
+        // A draft hidden from the list must not be reachable by URL either —
+        // otherwise "marking is not open" is a cosmetic rule that a bookmark or
+        // a stale tab walks straight through. Filed forms stay readable, so an
+        // assessor never loses sight of what they already submitted.
+        if ($this->hiddenDraft($request, $evaluation)) {
+            return $this->fail(
+                'Marking for this batch has not been opened yet. '
+                .'Ask the coordinator to start the assessment window.',
+                403
+            );
+        }
 
         $evaluation->load([
             'project.students.user',
@@ -96,6 +153,27 @@ class EvaluationController extends ApiController
         ]);
 
         return $this->ok(new EvaluationResource($evaluation));
+    }
+
+    /**
+     * Is this an unfiled draft whose batch the coordinator has not opened?
+     *
+     * Coordinators and admins are never blocked: they own the window and need
+     * to inspect what is outstanding.
+     */
+    protected function hiddenDraft(Request $request, Evaluation $evaluation): bool
+    {
+        $user = $request->user();
+
+        if ($user->hasRole('admin', 'coordinator')) {
+            return false;
+        }
+
+        if ($evaluation->status !== EvaluationStatus::Draft) {
+            return false;
+        }
+
+        return ! AssessmentWindow::markingOpenFor($evaluation->project);
     }
 
     /**

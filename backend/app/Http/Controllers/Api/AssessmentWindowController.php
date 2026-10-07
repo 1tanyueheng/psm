@@ -53,18 +53,49 @@ class AssessmentWindowController extends ApiController
     {
         $user = $request->user();
 
-        // Which batches does this user actually have work in? Derived from
-        // their assignments rather than asked for, so an assessor needs no
-        // filter to get a correct answer.
-        $parts = Project::query()
+        /**
+         * The (term, batch) pairs this user actually has work in.
+         *
+         * Derived from their assignments rather than asked for, so an assessor
+         * needs no filter to get a correct answer. These are the *same* pairs
+         * the marking gate resolves per form (`AssessmentWindow::markingOpenFor`
+         * reads the project's own term and batch), which is what keeps the
+         * banner and the gate from disagreeing.
+         *
+         * Deliberately not restricted to the active term: an assessor can hold
+         * work in a term other than the one currently running, and the banner
+         * must describe the batch they are looking at, not the term the faculty
+         * happens to be in.
+         */
+        $pairs = Project::query()
             ->whereIn('id', $this->projectIdsFor($user->id))
-            ->distinct()
-            ->pluck('psm_part')
-            ->all();
+            ->whereNotNull('academic_semester_id')
+            ->get(['academic_semester_id', 'psm_part'])
+            ->map(fn (Project $p) => AssessmentWindow::termPartKey(
+                $p->academic_semester_id,
+                $p->psm_part
+            ))
+            ->unique()
+            ->values();
 
         $windows = AssessmentWindow::query()
-            ->whereIn('psm_part', $parts === [] ? ['__none__'] : $parts)
             ->with('academicSemester')
+            ->where(function ($q) use ($pairs) {
+                if ($pairs->isEmpty()) {
+                    // No work at all: match nothing rather than everything.
+                    $q->whereRaw('1 = 0');
+
+                    return;
+                }
+
+                foreach ($pairs as $key) {
+                    [$semesterId, $part] = explode(':', $key, 2);
+
+                    $q->orWhere(fn ($sub) => $sub
+                        ->where('academic_semester_id', $semesterId)
+                        ->where('psm_part', $part));
+                }
+            })
             ->get();
 
         return $this->ok($windows->map(fn (AssessmentWindow $w) => $this->present($w))->all());
