@@ -188,68 +188,147 @@ class MilestoneController extends ApiController
             );
         }
 
-        $files = DB::transaction(function () use ($milestone, $validated, $request) {
-            /**
-             * The revision number has to be read across *every* attempt, before
-             * the previous one is superseded.
-             *
-             * `currentFiles()` is scoped to `is_current`, so once the old rows
-             * are flipped below it returns nothing and every resubmission would
-             * be numbered 1 — erasing the chapter's revision history.
-             */
-            $revisionNo = ((int) $milestone->files()->max('revision_no')) + 1;
+        /**
+         * Where the bytes go, resolved once.
+         *
+         * Read from config rather than hardcoded so the same code writes to a
+         * local disk in development and object storage in production, and the
+         * resolved name is recorded per row — which is what lets existing files
+         * be migrated to a new disk without a flag day.
+         */
+        $disk = config('filesystems.default', 'local');
 
-            $isResubmission = $milestone->submitted_at !== null
-                || $milestone->revision_count > 0;
+        /**
+         * Paths actually written, so a failure can undo them.
+         *
+         * The database rolls back on its own, but a file already written to the
+         * disk does not — so a failure on the third of five files would leave
+         * two orphans behind with no row pointing at them. Tracked outside the
+         * transaction because the cleanup has to run after it has rolled back.
+         */
+        $written = [];
 
-            // Supersede the previous attempt rather than deleting it
-            if ($isResubmission) {
-                $milestone->currentFiles()->update([
-                    'is_current'    => false,
-                    'superseded_at' => now(),
-                    'superseded_by' => $request->user()->id,
-                ]);
-            }
+        try {
+            $files = DB::transaction(function () use ($milestone, $validated, $request, $disk, &$written) {
+                /**
+                 * The revision number has to be read across *every* attempt, before
+                 * the previous one is superseded.
+                 *
+                 * `currentFiles()` is scoped to `is_current`, so once the old rows
+                 * are flipped below it returns nothing and every resubmission would
+                 * be numbered 1 — erasing the chapter's revision history.
+                 */
+                $revisionNo = ((int) $milestone->files()->max('revision_no')) + 1;
 
-            $created = [];
+                $isResubmission = $milestone->submitted_at !== null
+                    || $milestone->revision_count > 0;
 
-            foreach ($request->file('files') as $uploaded) {
-                // Randomised storage name; extension preserved for readability
-                $disk = config('filesystems.default', 'local');
-                $path = $uploaded->storeAs(
-                    'submissions/'.$milestone->project_id.'/'.$milestone->id,
-                    Str::uuid()->toString().'.'.strtolower($uploaded->getClientOriginalExtension()),
-                    $disk
+                // Supersede the previous attempt rather than deleting it
+                if ($isResubmission) {
+                    $milestone->currentFiles()->update([
+                        'is_current'    => false,
+                        'superseded_at' => now(),
+                        'superseded_by' => $request->user()->id,
+                    ]);
+                }
+
+                $created = [];
+
+                foreach ($request->file('files') as $uploaded) {
+                    $originalName = $uploaded->getClientOriginalName();
+
+                    /**
+                     * A failed write must not become a database row.
+                     *
+                     * Laravel reports a storage failure in one of two ways
+                     * depending on the disk's `throw` flag, so both are handled:
+                     *
+                     *  - `throw => false`: `FilesystemAdapter::put()` catches
+                     *    `UnableToWriteFile` and *returns* `false`. Assigning
+                     *    that into `path` created a row pointing at nothing —
+                     *    the student saw a successful submission, the reviewer
+                     *    got a 404 on download, and nothing was logged.
+                     *  - `throw => true` (the `s3` disk): the exception
+                     *    propagates, which would surface as an opaque 500.
+                     *
+                     * Note that some failures escape the flag entirely —
+                     * `UnableToCreateDirectory` is not caught by `put()`, so a
+                     * local disk raises it either way. Catching here means the
+                     * student gets the same actionable message in every case.
+                     *
+                     * On a local disk this is nearly impossible; on object
+                     * storage a dropped connection or a bad credential makes it
+                     * routine, so the check matters most exactly where it would
+                     * otherwise be hardest to notice.
+                     */
+                    try {
+                        // Randomised storage name; extension preserved for readability
+                        $path = $uploaded->storeAs(
+                            'submissions/'.$milestone->project_id.'/'.$milestone->id,
+                            Str::uuid()->toString().'.'.strtolower($uploaded->getClientOriginalExtension()),
+                            $disk
+                        );
+                    } catch (\Throwable $storageFailure) {
+                        report($storageFailure);
+
+                        $path = false;
+                    }
+
+                    if (! is_string($path) || $path === '') {
+                        throw new InvalidArgumentException(
+                            "\"{$originalName}\" could not be saved to storage. "
+                            .'Nothing was submitted — please try again, and contact your '
+                            .'coordinator if it keeps failing.'
+                        );
+                    }
+
+                    $written[] = $path;
+
+                    $created[] = SubmissionFile::create([
+                        'milestone_id'   => $milestone->id,
+                        'uploaded_by'    => $request->user()->id,
+                        'disk'           => $disk,
+                        'path'           => $path,
+                        'original_name'  => $originalName,
+                        'mime_type'      => $uploaded->getClientMimeType(),
+                        'size_bytes'     => $uploaded->getSize(),
+                        'checksum_sha256'=> hash_file('sha256', $uploaded->getRealPath()) ?: null,
+                        'revision_no'    => $revisionNo,
+                        'is_current'     => true,
+                    ]);
+                }
+
+                // Drive the state machine from the model's own rules
+                if ($milestone->status === MilestoneStatus::Pending) {
+                    $milestone->update(['status' => MilestoneStatus::Open]);
+                }
+
+                $this->milestones->transitionTo(
+                    $milestone,
+                    MilestoneStatus::Submitted,
+                    $request->user(),
+                    $validated['note'] ?? null,
                 );
 
-                $created[] = SubmissionFile::create([
-                    'milestone_id'   => $milestone->id,
-                    'uploaded_by'    => $request->user()->id,
-                    'disk'           => $disk,
-                    'path'           => $path,
-                    'original_name'  => $uploaded->getClientOriginalName(),
-                    'mime_type'      => $uploaded->getClientMimeType(),
-                    'size_bytes'     => $uploaded->getSize(),
-                    'checksum_sha256'=> hash_file('sha256', $uploaded->getRealPath()) ?: null,
-                    'revision_no'    => $revisionNo,
-                    'is_current'     => true,
-                ]);
-            }
+                return $created;
+            });
+        } catch (\Throwable $e) {
+            /**
+             * The transaction has rolled back, so no row survives — but the
+             * bytes do. Without this, a failure part-way through a multi-file
+             * upload leaves objects on the disk that nothing points at: invisible
+             * to every screen, still billed for, and impossible to tell apart
+             * from a real submission later.
+             *
+             * Rethrown rather than converted, because the response envelope is
+             * already decided in one place — `bootstrap/app.php` maps
+             * InvalidArgumentException (a failed write, a rejected transition)
+             * to 422 with its message, and anything else to 500.
+             */
+            $this->discardWrittenFiles($disk, $written);
 
-            // Drive the state machine from the model's own rules
-            if ($milestone->status === MilestoneStatus::Pending) {
-                $milestone->update(['status' => MilestoneStatus::Open]);
-            }
-
-            $this->milestones->transitionTo(
-                $milestone,
-                MilestoneStatus::Submitted,
-                $request->user(),
-                $validated['note'] ?? null,
-            );
-
-            return $created;
-        });
+            throw $e;
+        }
 
         $this->audit->log(
             action: AuditAction::FileUploaded,
@@ -282,6 +361,32 @@ class MilestoneController extends ApiController
             'milestone' => new MilestoneResource($milestone),
             'files'     => SubmissionFileResource::collection($files),
         ], 'Submission received.');
+    }
+
+    /**
+     * Best-effort removal of objects written during a submission that failed.
+     *
+     * Best-effort on purpose: this runs while an exception is already
+     * propagating, so a failure here must not replace the real error with a
+     * confusing one. A leftover object is untidy; a masked exception is a bug
+     * nobody can diagnose. Each path is attempted independently for the same
+     * reason — one unwritable key must not strand the rest.
+     *
+     * @param  array<int, string>  $paths
+     */
+    protected function discardWrittenFiles(string $disk, array $paths): void
+    {
+        if ($paths === []) {
+            return;
+        }
+
+        foreach ($paths as $path) {
+            try {
+                Storage::disk($disk)->delete($path);
+            } catch (\Throwable $cleanupFailure) {
+                report($cleanupFailure);
+            }
+        }
     }
 
     /**

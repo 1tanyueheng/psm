@@ -36,7 +36,26 @@ class SubmissionFileResource extends JsonResource
 
             // Flags a suspiciously small PDF, which a reviewer may want to check
             'is_suspiciously_small' => $this->looksSuspiciouslySmall(),
-            'exists_on_disk'        => $this->exists(),
+
+            /**
+             * Whether the bytes are actually there — **opt-in**, and off by
+             * default.
+             *
+             * This is a real request to the storage backend. On a local disk
+             * that is a cheap `stat`, but on object storage it is a network
+             * round trip, and this resource is serialised once per file inside
+             * every milestone in a list. A cohort screen would fire hundreds of
+             * them and stall on latency the user cannot see the cause of.
+             *
+             * Nothing in the SPA reads the field: the archive screen already
+             * treats a missing file by catching the download failure and saying
+             * so, which is the honest place to discover it. Callers that really
+             * want to verify a specific file can ask with `?with_exists=1`.
+             */
+            'exists_on_disk' => $this->when(
+                $request->boolean('with_exists'),
+                fn () => $this->exists()
+            ),
 
             'superseded_at' => $this->superseded_at?->toIso8601String(),
             'uploaded_at'   => $this->created_at?->toIso8601String(),
