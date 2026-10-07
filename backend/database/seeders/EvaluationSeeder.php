@@ -6,6 +6,7 @@ use App\Enums\AssessorType;
 use App\Enums\EvaluationStatus;
 use App\Enums\MilestoneStatus;
 use App\Models\AcademicSemester;
+use App\Models\AssessmentWindow;
 use App\Models\Evaluation;
 use App\Models\ExaminerAssignment;
 use App\Models\FinalGrade;
@@ -101,6 +102,18 @@ public function __construct(
             ->with(['students.activeSupervisions.supervisorProfile.user'])
             ->get();
 
+        /**
+         * Marking must be open before any mark can be filed.
+         *
+         * Marking is fail-closed: a batch whose assessment window is not
+         * accepting marks refuses `saveMarks()`, so seeding evaluations without
+         * opening the window made the whole seeder fail. The windows are
+         * provisioned by AcademicSemesterSeeder (closed, as they are in real
+         * life); this opens the ones the demo cohort actually marks into, so the
+         * seeded state matches what a coordinator would have set up.
+         */
+        $this->openMarkingWindows($projects);
+
         $evaluated = 0;
 
         foreach ($projects as $index => $project) {
@@ -179,6 +192,46 @@ public function __construct(
     // -----------------------------------------------------------------
     // Marking
     // -----------------------------------------------------------------
+
+    /**
+     * Open the assessment windows this demo cohort files marks into.
+     *
+     * Set directly rather than through `AssessmentWindowService::open()`, which
+     * also allocates every student's forms. The seeder already decides which
+     * forms exist (via `createForm` in `markAndMaybeSubmit`), so letting the
+     * service allocate a second, competing set would duplicate work and make
+     * the seeded state depend on allocation order.
+     *
+     * Only the (term, batch) pairs that actually carry markable projects are
+     * opened, so the demo still exercises a *closed* window — which is the
+     * state the marking-gate work exists to show.
+     *
+     * @param  \Illuminate\Support\Collection<int, Project>  $projects
+     */
+    protected function openMarkingWindows(Collection $projects): void
+    {
+        $pairs = $projects
+            ->filter(fn (Project $p) => $this->isMarkable($p))
+            ->map(fn (Project $p) => [
+                'semester' => $p->academic_semester_id,
+                'part'     => $p->psm_part,
+            ])
+            ->unique(fn (array $p) => $p['semester'].':'.$p['part']);
+
+        foreach ($pairs as $pair) {
+            if ($pair['semester'] === null) {
+                continue;
+            }
+
+            AssessmentWindow::query()
+                ->where('academic_semester_id', $pair['semester'])
+                ->where('psm_part', $pair['part'])
+                ->update([
+                    'status'    => AssessmentWindow::STATUS_OPEN,
+                    'opened_at' => now(),
+                ]);
+        }
+    }
 
     /**
      * Open a form, enter marks for every criterion, optionally submit.

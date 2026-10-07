@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\AcademicSemester;
+use App\Services\SemesterService;
 use Illuminate\Database\Seeder;
 
 /**
@@ -35,6 +36,11 @@ use Illuminate\Database\Seeder;
  */
 class AcademicSemesterSeeder extends Seeder
 {
+    public function __construct(
+        protected SemesterService $semesters,
+    ) {
+    }
+
     public function run(): void
     {
         $terms = [
@@ -91,6 +97,17 @@ class AcademicSemesterSeeder extends Seeder
                 ],
                 $term,
             );
+
+            /**
+             * Every term gets its two assessment windows.
+             *
+             * The seeder writes terms directly rather than through
+             * SemesterService, so the service's auto-provisioning never runs
+             * here — and marking is fail-closed, which means a term without a
+             * window is a term nobody can mark. Without this the demo cohort
+             * has no markable batch at all.
+             */
+            $this->semesters->provisionAssessmentWindows($semester);
 
             $this->command?->line(sprintf(
                 '  <info>%-24s</info> %s',
