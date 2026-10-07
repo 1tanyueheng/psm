@@ -1,4 +1,4 @@
-import api, { unwrap, unwrapPaged, saveDownload } from './client'
+import api, { unwrap, unwrapPaged, saveDownload, UPLOAD_TIMEOUT_MS } from './client'
 
 /**
  * The API surface, grouped to mirror the backend's module layout.
@@ -315,8 +315,18 @@ export const milestoneApi = {
       if (note) form.append('note', note)
     }
 
-    // Let the browser set the multipart boundary and Content-Length.
-    return api.post(`/milestones/${id}/submit`, form).then(unwrap)
+    /**
+     * Let the browser set the multipart boundary and Content-Length.
+     *
+     * `timeout` is overridden because this request carries the file bytes. The
+     * instance default is 30s, which a multi-file submission over a slow link
+     * can exceed — and when it did, axios aborted with "Network Error" while
+     * the server went on to finish the upload. The student saw a failure,
+     * retried, and found the file already submitted.
+     */
+    return api
+      .post(`/milestones/${id}/submit`, form, { timeout: UPLOAD_TIMEOUT_MS })
+      .then(unwrap)
   },
 
   comment: (id, comment) => api.post(`/milestones/${id}/comment`, { comment }).then(unwrap),

@@ -15,10 +15,28 @@ export const tokenStore = {
   clear: () => localStorage.removeItem(TOKEN_KEY),
 }
 
+/**
+ * How long to wait for a reply, in milliseconds.
+ *
+ * 30s is right for an ordinary API call — a login or a list that has not
+ * answered in half a minute is not going to. It is badly wrong for an upload:
+ * a multi-file submission of a few MB over a slow link legitimately takes
+ * longer, and axios aborting at 30s produced a **"Network Error"** while the
+ * server carried on and finished the upload successfully. The student then saw
+ * an error, retried, and found the file already there — or worse, submitted it
+ * twice.
+ *
+ * Uploads therefore get their own, much longer budget. It is deliberately
+ * generous: the cost of waiting too long is a slow screen, while the cost of
+ * giving up too early is a submission the student believes failed but did not.
+ */
+const REQUEST_TIMEOUT_MS = 30_000
+export const UPLOAD_TIMEOUT_MS = 10 * 60_000
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
   headers: { Accept: 'application/json' },
-  timeout: 30000,
+  timeout: REQUEST_TIMEOUT_MS,
 })
 
 // --- Request -----------------------------------------------------------
@@ -64,6 +82,11 @@ api.interceptors.response.use(
       // Validation errors arrive as { field: [messages] }
       errors: payload?.errors || null,
       isNetworkError: !error.response,
+      // axios reports a timeout as ECONNABORTED with no response. It is worth
+      // naming separately: "the server took too long" and "the network is
+      // down" call for different advice, and a timeout on an upload may well
+      // mean the work *did* complete on the server.
+      isTimeout: error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT',
       isRateLimited: status === 429,
     })
   },

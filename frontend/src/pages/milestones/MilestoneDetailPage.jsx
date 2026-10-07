@@ -362,8 +362,27 @@ function SubmissionCard({ milestone, canSubmit, canWithdraw, onChanged }) {
       setNote('')
       await onChanged()
     } catch (err) {
-      if (err?.errors) setErrors(err.errors)
-      else setError(err?.message ?? 'Upload failed. Please try again.')
+      if (err?.errors) {
+        setErrors(err.errors)
+      } else if (err?.isTimeout) {
+        /**
+         * A timeout is not the same as a failure.
+         *
+         * The request is abandoned client-side, but the server keeps working —
+         * so the submission may well have gone through. Telling the student it
+         * failed invites them to submit again and create a duplicate revision,
+         * which is exactly what happened before. Re-reading the milestone shows
+         * the truth either way.
+         */
+        setError(
+          'This is taking longer than expected, so the upload was stopped here. ' +
+            'It may still have completed on the server — the page has been ' +
+            'refreshed to show the current state. Please check before submitting again.'
+        )
+        await onChanged()
+      } else {
+        setError(err?.message ?? 'Upload failed. Please try again.')
+      }
     } finally {
       setUploading(false)
     }
