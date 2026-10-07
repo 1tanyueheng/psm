@@ -298,7 +298,20 @@ export default function CoordinatorDashboard() {
               const used = row.supervising ?? 0
               const max = row.capacity ?? 0
               const pct = row.utilisation ?? 0
-              const full = row.overloaded === true || row.accepting === false
+
+              // A part that is out of slots is a real constraint even when the
+              // other part is empty, so the badge reads the per-part picture
+              // rather than the single `overloaded` flag. A supervisor at 2/2
+              // PSM 1 is not "Available" — they have no PSM 1 slots left.
+              const byPart = row.capacity_by_part ?? {}
+              const loadByPart = row.load_by_part ?? {}
+              const parts = Object.keys(byPart).filter((p) => (byPart[p] ?? 0) > 0)
+              const fullParts = parts.filter((p) => (loadByPart[p] ?? 0) >= (byPart[p] ?? 0))
+              const openParts = parts.filter((p) => (loadByPart[p] ?? 0) < (byPart[p] ?? 0))
+
+              const full = row.overloaded === true
+                || row.accepting === false
+                || (parts.length > 0 && openParts.length === 0)
 
               return (
                 <tr key={row.id ?? row.name}>
@@ -325,7 +338,11 @@ export default function CoordinatorDashboard() {
                   </Td>
                   <Td className="tabular-nums text-amber-700">{row.pending_reviews ?? 0}</Td>
                   <Td>
-                    {full ? (
+                    {fullParts.length > 0 && openParts.length > 0 ? (
+                      <Badge tone="warning">
+                        Full for {fullParts.join(', ')}
+                      </Badge>
+                    ) : full ? (
                       <Badge tone="danger">At capacity</Badge>
                     ) : (
                       <Badge tone="success">Available</Badge>

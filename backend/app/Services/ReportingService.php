@@ -347,8 +347,12 @@ class ReportingService
                     'load_by_part'     => $semesterId === null
                         ? $supervisor->currentLoadByPart()
                         : $supervisor->currentLoadByPartInSemester($semesterId),
-                    'utilisation'    => $supervisor->utilisationPercent(),
-                    'overloaded'     => $supervisor->isOverloaded(),
+                    'utilisation'    => $semesterId === null
+                        ? $supervisor->utilisationPercent()
+                        : $supervisor->utilisationPercentInSemester($semesterId),
+                    'overloaded'     => $semesterId === null
+                        ? $supervisor->isOverloaded()
+                        : $supervisor->isOverloadedInSemester($semesterId),
                     'remaining'      => $supervisor->remainingCapacity(),
                     'accepting'      => $supervisor->is_accepting_students,
                     'pending_reviews'=> $pendingReviews,

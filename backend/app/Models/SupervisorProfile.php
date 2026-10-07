@@ -556,24 +556,140 @@ class SupervisorProfile extends Model
     }
 
     /**
+     * Same shape, but counted against *this term's* students.
+     *
+     * The all-terms `capacityReport()` is the read-mostly pair to
+     * `capacityForPart()` / `currentLoadForPart()` and belongs to the workload
+     * report when no term is in scope. When a term is in scope, this version is
+     * what the coordinator reads — otherwise a supervisor carrying 5 PSM 1 this
+     * term and 5 last term reads "8/8", which is exactly the wrong number.
+     *
+     * `overloaded_by_part` is what the dashboard reads to label the badge,
+     * because a supervisor who is full in PSM 1 but free in PSM 2 needs to be
+     * shown as "Full for PSM 1" rather than "Available".
+     */
+    public function capacityReportInSemester(int|AcademicSemester|null $semester): array
+    {
+        $semesterId = $semester instanceof AcademicSemester ? $semester->id : $semester;
+
+        $load = $this->currentLoadByPartInSemester($semesterId);
+        $report = [];
+
+        foreach (PsmPart::deliverables() as $part) {
+            $capacity = $this->capacityForPart($part);
+            $n = $load[$part->value] ?? 0;
+
+            $report[$part->value] = [
+                'label'           => $part->label(),
+                'load'            => $n,
+                'capacity'        => $capacity,
+                'remaining'       => max(0, $capacity - $n),
+                'utilisation'     => $capacity > 0 ? round(($n / $capacity) * 100, 2) : 0.0,
+                'is_full'         => $n >= $capacity,
+                'is_over_capacity'=> $n > $capacity,
+            ];
+        }
+
+        return $report;
+    }
+
+    /**
+     * Per-part overload status, term-scoped. A supervisor is overloaded by `over`
+     * iff at least one part exceeds its cap in this term.
+     *
+     * A single boolean is the wrong shape: a supervisor can be 2/2 PSM 1 and
+     * 0/5 PSM 2 and needs to be labelled "Full for PSM 1" rather than
+     * "Available". The badge in the dashboard reads this directly.
+     */
+    public function overloadedByPart(int|AcademicSemester|null $semester = null): array
+    {
+        $report = [];
+        $any = false;
+
+        foreach ($this->capacityReportInSemester($semester) as $part => $row) {
+            $report[$part] = $row['is_over_capacity'];
+            if ($row['is_over_capacity']) {
+                $any = true;
+            }
+        }
+
+        $report['any'] = $any;
+
+        return $report;
+    }
+
+    /**
      * Load ratio as a percentage of capacity. Module 5 uses this to flag
      * overloaded supervisors on the workload report.
      *
-     * Measured against effectiveTotalCapacity() — the sum of the two per-part
-     * ceilings, or the legacy total where that is more generous. Comparing
-     * against the larger *single* part ceiling instead would call a supervisor
-     * carrying a full 5 + 5 load "100% utilised" against a denominator of 5,
-     * which is exactly the reading that made the flat number useless.
+     * Measured against the *largest* effective part ceiling, not the aggregate
+     * — the aggregate reads 5/10 as 50% even when a supervisor is 2/2 PSM 1
+     * and 0/5 PSM 2, which is exactly the under-reporting that made the flat
+     * number useless. The worst part is the part a coordinator has to look at
+     * to decide whether to allocate.
+     *
+     * The term-scoped twin `utilisationPercentInSemester()` is the right call
+     * for any workload display that knows its term; this overload-friendly one
+     * exists for callers that have not been taught about terms and would
+     * otherwise drift back into the under-reporting trap.
      */
     public function utilisationPercent(): float
     {
-        $capacity = $this->effectiveTotalCapacity();
+        $load = $this->currentLoadByPart();
 
-        if ($capacity <= 0) {
+        $denominators = [];
+        foreach (PsmPart::deliverables() as $part) {
+            $denominators[] = $this->capacityForPart($part);
+        }
+
+        $cap = $denominators === [] ? 0 : max($denominators);
+
+        if ($cap <= 0) {
             return 0.0;
         }
 
-        return round(($this->currentLoad() / $capacity) * 100, 2);
+        $sum = array_sum($load);
+
+        return $cap > 0 ? round(($sum / $cap) * 100, 2) : 0.0;
+    }
+
+    /**
+     * Term-scoped utilisation — the right number when the term is known.
+     *
+     * See `utilisationPercent()` for why `max(part)` is right over the aggregate.
+     */
+    public function utilisationPercentInSemester(int|AcademicSemester|null $semester = null): float
+    {
+        $load = $this->currentLoadByPartInSemester($semester);
+
+        $denominators = [];
+        foreach (PsmPart::deliverables() as $part) {
+            $denominators[] = $this->capacityForPart($part);
+        }
+
+        $cap = $denominators === [] ? 0 : max($denominators);
+
+        if ($cap <= 0) {
+            return 0.0;
+        }
+
+        $sum = array_sum($load);
+
+        return round(($sum / $cap) * 100, 2);
+    }
+
+    /** True iff any part is over its cap in the given term. */
+    public function isOverloadedInSemester(int|AcademicSemester|null $semester = null): bool
+    {
+        foreach (PsmPart::deliverables() as $part) {
+            $n = ($this->currentLoadByPartInSemester($semester)[$part->value] ?? 0);
+
+            if ($n > $this->capacityForPart($part)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function isOverloaded(): bool
