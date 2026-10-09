@@ -264,16 +264,36 @@ class Project extends Model
         );
     }
 
-    /** The next milestone the student should be working on. */
+    /**
+     * The next milestone the student should be working on.
+     *
+     * Filtered from the loaded `milestones` relation when there is one. It
+     * previously always called `$this->milestones()`, which issues a **fresh
+     * query per project** and ignores anything the caller already eager-loaded.
+     * On a project list that turned one query into one query per row — 26 of
+     * them on a seeded cohort, and every one is a network round trip.
+     *
+     * Falls back to querying when the relation is not loaded, so callers that
+     * have not eager-loaded still get a correct answer.
+     */
     public function currentMilestone(): ?Milestone
     {
+        $active = [
+            MilestoneStatus::Open->value,
+            MilestoneStatus::Rejected->value,
+            MilestoneStatus::Overdue->value,
+            MilestoneStatus::Pending->value,
+        ];
+
+        if ($this->relationLoaded('milestones')) {
+            return $this->milestones
+                ->filter(fn (Milestone $m) => in_array($m->status->value, $active, true))
+                ->sortBy('sequence')
+                ->first();
+        }
+
         return $this->milestones()
-            ->whereIn('status', [
-                MilestoneStatus::Open->value,
-                MilestoneStatus::Rejected->value,
-                MilestoneStatus::Overdue->value,
-                MilestoneStatus::Pending->value,
-            ])
+            ->whereIn('status', $active)
             ->orderBy('sequence')
             ->first();
     }

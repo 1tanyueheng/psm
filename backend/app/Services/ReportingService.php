@@ -263,7 +263,16 @@ class ReportingService
             ->with('user')
             ->get()
             ->map(function (SupervisorProfile $supervisor) use ($batch, $psmPart, $semesterId) {
-                $assignmentIds = $supervisor->activeSupervisions()
+                /**
+                 * One query for this supervisor's assignments, not two.
+                 *
+                 * The filtered set was fetched twice — once for the ids and once
+                 * for the student ids — which doubled the work for every row.
+                 * On a hosted database each of those is a network round trip, so
+                 * the duplication was directly visible as time on the screen.
+                 * Both values are now derived from the single result.
+                 */
+                $assignments = $supervisor->activeSupervisions()
                     ->when($batch || $semesterId !== null, fn ($q) => $q->whereHas(
                         'studentProfile',
                         function ($s) use ($batch, $semesterId) {
@@ -279,23 +288,10 @@ class ReportingService
                         }
                     ))
                     ->when($psmPart !== null, fn ($q) => $q->where('psm_part', $psmPart))
-                    ->pluck('id');
+                    ->get(['id', 'student_profile_id']);
 
-                $studentIds = $supervisor->activeSupervisions()
-                    ->when($batch || $semesterId !== null, fn ($q) => $q->whereHas(
-                        'studentProfile',
-                        function ($s) use ($batch, $semesterId) {
-                            $s->when($semesterId !== null, fn ($sq) => $sq->whereHas(
-                                'projects',
-                                fn ($pq) => $pq->forSemester($semesterId)
-                            ));
-                            if ($batch !== null) {
-                                $s->where('batch', $batch);
-                            }
-                        }
-                    ))
-                    ->when($psmPart !== null, fn ($q) => $q->where('psm_part', $psmPart))
-                    ->pluck('student_profile_id');
+                $assignmentIds = $assignments->pluck('id');
+                $studentIds = $assignments->pluck('student_profile_id');
 
                 $projectIds = DB::table('project_members')
                     ->whereIn('student_profile_id', $studentIds)
@@ -336,23 +332,49 @@ class ReportingService
                     ? round(($onTime / $evaluations->count()) * 100, 1)
                     : null;
 
+                /**
+                 * Compute the per-batch load once, then derive everything from it.
+                 *
+                 * `capacityByPart()`, `load_by_part`, `utilisationPercent…()` and
+                 * `isOverloaded…()` each re-read the load internally, so asking
+                 * for all four issued four separate queries per supervisor for
+                 * one answer. On a hosted database that is four network round
+                 * trips per row, and it showed up as seconds on the report.
+                 */
+                $capacityByPart = $supervisor->capacityByPart();
+                $loadByPart = $semesterId === null
+                    ? $supervisor->currentLoadByPart()
+                    : $supervisor->currentLoadByPartInSemester($semesterId);
+
+                // Worst batch relative to its own ceiling — the number a
+                // coordinator actually decides on. See
+                // `utilisationPercentInSemester()` for why the aggregate
+                // under-reports.
+                $ceilings = array_values($capacityByPart);
+                $worstCeiling = $ceilings === [] ? 0 : max($ceilings);
+                $utilisation = $worstCeiling > 0
+                    ? round((array_sum($loadByPart) / $worstCeiling) * 100, 2)
+                    : 0.0;
+
+                $overloaded = false;
+                foreach ($loadByPart as $part => $load) {
+                    if ($load > ($capacityByPart[$part] ?? 0)) {
+                        $overloaded = true;
+                        break;
+                    }
+                }
+
                 return [
                     'id'             => $supervisor->id,
                     'name'           => $supervisor->label(),
                     'supervising'    => $assignmentIds->count(),
                     'capacity'       => $semesterId === null
                         ? $supervisor->max_supervisees
-                        : array_sum($supervisor->capacityByPart()),
-                    'capacity_by_part' => $supervisor->capacityByPart(),
-                    'load_by_part'     => $semesterId === null
-                        ? $supervisor->currentLoadByPart()
-                        : $supervisor->currentLoadByPartInSemester($semesterId),
-                    'utilisation'    => $semesterId === null
-                        ? $supervisor->utilisationPercent()
-                        : $supervisor->utilisationPercentInSemester($semesterId),
-                    'overloaded'     => $semesterId === null
-                        ? $supervisor->isOverloaded()
-                        : $supervisor->isOverloadedInSemester($semesterId),
+                        : array_sum($capacityByPart),
+                    'capacity_by_part' => $capacityByPart,
+                    'load_by_part'     => $loadByPart,
+                    'utilisation'    => $utilisation,
+                    'overloaded'     => $overloaded,
                     'remaining'      => $supervisor->remainingCapacity(),
                     'accepting'      => $supervisor->is_accepting_students,
                     'pending_reviews'=> $pendingReviews,

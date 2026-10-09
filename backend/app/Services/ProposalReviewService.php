@@ -10,6 +10,7 @@ use App\Models\ExaminerAssignment;
 use App\Models\Milestone;
 use App\Models\Project;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -208,25 +209,24 @@ class ProposalReviewService
      */
     public function panel(Project $project): array
     {
-        $studentId = $project->leader()?->id;
+        /**
+         * Reuse the loaded allocations when the caller has them.
+         *
+         * The project list renders every milestone, and each proposal milestone
+         * asked for its panel — so a cohort of 26 projects issued 26 separate
+         * `examiner_assignments` queries, plus the `projects` lookup that
+         * `leader()` used to do. Both are now read from relations the
+         * controller already eager-loaded, which collapses them to nothing on
+         * that screen. Falls back to querying for callers that have not.
+         */
+        $assignments = $project->relationLoaded('examinerAssignments')
+            ? $project->examinerAssignments
+                ->where('is_active', true)
+                ->sortBy('id')
+                ->values()
+            : $this->loadPanelAssignments($project);
 
-        if ($studentId === null) {
-            return [];
-        }
-
-        return ExaminerAssignment::query()
-            ->forStudent($studentId)
-            ->where('is_active', true)
-            /**
-             * `examiner.supervisorProfile` is eager-loaded because
-             * `User::displayName()` reads the academic title from it. Without
-             * this the panel cost one query per examiner for a value that was
-             * already reachable — and on a hosted database each one is a
-             * network round trip, so a two-person panel paid two.
-             */
-            ->with('examiner.supervisorProfile')
-            ->orderBy('id')
-            ->get()
+        return $assignments
             ->map(function (ExaminerAssignment $assignment) {
                 $name = $assignment->examiner?->displayName();
 
@@ -254,6 +254,34 @@ class ProposalReviewService
     // -----------------------------------------------------------------
     // Internals
     // -----------------------------------------------------------------
+
+    /**
+     * Fetch a project's active panel allocations, for callers that have not
+     * eager-loaded them.
+     *
+     * `examiner.supervisorProfile` is eager-loaded because
+     * `User::displayName()` reads the academic title from it. Without that the
+     * panel cost one query per examiner for a value that was already reachable
+     * — and on a hosted database each one is a network round trip, so a
+     * two-person panel paid two.
+     *
+     * @return \Illuminate\Support\Collection<int, ExaminerAssignment>
+     */
+    protected function loadPanelAssignments(Project $project): Collection
+    {
+        $studentId = $project->leader()?->id;
+
+        if ($studentId === null) {
+            return collect();
+        }
+
+        return ExaminerAssignment::query()
+            ->forStudent($studentId)
+            ->where('is_active', true)
+            ->with('examiner.supervisorProfile')
+            ->orderBy('id')
+            ->get();
+    }
 
     /**
      * Write a title to the project.

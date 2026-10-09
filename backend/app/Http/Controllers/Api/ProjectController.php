@@ -73,10 +73,26 @@ class ProjectController extends ApiController
                 'academicSemester',
                 'students.user',
                 'students.activeSupervisions.supervisorProfile.user',
-                'milestones',
-                // The student dashboard shows the released mark from this list,
-                // so the grade has to travel with it. The resource withholds
-                // the number until it is released.
+                /**
+                 * `milestones` for the progress bar and next-milestone date the
+                 * list renders — without it the list showed 0% and "—" on every
+                 * row.
+                 *
+                 * The nested `project` matters as much as the milestones
+                 * themselves: `MilestoneResource` renders a `project` block per
+                 * row, and `MilestonePolicy::decideTitle()` reads
+                 * `$milestone->project` while the list is being authorised.
+                 * Loading only `milestones` left each row to lazy-load its own
+                 * project — 15 extra queries on a 26-project cohort, each one a
+                 * network round trip on a hosted database.
+                 *
+                 * `project.examinerAssignments` is here for the proposal row's
+                 * panel: it is read per row, so without it the list issued one
+                 * `examiner_assignments` query per project. The nested
+                 * `examiner.supervisorProfile` comes along because
+                 * `User::displayName()` reads the academic title from it.
+                 */
+                'milestones.project.examinerAssignments.examiner.supervisorProfile',
                 'finalGrades',
             ])
             ->when($semesterId !== null, fn ($q) => $q->forSemester($semesterId))
