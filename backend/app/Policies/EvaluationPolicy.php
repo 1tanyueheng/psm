@@ -16,9 +16,26 @@ use App\Models\User;
  */
 class EvaluationPolicy
 {
+    /**
+     * May this actor ask for a *list* of evaluation forms at all?
+     *
+     * Students are included, and the filter below is what protects them. They
+     * were excluded here, which made `/api/evaluations` answer 403 to every
+     * student — so the Assessments tab on their own project page was always
+     * empty, and the empty list read as "nothing has been marked" rather than
+     * "you are not allowed to look".
+     *
+     * Listing is not the same as reading: `view()` still decides per row, and a
+     * student only passes that for a form that has been *released* to them. So
+     * the list they receive is their own released forms and nothing else. The
+     * controller narrows further — a student's query is scoped to their own
+     * projects and never exposes another student's row.
+     */
     public function viewAny(User $actor): bool
     {
-        return $actor->canAssess() || $actor->hasRole('admin', 'coordinator');
+        return $actor->canAssess()
+            || $actor->isStudent()
+            || $actor->hasRole('admin', 'coordinator');
     }
 
     public function view(User $actor, Evaluation $evaluation): bool

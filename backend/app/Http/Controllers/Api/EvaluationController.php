@@ -83,12 +83,27 @@ class EvaluationController extends ApiController
 
         $paginator = Evaluation::query()
             ->with(['project.students.user', 'assessor', 'rubricTemplate'])
+            /**
+             * A student sees their own *released* forms, and only those.
+             *
+             * The default arm below filters on `assessor_id`, which is right for
+             * staff but matches nothing for a student — they are never an
+             * assessor. So a student's list is scoped by project membership
+             * instead, and narrowed to `released`: `EvaluationPolicy::view()`
+             * lets them read a released form and nothing else, and the list must
+             * agree with the row-level rule rather than relying on the UI to
+             * hide what it was sent.
+             */
+            ->when($user->isStudent(), fn ($q) => $q
+                ->whereIn('project_id', $this->projectIdsForStudent($user))
+                ->where('status', EvaluationStatus::Released->value))
             ->when(
-                $request->filled('assessor_id'),
+                ! $user->isStudent() && $request->filled('assessor_id'),
                 fn ($q) => $q->where('assessor_id', $request->integer('assessor_id')),
                 // Default: an assessor sees only their own forms
                 fn ($q) => $q->when(
-                    ! $user->hasRole('admin', 'coordinator') || $mine,
+                    ! $user->isStudent()
+                        && (! $user->hasRole('admin', 'coordinator') || $mine),
                     fn ($sub) => $sub->where('assessor_id', $user->id)
                 )
             )
@@ -180,6 +195,29 @@ class EvaluationController extends ApiController
      * Coordinators and admins are never blocked: they own the window and need
      * to inspect what is outstanding.
      */
+    /**
+     * The projects a student is a member of.
+     *
+     * Used to scope their evaluation list. Returns an empty array for anyone
+     * without a student profile, so the query matches nothing rather than
+     * everything — a mistake here would hand one student another's marks.
+     *
+     * @return array<int, int>
+     */
+    protected function projectIdsForStudent(User $user): array
+    {
+        $profileId = $user->studentProfile?->id;
+
+        if ($profileId === null) {
+            return [];
+        }
+
+        return \App\Models\ProjectMember::query()
+            ->where('student_profile_id', $profileId)
+            ->pluck('project_id')
+            ->all();
+    }
+
     protected function hiddenDraft(Request $request, Evaluation $evaluation): bool
     {
         $user = $request->user();

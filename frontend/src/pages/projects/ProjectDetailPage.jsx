@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { projectApi, milestoneApi, evaluationApi, markApi, markSubmissionApi } from '../../api/endpoints'
+import { projectApi, milestoneApi, evaluationApi } from '../../api/endpoints'
 import { unwrap, unwrapPaged } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -30,7 +30,6 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState(null)
   const [milestones, setMilestones] = useState([])
   const [evaluations, setEvaluations] = useState([])
-  const [mark, setMark] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [tab, setTab] = useState('milestones')
@@ -41,11 +40,10 @@ export default function ProjectDetailPage() {
     setLoading(true)
     setError(null)
     try {
-      const [projectRes, milestoneRes, evaluationRes, markRes] = await Promise.allSettled([
+      const [projectRes, milestoneRes, evaluationRes] = await Promise.allSettled([
         projectApi.show(id),
         milestoneApi.list({ project_id: id, per_page: 100 }),
         evaluationApi.list({ project_id: id, per_page: 100 }),
-        markApi.forProject(id),
       ])
 
       if (projectRes.status === 'rejected') throw projectRes.reason
@@ -54,12 +52,13 @@ export default function ProjectDetailPage() {
       setMilestones(
         milestoneRes.status === 'fulfilled' ? unwrapPaged(milestoneRes.value).items : []
       )
+      // A student's list of forms is their own released ones, and the server
+      // answers 200 with an empty list when there are none. Staff who may not
+      // read a project's forms still get a fulfilled-but-empty response, so a
+      // failure here is genuinely exceptional and leaves the tab empty.
       setEvaluations(
         evaluationRes.status === 'fulfilled' ? unwrapPaged(evaluationRes.value).items : []
       )
-      // A mark may legitimately not exist yet, or be hidden from this role —
-      // either way it is not an error worth failing the whole page over.
-      setMark(markRes.status === 'fulfilled' ? unwrap(markRes.value) : null)
     } catch (err) {
       setError(err)
     } finally {
@@ -275,7 +274,7 @@ export default function ProjectDetailPage() {
         <div className="p-5">
           {tab === 'milestones' && <MilestoneTab milestones={milestones} />}
           {tab === 'evaluations' && <EvaluationTab evaluations={evaluations} />}
-          {tab === 'mark' && <MarkTab project={project} mark={mark} />}
+          {tab === 'mark' && <MarkTab project={project} />}
           {tab === 'marks' && <MarkSubmissionTab project={project} />}
         </div>
       </Card>
@@ -389,7 +388,7 @@ function EvaluationTab({ evaluations }) {
   )
 }
 
-function MarkTab({ project, mark }) {
+function MarkTab({ project }) {
   const { user } = useAuth()
   const [breakdown, setBreakdown] = useState(null)
   const [breakdownLoading, setBreakdownLoading] = useState(false)
@@ -400,11 +399,9 @@ function MarkTab({ project, mark }) {
   const own = roster.find((s) => s.user_id === user?.id)
   const studentId = (own ?? roster[0])?.id ?? null
 
-  // `mark` is the whole project-grades payload, not one grade: rows live under
-  // `final_grades`. Guarding on `mark.final_mark` read a key that never exists
-  // on this shape, so the tab reported "no mark yet" even when one was out.
-  const grades = mark?.final_grades ?? []
-  const grade = grades[0] ?? null
+  // `mark` is the whole project-grades payload. The *number* is deliberately
+  // not read from it: a student's `final_grades` row omits `final_mark`, so the
+  // breakdown below is the authority on what they may see. See `hasNumber`.
 
   useEffect(() => {
     if (!project || studentId == null) return undefined
@@ -431,19 +428,31 @@ function MarkTab({ project, mark }) {
     }
   }, [project, studentId])
 
-  // A grade row can exist before anything has been marked, and the server
-  // withholds the total entirely from a student until there is something true
-  // to show — so trust the breakdown's own `released` flag when we have it.
-  const hasNumber = breakdown?.released
-    ? breakdown.total_marks != null
-    : grade != null && grade.final_mark != null
+  /**
+   * Is there a number to show?
+   *
+   * The breakdown is the authority, not the grade row. A student's
+   * `final_grades` entry deliberately omits `final_mark` — the server withholds
+   * the total from anyone it has not been released to — so reading the number
+   * off that row is what made this tab say "No mark yet" while the dashboard,
+   * which uses the breakdown, showed the mark perfectly well.
+   *
+   * `released` on the breakdown is the server's own answer to "may this person
+   * see it", so the tab now asks the same question the dashboard asks and gets
+   * the same answer.
+   */
+  const hasNumber = breakdown?.released && breakdown?.total_marks != null
 
   if (!hasNumber) {
     return (
       <EmptyState
-        title="No mark yet"
-        message="The mark appears automatically as each assessor submits, starting with
-                 the supervisor. Nothing has to be released."
+        title={breakdownLoading ? 'Loading the mark' : 'No mark yet'}
+        message={
+          breakdownLoading
+            ? 'Checking what has been released.'
+            : 'The mark appears automatically as each assessor submits, starting with the '
+              + 'supervisor. Nothing has to be released.'
+        }
       />
     )
   }
