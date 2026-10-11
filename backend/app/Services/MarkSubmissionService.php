@@ -50,11 +50,25 @@ class MarkSubmissionService
      * examiner is stood down, or a conflict is declared), the coordinator must
      * reopen — the old promise is void.
      *
+     * `$onlyForm` narrows the allocation to a single Lampiran, which is what a
+     * form-scoped assessment window asks for: opening "PSM 1 — Lampiran E" must
+     * allocate E and nothing else, so that Lampiran I stays untouched until its
+     * own window opens. Null allocates every form the batch needs, which is the
+     * batch-wide window's behaviour.
+     *
+     * The panel is still resolved and recorded even when only one form is being
+     * allocated. `expected_panel_size` is the contract for the *student*, not for
+     * this one window, so a later window must not have to re-state it.
+     *
      * @throws InvalidArgumentException if the project has no active supervision
      *         for this student, or no active panel examiners.
      */
-    public function open(Project $project, int $studentProfileId, Authenticatable $actor): MarkSubmission
-    {
+    public function open(
+        Project $project,
+        int $studentProfileId,
+        Authenticatable $actor,
+        ?string $onlyForm = null,
+    ): MarkSubmission {
         // The semester is read from the `academic_semester_id` column below, so
         // there is no relation to eager-load here.
         $project->loadMissing(['students']);
@@ -86,17 +100,56 @@ class MarkSubmissionService
             );
         }
 
-        // Create the forms (idempotent). Any exception here means the
-        // submission was not opened.
-        $supEval = $this->evaluations->createForm(
-            $project,
-            $supervisor,
-            AssessorType::Supervisor,
-        );
+        /**
+         * Which Lampiran this open is responsible for.
+         *
+         * Null means every form the batch needs — the supervisor's own form, the
+         * PSM 2 progress reports, and one per panel examiner. A form code means
+         * exactly that one, resolved to whoever marks it.
+         */
+        $wantsSupervisorForm = $onlyForm === null
+            || $onlyForm === RubricTemplate::formCodeFor($project->psm_part, AssessorType::Supervisor);
 
-        $exaEvals = $examiners->map(fn (User $e) =>
-            $this->evaluations->createForm($project, $e, AssessorType::Examiner)
-        );
+        $wantsExaminerForm = $onlyForm === null
+            || $onlyForm === RubricTemplate::formCodeFor($project->psm_part, AssessorType::Examiner);
+
+        // Create the forms (idempotent). Any exception here means the
+        // submission was not opened. The return value is not needed: `forms()`
+        // reads the rows back from the database.
+        if ($wantsSupervisorForm) {
+            $this->evaluations->createForm($project, $supervisor, AssessorType::Supervisor);
+        }
+
+        /**
+         * PSM 2 carries two progress reports as well as the supervisor's main
+         * form, and each carries its own 5%.
+         *
+         * They are allocated here rather than left to a separate coordinator
+         * action so that opening a window produces the complete contract for
+         * the batch. Leaving them out meant a PSM 2 submission opened with two
+         * of its four forms missing, and readiness could never clear without
+         * someone remembering to add them by hand.
+         *
+         * H1 and H2 are separate form codes, so a form-scoped window can open
+         * one reporting period without the other.
+         */
+        if ($project->psm_part === 'PSM2') {
+            foreach ([1, 2] as $laporanNum) {
+                $code = EvaluationService::progressReportFormCode($laporanNum);
+
+                if ($onlyForm !== null && $onlyForm !== $code) {
+                    continue;
+                }
+
+                $this->evaluations->createProgressReportForm($project, $supervisor, $laporanNum);
+            }
+        }
+
+        if ($wantsExaminerForm) {
+            foreach ($examiners as $examiner) {
+                $this->evaluations->createForm($project, $examiner, AssessorType::Examiner);
+            }
+        }
 
         // Record the submission itself.
         return DB::transaction(function () use (
@@ -104,7 +157,6 @@ class MarkSubmissionService
             $studentProfileId,
             $actor,
             $examiners,
-            $supEval,
         ) {
             $existing = MarkSubmission::query()
                 ->where('project_id', $project->id)

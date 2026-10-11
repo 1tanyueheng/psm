@@ -34,13 +34,18 @@ class AssessmentWindowService
     }
 
     /**
-     * Open the window: allocate every student's forms, then start accepting
+     * Open the window: allocate the forms it governs, then start accepting
      * marks.
      *
      * A student who cannot be allocated — no supervisor, no panel — is reported
      * rather than aborting the run. One un-assignable student must not hold up
      * the whole batch; the coordinator fixes it and re-opens, which is safe
      * because allocation is idempotent.
+     *
+     * A form-scoped window allocates only its own Lampiran, so opening
+     * "PSM 1 — Lampiran E" leaves Lampiran I exactly as it was. That is the
+     * point of the finer scope: the two are marked at different times by
+     * different people.
      *
      * @return array{allocated:int, failed:array<int, array{project:string, student:?string, reason:string}>}
      */
@@ -53,7 +58,12 @@ class AssessmentWindowService
             foreach ($this->projects($window) as $project) {
                 foreach ($project->students as $student) {
                     try {
-                        $this->submissions->open($project, $student->id, $actor);
+                        $this->submissions->open(
+                            $project,
+                            $student->id,
+                            $actor,
+                            $window->form_code,
+                        );
                         $allocated++;
                     } catch (InvalidArgumentException $e) {
                         $failed[] = [
@@ -104,16 +114,15 @@ class AssessmentWindowService
      * Counted from the evaluations actually allocated, so it answers "can I
      * close this yet" rather than "how many students exist".
      *
+     * A form-scoped window counts only its own Lampiran. Counting the whole
+     * batch would report "2 of 4 filed" on a window that only ever asked for
+     * one form, which reads as an unfinished job rather than a complete one.
+     *
      * @return array{students:int, forms:int, filed:int, outstanding:int, percent:float}
      */
     public function progress(AssessmentWindow $window): array
     {
-        $projectIds = $this->projects($window)->pluck('id');
-
-        $forms = Evaluation::query()
-            ->whereIn('project_id', $projectIds)
-            ->where('psm_part', $window->psm_part)
-            ->get();
+        $forms = $this->formsFor($window);
 
         $filed = $forms->filter(fn (Evaluation $e) => in_array(
             $e->status?->value,
@@ -142,11 +151,7 @@ class AssessmentWindowService
         $rows = [];
 
         foreach ($this->projects($window) as $project) {
-            $forms = Evaluation::query()
-                ->where('project_id', $project->id)
-                ->where('psm_part', $window->psm_part)
-                ->with('rubricTemplate')
-                ->get();
+            $forms = $this->formsFor($window, $project->id);
 
             $student = $project->students->first();
 
@@ -169,6 +174,30 @@ class AssessmentWindowService
         }
 
         return $rows;
+    }
+
+    /**
+     * The evaluations this window is responsible for.
+     *
+     * Narrowed to the window's own form when it has one. The form lives on the
+     * rubric template rather than on the evaluation, so the filter is a
+     * `whereHas` — the same join `MarkSubmission::forms()` reads through.
+     *
+     * @return Collection<int, Evaluation>
+     */
+    protected function formsFor(AssessmentWindow $window, ?int $projectId = null): Collection
+    {
+        return Evaluation::query()
+            ->whereIn('project_id', $projectId !== null
+                ? [$projectId]
+                : $this->projects($window)->pluck('id'))
+            ->where('psm_part', $window->psm_part)
+            ->when($window->form_code !== null, fn ($q) => $q->whereHas(
+                'rubricTemplate',
+                fn ($sub) => $sub->where('form_code', $window->form_code)
+            ))
+            ->with('rubricTemplate')
+            ->get();
     }
 
     /**

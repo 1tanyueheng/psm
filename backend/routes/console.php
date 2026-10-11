@@ -45,6 +45,10 @@ Schedule::call(function () {
 // ---------------------------------------------------------------------
 // Module 3 — Open milestones whose window has begun
 // ---------------------------------------------------------------------
+// The deadline moves with the open date, for the same reason as
+// MilestoneService::activateNext(): a milestone that opens late must not open
+// already past its own deadline. `repairedDueAt()` preserves the template's
+// window and refuses to shorten a date or override a coordinator's change.
 Schedule::call(function () {
     \App\Models\Milestone::query()
         ->where('status', \App\Enums\MilestoneStatus::Pending->value)
@@ -57,7 +61,14 @@ Schedule::call(function () {
                   \App\Enums\MilestoneStatus::Approved->value,
               ]);
         })
-        ->update(['status' => \App\Enums\MilestoneStatus::Open->value]);
+        ->with('templateItem')
+        ->chunkById(200, function ($milestones) {
+            foreach ($milestones as $milestone) {
+                $milestone->due_at = $milestone->repairedDueAt() ?? $milestone->due_at;
+                $milestone->status = \App\Enums\MilestoneStatus::Open;
+                $milestone->save();
+            }
+        });
 })
     ->dailyAt('00:05')
     ->name('open-due-milestones')

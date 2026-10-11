@@ -60,12 +60,18 @@ class EvaluationController extends ApiController
         /**
          * Hide unfiled work while the coordinator has marking shut.
          *
-         * Marking is gated on the assessment window, and that gate is per
-         * (term, batch). A draft form in a batch whose window is not accepting
-         * marks cannot be filed — the write would be refused — so listing it
-         * only offers the assessor work they are not allowed to do. Filed forms
-         * stay visible: they are the assessor's own record of what they
-         * submitted, and hiding those would look like data loss.
+         * Marking is gated on the assessment window, and that gate is per form.
+         * A draft form in a batch whose window is not accepting marks cannot be
+         * filed — the write would be refused — so listing it only offers the
+         * assessor work they are not allowed to do. Filed forms stay visible:
+         * they are the assessor's own record of what they submitted, and hiding
+         * those would look like data loss.
+         *
+         * Per form rather than per batch because the coordinator opens Lampiran
+         * E and Lampiran I separately. Filtering on the batch alone would list
+         * Lampiran I drafts the moment Lampiran E opened, and the write would
+         * then be refused — the list and the gate disagreeing, which is the bug
+         * this exists to prevent.
          *
          * Coordinators and admins are exempt. They need to see the drafts that
          * exist to know what is outstanding, and they are the ones who open the
@@ -73,7 +79,7 @@ class EvaluationController extends ApiController
          */
         $gated = ! $user->hasRole('admin', 'coordinator');
 
-        $openKeys = $gated ? AssessmentWindow::openTermPartKeys() : [];
+        $openKeys = $gated ? AssessmentWindow::openFormKeys() : ['pairs' => [], 'forms' => []];
 
         $paginator = Evaluation::query()
             ->with(['project.students.user', 'assessor', 'rubricTemplate'])
@@ -95,14 +101,28 @@ class EvaluationController extends ApiController
                     EvaluationStatus::Recused->value,
                 ]);
 
-                // …and a draft only where its own batch is open for marking.
-                foreach ($openKeys as $key) {
+                // …a draft whose batch has a batch-wide window open…
+                foreach ($openKeys['pairs'] as $key) {
                     [$semesterId, $part] = explode(':', $key, 2);
 
                     $sub->orWhere(fn ($draft) => $draft
                         ->where('status', EvaluationStatus::Draft->value)
                         ->where('psm_part', $part)
                         ->whereHas('project', fn ($p) => $p->where('academic_semester_id', $semesterId)));
+                }
+
+                // …and a draft whose own Lampiran has a form-scoped window open.
+                // The form lives on the rubric template, so this is a join rather
+                // than a column comparison — the same predicate
+                // `markingOpenForForm()` answers one row at a time.
+                foreach ($openKeys['forms'] as $key) {
+                    [$semesterId, $part, $formCode] = explode(':', $key, 3);
+
+                    $sub->orWhere(fn ($draft) => $draft
+                        ->where('status', EvaluationStatus::Draft->value)
+                        ->where('psm_part', $part)
+                        ->whereHas('project', fn ($p) => $p->where('academic_semester_id', $semesterId))
+                        ->whereHas('rubricTemplate', fn ($r) => $r->where('form_code', $formCode)));
                 }
             }))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
@@ -136,9 +156,14 @@ class EvaluationController extends ApiController
         // a stale tab walks straight through. Filed forms stay readable, so an
         // assessor never loses sight of what they already submitted.
         if ($this->hiddenDraft($request, $evaluation)) {
+            $formCode = $evaluation->rubricTemplate?->form_code;
+
             return $this->fail(
-                'Marking for this batch has not been opened yet. '
-                .'Ask the coordinator to start the assessment window.',
+                $formCode !== null
+                    ? "Marking for Lampiran {$formCode} has not been opened yet. "
+                        .'Ask the coordinator to start its assessment window.'
+                    : 'Marking for this batch has not been opened yet. '
+                        .'Ask the coordinator to start the assessment window.',
                 403
             );
         }
@@ -156,7 +181,11 @@ class EvaluationController extends ApiController
     }
 
     /**
-     * Is this an unfiled draft whose batch the coordinator has not opened?
+     * Is this an unfiled draft whose own Lampiran the coordinator has not opened?
+     *
+     * Per form, so it agrees with the list filter and with `saveMarks()`. A
+     * batch-wide window still opens every form in its batch, which is what keeps
+     * a term that never used the finer scope working exactly as before.
      *
      * Coordinators and admins are never blocked: they own the window and need
      * to inspect what is outstanding.
@@ -173,7 +202,10 @@ class EvaluationController extends ApiController
             return false;
         }
 
-        return ! AssessmentWindow::markingOpenFor($evaluation->project);
+        return ! AssessmentWindow::markingOpenForForm(
+            $evaluation->project,
+            $evaluation->rubricTemplate?->form_code,
+        );
     }
 
     /**

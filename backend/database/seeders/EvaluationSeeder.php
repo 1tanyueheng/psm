@@ -157,6 +157,37 @@ public function __construct(
                         $plan['supervisor'],
                     );
                     $evaluated++;
+
+                    /**
+                     * PSM 2 adds the two progress reports, each carrying its own
+                     * 5% as a distinct form (H1 and H2).
+                     *
+                     * Seeded through the same path as Lampiran G, because a mark
+                     * that could not have come out of the running system does not
+                     * belong in the database. They are taken only where the main
+                     * supervisor form is, so a project that is not yet being
+                     * marked does not end up with progress reports and no
+                     * evaluation.
+                     *
+                     * The two bands differ slightly so the reports do not read as
+                     * copies of one another — a supervisor filing the same marks
+                     * twice is exactly the artefact worth avoiding in demo data.
+                     */
+                    if ($project->psm_part === 'PSM2') {
+                        foreach ([1 => -0.04, 2 => 0.03] as $laporanNum => $shift) {
+                            $this->markAndMaybeSubmit(
+                                $project,
+                                $supervisor,
+                                AssessorType::Supervisor,
+                                [
+                                    'band'   => max(0.0, min(1.0, (float) $plan['supervisor']['band'] + $shift)),
+                                    'submit' => $plan['supervisor']['submit'],
+                                ],
+                                $laporanNum,
+                            );
+                            $evaluated++;
+                        }
+                    }
                 }
             }
 
@@ -235,14 +266,22 @@ public function __construct(
 
     /**
      * Open a form, enter marks for every criterion, optionally submit.
+     *
+     * `$laporanNum` selects a PSM 2 progress report (Lampiran H1 or H2) instead
+     * of the assessor's context form. Those are not resolvable from
+     * (part, role) — the supervisor has three forms in PSM 2 — so they are
+     * requested by number, exactly as the coordinator's endpoint does it.
      */
     protected function markAndMaybeSubmit(
         Project $project,
         User $assessor,
         AssessorType $type,
         array $plan,
+        ?int $laporanNum = null,
     ): Evaluation {
-        $evaluation = $this->evaluations->createForm($project, $assessor, $type);
+        $evaluation = $laporanNum === null
+            ? $this->evaluations->createForm($project, $assessor, $type)
+            : $this->evaluations->createProgressReportForm($project, $assessor, $laporanNum);
 
         if (! $evaluation->status->isEditable()) {
             // Already submitted on a previous seed run — leave it alone

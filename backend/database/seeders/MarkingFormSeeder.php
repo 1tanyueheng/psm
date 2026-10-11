@@ -63,6 +63,9 @@ class MarkingFormSeeder extends Seeder
      */
     protected function categoriesFor(string $formCode): array
     {
+        // E, I, G and J print a different item set per project category. The
+        // Lampiran H reports carry no variant, so H1 and H2 stay
+        // category-agnostic — one seeded row each.
         return in_array($formCode, ['E', 'I', 'G', 'J'], true)
             ? ['system', 'research']
             : [null];
@@ -139,7 +142,21 @@ class MarkingFormSeeder extends Seeder
             ['code' => 'E', 'psm_part' => 'PSM1', 'assessor_type' => 'supervisor', 'title' => 'Penilaian PSM 1 bagi Penyelia', 'description' => 'Supervisor evaluation of a PSM 1 student: logbook, written chapters and the prototype or research framework.'],
             ['code' => 'I', 'psm_part' => 'PSM1', 'assessor_type' => 'examiner',   'title' => 'Penilaian Seminar 1 bagi Penilai', 'description' => 'Examiner evaluation of the PSM 1 seminar: proceeding paper, presentation of the prototype or framework, and delivery.'],
             ['code' => 'G', 'psm_part' => 'PSM2', 'assessor_type' => 'supervisor', 'title' => 'Penilaian PSM 2 bagi Penyelia', 'description' => 'Supervisor evaluation of a PSM 2 student: logbook, the PSM 2 report and the final product.'],
-            ['code' => 'H', 'psm_part' => 'PSM2', 'assessor_type' => 'supervisor', 'title' => 'Penilaian Laporan Kemajuan bagi Penyelia', 'description' => 'Supervisor evaluation of a PSM 2 progress report (Laporan Kemajuan 1 or 2).'],
+
+            /**
+             * Lampiran H is filed twice — Laporan Kemajuan 1 and 2 — and each
+             * carries its own 5%. They are seeded as two forms, H1 and H2,
+             * rather than one form taken twice.
+             *
+             * The aggregate combines by form code, so a single shared code made
+             * the two reports average into one 5% component. Two codes keep them
+             * separate and let each carry its own weight, which is how the
+             * faculty awards them. The printed form is the same Lampiran H in
+             * both cases; only the reporting period differs.
+             */
+            ['code' => 'H1', 'psm_part' => 'PSM2', 'assessor_type' => 'supervisor', 'title' => 'Penilaian Laporan Kemajuan 1 bagi Penyelia', 'description' => 'Supervisor evaluation of the first PSM 2 progress report (Laporan Kemajuan 1).'],
+            ['code' => 'H2', 'psm_part' => 'PSM2', 'assessor_type' => 'supervisor', 'title' => 'Penilaian Laporan Kemajuan 2 bagi Penyelia', 'description' => 'Supervisor evaluation of the second PSM 2 progress report (Laporan Kemajuan 2).'],
+
             ['code' => 'J', 'psm_part' => 'PSM2', 'assessor_type' => 'examiner',   'title' => 'Penilaian Seminar Akhir bagi Penilai', 'description' => 'Examiner evaluation of the PSM 2 final seminar: proceeding paper, the final product and delivery.'],
         ];
     }
@@ -151,7 +168,9 @@ class MarkingFormSeeder extends Seeder
             'E' => $this->formE($category),
             'I' => $this->formI($category),
             'G' => $this->formG($category),
-            'H' => $this->formH(),
+            // H1 and H2 are the same instrument for two reporting periods, so
+            // they share one component set rather than drifting apart.
+            'H1', 'H2' => $this->formH(),
             'J' => $this->formJ($category),
         };
     }

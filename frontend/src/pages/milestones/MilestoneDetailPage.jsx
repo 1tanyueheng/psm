@@ -277,6 +277,16 @@ export default function MilestoneDetailPage() {
             </div>
           </Card>
 
+          {/*
+            Moving a deadline is the coordinator's, and it is the administrative
+            action most likely to be challenged later — so the reason is
+            mandatory and the previous value is shown before it is changed. The
+            API has always existed; nothing called it.
+          */}
+          {milestone.can_change_deadline && (
+            <DeadlineCard milestone={milestone} busy={busy} onRun={run} />
+          )}
+
           {milestone.status === 'approved' && (
             <Card className="border-emerald-200 bg-emerald-50/50">
               <div className="flex items-start gap-3">
@@ -950,6 +960,138 @@ function ProposalResponseCard({ milestone, busy, onRun }) {
             {busy ? 'Saving…' : 'Change the title'}
           </Button>
         </div>
+      </div>
+    </Card>
+  )
+}
+
+/**
+ * The coordinator's deadline control.
+ *
+ * The API (`POST /milestones/{id}/deadline`) has existed since Module 6 but
+ * nothing called it, so the only way to move a deadline was by hand in the
+ * database. It is deliberately a two-step card rather than a bare button: the
+ * current date is stated first, the new date must be in the future, and the
+ * reason is mandatory and at least ten characters. That mirrors the validator,
+ * so the form cannot stage a request the server will reject.
+ *
+ * Shown only when `can_change_deadline` is true, which is the policy's own
+ * answer rather than a role check repeated here.
+ */
+function DeadlineCard({ milestone, busy, onRun }) {
+  const [open, setOpen] = useState(false)
+  const [dueAt, setDueAt] = useState('')
+  const [reason, setReason] = useState('')
+  const [error, setError] = useState(null)
+
+  const current = milestone.effective_due_at ?? milestone.due_at
+
+  /**
+   * Today, as `YYYY-MM-DD`, for the input's `min`.
+   *
+   * Built from the local date parts rather than `toISOString()`, which converts
+   * to UTC first — for a user east of Greenwich that reports yesterday's date
+   * and would let them pick a day the server then rejects as not in the future.
+   */
+  const now = new Date()
+  const today = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-')
+
+  async function submit() {
+    if (!dueAt) {
+      setError('Choose the new deadline date.')
+      return
+    }
+
+    if (dueAt <= today) {
+      setError('The new deadline must be in the future.')
+      return
+    }
+
+    if (reason.trim().length < 10) {
+      setError('Give the reason for the change — at least 10 characters. It is kept in the audit trail.')
+      return
+    }
+
+    setError(null)
+    await onRun(() => milestoneApi.changeDeadline(milestone.id, dueAt, reason.trim()))
+    setOpen(false)
+    setDueAt('')
+    setReason('')
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Deadline"
+        subtitle="Moving a deadline is recorded against your name"
+        action={
+          <Button size="sm" variant="secondary" onClick={() => setOpen((v) => !v)} disabled={busy}>
+            {open ? 'Cancel' : 'Change deadline'}
+          </Button>
+        }
+      />
+
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <Detail label="Currently due" value={formatDate(current)} />
+          {milestone.extended_until && (
+            <Detail label="Extended to" value={formatDate(milestone.extended_until)} />
+          )}
+        </div>
+
+        {milestone.deadline_override_reason && (
+          <p className="rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            <span className="font-medium">Last change:</span> {milestone.deadline_override_reason}
+          </p>
+        )}
+
+        {open && (
+          <div className="space-y-4 border-t border-slate-100 pt-4">
+            {error && (
+              <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
+            )}
+
+            <Field
+              label="New deadline"
+              htmlFor="new-due-at"
+              required
+              hint="The student is notified, and an extension is applied from this date"
+            >
+              <Input
+                id="new-due-at"
+                type="date"
+                min={today}
+                value={dueAt}
+                onChange={(e) => setDueAt(e.target.value)}
+              />
+            </Field>
+
+            <Field
+              label="Reason"
+              htmlFor="deadline-reason"
+              required
+              hint="Required — this is the action most likely to be challenged later"
+            >
+              <Textarea
+                id="deadline-reason"
+                rows={3}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="e.g. Panel review ran late; the faculty approved a two-week extension."
+              />
+            </Field>
+
+            <div className="flex justify-end">
+              <Button onClick={submit} disabled={busy}>
+                {busy ? 'Saving…' : 'Move the deadline'}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </Card>
   )

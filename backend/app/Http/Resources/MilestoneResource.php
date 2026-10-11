@@ -88,6 +88,17 @@ class MilestoneResource extends JsonResource
                 fn () => (bool) $request->user()?->can('decideTitle', $this->resource),
             ),
 
+            /**
+             * Whether the signed-in user may move this deadline.
+             *
+             * The same `changeDeadline` ability the endpoint authorises, so the
+             * button cannot offer an action the API will refuse. Resolved here
+             * rather than re-derived from the role in the SPA, because the
+             * policy also requires visibility of the owning project — a
+             * coordinator cannot move a deadline on a project they cannot see.
+             */
+            'can_change_deadline' => (bool) $request->user()?->can('changeDeadline', $this->resource),
+
             // The two examiners seated on the student — read from the
             // allocations, so the screen names the people the system appointed.
             'panel' => $this->when(

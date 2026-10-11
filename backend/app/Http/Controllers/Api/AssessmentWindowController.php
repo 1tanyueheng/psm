@@ -44,6 +44,59 @@ class AssessmentWindowController extends ApiController
     }
 
     /**
+     * GET /api/assessment-windows/forms
+     *
+     * The Lampiran a coordinator can open, grouped by batch, with a label and
+     * the assessor role that marks each. Read from the rubric templates so the
+     * list cannot drift from the forms that actually exist — a code offered here
+     * with no rubric behind it would create a window that governs nothing, and
+     * the coordinator would have no way to tell.
+     *
+     * The batch-wide option is offered explicitly (as a null `form_code`), since
+     * it is still the right choice for a term where every Lampiran opens
+     * together.
+     */
+    public function forms(Request $request): JsonResponse
+    {
+        $this->authorize('create', AssessmentWindow::class);
+
+        $templates = \App\Models\RubricTemplate::query()
+            ->whereIn('psm_part', ['PSM1', 'PSM2'])
+            ->whereNotNull('form_code')
+            ->where('is_active', true)
+            ->where('is_published', true)
+            ->get(['psm_part', 'form_code', 'assessor_type']);
+
+        $grouped = [];
+
+        foreach (['PSM1', 'PSM2'] as $part) {
+            $forms = $templates
+                ->where('psm_part', $part)
+                ->unique('form_code')
+                ->sortBy('form_code')
+                ->map(fn ($t) => [
+                    'form_code'     => $t->form_code,
+                    'label'         => "Lampiran {$t->form_code}",
+                    'assessor_type' => $t->assessor_type?->value,
+                ])
+                ->values()
+                ->all();
+
+            $grouped[$part] = [
+                // Null first: the whole-batch window is the default and the
+                // coarsest choice, so it should read as the baseline.
+                'all_option' => [
+                    'form_code' => null,
+                    'label'     => "{$part} — all Lampiran",
+                ],
+                'forms' => $forms,
+            ];
+        }
+
+        return $this->ok($grouped);
+    }
+
+    /**
      * GET /api/assessment-windows/current
      *
      * The window governing the caller's own projects, so an assessor's marking
@@ -112,6 +165,14 @@ class AssessmentWindowController extends ApiController
             'name'                => ['required', 'string', 'max:120'],
             'academic_semester_id'=> ['required', 'integer', 'exists:academic_semesters,id'],
             'psm_part'            => ['required', Rule::in(['PSM1', 'PSM2'])],
+            // Null (or absent) = the whole batch. A form code = only that
+            // Lampiran. Validated against the forms that actually exist for the
+            // part, so a typo cannot create a window governing nothing.
+            'form_code'           => [
+                'nullable',
+                'string',
+                Rule::in($this->formCodesFor($request->input('psm_part'))),
+            ],
             'scheduled_start_at'  => ['nullable', 'date'],
             'scheduled_end_at'    => ['nullable', 'date', 'after:scheduled_start_at'],
             'notes'               => ['nullable', 'string', 'max:2000'],
@@ -144,15 +205,36 @@ class AssessmentWindowController extends ApiController
             );
         }
 
-        // One window per (term, part): two would leave two answers to "is
-        // marking open?".
-        if (AssessmentWindow::query()
+        /**
+         * One window per (term, batch, form).
+         *
+         * A batch-wide window and a form-scoped one are different things and may
+         * coexist: the coordinator can open "PSM 1" for everything and later add
+         * "PSM 1 — Lampiran E" without either contradicting the other. What is
+         * forbidden is two windows claiming the *same* scope, because then two
+         * rows answer "is this form open?" and the gate would depend on which
+         * one the query happened to reach first. The table's partial unique
+         * indexes enforce the same rule underneath.
+         */
+        $formCode = $validated['form_code'] ?? null;
+
+        $clash = AssessmentWindow::query()
             ->where('academic_semester_id', $semester->id)
             ->where('psm_part', $validated['psm_part'])
-            ->exists()
-        ) {
+            ->when(
+                $formCode === null,
+                fn ($q) => $q->whereNull('form_code'),
+                fn ($q) => $q->where('form_code', $formCode),
+            )
+            ->exists();
+
+        if ($clash) {
+            $scope = $formCode === null
+                ? $validated['psm_part']
+                : "{$validated['psm_part']} — Lampiran {$formCode}";
+
             return $this->fail(
-                "An assessment window for {$validated['psm_part']} in {$semester->name} already exists. Open that one instead of creating a second.",
+                "An assessment window for {$scope} in {$semester->name} already exists. Open that one instead of creating a second.",
                 422
             );
         }
@@ -167,9 +249,13 @@ class AssessmentWindowController extends ApiController
         // Name the batch in the message. A coordinator who mis-picked the batch
         // finds out here rather than from a roster that looks like the other
         // one, which is how the mixed-up windows were created in the first place.
+        $scope = $formCode === null
+            ? $validated['psm_part']
+            : "{$validated['psm_part']} — Lampiran {$formCode}";
+
         return $this->ok(
             $this->present($window),
-            "{$validated['psm_part']} assessment window created for {$semester->name}. "
+            "{$scope} assessment window created for {$semester->name}. "
                 .'Open it when marking should begin.'
         );
     }
@@ -246,6 +332,10 @@ class AssessmentWindowController extends ApiController
                 ? $window->academicSemester?->name
                 : null,
             'psm_part'           => $window->psm_part,
+            'form_code'          => $window->form_code,
+            // The scope in words, so the UI does not have to reconstruct
+            // "whole batch vs one Lampiran" from a null check in three places.
+            'scope_label'        => $this->scopeLabel($window),
             'status'             => $window->status,
             'state_label'        => $window->stateLabel(),
             'is_open'            => $window->isOpen(),
@@ -270,6 +360,46 @@ class AssessmentWindowController extends ApiController
             $window->scheduled_start_at?->format('j M Y H:i') ?? 'any time',
             $window->scheduled_end_at?->format('j M Y H:i') ?? 'open ended'
         ));
+    }
+
+    /**
+     * What this window governs, in words.
+     *
+     * The distinction matters to the coordinator: a batch-wide window opens
+     * every Lampiran at once, a form-scoped one opens exactly one. Rendering
+     * both as "PSM 1" is how someone opens the wrong one and believes marking
+     * has started for a form it has not.
+     */
+    protected function scopeLabel(AssessmentWindow $window): string
+    {
+        return $window->form_code === null
+            ? "{$window->psm_part} — all Lampiran"
+            : "{$window->psm_part} — Lampiran {$window->form_code}";
+    }
+
+    /**
+     * The form codes that exist for a PSM part, for validating `form_code`.
+     *
+     * Read from the rubric templates rather than hardcoded, so adding a Lampiran
+     * to the seeder makes it selectable here without a second edit — and a code
+     * that has no form behind it is refused instead of creating a window that
+     * governs nothing.
+     *
+     * @return array<int, string>
+     */
+    protected function formCodesFor(?string $psmPart): array
+    {
+        if (! in_array($psmPart, ['PSM1', 'PSM2'], true)) {
+            return [];
+        }
+
+        return \App\Models\RubricTemplate::query()
+            ->where('psm_part', $psmPart)
+            ->whereNotNull('form_code')
+            ->distinct()
+            ->orderBy('form_code')
+            ->pluck('form_code')
+            ->all();
     }
 
     /** Projects this user is a supervisor or examiner on. */

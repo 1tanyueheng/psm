@@ -262,9 +262,25 @@ class MilestoneService
             return null;
         }
 
-        // Stamp the moment it actually opened, then move it through the state
-        // machine so the transition is validated and the timeline records it.
-        $next->update(['opens_at' => now()]);
+        /**
+         * Stamp the moment it actually opened, and move its deadline with it.
+         *
+         * `due_at` was computed at registration as "planned open + duration".
+         * The chain is sequential, so a milestone opens when its predecessor is
+         * approved — which is routinely later than planned. Stamping only
+         * `opens_at` left the milestone holding a deadline that had already
+         * passed the moment it opened: 49 of 134 were in that state, and the
+         * nightly job then flagged them overdue on their first day.
+         *
+         * The window is what the template promises, so it is preserved: the
+         * deadline becomes "actually opened + duration". The repair runs against
+         * the new open date, so it is set on the model before the deadline is
+         * computed — the model decides whether a change is warranted, and
+         * refuses to shorten a deadline or override a coordinator's own change.
+         */
+        $next->opens_at = now();
+        $next->due_at = $next->repairedDueAt() ?? $next->due_at;
+        $next->save();
 
         $next = $this->transitionTo(
             $next,

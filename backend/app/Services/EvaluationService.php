@@ -72,6 +72,11 @@ class EvaluationService
      *
      * Kept apart from createForm() because H shares (PSM2, supervisor) with
      * Lampiran G and is never the form a supervisor fills by default.
+     *
+     * Each report carries its **own** 5%, so they are distinct form codes —
+     * `H1` and `H2` — rather than two instances of one form. The aggregate
+     * combines by form code, so a single shared code would average the two into
+     * one 5% component instead of awarding 5% for each.
      */
     public function createProgressReportForm(Project $project, User $supervisor, int $laporanNum): Evaluation
     {
@@ -83,9 +88,26 @@ class EvaluationService
             project: $project,
             assessor: $supervisor,
             assessorType: AssessorType::Supervisor,
-            formCode: 'H',
+            formCode: self::progressReportFormCode($laporanNum),
+            // Retained so the UI can still tell which reporting period a form
+            // belongs to without decoding the form code.
             formInstance: 'laporan_'.$laporanNum,
         );
+    }
+
+    /**
+     * The form code for a numbered PSM 2 progress report.
+     *
+     * One place owns the mapping, so the seeder, the allocation path and the
+     * aggregate cannot disagree about which code means which report.
+     */
+    public static function progressReportFormCode(int $laporanNum): string
+    {
+        return match ($laporanNum) {
+            1 => 'H1',
+            2 => 'H2',
+            default => throw new InvalidArgumentException('Laporan Kemajuan must be 1 or 2.'),
+        };
     }
 
     protected function createEvaluation(
@@ -205,7 +227,13 @@ class EvaluationService
             );
         }
 
-        $this->assertMarkingOpen($evaluation->project, $evaluation->psm_part);
+        // Per form: the form's own rubric decides which window gates it, so
+        // opening Lampiran E cannot unlock Lampiran I.
+        $this->assertMarkingOpen(
+            $evaluation->project,
+            $evaluation->psm_part,
+            $evaluation->rubricTemplate?->form_code,
+        );
 
         return DB::transaction(function () use ($evaluation, $marks, $actor) {
             $snapshot = $evaluation->rubric_snapshot ?? [];
@@ -286,9 +314,15 @@ class EvaluationService
             );
         }
 
-        $this->assertMarkingOpen($evaluation->project, $evaluation->psm_part);
-
         $fresh = $evaluation->fresh(['scores', 'rubricTemplate', 'project']);
+
+        // Per form, like saveMarks(): the form's own rubric decides which window
+        // gates it, so a window opened for Lampiran E cannot admit Lampiran I.
+        $this->assertMarkingOpen(
+            $fresh->project,
+            $fresh->psm_part,
+            $fresh->rubricTemplate?->form_code,
+        );
 
         // Re-checked at submission as well as at allocation: a coordinator may
         // allocate the form ahead of the milestones (that is allowed — it just
@@ -1019,7 +1053,7 @@ class EvaluationService
     }
 
     /**
-     * Refuse a write unless the coordinator has opened marking for this batch.
+     * Refuse a write unless the coordinator has opened marking for this form.
      *
      * **Fail-closed.** A batch with no window is *not* open for marking: the
      * window is the coordinator's explicit "start marking" act, and treating a
@@ -1028,24 +1062,35 @@ class EvaluationService
      * created (see SemesterService), so the absent case is a term that predates
      * that, not an invitation.
      *
+     * The gate is **per form**, not per batch. The coordinator opens Lampiran E
+     * and Lampiran I as separate events, so a form-scoped window for one must
+     * not let the other be filed. A batch-wide window (form_code null) still
+     * opens everything in its batch, which keeps the old behaviour available.
+     *
      * @throws InvalidArgumentException
      */
-    protected function assertMarkingOpen(?Project $project, ?string $psmPart): void
+    protected function assertMarkingOpen(?Project $project, ?string $psmPart, ?string $formCode = null): void
     {
         if ($project === null) {
             return;
         }
 
-        if (AssessmentWindow::markingOpenFor($project)) {
+        if (AssessmentWindow::markingOpenForForm($project, $formCode)) {
             return;
         }
 
-        $window = AssessmentWindow::governing($project);
+        // The window that would have governed this form, so the refusal can say
+        // which one to ask about rather than naming the batch alone.
+        $window = AssessmentWindow::governing($project, $formCode);
+
+        $what = $formCode !== null
+            ? "Lampiran {$formCode} of {$psmPart}"
+            : "Marking for {$psmPart}";
 
         throw new InvalidArgumentException(
             $window?->isClosed()
-                ? "Marking for {$psmPart} is closed. Ask the coordinator to reopen the assessment window."
-                : "Marking for {$psmPart} has not been opened yet. Ask the coordinator to start the assessment window."
+                ? "{$what} is closed. Ask the coordinator to reopen the assessment window."
+                : "{$what} has not been opened yet. Ask the coordinator to start its assessment window."
         );
     }
 

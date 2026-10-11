@@ -251,24 +251,39 @@ class MarkSubmission extends Model
 
         $outstanding = [];
 
-        // Exactly one supervisor form is expected. Zero means the project has no
-        // active supervision, which `open()` refuses; more than one would mean
-        // a co-supervisor, and only one of them can attest for the batch.
-        if (count($supervisorForms) !== 1) {
+        /**
+         * Every supervisor form must come back, and there may be more than one.
+         *
+         * PSM 1 has a single supervisor form (E). PSM 2 has three — the main
+         * evaluation (G) plus the two progress reports (H1, H2) — so a check
+         * for "exactly one" would refuse every PSM 2 submission outright. What
+         * actually matters is that each *allocated* form is returned; the
+         * count is a consequence of that, not a rule in itself.
+         *
+         * A submission with no supervisor form at all is still a problem:
+         * `open()` refuses to create one without an active supervision, so its
+         * absence here means the rows were removed rather than never made.
+         */
+        if ($supervisorForms === []) {
             $outstanding[] = [
-                'role'     => 'supervisor',
-                'reason'   => $supervisorForms === []
-                    ? 'No supervisor form was allocated.'
-                    : 'More than one supervisor form was allocated for this project.',
+                'role'   => 'supervisor',
+                'reason' => 'No supervisor form was allocated.',
             ];
-        } elseif ($supervisorForms[0]['status'] !== 'submitted'
-            && $supervisorForms[0]['status'] !== 'released') {
+        }
+
+        foreach ($supervisorForms as $form) {
+            if (in_array($form['status'], ['submitted', 'released'], true)) {
+                continue;
+            }
+
             $outstanding[] = [
-                'role'        => 'supervisor',
-                'assessor'    => $supervisorForms[0]['assessor_name'],
-                'form_code'   => $supervisorForms[0]['form_code'],
-                'reason'      => 'Supervisor form is not submitted yet.',
-                'status'      => $supervisorForms[0]['status'],
+                'role'      => 'supervisor',
+                'assessor'  => $form['assessor_name'],
+                'form_code' => $form['form_code'],
+                'reason'    => $form['form_code'] === 'G'
+                    ? 'Supervisor form is not submitted yet.'
+                    : "Progress report {$form['form_code']} is not submitted yet.",
+                'status'    => $form['status'],
             ];
         }
 

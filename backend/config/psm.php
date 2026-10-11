@@ -188,22 +188,28 @@ return [
      *
      * These are the shares the system is responsible for. The remainder of the
      * official weighting is marked outside it — by the lecturer in class — so
-     * the totals are deliberately below 100:
+     * PSM 1's total is deliberately below 100:
      *
      *   PSM 1   Lampiran E 35 (supervisor) + Lampiran I 30 (examiners)  = 65
-     *   PSM 2   Lampiran G 50 + Lampiran H 5 (supervisor)
-     *           + Lampiran J 40 (examiners)                            = 95
+     *   PSM 2   Lampiran G 50 + Lampiran H1 5 + Lampiran H2 5
+     *           + Lampiran J 40 (examiners)                            = 100
      *
-     * Keyed by FORM, not by assessor role. G and H are both supervisor forms
-     * carrying different shares, so a per-role scheme would collapse them into
-     * a single bucket and lose the 50/5 split.
+     * Keyed by FORM, not by assessor role. G, H1 and H2 are all supervisor
+     * forms carrying different shares, so a per-role scheme would collapse them
+     * into a single bucket and lose the split.
+     *
+     * H1 and H2 are the two PSM 2 progress reports — Laporan Kemajuan 1 and
+     * Laporan Kemajuan 2. They are separate *form codes* rather than two
+     * instances of one form, because the aggregate groups by form code: sharing
+     * a code made the two reports average into a single 5% component instead of
+     * counting 5% each, which is not what the faculty awards.
      *
      * The coordinator appears nowhere: they moderate the process, they do not
      * award marks.
      */
     'assessment_weights' => [
         'PSM1' => ['E' => 35.0, 'I' => 30.0],
-        'PSM2' => ['G' => 50.0, 'H' => 5.0,  'J' => 40.0],
+        'PSM2' => ['G' => 50.0, 'H1' => 5.0, 'H2' => 5.0, 'J' => 40.0],
     ],
 
     /**

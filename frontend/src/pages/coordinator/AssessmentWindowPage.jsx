@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { assessmentWindowApi } from '../../api/endpoints'
 import { unwrap } from '../../api/client'
@@ -15,11 +15,18 @@ import { formatDateTime } from '../../lib/format'
 /**
  * Coordinator â€” the assessment window.
  *
- * One event per (term, batch) that the coordinator opens when marking should
- * begin. Opening it is the whole job: it allocates every Lampiran the batch
- * needs â€” Lampiran E to each supervisor, I to both panel examiners for PSM 1 â€”
- * and only then does it start accepting marks. Assessors then pick a student
- * and file their form.
+ * One window per (term, batch), optionally narrowed to a single Lampiran.
+ * Opening it is the whole job: it allocates the forms it governs â€” Lampiran E
+ * to each supervisor, I to both panel examiners for PSM 1, and for PSM 2 the
+ * supervisor's G plus the two H progress reports and J to the panel â€” and only
+ * then does it start accepting marks. Assessors then pick a student and file
+ * their form.
+ *
+ * The form scope is what makes "open Lampiran E and Lampiran I separately"
+ * possible: they are different events, marked at different times by different
+ * people, so a form-scoped window allocates only its own Lampiran and leaves
+ * the rest untouched. A window with no form stays batch-wide and opens
+ * everything at once.
  *
  * Closing is not the same as releasing. It stops new marks; locking the
  * aggregate and releasing the mark stay on the per-student mark submission.
@@ -184,7 +191,7 @@ export default function AssessmentWindowPage() {
     <div className="space-y-6">
       <PageHeader
         title="Assessment"
-        subtitle="Open marking for a batch, then let the supervisor and panel file their Lampiran"
+        subtitle="Open marking for a batch — or for a single Lampiran — then let the assessors file their forms"
         action={
           canManage ? (
             <Button onClick={() => setShowCreate((v) => !v)}>
@@ -226,7 +233,7 @@ export default function AssessmentWindowPage() {
         <Card>
           <EmptyState
             title="No assessment window"
-            message="Create one for a batch, then open it. Opening allocates every Lampiran that batch needs."
+            message="Create one for a batch, then open it. Opening allocates the Lampiran that window governs — all of them, or just one if you scope it to a form."
           />
         </Card>
       ) : (
@@ -251,6 +258,13 @@ export default function AssessmentWindowPage() {
                       <Badge tone={PSM_PART_BADGE_TONES[w.psm_part] ?? 'neutral'}>
                         {partLabel(w.psm_part)}
                       </Badge>
+                      {/*
+                        The Lampiran scope, spelled out. Rendering a form-scoped
+                        window and a batch-wide one both as "PSM 1" is how a
+                        coordinator opens the wrong one and believes marking has
+                        started for a form it has not.
+                      */}
+                      {w.form_code && <Badge tone="neutral">Lampiran {w.form_code}</Badge>}
                       <span className="truncate text-sm font-medium text-slate-800">{w.name}</span>
                     </div>
                     <p className="mt-1 text-xs text-slate-500">
@@ -310,7 +324,7 @@ export default function AssessmentWindowPage() {
                   />
 
                   <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                    <Meta label="State" value={detail.state_label} />
+                    <Meta label="Scope" value={detail.scope_label ?? detail.psm_part} />
                     <Meta label="Students" value={detail.progress?.students ?? 0} />
                     <Meta
                       label="Forms filed"
@@ -324,8 +338,14 @@ export default function AssessmentWindowPage() {
                   </div>
 
                   <p className="mt-3 text-xs text-slate-500">
-                    Opening allocates Lampiran E to each student's supervisor and Lampiran I to
-                    both panel examiners. Re-opening only tops up students who were missed.
+                    {detail.form_code
+                      ? `This window governs Lampiran ${detail.form_code} only, so the other `
+                        + 'Lampiran in this batch stay closed until their own window opens. '
+                        + 'The counts above cover this form alone.'
+                      : 'Opening allocates Lampiran E to each student\u2019s supervisor and '
+                        + 'Lampiran I to both panel examiners; PSM 2 adds the supervisor\u2019s '
+                        + 'Lampiran G and the two progress reports H1 and H2. '}
+                    {' '}Re-opening only tops up students who were missed.
                   </p>
                 </Card>
 
@@ -408,6 +428,9 @@ function CreateWindowForm({ semesters, activeSemester, defaultPart, onCreated, o
     // Defaults to the batch the coordinator arrived from, and to PSM 1
     // otherwise â€” the batch whose marking opens first in a term.
     psm_part: defaultPart || 'PSM1',
+    // Empty string = the whole batch. The server reads null as "every Lampiran
+    // in this batch", which is the pre-existing behaviour.
+    form_code: '',
     scheduled_start_at: '',
     scheduled_end_at: '',
     notes: '',
@@ -415,7 +438,44 @@ function CreateWindowForm({ semesters, activeSemester, defaultPart, onCreated, o
   const [errors, setErrors] = useState(null)
   const [busy, setBusy] = useState(false)
 
-  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+  /**
+   * The Lampiran that actually exist, per batch.
+   *
+   * Fetched rather than hardcoded so the choices match the seeded rubrics. A
+   * code offered here with no form behind it would create a window governing
+   * nothing, and nothing on the screen would say so.
+   */
+  const [formsByPart, setFormsByPart] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    assessmentWindowApi
+      .forms()
+      .then((data) => {
+        if (!cancelled) setFormsByPart(data ?? {})
+      })
+      .catch(() => {
+        // Not fatal: the selector falls back to the batch-wide option only,
+        // which still creates a valid window.
+        if (!cancelled) setFormsByPart({})
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const set = (key) => (e) => {
+    const value = e.target.value
+
+    // Changing the batch changes which Lampiran exist, so a code carried over
+    // from the previous batch would be rejected by the server. Reset it.
+    setForm((f) => (key === 'psm_part' ? { ...f, psm_part: value, form_code: '' } : { ...f, [key]: value }))
+  }
+
+  const batchForms = formsByPart?.[form.psm_part]
+  const lampiranOptions = batchForms?.forms ?? []
 
   async function submit(e) {
     e.preventDefault()
@@ -426,6 +486,8 @@ function CreateWindowForm({ semesters, activeSemester, defaultPart, onCreated, o
       const created = await assessmentWindowApi.create({
         ...form,
         academic_semester_id: Number(form.academic_semester_id),
+        // Empty means the whole batch, which the API expects as null.
+        form_code: form.form_code || null,
         // Empty date inputs must not be sent as "" â€” the API expects null.
         scheduled_start_at: form.scheduled_start_at || null,
         scheduled_end_at: form.scheduled_end_at || null,
@@ -456,7 +518,7 @@ function CreateWindowForm({ semesters, activeSemester, defaultPart, onCreated, o
     <Card>
       <CardHeader
         title="New assessment window"
-        subtitle="One per batch per term â€” opening it allocates the forms"
+        subtitle="One per batch per term, or one per Lampiran — opening it allocates the forms it governs"
       />
       <form onSubmit={submit} className="space-y-4">
         <FieldErrors errors={errors} />
@@ -498,6 +560,31 @@ function CreateWindowForm({ semesters, activeSemester, defaultPart, onCreated, o
             </Select>
           </Field>
 
+          {/*
+            The Lampiran scope. Leaving it on "all Lampiran" keeps the original
+            behaviour; picking one opens only that form, which is what lets the
+            supervisor's Lampiran E and the examiners' Lampiran I be opened as
+            the two separate events they are.
+          */}
+          <Field
+            label="Lampiran"
+            hint={
+              lampiranOptions.length === 0
+                ? 'Every Lampiran in this batch opens together'
+                : 'Pick one to open that form on its own, or leave it to open them all together'
+            }
+          >
+            <Select value={form.form_code} onChange={set('form_code')}>
+              <option value="">All Lampiran — open everything at once</option>
+              {lampiranOptions.map((f) => (
+                <option key={f.form_code} value={f.form_code}>
+                  {f.label}
+                  {f.assessor_type ? ` — ${f.assessor_type}` : ''}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
           <Field label="Opens at" hint="Optional â€” leave blank for no start time">
             <Input type="datetime-local" value={form.scheduled_start_at} onChange={set('scheduled_start_at')} />
           </Field>
@@ -515,10 +602,19 @@ function CreateWindowForm({ semesters, activeSemester, defaultPart, onCreated, o
         </Field>
 
         <p className="rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
-          Opening this window will allocate forms to every live student in{' '}
-          <b>{partLabel(form.psm_part)}</b> of <b>{activeSemester.name}</b>.
-          Lampiran E goes to each student's supervisor and Lampiran I to both panel examiners.
-          A term and batch with no students will allocate nothing.
+          Opening this window will allocate{' '}
+          {form.form_code ? (
+            <>
+              <b>Lampiran {form.form_code}</b> only
+            </>
+          ) : (
+            <>every Lampiran</>
+          )}{' '}
+          for every live student in <b>{partLabel(form.psm_part)}</b> of{' '}
+          <b>{activeSemester.name}</b>. Lampiran E goes to each student&apos;s supervisor and
+          Lampiran I to both panel examiners; PSM 2 adds the supervisor&apos;s Lampiran G and the
+          two progress reports H1 and H2. A term and batch with no students will allocate
+          nothing.
         </p>
 
         <div className="flex justify-end gap-2">

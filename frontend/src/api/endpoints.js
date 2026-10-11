@@ -493,6 +493,14 @@ export const markApi = {
 export const assessmentWindowApi = {
   list: (params) => api.get('/assessment-windows', { params }).then(unwrap),
   current: () => api.get('/assessment-windows/current').then(unwrap),
+  /**
+   * The Lampiran a coordinator may open, grouped by batch.
+   *
+   * Read from the server rather than hardcoded so the choices match the forms
+   * that actually exist — a code offered here with no rubric behind it would
+   * create a window governing nothing.
+   */
+  forms: () => api.get('/assessment-windows/forms').then(unwrap),
   show: (id) => api.get(`/assessment-windows/${id}`).then(unwrap),
   create: (payload) => api.post('/assessment-windows', payload).then(unwrap),
   open: (id) => api.post(`/assessment-windows/${id}/open`).then(unwrap),

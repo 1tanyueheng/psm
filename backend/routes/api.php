@@ -256,6 +256,13 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
         // Registered before the {window} wildcard, or "current" reads as an id.
         Route::get('current', [AssessmentWindowController::class, 'current'])->name('current');
 
+        // The Lampiran that can be opened for each batch, so the create form
+        // offers real forms rather than a hardcoded list that drifts from the
+        // seeded rubrics.
+        Route::get('forms', [AssessmentWindowController::class, 'forms'])
+            ->middleware('role:admin,coordinator')
+            ->name('forms');
+
         Route::get('/', [AssessmentWindowController::class, 'index'])
             ->middleware('role:admin,coordinator')
             ->name('index');

@@ -151,6 +151,73 @@ class Milestone extends Model
         return $this->due_at?->copy()->endOfDay();
     }
 
+    /**
+     * How long this milestone is meant to stay open, in days.
+     *
+     * Read from the template item, which is where the faculty's intent lives.
+     * Null when the item is gone or recorded no duration — the caller then
+     * leaves the deadline alone rather than inventing a window.
+     */
+    public function plannedDurationDays(): ?int
+    {
+        $duration = $this->templateItem?->duration_days;
+
+        return $duration === null ? null : (int) $duration;
+    }
+
+    /**
+     * The deadline this milestone should carry, given when it actually opened.
+     *
+     * Dates are computed once, at registration, from the template's planned
+     * offsets — `due_at` is "planned open + duration". But the chain is
+     * sequential: a milestone opens when its predecessor is approved, and if
+     * that runs late the milestone opens late while keeping the due date it was
+     * born with. The result was a milestone that opened already overdue — 49 of
+     * 134 were in exactly that state.
+     *
+     * The same defect has a milder form: a milestone that opens late but still
+     * before its planned deadline keeps that deadline, so its window is
+     * silently truncated — 28 days becomes 14. The student is given less time
+     * than the template promises, and nothing on any screen says so.
+     *
+     * The repair preserves the *window* rather than the calendar date, because
+     * the window is what the template promises and what the student is assessed
+     * against: due = actual open + duration. That one rule answers both forms.
+     *
+     * Deliberately conservative in three ways:
+     *
+     *   - Never shortens. A milestone opened ahead of plan keeps its original
+     *     (later) deadline; the student is not punished for a predecessor being
+     *     approved early, and re-running this is a no-op.
+     *   - Never overrides a coordinator. `deadline_overridden_by` means a human
+     *     set this date deliberately, with a recorded reason, and an automatic
+     *     recomputation must not quietly undo it.
+     *   - Never overrides an extension. `extended_until` is a granted
+     *     concession, and it wins over any arithmetic here.
+     */
+    public function repairedDueAt(): ?\Illuminate\Support\Carbon
+    {
+        if ($this->opens_at === null || $this->due_at === null) {
+            return $this->due_at;
+        }
+
+        if ($this->deadline_overridden_by !== null || $this->extended_until !== null) {
+            return $this->due_at;
+        }
+
+        $duration = $this->plannedDurationDays();
+
+        if ($duration === null) {
+            return $this->due_at;
+        }
+
+        $windowEnd = $this->opens_at->copy()->addDays($duration);
+
+        // Only ever push a stale deadline out. An equal or earlier window end
+        // means the milestone opened on time or early, so the original stands.
+        return $windowEnd->isAfter($this->due_at) ? $windowEnd : $this->due_at;
+    }
+
     public function isOverdue(): bool
     {
         $due = $this->effectiveDueAt();
