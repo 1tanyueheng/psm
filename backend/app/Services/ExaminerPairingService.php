@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AssessorType;
 use App\Enums\AuditAction;
 use App\Enums\EvaluationStatus;
+use App\Enums\Programme;
 use App\Enums\PsmPart;
 use App\Models\Evaluation;
 use App\Models\ExaminerAssignment;
@@ -146,7 +147,64 @@ class ExaminerPairingService
         return DB::transaction(function () use (
             $students, $pool, $resolvedPart, $actor, $capacity, $semesterId
         ) {
-            $pairs = $this->resolvePairs($pool, $resolvedPart, $actor, $semesterId, $capacity);
+            /**
+             * Pairs are formed **per programme**, not once for the whole run.
+             *
+             * An examiner may only sit on a panel for a student from their own
+             * programme, and a pair is fixed across the students it serves — so
+             * one pool drawn from everyone can only ever be right if every
+             * student in the run shares a programme. They do not: a PSM batch
+             * holds all five.
+             *
+             * Building one pool per programme is what makes the rule hold. The
+             * previous single pool produced panels that `seat()` then refused
+             * one student at a time, which is why a run could end with some
+             * students seated and others skipped for reasons the coordinator
+             * could not act on.
+             */
+            $studentsByProgramme = $students->groupBy(
+                fn (StudentProfile $s) => Programme::tryParse($s->program_code)?->value ?? '—'
+            );
+
+            $pairs = collect();
+            $unpairable = [];
+
+            foreach ($studentsByProgramme as $programmeCode => $group) {
+                $eligible = $pool
+                    ->filter(fn (User $u) => $u->supervisorProfile
+                        ?->canSuperviseProgramme($programmeCode) ?? true)
+                    ->values();
+
+                if ($eligible->count() < 2) {
+                    $unpairable[$programmeCode] = $eligible->count();
+
+                    continue;
+                }
+
+                $pairs = $pairs->concat(
+                    $this->resolvePairs($eligible, $resolvedPart, $actor, $semesterId, $capacity)
+                );
+            }
+
+            /**
+             * A programme with fewer than two eligible examiners has no panel,
+             * and its students cannot be seated at all. Reported rather than
+             * silently skipped: the coordinator's remedy is to record a
+             * programme on another staff member, which they cannot guess at from
+             * an empty result.
+             */
+            if ($unpairable !== []) {
+                $detail = collect($unpairable)
+                    ->map(fn (int $n, string $code) => "{$code} ({$n} available)")
+                    ->implode(', ');
+
+                if ($pairs->isEmpty()) {
+                    throw new InvalidArgumentException(
+                        'No examiner pair can be formed for any programme in this run. '
+                        ."Two examiners from the same programme as the student are needed. Found: {$detail}."
+                    );
+                }
+            }
 
             if ($pairs->isEmpty()) {
                 throw new InvalidArgumentException(
@@ -417,6 +475,24 @@ class ExaminerPairingService
                 throw new InvalidArgumentException(
                     "{$examiner->displayName()} supervises {$this->labelFor($student)}."
                 );
+            }
+
+            /**
+             * The programme rule, enforced at the point of seating.
+             *
+             * The pool is already built per programme above, so this should never
+             * fire — which is exactly why it belongs here. A fixed pair is reused
+             * across students, and a future caller that assembles a pool
+             * differently, or a student whose programme changes between pool
+             * selection and seating, would otherwise put an examiner on a panel
+             * they are not allowed to sit on. This is the single gate every seat
+             * passes through.
+             */
+            $refusal = $examiner->supervisorProfile
+                ?->programmeRefusal($student->program_code, $student->student_id);
+
+            if ($refusal !== null) {
+                throw new InvalidArgumentException($refusal);
             }
         }
 

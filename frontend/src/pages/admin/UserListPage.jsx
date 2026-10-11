@@ -1,6 +1,6 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { userApi } from '../../api/endpoints'
+import { assignmentApi, userApi } from '../../api/endpoints'
 import { unwrapPaged } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import { useSemesters } from '../../context/SemesterContext'
@@ -48,7 +48,7 @@ function blankForm() {
     name: '', email: '', phone: '', department: '',
     student_id: '', program: '', program_code: '', batch: '', faculty: '',
     academic_semester_id: '',
-    staff_no: '', academic_title: '', max_supervisees: '',
+    staff_no: '', academic_title: '', max_supervisees: '', programme: '',
   }
 }
 
@@ -99,6 +99,9 @@ function payloadFor(form) {
       staff_no: form.staff_no.trim(),
       academic_title: form.academic_title.trim() || undefined,
       max_supervisees: form.max_supervisees === '' ? undefined : Number(form.max_supervisees),
+      // Required by the API: without it the programme rule cannot fire for this
+      // person, and every pairing they are offered would be permitted.
+      programme: form.programme || undefined,
     }
   }
 
@@ -139,6 +142,34 @@ export default function UserListPage() {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState(blankForm())
   const [formErrors, setFormErrors] = useState({})
+
+  /**
+   * The five programmes, from the server.
+   *
+   * A dropdown rather than a text box because the programme is what the
+   * supervision rule compares: a typed code the enum does not recognise is read
+   * as "not yet recorded" and *permitted*, so a typo here would quietly create
+   * the cross-programme pairing the rule exists to prevent.
+   */
+  const [programmes, setProgrammes] = useState([])
+
+  useEffect(() => {
+    let cancelled = false
+
+    assignmentApi
+      .programmes()
+      .then((list) => {
+        if (!cancelled) setProgrammes(Array.isArray(list) ? list : [])
+      })
+      .catch(() => {
+        // Not fatal: the field falls back to a text input.
+        if (!cancelled) setProgrammes([])
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const role = params.get('role') ?? ''
   const status = params.get('status') ?? ''
@@ -271,6 +302,7 @@ export default function UserListPage() {
           errors={formErrors}
           saving={saving}
           semesters={semesters}
+          programmes={programmes}
           defaultSemesterId={active?.id ?? selectedId ?? ''}
           onCancel={() => {
             setCreating(false)
@@ -510,7 +542,7 @@ export default function UserListPage() {
  * fields, so a value typed for one role cannot be submitted for another.
  */
 function CreateUserPanel({
-  form, setForm, errors, saving, semesters, defaultSemesterId, onCancel, onSubmit,
+  form, setForm, errors, saving, semesters, programmes, defaultSemesterId, onCancel, onSubmit,
 }) {
   const set = (key) => (event) => setForm((prev) => ({ ...prev, [key]: event.target.value }))
 
@@ -627,14 +659,25 @@ function CreateUserPanel({
               </Select>
             </Field>
 
-            <Field label="Programme code" htmlFor="new_program_code" errors={errors} field="program_code">
-              <Input
+            <Field
+              label="Programme"
+              htmlFor="new_program_code"
+              errors={errors}
+              field="program_code"
+              hint="Decides who may supervise this student"
+            >
+              <Select
                 id="new_program_code"
                 value={form.program_code}
                 onChange={set('program_code')}
-                maxLength={32}
-                placeholder="CS240"
-              />
+              >
+                <option value="">Choose a programme…</option>
+                {(programmes ?? []).map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.value} — {p.short ?? p.label}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Field label="Faculty" htmlFor="new_faculty" errors={errors} field="faculty">
               <Input id="new_faculty" value={form.faculty} onChange={set('faculty')} maxLength={255} />
@@ -653,6 +696,30 @@ function CreateUserPanel({
               hint="Recorded once and used everywhere"
             >
               <Input id="new_staff_no" value={form.staff_no} onChange={set('staff_no')} maxLength={32} />
+            </Field>
+
+            {/*
+              The programme decides who this member of staff may supervise and
+              examine. It is required on the server for exactly that reason, and
+              the field did not exist here at all — so staff were created with no
+              programme, and the rule silently permitted every pairing.
+            */}
+            <Field
+              label="Programme"
+              htmlFor="new_programme"
+              required
+              errors={errors}
+              field="programme"
+              hint="They may only supervise and examine students of this programme"
+            >
+              <Select id="new_programme" value={form.programme} onChange={set('programme')}>
+                <option value="">Choose a programme…</option>
+                {(programmes ?? []).map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.value} — {p.short ?? p.label}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Field label="Academic title" htmlFor="new_academic_title" errors={errors} field="academic_title">
               <Input

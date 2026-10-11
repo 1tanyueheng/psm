@@ -115,8 +115,21 @@ class UserController extends ApiController
 
             // Student profile
             'student_id'     => ['required_if:role,student', 'nullable', 'string', 'max:32', 'unique:student_profiles,student_id'],
-            'program'        => ['required_if:role,student', 'nullable', 'string', 'max:128'],
-            'program_code'   => ['nullable', 'string', 'max:32'],
+            /**
+             * The student's programme.
+             *
+             * Constrained to the enum rather than free text, because this is the
+             * value the supervision rule compares. A student whose code the enum
+             * does not recognise would be readable as "programme not recorded",
+             * and the rule *permits* that — so a typo would silently allow the
+             * cross-programme pairing the rule exists to refuse.
+             *
+             * `program` (the display name) is derived from the code below rather
+             * than accepted from the caller, so the two columns cannot disagree
+             * about which programme a student is on.
+             */
+            'program_code'   => ['required_if:role,student', 'nullable', Rule::in(Programme::values())],
+            'program'        => ['nullable', 'string', 'max:128'],
             'batch'          => ['required_if:role,student', 'nullable', 'string', 'max:32'],
             'faculty'        => ['nullable', 'string', 'max:255'],
             'thesis_title'   => ['nullable', 'string', 'max:255'],
@@ -228,7 +241,14 @@ class UserController extends ApiController
                 Role::Student => StudentProfile::create([
                     'user_id'        => $user->id,
                     'student_id'     => $validated['student_id'],
-                    'program'        => $validated['program'],
+                    // Derived from the code, never taken from the caller: the
+                    // code is what the supervision rule compares, and letting the
+                    // two be set independently is how they end up disagreeing —
+                    // which this table has already done once (`IT240` appeared
+                    // under two different names).
+                    'program'        => Programme::tryParse($validated['program_code'])?->label()
+                        ?? $validated['program']
+                        ?? $validated['program_code'],
                     'program_code'   => $validated['program_code'] ?? null,
                     'batch'          => $validated['batch'],
                     'faculty'        => $validated['faculty'] ?? null,
@@ -320,7 +340,9 @@ class UserController extends ApiController
 
             'student_id'   => ['sometimes', 'string', 'max:32', Rule::unique('student_profiles', 'student_id')->ignore($user->studentProfile?->id)],
             'program'      => ['sometimes', 'string', 'max:128'],
-            'program_code' => ['nullable', 'string', 'max:32'],
+            // Constrained to the enum, for the same reason as on create: this is
+            // the value the supervision rule compares.
+            'program_code' => ['sometimes', 'nullable', Rule::in(Programme::values())],
             'batch'        => ['sometimes', 'string', 'max:32'],
             'thesis_title' => ['nullable', 'string', 'max:255'],
 

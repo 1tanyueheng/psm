@@ -218,6 +218,25 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
         ->middleware('role:admin,coordinator,supervisor')
         ->name('assignments.expertise-areas');
 
+    /**
+     * The five programmes FSKTM runs PSM for.
+     *
+     * Served from the `Programme` enum rather than hardcoded in two places, so a
+     * form offering a programme and the rule that compares programmes cannot
+     * drift apart. This matters more here than for ordinary reference data: the
+     * supervision rule matches on these exact codes, so a form that let someone
+     * type a code the enum does not recognise would create a pair the rule
+     * silently permits rather than refuses.
+     */
+    Route::get('programmes', fn () => response()->json([
+        'success' => true,
+        'data'    => collect(\App\Enums\Programme::cases())->map(fn ($p) => [
+            'value' => $p->value,
+            'label' => $p->label(),
+            'short' => $p->shortLabel(),
+        ])->all(),
+    ]))->middleware('role:admin,coordinator,supervisor,student')->name('programmes.index');
+
     // -----------------------------------------------------------------
     // Module 2/3 — Registration flow (Lampiran A & B)
     // -----------------------------------------------------------------

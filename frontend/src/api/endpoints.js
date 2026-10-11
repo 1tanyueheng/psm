@@ -136,6 +136,15 @@ export const assignmentApi = {
   unassignedStudents: (params) =>
     api.get('/assignments/students/unassigned', { params }).then(unwrap),
   expertiseAreas: () => api.get('/assignments/expertise-areas').then(unwrap),
+  /**
+   * The five programmes FSKTM runs PSM for.
+   *
+   * Read from the server so the options a form offers are the same codes the
+   * supervision rule compares. A typed code the enum does not recognise would
+   * create a pairing the rule *permits* rather than refuses, since it reads an
+   * unknown programme as "not yet recorded".
+   */
+  programmes: () => api.get('/programmes').then(unwrap),
 
   // --- Aliases used by the assignment screen -----------------------------
   /** List supervision pairs. */

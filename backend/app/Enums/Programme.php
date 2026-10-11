@@ -23,7 +23,7 @@ enum Programme: string
 {
     case Bis = 'BIS';   // Bachelor of Computer Science (Information Security) With Honours
     case Bim = 'BIM';   // Bachelor of Computer Science (Multimedia Computing) With Honours
-    case Bik = 'BIK';   // Bachelor of Computer Science (Software Engineering) With Honours
+    case Bip = 'BIP';   // Bachelor of Computer Science (Software Engineering) With Honours
     case Biw = 'BIW';   // Bachelor of Computer Science (Web Technology) With Honours
     case Bit = 'BIT';   // Bachelor of Information Technology With Honours
 
@@ -33,7 +33,7 @@ enum Programme: string
         return match ($this) {
             self::Bis => 'Bachelor of Computer Science (Information Security) With Honours',
             self::Bim => 'Bachelor of Computer Science (Multimedia Computing) With Honours',
-            self::Bik => 'Bachelor of Computer Science (Software Engineering) With Honours',
+            self::Bip => 'Bachelor of Computer Science (Software Engineering) With Honours',
             self::Biw => 'Bachelor of Computer Science (Web Technology) With Honours',
             self::Bit => 'Bachelor of Information Technology With Honours',
         };
@@ -45,7 +45,7 @@ enum Programme: string
         return match ($this) {
             self::Bis => 'CS (Information Security)',
             self::Bim => 'CS (Multimedia Computing)',
-            self::Bik => 'CS (Software Engineering)',
+            self::Bip => 'CS (Software Engineering)',
             self::Biw => 'CS (Web Technology)',
             self::Bit => 'Information Technology',
         };
@@ -62,8 +62,14 @@ enum Programme: string
      *
      * The legacy mapping, applied by the migration that introduced this enum:
      *   CS230, CS240 -> BIS   (the CS intake is the Information Security stream)
-     *   IT240        -> BIT
-     *   SE240, SE250 -> BIK
+     *   IT240, IT250 -> BIT
+     *   SE240, SE250 -> BIP
+     *
+     * `BIK` is accepted as an alias for `BIP`. It was this enum's own code for
+     * Software Engineering before the faculty's own abbreviation (BIP) was
+     * adopted, so rows and saved filters carrying it must keep resolving rather
+     * than silently becoming "unknown programme" — which the rule below reads as
+     * "permit", not "refuse".
      */
     public static function tryParse(mixed $value): ?self
     {
@@ -90,11 +96,13 @@ enum Programme: string
         return match ($needle) {
             'CS230', 'CS240'     => self::Bis,
             'IT240', 'IT250'     => self::Bit,
-            'SE240', 'SE250'     => self::Bik,
+            'SE240', 'SE250'     => self::Bip,
+            // This enum's own former code for Software Engineering.
+            'BIK'                => self::Bip,
             // Older rows store a programme *name* rather than a code.
             'BACHELOR OF COMPUTER SCIENCE', 'COMPUTER SCIENCE' => self::Bis,
             'BACHELOR OF INFORMATION TECHNOLOGY', 'INFORMATION TECHNOLOGY' => self::Bit,
-            'BACHELOR OF SOFTWARE ENGINEERING', 'SOFTWARE ENGINEERING' => self::Bik,
+            'BACHELOR OF SOFTWARE ENGINEERING', 'SOFTWARE ENGINEERING' => self::Bip,
             default => null,
         };
     }

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\Programme;
 use App\Enums\Role;
 use App\Models\CoordinatorScope;
 use App\Models\ExpertiseArea;
@@ -101,28 +102,39 @@ class UserSeeder extends Seeder
          * capping PSM 1 at 2 makes them exactly full on one batch while still
          * having room on the other — the situation a supervisor dashboard has
          * to be able to express.
+         *
+         * The last column is the staff member's programme, and it matters for
+         * the same reason a student's does: a supervisor may only take students
+         * from their own programme, and an examiner may only be seated on a
+         * panel for their own. Without a programme on the staff row the rule
+         * cannot fire at all — it reads "unknown" as "permit", deliberately, so
+         * that legacy rows are not silently locked out. Every staff row here
+         * therefore gets one.
+         *
+         * They are spread across the five programmes so each has supervisors,
+         * which is what lets the pairing logic actually place the cohort.
          */
         $supervisorData = [
-            ['Dr.',  'Ahmad Faizal bin Hassan',  'SUP-001',  8,  ['Artificial Intelligence', 'Machine Learning', 'Data Mining'], 2, null],
-            ['Dr.',  'Tan Wei Ming',             'SUP-002',  6,  ['Cybersecurity', 'Cryptography', 'Digital Forensics']],
-            ['Prof.', 'Siti Nurhaliza binti Ali','SUP-003', 10, ['Software Engineering', 'Web Development', 'Cloud Computing']],
-            ['Dr.',  'Rajesh Kumar',             'SUP-004',  8,  ['Internet of Things', 'Computer Networks', 'Cloud Computing']],
-            ['Ts.',  'Lim Chee Keong',           'SUP-005',  6,  ['Human-Computer Interaction', 'User Experience Design', 'Mobile Computing']],
-            ['Dr.',  'Nurul Aini binti Yusof',   'SUP-006',  8,  ['Database Systems', 'Big Data Analytics']],
-            ['Dr.',  'Wong Hui Ling',            'SUP-007',  6,  ['Computer Vision', 'Natural Language Processing', 'Machine Learning']],
-            ['Dr.',  'Muhammad Arif bin Zainal', 'SUP-008',  6,  ['Educational Technology', 'Healthcare Informatics']],
+            ['Dr.',  'Ahmad Faizal bin Hassan',  'SUP-001',  8,  ['Artificial Intelligence', 'Machine Learning', 'Data Mining'], 2, null, 'BIP'],
+            ['Dr.',  'Tan Wei Ming',             'SUP-002',  6,  ['Cybersecurity', 'Cryptography', 'Digital Forensics'], null, null, 'BIS'],
+            ['Prof.', 'Siti Nurhaliza binti Ali','SUP-003', 10, ['Software Engineering', 'Web Development', 'Cloud Computing'], null, null, 'BIP'],
+            ['Dr.',  'Rajesh Kumar',             'SUP-004',  8,  ['Internet of Things', 'Computer Networks', 'Cloud Computing'], null, null, 'BIT'],
+            ['Ts.',  'Lim Chee Keong',           'SUP-005',  6,  ['Human-Computer Interaction', 'User Experience Design', 'Mobile Computing'], null, null, 'BIM'],
+            ['Dr.',  'Nurul Aini binti Yusof',   'SUP-006',  8,  ['Database Systems', 'Big Data Analytics'], null, null, 'BIT'],
+            ['Dr.',  'Wong Hui Ling',            'SUP-007',  6,  ['Computer Vision', 'Natural Language Processing', 'Machine Learning'], null, null, 'BIW'],
+            ['Dr.',  'Muhammad Arif bin Zainal', 'SUP-008',  6,  ['Educational Technology', 'Healthcare Informatics'], null, null, 'BIS'],
         ];
 
         $supervisors = [];
 
-        // Pad every row to seven columns so the destructuring below never hits a
+        // Pad every row to eight columns so the destructuring below never hits a
 // missing key for the supervisors that leave the per-batch ceilings unset.
 $supervisorData = array_map(
-    fn (array $row) => array_pad($row, 7, null),
+    fn (array $row) => array_pad($row, 8, null),
     $supervisorData
 );
 
-foreach ($supervisorData as [$title, $name, $staffNo, $capacity, $areas, $psm1Cap, $psm2Cap]) {
+foreach ($supervisorData as [$title, $name, $staffNo, $capacity, $areas, $psm1Cap, $psm2Cap, $programme]) {
             /**
              * Keyed on `staff_id`, not the generated email.
              *
@@ -159,6 +171,7 @@ foreach ($supervisorData as [$title, $name, $staffNo, $capacity, $areas, $psm1Ca
                     'max_supervisees_psm1' => $psm1Cap,
                     'max_supervisees_psm2' => $psm2Cap,
                     'is_accepting_students' => true,
+                    'programme'        => $programme,
                     'office_location'  => 'Block C, Level 3',
                     'bio'              => "{$title} {$name} supervises PSM projects in ".implode(', ', $areas).'.',
                 ]
@@ -187,13 +200,13 @@ foreach ($supervisorData as [$title, $name, $staffNo, $capacity, $areas, $psm1Ca
         // supervise, so they are ordinary supervisors with capacity and
         // expertise, and a coordinator may seat any of them on a panel.
         $staffData = [
-            ['Dr.', 'Zulkifli bin Omar',   'EXM-001', ['Artificial Intelligence', 'Software Engineering']],
-            ['Dr.', 'Chong Mei Ling',      'EXM-002', ['Cybersecurity', 'Computer Networks']],
-            ['Prof.', 'Azlina binti Rahim','EXM-003', ['Database Systems', 'Big Data Analytics']],
-            ['Dr.', 'Kavitha Subramaniam', 'EXM-004', ['Human-Computer Interaction', 'Mobile Computing']],
+            ['Dr.', 'Zulkifli bin Omar',   'EXM-001', ['Artificial Intelligence', 'Software Engineering'], 'BIP'],
+            ['Dr.', 'Chong Mei Ling',      'EXM-002', ['Cybersecurity', 'Computer Networks'], 'BIS'],
+            ['Prof.', 'Azlina binti Rahim','EXM-003', ['Database Systems', 'Big Data Analytics'], 'BIT'],
+            ['Dr.', 'Kavitha Subramaniam', 'EXM-004', ['Human-Computer Interaction', 'Mobile Computing'], 'BIM'],
         ];
 
-        foreach ($staffData as [$title, $name, $staffNo, $areas]) {
+        foreach ($staffData as [$title, $name, $staffNo, $areas, $programme]) {
             // Keyed on `staff_id` for the same reason as the block above: the
             // first of these is renamed to `examiner@psm.test` below, so its
             // generated address is not a stable lookup key.
@@ -218,6 +231,7 @@ foreach ($supervisorData as [$title, $name, $staffNo, $capacity, $areas, $psm1Ca
                     'max_supervisees_psm1'  => (int) config('psm.supervisor_capacity.PSM1', 5),
                     'max_supervisees_psm2'  => (int) config('psm.supervisor_capacity.PSM2', 5),
                     'is_accepting_students' => true,
+                    'programme'             => $programme,
                 ]
             );
 
@@ -236,11 +250,21 @@ foreach ($supervisorData as [$title, $name, $staffNo, $capacity, $areas, $psm1Ca
         // -----------------------------------------------------------------
         // Students — a full cohort
         // -----------------------------------------------------------------
-        $programs = [
-            ['Bachelor of Computer Science',            'CS230'],
-            ['Bachelor of Information Technology',      'IT240'],
-            ['Bachelor of Software Engineering',        'SE250'],
-        ];
+        /**
+         * Student numbers, and the programme each student belongs to.
+         *
+         * Codes are `AI` + intake year + a running number, which is the
+         * faculty's own form (`AI240001`). They were `S23001…`, an internal
+         * sequence that carried no intake and did not match anything a student
+         * would recognise on their own records.
+         *
+         * The programme is one of the five `Programme` cases, and the *code* is
+         * what matters: a supervisor may only take students from their own
+         * programme, so this value decides who can be paired with whom. It is
+         * assigned round-robin below so every programme has students, and so the
+         * cross-programme rule has something to actually enforce.
+         */
+        $programmeCases = Programme::cases();
 
         $malayNames = [
             'Aisyah binti Rahman', 'Muhammad Danial bin Aziz', 'Nurul Izzah binti Kamal',
@@ -284,8 +308,9 @@ foreach ($supervisorData as [$title, $name, $staffNo, $capacity, $areas, $psm1Ca
         $studentUsers = [];
 
         foreach ($malayNames as $index => $name) {
-            $studentId = sprintf('S%05d', 23001 + $index);
-            $program   = $programs[$index % count($programs)];
+            // AI + intake year + a six-digit running number: AI240001, AI240002…
+            $studentId = sprintf('AI24%04d', 1 + $index);
+            $programme = $programmeCases[$index % count($programmeCases)];
             $topic     = $topics[$index];
 
             $email = $index === 0
@@ -306,8 +331,11 @@ foreach ($supervisorData as [$title, $name, $staffNo, $capacity, $areas, $psm1Ca
                 ['user_id' => $user->id],
                 [
                     'student_id'     => $studentId,
-                    'program'        => $program[0],
-                    'program_code'   => $program[1],
+                    // The code is what the supervision rule compares; the label
+                    // is what a human reads. Both are set so a row is never
+                    // half-described.
+                    'program'        => $programme->value,
+                    'program_code'   => $programme->value,
                     'batch'          => '2026',
                     'faculty'        => 'Faculty of Computing',
                     'current_semester' => 6,
@@ -326,11 +354,29 @@ foreach ($supervisorData as [$title, $name, $staffNo, $capacity, $areas, $psm1Ca
         // -----------------------------------------------------------------
         // Module 2 — Supervision pairings
         // -----------------------------------------------------------------
-        // Each student gets exactly one primary supervisor. This system has no
-        // co-supervisor role, so pairings are distributed round-robin purely
-        // so the workload report shows a realistic spread, including one
-        // supervisor near capacity.
+        /**
+         * Each student gets exactly one primary supervisor, chosen from their
+         * **own programme**.
+         *
+         * This used to be a flat round-robin over all eight supervisors, which
+         * was fine while nobody had a programme recorded. It is not fine now:
+         * FSKTM pairs staff with students from their own programme only, so a
+         * positional pairing would create a cohort where most assignments
+         * violate the rule the same seeder just enabled — demo data the
+         * application could not have produced, and a supervisor dashboard full
+         * of pairings that `AssignmentService` would refuse to recreate.
+         *
+         * Supervisors are therefore grouped by programme and rotated within it.
+         * Two are left unassigned on purpose, so the coordinator's queue is not
+         * empty in the demo.
+         */
+        $supervisorsByProgramme = collect($supervisors)
+            ->filter(fn (SupervisorProfile $s) => $s->programme !== null)
+            ->groupBy(fn (SupervisorProfile $s) => $s->programme->value);
+
         $paired = 0;
+        $unplaceable = [];
+        $rotations = [];
 
         foreach ($students as $index => $student) {
             // Leave the last two students unassigned so the coordinator's
@@ -339,7 +385,29 @@ foreach ($supervisorData as [$title, $name, $staffNo, $capacity, $areas, $psm1Ca
                 continue;
             }
 
-            $supervisor = $supervisors[$index % count($supervisors)];
+            $programme = Programme::tryParse($student->program_code);
+
+            if ($programme === null) {
+                $unplaceable[] = $student->student_id;
+
+                continue;
+            }
+
+            $pool = $supervisorsByProgramme->get($programme->value) ?? collect();
+
+            if ($pool->isEmpty()) {
+                // No supervisor owns this programme, so nobody may take the
+                // student. Reported rather than paired anyway: a cross-programme
+                // pairing here would be a pairing the rule forbids.
+                $unplaceable[] = $student->student_id.' ('.$programme->value.')';
+
+                continue;
+            }
+
+            $turn = $rotations[$programme->value] ?? 0;
+            $rotations[$programme->value] = $turn + 1;
+
+            $supervisor = $pool[$turn % $pool->count()];
 
             SupervisionAssignment::updateOrCreate(
                 [
@@ -361,5 +429,11 @@ foreach ($supervisorData as [$title, $name, $staffNo, $capacity, $areas, $psm1Ca
         }
 
         $this->command->line("  Supervision pairings: {$paired} (".(count($students) - $paired).' unassigned)');
+
+        if ($unplaceable !== []) {
+            $this->command->warn(
+                '  No supervisor in the student\'s own programme for: '.implode(', ', $unplaceable)
+            );
+        }
     }
 }

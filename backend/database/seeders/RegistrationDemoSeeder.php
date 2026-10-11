@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\MilestoneStatus;
+use App\Enums\Programme;
 use App\Enums\Role;
 use App\Models\AcademicSemester;
 use App\Models\Milestone;
@@ -104,15 +105,35 @@ class RegistrationDemoSeeder extends Seeder
         $supervisor = $this->supervisor();
 
         // -----------------------------------------------------------------
-        // The three students
+        // The students
         // -----------------------------------------------------------------
+        /**
+         * These carry the same `AI24####` numbers and the same five programme
+         * codes as the main cohort.
+         *
+         * They were `RD24001…` with legacy programme codes (`CS240`, `IT240`,
+         * `SE240`), which made them the only students in the system whose
+         * programme the `Programme` enum could not resolve. That matters more
+         * than a cosmetic inconsistency: an unresolvable programme is read as
+         * "not yet recorded", and the supervision rule *permits* that — so these
+         * students could be paired with staff from any programme, which is the
+         * one thing the rule exists to prevent.
+         *
+         * All four are `BIP`, because this seeder pairs every one of them with
+         * the single demo supervisor `SUP-RD-001`, who is `BIP`. Giving them
+         * different programmes while they share a supervisor is a state the rule
+         * now refuses outright — `AssignmentService` threw on it, which is the
+         * rule doing its job rather than a seeding quirk to route around.
+         *
+         * The `AI24` numbers continue the main cohort's sequence rather than
+         * restarting, so no two students share a matric number.
+         */
         $roster = [
             [
                 'name'       => 'Aisyah Nuraini binti Kamal',
                 'email'      => 'rd.student1@psm.test',
-                'student_id' => 'RD24001',
-                'program'    => 'Computer Science',
-                'code'       => 'CS240',
+                'student_id' => 'AI240025',
+                'program'    => 'BIP',
                 'title'      => 'Real-Time Attendance Analytics for Lecture Halls',
                 'decision'   => 'approved',
                 'reason'     => null,
@@ -120,9 +141,8 @@ class RegistrationDemoSeeder extends Seeder
             [
                 'name'       => 'Faizal Hakim bin Roslan',
                 'email'      => 'rd.student2@psm.test',
-                'student_id' => 'RD24002',
-                'program'    => 'Information Technology',
-                'code'       => 'IT240',
+                'student_id' => 'AI240026',
+                'program'    => 'BIP',
                 'title'      => 'A Secure Document Exchange Portal for Faculty Boards',
                 'decision'   => 'conditional_approve',
                 'reason'     => 'The scope covers two portals. Narrow it to the faculty board exchange '
@@ -131,9 +151,8 @@ class RegistrationDemoSeeder extends Seeder
             [
                 'name'       => 'Siti Rahmah binti Osman',
                 'email'      => 'rd.student3@psm.test',
-                'student_id' => 'RD24003',
-                'program'    => 'Software Engineering',
-                'code'       => 'SE240',
+                'student_id' => 'AI240027',
+                'program'    => 'BIP',
                 'title'      => 'A Campus Navigation App for New Students',
                 'decision'   => 'rejected',
                 'reason'     => 'The problem statement is not specific enough to be examinable. '
@@ -146,9 +165,8 @@ class RegistrationDemoSeeder extends Seeder
                 // never have anything to act on after a fresh seed.
                 'name'       => 'Muhammad Danish bin Azlan',
                 'email'      => 'rd.student4@psm.test',
-                'student_id' => 'RD24004',
-                'program'    => 'Computer Science',
-                'code'       => 'CS240',
+                'student_id' => 'AI240028',
+                'program'    => 'BIP',
                 'title'      => 'An Automated Timetabling Tool for Faculty Scheduling',
                 'decision'   => null,
                 'reason'     => null,
@@ -165,9 +183,8 @@ class RegistrationDemoSeeder extends Seeder
         $fresh = $this->freshStudent([
             'name'       => 'Nur Izzati binti Sulaiman',
             'email'      => 'rd.fresh@psm.test',
-            'student_id' => 'RD24005',
-            'program'    => 'Software Engineering',
-            'code'       => 'SE240',
+            'student_id' => 'AI240029',
+            'program'    => 'BIP',
         ], $term);
 
         // A re-run after the user has filed Lampiran A themselves cannot make
@@ -230,7 +247,12 @@ class RegistrationDemoSeeder extends Seeder
             'psm_part'              => 'PSM1',
             'proposed_title_1'      => $entry['title'],
             'proposed_title_2'      => $entry['title'].' — Mobile Companion',
-            'proposed_title_3'      => 'A Comparative Study of '.$entry['program'].' Tooling',
+            // The programme's readable name, not its code: this is a proposed
+            // project title a human reads, and "A Comparative Study of BIS
+            // Tooling" is not a sentence.
+            'proposed_title_3'      => 'A Comparative Study of '
+                .(Programme::tryParse($entry['program'])?->shortLabel() ?? $entry['program'])
+                .' Tooling',
         ], $profile->user);
 
         // The supervisor's acknowledgement registers the pairing and fixes the
@@ -316,6 +338,22 @@ class RegistrationDemoSeeder extends Seeder
                 'max_supervisees_psm1'  => 5,
                 'max_supervisees_psm2'  => 5,
                 'is_accepting_students' => true,
+                /**
+                 * Without a programme this account could supervise anyone.
+                 *
+                 * The rule reads an unrecorded programme as "not yet recorded"
+                 * and *permits* the pairing, deliberately, so that legacy rows
+                 * are not locked out of the system overnight. That makes a missing
+                 * value here silently permissive rather than visibly broken —
+                 * this supervisor was the one staff row in the whole seed with no
+                 * programme, so every student they took was a cross-programme
+                 * pairing the rule would have refused had it known.
+                 *
+                 * `BIP` matches the programme of the two students below who are
+                 * actually supervised; the others are here to exercise the
+                 * registration flow and are paired separately.
+                 */
+                'programme'             => 'BIP',
                 'office_location'       => 'Block C, Level 2',
                 'bio'                   => 'Supervises PSM projects in software engineering and secure systems.',
             ]
@@ -343,8 +381,12 @@ class RegistrationDemoSeeder extends Seeder
             ['user_id' => $user->id],
             [
                 'student_id'           => $entry['student_id'],
-                'program'              => $entry['program'],
-                'program_code'         => $entry['code'],
+                // The code is the value the supervision rule compares, so it is
+                // written to both columns: `program` carries the full official
+                // name for display, and the code is what matches.
+                'program'              => Programme::tryParse($entry['program'])?->label()
+                    ?? $entry['program'],
+                'program_code'         => $entry['program'],
                 'batch'                => '2026',
                 'faculty'              => 'Faculty of Computing',
                 'current_semester'     => 6,

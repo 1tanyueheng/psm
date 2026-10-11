@@ -442,8 +442,30 @@ public function __construct(
             ->filter()
             ->all();
 
+        /**
+         * A panel is drawn from the student's **own programme**, for the same
+         * reason supervision is.
+         *
+         * `AssignmentService::assignExaminer()` refuses a cross-programme seat,
+         * so a panel picked without this filter would be one the coordinator
+         * could never have seated through the application — and the demo would
+         * show examiners marking students the rule says they must not touch.
+         *
+         * The conflict check below is separate and still applies: it stops this
+         * student's own supervisor from examining them, which the programme
+         * filter does not cover.
+         */
+        $studentProgramme = $project->students
+            ->map(fn (StudentProfile $s) => $s->program_code)
+            ->filter()
+            ->first();
+
         $eligible = $pool
             ->reject(fn (User $u) => in_array($u->id, $supervisorUserIds, true))
+            // Unknown programme on either side permits the pairing, matching
+            // `SupervisorProfile::canSuperviseProgramme()` exactly — the seeder
+            // must not be stricter than the rule it is demonstrating.
+            ->filter(fn (User $u) => $u->supervisorProfile?->canSuperviseProgramme($studentProgramme) ?? true)
             ->values();
 
         if ($eligible->isEmpty()) {
