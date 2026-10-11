@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EvaluationController;
 use App\Http\Controllers\Api\LeaderboardController;
 use App\Http\Controllers\Api\MilestoneController;
+use App\Http\Controllers\Api\MilestoneScheduleController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ProjectController;
@@ -272,6 +273,12 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
 
         Route::get('{window}', [AssessmentWindowController::class, 'show'])->name('show');
 
+        // The form's published marking period. Separate from open/close, so a
+        // coordinator can state when a Lampiran closes before opening it.
+        Route::patch('{window}', [AssessmentWindowController::class, 'update'])
+            ->middleware('role:admin,coordinator')
+            ->name('update');
+
         Route::post('{window}/open', [AssessmentWindowController::class, 'open'])
             ->middleware('role:admin,coordinator')
             ->name('open');
@@ -328,6 +335,26 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
 
         // Milestones live under their project for a natural URL shape
         Route::get('{project}/milestones', [MilestoneController::class, 'index'])->name('milestones.index');
+    });
+
+    // -----------------------------------------------------------------
+    // Module 3 — The term's milestone calendar
+    // -----------------------------------------------------------------
+    // The faculty publishes one set of deadlines per batch per term, and every
+    // student follows it. Read by anyone who works to the timetable; set only by
+    // a coordinator, because a change moves the date for a whole cohort.
+    Route::prefix('milestone-schedule')->name('milestone-schedule.')->group(function () {
+        Route::get('/', [MilestoneScheduleController::class, 'index'])->name('index');
+
+        Route::put('/', [MilestoneScheduleController::class, 'update'])
+            ->middleware('role:admin,coordinator')
+            ->name('update');
+
+        // Re-seed from the template's own offsets. The escape hatch for a term
+        // whose dates were set wrongly, and how a new term gets a calendar.
+        Route::post('reset', [MilestoneScheduleController::class, 'reset'])
+            ->middleware('role:admin,coordinator')
+            ->name('reset');
     });
 
     // -----------------------------------------------------------------

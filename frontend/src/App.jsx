@@ -36,6 +36,7 @@ const RegistrationListPage = lazy(() => import('./pages/registrations/Registrati
 const LampiranAFormPage = lazy(() => import('./pages/registrations/LampiranAFormPage'))
 const RegistrationDetailPage = lazy(() => import('./pages/registrations/RegistrationDetailPage'))
 const MilestoneListPage = lazy(() => import('./pages/milestones/MilestoneListPage'))
+const MilestoneSchedulePage = lazy(() => import('./pages/milestones/MilestoneSchedulePage'))
 const MilestoneDetailPage = lazy(() => import('./pages/milestones/MilestoneDetailPage'))
 
 const EvaluationListPage = lazy(() => import('./pages/evaluations/EvaluationListPage'))
@@ -180,6 +181,18 @@ export default function AppRoutes() {
           <Route path="/registrations/:id" element={<RegistrationDetailPage />} />
 
           {/* --- Module 3: milestones --- */}
+          {/*
+            The term's calendar. Registered before the `/milestones/:id`
+            wildcard, or "schedule" would be read as a milestone id.
+          */}
+          <Route
+            path="/milestones/schedule"
+            element={
+              <RequireCapability capability="manageMilestones">
+                <MilestoneSchedulePage />
+              </RequireCapability>
+            }
+          />
           <Route path="/milestones" element={<MilestoneListPage />} />
           <Route path="/milestones/:id" element={<MilestoneDetailPage />} />
 

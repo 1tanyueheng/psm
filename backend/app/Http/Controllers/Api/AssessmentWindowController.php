@@ -14,9 +14,14 @@ use Illuminate\Validation\Rule;
 /**
  * Module 4 — the coordinator's assessment window.
  *
- * The coordinator opens it, which allocates every Lampiran the batch needs and
- * starts accepting marks; assessors then pick a student and file their form.
- * Closing stops new marks but keeps what was filed.
+ * One window governs one Lampiran. The coordinator opens each form when that
+ * form's marking period begins — the supervisor files Lampiran E when the
+ * project is finished, the examiners file Lampiran I on seminar day — so each
+ * carries its own dates and its own open/close state.
+ *
+ * Opening a window also allocates that form to every student in the batch, so
+ * "marking is open" and "there is something to mark" cannot disagree. Closing
+ * stops new marks but keeps what was filed.
  */
 class AssessmentWindowController extends ApiController
 {
@@ -27,6 +32,9 @@ class AssessmentWindowController extends ApiController
 
     /**
      * GET /api/assessment-windows
+     *
+     * The board the coordinator works from: every Lampiran of a batch with its
+     * own state, ordered the way the forms are filed.
      */
     public function index(Request $request): JsonResponse
     {
@@ -37,7 +45,8 @@ class AssessmentWindowController extends ApiController
         $windows = AssessmentWindow::query()
             ->forSemesterPart($semesterId, $request->input('psm_part'))
             ->with('academicSemester')
-            ->orderByDesc('id')
+            ->orderBy('psm_part')
+            ->orderBy('form_code')
             ->get();
 
         return $this->ok($windows->map(fn (AssessmentWindow $w) => $this->present($w))->all());
@@ -51,10 +60,6 @@ class AssessmentWindowController extends ApiController
      * list cannot drift from the forms that actually exist — a code offered here
      * with no rubric behind it would create a window that governs nothing, and
      * the coordinator would have no way to tell.
-     *
-     * The batch-wide option is offered explicitly (as a null `form_code`), since
-     * it is still the right choice for a term where every Lampiran opens
-     * together.
      */
     public function forms(Request $request): JsonResponse
     {
@@ -83,12 +88,6 @@ class AssessmentWindowController extends ApiController
                 ->all();
 
             $grouped[$part] = [
-                // Null first: the whole-batch window is the default and the
-                // coarsest choice, so it should read as the baseline.
-                'all_option' => [
-                    'form_code' => null,
-                    'label'     => "{$part} — all Lampiran",
-                ],
                 'forms' => $forms,
             ];
         }
@@ -99,8 +98,9 @@ class AssessmentWindowController extends ApiController
     /**
      * GET /api/assessment-windows/current
      *
-     * The window governing the caller's own projects, so an assessor's marking
+     * Every window governing the caller's own projects, so an assessor's marking
      * page can say whether marking is open without knowing the term or part.
+     * One entry per Lampiran of each batch they have work in.
      */
     public function current(Request $request): JsonResponse
     {
@@ -111,8 +111,8 @@ class AssessmentWindowController extends ApiController
          *
          * Derived from their assignments rather than asked for, so an assessor
          * needs no filter to get a correct answer. These are the *same* pairs
-         * the marking gate resolves per form (`AssessmentWindow::markingOpenFor`
-         * reads the project's own term and batch), which is what keeps the
+         * the marking gate resolves per form (`AssessmentWindow::markingOpenForForm`
+         * reads the project's own term, batch and form), which is what keeps the
          * banner and the gate from disagreeing.
          *
          * Deliberately not restricted to the active term: an assessor can hold
@@ -165,11 +165,11 @@ class AssessmentWindowController extends ApiController
             'name'                => ['required', 'string', 'max:120'],
             'academic_semester_id'=> ['required', 'integer', 'exists:academic_semesters,id'],
             'psm_part'            => ['required', Rule::in(['PSM1', 'PSM2'])],
-            // Null (or absent) = the whole batch. A form code = only that
-            // Lampiran. Validated against the forms that actually exist for the
-            // part, so a typo cannot create a window governing nothing.
+            // Required: every window governs exactly one Lampiran. Validated
+            // against the forms that actually exist for the part, so a typo
+            // cannot create a window governing nothing.
             'form_code'           => [
-                'nullable',
+                'required',
                 'string',
                 Rule::in($this->formCodesFor($request->input('psm_part'))),
             ],
@@ -205,36 +205,27 @@ class AssessmentWindowController extends ApiController
             );
         }
 
+        $formCode = $validated['form_code'];
+
         /**
          * One window per (term, batch, form).
          *
-         * A batch-wide window and a form-scoped one are different things and may
-         * coexist: the coordinator can open "PSM 1" for everything and later add
-         * "PSM 1 — Lampiran E" without either contradicting the other. What is
-         * forbidden is two windows claiming the *same* scope, because then two
-         * rows answer "is this form open?" and the gate would depend on which
-         * one the query happened to reach first. The table's partial unique
-         * indexes enforce the same rule underneath.
+         * Two rows claiming the same Lampiran would leave two answers to "is
+         * this form open?" and the gate would depend on which one the query
+         * happened to reach first. The table's unique index enforces the same
+         * rule underneath. Windows are normally provisioned with the term, so
+         * this is the guard for a hand-made duplicate rather than the usual
+         * path.
          */
-        $formCode = $validated['form_code'] ?? null;
-
-        $clash = AssessmentWindow::query()
+        if (AssessmentWindow::query()
             ->where('academic_semester_id', $semester->id)
             ->where('psm_part', $validated['psm_part'])
-            ->when(
-                $formCode === null,
-                fn ($q) => $q->whereNull('form_code'),
-                fn ($q) => $q->where('form_code', $formCode),
-            )
-            ->exists();
-
-        if ($clash) {
-            $scope = $formCode === null
-                ? $validated['psm_part']
-                : "{$validated['psm_part']} — Lampiran {$formCode}";
-
+            ->where('form_code', $formCode)
+            ->exists()
+        ) {
             return $this->fail(
-                "An assessment window for {$scope} in {$semester->name} already exists. Open that one instead of creating a second.",
+                "An assessment window for {$validated['psm_part']} — Lampiran {$formCode} in "
+                ."{$semester->name} already exists. Open that one instead of creating a second.",
                 422
             );
         }
@@ -246,17 +237,46 @@ class AssessmentWindowController extends ApiController
             'created_by'       => $request->user()->id,
         ]);
 
-        // Name the batch in the message. A coordinator who mis-picked the batch
-        // finds out here rather than from a roster that looks like the other
-        // one, which is how the mixed-up windows were created in the first place.
-        $scope = $formCode === null
-            ? $validated['psm_part']
-            : "{$validated['psm_part']} — Lampiran {$formCode}";
-
+        // Name the Lampiran in the message. A coordinator who mis-picked the
+        // form finds out here rather than from a roster that looks like the
+        // other one, which is how the mixed-up windows were created.
         return $this->ok(
             $this->present($window),
-            "{$scope} assessment window created for {$semester->name}. "
-                .'Open it when marking should begin.'
+            "{$validated['psm_part']} — Lampiran {$formCode} assessment window created for "
+                ."{$semester->name}. Open it when that form's marking should begin."
+        );
+    }
+
+    /**
+     * PATCH /api/assessment-windows/{window}
+     *
+     * Set the published period a Lampiran accepts marks for.
+     *
+     * Deliberately separate from open/close. Publishing "Lampiran I closes 20
+     * December" in advance and opening it on the day is how a real marking
+     * period is arranged; folding the two together would force the coordinator
+     * to open a form in order to state when it should close.
+     *
+     * Only the dates and the note are editable. The batch and the form are what
+     * the window *is* — changing them would silently repoint a window that
+     * assessors are already filing against, so a mistake there is corrected by
+     * closing this one and creating the right one.
+     */
+    public function update(Request $request, AssessmentWindow $window): JsonResponse
+    {
+        $this->authorize('update', $window);
+
+        $validated = $request->validate([
+            'scheduled_start_at' => ['nullable', 'date'],
+            'scheduled_end_at'   => ['nullable', 'date', 'after:scheduled_start_at'],
+            'notes'              => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $window->update($validated);
+
+        return $this->ok(
+            $this->present($window->fresh()),
+            "Lampiran {$window->form_code} marking period updated."
         );
     }
 
@@ -365,16 +385,14 @@ class AssessmentWindowController extends ApiController
     /**
      * What this window governs, in words.
      *
-     * The distinction matters to the coordinator: a batch-wide window opens
-     * every Lampiran at once, a form-scoped one opens exactly one. Rendering
-     * both as "PSM 1" is how someone opens the wrong one and believes marking
-     * has started for a form it has not.
+     * Spelled out because the coordinator is choosing between forms that share
+     * a batch: rendering Lampiran E and Lampiran I both as "PSM 1" is how
+     * someone opens the wrong one and believes marking has started for a form
+     * it has not.
      */
     protected function scopeLabel(AssessmentWindow $window): string
     {
-        return $window->form_code === null
-            ? "{$window->psm_part} — all Lampiran"
-            : "{$window->psm_part} — Lampiran {$window->form_code}";
+        return "{$window->psm_part} — Lampiran {$window->form_code}";
     }
 
     /**

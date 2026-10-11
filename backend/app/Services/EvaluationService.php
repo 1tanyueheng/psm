@@ -1062,10 +1062,10 @@ class EvaluationService
      * created (see SemesterService), so the absent case is a term that predates
      * that, not an invitation.
      *
-     * The gate is **per form**, not per batch. The coordinator opens Lampiran E
-     * and Lampiran I as separate events, so a form-scoped window for one must
-     * not let the other be filed. A batch-wide window (form_code null) still
-     * opens everything in its batch, which keeps the old behaviour available.
+     * The gate is **per form**, not per batch. Each Lampiran has its own window
+     * with its own dates, because they are marked at different times by
+     * different people — so a window opened for one must not admit another.
+     * Opening Lampiran E cannot let an examiner file Lampiran I.
      *
      * @throws InvalidArgumentException
      */

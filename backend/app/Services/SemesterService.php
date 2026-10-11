@@ -682,34 +682,43 @@ class SemesterService
     }
 
     /**
-     * Provision the two assessment windows for a term, closed.
+     * Provision the assessment windows for a term, closed.
      *
-     * Every term has exactly two batches, and marking for each needs a window
-     * before anyone may file a mark. Creating them up front — `scheduled`, so
-     * not accepting marks — means the coordinator's "open marking" is a single
-     * deliberate act rather than also being a data-entry task, and it removes
-     * the "no window yet" case that used to read as *permission* to mark.
+     * One window per Lampiran, not one per batch. Each form is marked at a
+     * different time by different people — the supervisor files Lampiran E when
+     * the project is finished, the examiners file Lampiran I on seminar day —
+     * so the coordinator opens them independently. Creating the rows up front
+     * means "marking has not been opened yet" is a state they can act on from
+     * the first day rather than a missing row they have to invent.
      *
-     * `firstOrCreate` keyed on (term, part), which the table's unique index also
-     * enforces, so re-activating a term or racing two requests cannot duplicate.
-     * Existing windows are left exactly as they are: re-provisioning must never
-     * reopen marking a coordinator deliberately closed.
+     * `firstOrCreate` keyed on (term, part, form), which the table's unique
+     * index also enforces, so re-activating a term or racing two requests
+     * cannot duplicate. Existing windows are left exactly as they are:
+     * re-provisioning must never reopen marking a coordinator deliberately
+     * closed, nor reset dates they set.
      */
     public function provisionAssessmentWindows(AcademicSemester $semester, ?User $actor = null): void
     {
+        $formsByPart = (array) config('psm.assessment_weights', []);
+
         foreach ([PsmPart::Psm1, PsmPart::Psm2] as $part) {
-            AssessmentWindow::firstOrCreate(
-                [
-                    'academic_semester_id' => $semester->id,
-                    'psm_part'             => $part->value,
-                ],
-                [
-                    'name'             => $part->label(),
-                    'academic_session' => $semester->academic_session,
-                    'status'           => AssessmentWindow::STATUS_SCHEDULED,
-                    'created_by'       => $actor?->id,
-                ],
-            );
+            $forms = array_keys((array) ($formsByPart[$part->value] ?? []));
+
+            foreach ($forms as $formCode) {
+                AssessmentWindow::firstOrCreate(
+                    [
+                        'academic_semester_id' => $semester->id,
+                        'psm_part'             => $part->value,
+                        'form_code'            => $formCode,
+                    ],
+                    [
+                        'name'             => "{$part->label()} — Lampiran {$formCode}",
+                        'academic_session' => $semester->academic_session,
+                        'status'           => AssessmentWindow::STATUS_SCHEDULED,
+                        'created_by'       => $actor?->id,
+                    ],
+                );
+            }
         }
     }
 

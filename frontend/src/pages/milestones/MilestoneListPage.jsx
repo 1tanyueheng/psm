@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { milestoneApi, projectApi } from '../../api/endpoints'
 import { unwrapPaged } from '../../api/client'
+import { useAuth } from '../../context/AuthContext'
 import {
   Card, PageHeader, Badge, EmptyState, Spinner, ErrorState, Button, Select, ProgressBar,
 } from '../../components/ui'
@@ -17,6 +18,7 @@ import {
  * what is late, then what is due, then what is done.
  */
 export default function MilestoneListPage() {
+  const { role } = useAuth()
   const [params, setParams] = useSearchParams()
   const [rows, setRows] = useState([])
   const [projects, setProjects] = useState([])
@@ -75,6 +77,16 @@ export default function MilestoneListPage() {
       <PageHeader
         title="Milestones"
         subtitle={`${rows.length} milestone${rows.length === 1 ? '' : 's'}`}
+        action={
+          // The term's calendar, which is where the dates on these rows come
+          // from. Linked from here because this is the screen a coordinator is
+          // looking at when they decide a deadline needs to move.
+          ['coordinator', 'admin'].includes(role) ? (
+            <Link to="/milestones/schedule">
+              <Button variant="secondary">Deadline schedule</Button>
+            </Link>
+          ) : undefined
+        }
       />
 
       {overall && (

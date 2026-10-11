@@ -18,17 +18,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Two-part gate — the coordinator's `status` plus the published time window — so
  * the coordinator controls it deliberately and the published dates still bind.
  *
- * Scoped by (term, psm_part), and optionally narrowed to one `form_code`.
+ * Scoped by (term, psm_part, form_code): one window governs exactly one
+ * Lampiran.
  *
  * The form is what makes "open Lampiran E without opening Lampiran I" possible.
  * Those are two different events in the real process — the supervisor's
  * evaluation and the seminar examiner's are marked at different times by
- * different people — so the coordinator needs to start them independently.
+ * different people — so the coordinator starts them independently, each with its
+ * own dates.
  *
- * `form_code` null keeps the original meaning: one window for the whole batch,
- * governing every form in it. Both kinds coexist, so a coordinator can keep the
- * coarse control and add finer windows alongside it rather than choosing one
- * model for the term.
+ * `form_code` is required rather than nullable. An earlier design allowed a
+ * null meaning "the whole batch", which meant two rows could both answer "is
+ * Lampiran E open?" and the winner depended on query order. One row per form
+ * removes the question.
  */
 class AssessmentWindow extends Model
 {
@@ -152,7 +154,7 @@ class AssessmentWindow extends Model
     // Scopes
     // -----------------------------------------------------------------
 
-    /** The window governing one batch of one term, if there is one. */
+    /** The windows governing one batch of one term. */
     public function scopeForSemesterPart(
         Builder $query,
         int|AcademicSemester|null $semester,
@@ -171,17 +173,18 @@ class AssessmentWindow extends Model
     }
 
     /**
-     * Narrow to the windows that govern one form.
+     * Narrow to one Lampiran.
      *
-     * A batch-wide window (`form_code` null) governs every form in its batch, so
-     * it always qualifies; a form-scoped window qualifies only for its own form.
-     * Pass null for `$formCode` to match batch-wide windows only.
+     * A null `$formCode` matches nothing rather than everything: every window
+     * names a form now, so "no form" is not a wider scope — it is a caller
+     * asking about a form that does not exist, and answering "open" would let a
+     * write through on a form nobody opened.
      */
     public function scopeForForm(Builder $query, ?string $formCode): Builder
     {
-        return $query->where(fn ($q) => $q
-            ->whereNull('form_code')
-            ->when($formCode !== null, fn ($sub) => $sub->orWhere('form_code', $formCode)));
+        return $formCode === null
+            ? $query->whereRaw('1 = 0')
+            : $query->where('form_code', $formCode);
     }
 
     /**
@@ -203,7 +206,7 @@ class AssessmentWindow extends Model
     }
 
     /**
-     * Is marking open for this project's batch, right now?
+     * Is marking open for *any* Lampiran of this project's batch, right now?
      *
      * **Fail-closed.** A batch with no window has not been opened, so its marks
      * are not being taken. This is the deliberate inverse of the original
@@ -213,10 +216,11 @@ class AssessmentWindow extends Model
      * automatically when a term is created, so a missing one means the term
      * predates that, not that marking should be allowed.
      *
-     * Answers for the *whole batch*, ignoring form codes. Use
-     * `markingOpenForForm()` when the form is known — which is the normal case
-     * for an evaluation, since a form-scoped window should not be able to
-     * unblock a different form in the same batch.
+     * This is the *coarse* question, and it is only the right one for a caller
+     * that genuinely has no form in hand — a banner saying "marking has begun
+     * for this batch". Anything that knows its Lampiran must ask
+     * `markingOpenForForm()` instead, because one form being open says nothing
+     * about another.
      */
     public static function markingOpenFor(?Project $project): bool
     {
@@ -231,16 +235,12 @@ class AssessmentWindow extends Model
     }
 
     /**
-     * Is marking open for one specific form of this project's batch?
+     * Is marking open for one specific Lampiran of this project's batch?
      *
-     * A batch-wide window (`form_code` null) opens every form in its batch, so
-     * it satisfies any form. A form-scoped window opens only its own form.
-     * That ordering is what lets a coordinator keep the coarse control while
-     * adding finer windows alongside it, rather than having to choose one model.
-     *
-     * A window scoped to a *different* form does not open this one, which is
-     * the whole point: opening Lampiran E must not let an examiner file
-     * Lampiran I.
+     * The gate every write goes through. A window naming a *different* form
+     * does not open this one, which is the whole point: opening Lampiran E must
+     * not let an examiner file Lampiran I, and each form carries its own dates
+     * because the two are marked at different times.
      */
     public static function markingOpenForForm(?Project $project, ?string $formCode): bool
     {
@@ -269,8 +269,8 @@ class AssessmentWindow extends Model
     /**
      * The stable key for a (term, part, form) triple.
      *
-     * Extends `termPartKey()`, so a batch-wide pair key is still a prefix of the
-     * forms under it and the two families cannot collide.
+     * Extends `termPartKey()`, so the batch pair is a prefix of each form under
+     * it and the two families cannot collide.
      */
     public static function termPartFormKey(?int $semesterId, ?string $psmPart, ?string $formCode): string
     {
@@ -278,52 +278,37 @@ class AssessmentWindow extends Model
     }
 
     /**
-     * Every (term, part) pair and (term, part, form) triple accepting marks.
+     * Every (term, part, form) triple currently accepting marks.
      *
      * One query for a whole list, so a resource can answer "is this form's
      * marking open?" without a query per row. Controllers put the result on the
      * request for the resource to read; see EvaluationController.
      *
-     * Two sets rather than one, because the two kinds of window answer different
-     * questions. `pairs` are the batch-wide windows, which open every form in
-     * their batch; `forms` are the form-scoped ones, which open only their own.
-     * A draft is visible when *either* set covers its (term, part, form) — which
-     * is exactly `markingOpenForForm()`, evaluated in bulk.
+     * This is exactly `markingOpenForForm()`, evaluated in bulk: a draft is
+     * visible when its own (term, part, form) appears here.
      *
-     * @return array{pairs: array<int, string>, forms: array<int, string>}
+     * @return array<int, string>
      */
     public static function openFormKeys(): array
     {
-        $windows = static::query()
+        return static::query()
             ->acceptingMarks()
-            ->get(['academic_semester_id', 'psm_part', 'form_code']);
-
-        $pairs = [];
-        $forms = [];
-
-        foreach ($windows as $window) {
-            if ($window->form_code === null) {
-                $pairs[] = self::termPartKey($window->academic_semester_id, $window->psm_part);
-
-                continue;
-            }
-
-            $forms[] = self::termPartFormKey(
-                $window->academic_semester_id,
-                $window->psm_part,
-                $window->form_code
-            );
-        }
-
-        return ['pairs' => array_values(array_unique($pairs)), 'forms' => array_values(array_unique($forms))];
+            ->get(['academic_semester_id', 'psm_part', 'form_code'])
+            ->map(fn (self $w) => self::termPartFormKey(
+                $w->academic_semester_id,
+                $w->psm_part,
+                $w->form_code
+            ))
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**
-     * Every (term, part) pair currently accepting marks, batch-wide or not.
+     * Every (term, part) pair with at least one Lampiran accepting marks.
      *
-     * The coarse answer: "is *anything* open for this batch?". Kept for callers
-     * that only need to know whether the coordinator has started marking at all
-     * — the per-form question is `openFormKeys()`.
+     * The coarse answer: "has marking begun for this batch at all?". Kept for
+     * callers that only need that — the per-form question is `openFormKeys()`.
      *
      * @return array<int, string>
      */
@@ -339,26 +324,23 @@ class AssessmentWindow extends Model
     }
 
     /**
-     * The window that governs a project, or null when marking is ungated.
+     * The window that governs one Lampiran of a project, or null when there is
+     * none.
      *
-     * Prefers a form-scoped window when one is given, since that is the finer
-     * answer. `$formCode` null keeps the original batch-wide lookup.
+     * Null is a real answer and means "not opened": the gate is fail-closed, so
+     * a missing window refuses the write rather than permitting it. Callers use
+     * this only to explain *why* a write was refused — the refusal is already
+     * decided by `markingOpenForForm()`.
      */
     public static function governing(Project $project, ?string $formCode = null): ?self
     {
-        if ($project->academic_semester_id === null) {
+        if ($project->academic_semester_id === null || $formCode === null) {
             return null;
         }
 
-        $query = static::query()
-            ->forSemesterPart($project->academic_semester_id, $project->psm_part);
-
-        if ($formCode !== null) {
-            // The form's own window wins; a batch-wide one is the fallback.
-            return (clone $query)->where('form_code', $formCode)->first()
-                ?? $query->whereNull('form_code')->first();
-        }
-
-        return $query->whereNull('form_code')->first() ?? $query->first();
+        return static::query()
+            ->forSemesterPart($project->academic_semester_id, $project->psm_part)
+            ->where('form_code', $formCode)
+            ->first();
     }
 }

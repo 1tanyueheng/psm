@@ -6,6 +6,7 @@ use App\Enums\AuditAction;
 use App\Enums\MilestoneStatus;
 use App\Enums\NotificationType;
 use App\Models\Milestone;
+use App\Models\MilestoneSchedule;
 use App\Models\MilestoneTemplate;
 use App\Models\Project;
 use App\Models\SubmissionEvent;
@@ -38,6 +39,17 @@ class MilestoneService
      * Create the milestone chain for a project from its category template.
      * Called once, at project registration.
      *
+     * Dates come from the term's published calendar when there is one, and from
+     * the template's offsets otherwise. That order matters: the faculty sets
+     * Chapter 1 for 15 November for the whole batch, so a student registering in
+     * October and one registering in November must both be held to 15 November.
+     * Deriving from each project's own start date instead — which is what this
+     * did — gave two students in the same batch deadlines a fortnight apart and
+     * left nothing able to state the real date.
+     *
+     * The template offsets remain the fallback for a term with no calendar, and
+     * they are what the calendar itself is seeded from.
+     *
      * @return array<int, Milestone>
      */
     public function instantiateFor(Project $project, ?Carbon $startDate = null): array
@@ -53,18 +65,49 @@ class MilestoneService
 
         $start = $startDate ?? now();
 
-        return DB::transaction(function () use ($project, $template, $start) {
+        // The term's calendar, if the coordinator has published one. Keyed by
+        // code so each milestone can find its own date in one lookup.
+        $schedule = MilestoneSchedule::query()
+            ->forSemesterPart($project->academic_semester_id, $project->psm_part)
+            ->get()
+            ->keyBy('code');
+
+        return DB::transaction(function () use ($project, $template, $start, $schedule) {
             $created = [];
 
             foreach ($template->items as $item) {
-                $opensAt = $start->copy()->addDays($item->offset_days);
-                $dueAt   = $opensAt->copy()->addDays($item->duration_days);
+                $scheduled = $schedule->get($item->code);
+
+                if ($scheduled !== null) {
+                    // A published date is the faculty's, and it is fixed: it does
+                    // not move when the chain runs late, which is what
+                    // `deadline_is_fixed` tells `repairedDueAt()`.
+                    $opensAt = $scheduled->opens_at?->copy() ?? $start->copy();
+                    $dueAt = $scheduled->due_at->copy();
+                } else {
+                    $opensAt = $start->copy()->addDays($item->offset_days);
+                    $dueAt = $opensAt->copy()->addDays($item->duration_days);
+                }
 
                 // The first milestone opens immediately; the rest open when
                 // their predecessor is approved (see activateNext()).
                 $status = $item->sequence === 1
                     ? MilestoneStatus::Open
                     : MilestoneStatus::Pending;
+
+                /**
+                 * `opens_at` records when the milestone *actually* opened, not
+                 * when the calendar planned to open it — that is the fact a
+                 * student's lateness is measured against. The first milestone
+                 * opens now, so that is what it carries; a later one is stamped
+                 * by `activateNext()` when its predecessor clears.
+                 *
+                 * The planned date is not lost: it stays on the term's calendar,
+                 * which is what the coordinator edits.
+                 */
+                if ($status === MilestoneStatus::Open) {
+                    $opensAt = now();
+                }
 
                 $milestone = Milestone::create([
                     'project_id'                    => $project->id,
@@ -77,6 +120,7 @@ class MilestoneService
                     'status'                        => $status,
                     'opens_at'                      => $opensAt,
                     'due_at'                        => $dueAt,
+                    'deadline_is_fixed'             => $scheduled !== null,
                     'allowed_file_types'            => $item->allowed_file_types,
                     'max_files'                     => $item->max_files,
                     'requires_supervisor_approval'  => $item->requires_supervisor_approval,
@@ -263,7 +307,8 @@ class MilestoneService
         }
 
         /**
-         * Stamp the moment it actually opened, and move its deadline with it.
+         * Stamp the moment it actually opened, and move its deadline with it —
+         * but only when the deadline is relative.
          *
          * `due_at` was computed at registration as "planned open + duration".
          * The chain is sequential, so a milestone opens when its predecessor is
@@ -272,11 +317,10 @@ class MilestoneService
          * passed the moment it opened: 49 of 134 were in that state, and the
          * nightly job then flagged them overdue on their first day.
          *
-         * The window is what the template promises, so it is preserved: the
-         * deadline becomes "actually opened + duration". The repair runs against
-         * the new open date, so it is set on the model before the deadline is
-         * computed — the model decides whether a change is warranted, and
-         * refuses to shorten a deadline or override a coordinator's own change.
+         * When the term has a published calendar, though, the date is the
+         * faculty's and `repairedDueAt()` leaves it alone. A chapter that opens
+         * late against a fixed date is *genuinely* overdue — that is information
+         * the coordinator needs, not a bug to smooth over.
          */
         $next->opens_at = now();
         $next->due_at = $next->repairedDueAt() ?? $next->due_at;

@@ -227,15 +227,17 @@ public function __construct(
     /**
      * Open the assessment windows this demo cohort files marks into.
      *
+     * One window per Lampiran, so this opens exactly the forms the seeder
+     * actually marks. Every form in the batch is opened, because the seeded
+     * cohort is a finished demo rather than a batch mid-assessment — the
+     * *closed* case is still exercised, by the terms that carry no markable
+     * projects.
+     *
      * Set directly rather than through `AssessmentWindowService::open()`, which
      * also allocates every student's forms. The seeder already decides which
      * forms exist (via `createForm` in `markAndMaybeSubmit`), so letting the
      * service allocate a second, competing set would duplicate work and make
      * the seeded state depend on allocation order.
-     *
-     * Only the (term, batch) pairs that actually carry markable projects are
-     * opened, so the demo still exercises a *closed* window — which is the
-     * state the marking-gate work exists to show.
      *
      * @param  \Illuminate\Support\Collection<int, Project>  $projects
      */

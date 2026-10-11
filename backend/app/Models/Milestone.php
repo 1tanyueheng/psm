@@ -34,6 +34,7 @@ class Milestone extends Model
         'status',
         'opens_at',
         'due_at',
+        'deadline_is_fixed',
         'allow_late_submission',
         'late_window_days',
         'extended_until',
@@ -67,6 +68,7 @@ class Milestone extends Model
             'weight_percent'            => 'decimal:2',
             'opens_at'                  => 'date',
             'due_at'                    => 'date',
+            'deadline_is_fixed'         => 'boolean',
             'extended_until'            => 'datetime',
             'submitted_at'              => 'datetime',
             'reviewed_at'               => 'datetime',
@@ -184,7 +186,7 @@ class Milestone extends Model
      * the window is what the template promises and what the student is assessed
      * against: due = actual open + duration. That one rule answers both forms.
      *
-     * Deliberately conservative in three ways:
+     * Deliberately conservative in four ways:
      *
      *   - Never shortens. A milestone opened ahead of plan keeps its original
      *     (later) deadline; the student is not punished for a predecessor being
@@ -194,6 +196,12 @@ class Milestone extends Model
      *     recomputation must not quietly undo it.
      *   - Never overrides an extension. `extended_until` is a granted
      *     concession, and it wins over any arithmetic here.
+     *   - Never moves a **fixed** deadline. When the faculty has published a
+     *     calendar for the term, `deadline_is_fixed` is set and the date is not
+     *     relative to anything — pushing it out because a predecessor was
+     *     approved late would silently overrule the faculty. This is the one
+     *     case where an already-passed deadline is the correct answer, and the
+     *     coordinator moves it deliberately if that is what the faculty decides.
      */
     public function repairedDueAt(): ?\Illuminate\Support\Carbon
     {
@@ -201,7 +209,9 @@ class Milestone extends Model
             return $this->due_at;
         }
 
-        if ($this->deadline_overridden_by !== null || $this->extended_until !== null) {
+        if ($this->deadline_is_fixed
+            || $this->deadline_overridden_by !== null
+            || $this->extended_until !== null) {
             return $this->due_at;
         }
 

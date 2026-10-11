@@ -126,6 +126,12 @@ export default function EvaluationListPage() {
         subtitle="Pick the student you want to mark, then file their Lampiran"
       />
 
+      {/*
+        One banner per Lampiran, not per batch. Each form is opened on its own
+        schedule, so "marking is open for PSM 1" would be wrong as soon as the
+        supervisor's Lampiran E opened and the examiners' Lampiran I had not —
+        and the assessor reading it would go looking for work that is not there.
+      */}
       {windows.map((w) => (
         <Card
           key={w.id}
@@ -135,11 +141,11 @@ export default function EvaluationListPage() {
             <div>
               <p className={`font-medium ${w.accepts_marks ? 'text-emerald-900' : 'text-amber-900'}`}>
                 {w.accepts_marks
-                  ? `Marking is open for ${partLabel(w.psm_part)}`
-                  : `Marking is closed for ${partLabel(w.psm_part)}`}
+                  ? `Lampiran ${w.form_code} is open for marking`
+                  : `Lampiran ${w.form_code} is closed`}
               </p>
               <p className={`text-sm ${w.accepts_marks ? 'text-emerald-800' : 'text-amber-800'}`}>
-                {w.name} · {w.window_label}
+                {partLabel(w.psm_part)} · {w.name} · {w.window_label}
               </p>
             </div>
             <Badge tone={w.accepts_marks ? 'success' : 'warning'}>{w.state_label}</Badge>
@@ -156,7 +162,7 @@ export default function EvaluationListPage() {
         <Card className="border-amber-200 bg-amber-50/60">
           <EmptyState
             title="Marking has not been opened yet"
-            message="Your coordinator opens marking for each batch. Once they do, your forms will appear here — nothing is missing from your side."
+            message="Your coordinator opens each Lampiran when its marking period begins. Once they do, your forms will appear here — nothing is missing from your side."
           />
         </Card>
       )}

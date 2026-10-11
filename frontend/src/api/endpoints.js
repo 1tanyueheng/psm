@@ -503,8 +503,24 @@ export const assessmentWindowApi = {
   forms: () => api.get('/assessment-windows/forms').then(unwrap),
   show: (id) => api.get(`/assessment-windows/${id}`).then(unwrap),
   create: (payload) => api.post('/assessment-windows', payload).then(unwrap),
+  /** Set the published period this Lampiran accepts marks for. */
+  update: (id, payload) => api.patch(`/assessment-windows/${id}`, payload).then(unwrap),
   open: (id) => api.post(`/assessment-windows/${id}/open`).then(unwrap),
   close: (id) => api.post(`/assessment-windows/${id}/close`).then(unwrap),
+}
+
+/**
+ * The term's milestone calendar.
+ *
+ * One set of deadlines per batch per term, which every student in it follows.
+ * Read by anyone who works to the timetable; set by a coordinator.
+ */
+export const milestoneScheduleApi = {
+  get: (params) => api.get('/milestone-schedule', { params }).then(unwrap),
+  /** Replace the calendar for a batch and push it onto every project. */
+  save: (payload) => api.put('/milestone-schedule', payload).then(unwrap),
+  /** Re-seed from the templates' own offsets, relative to a start date. */
+  reset: (payload) => api.post('/milestone-schedule/reset', payload).then(unwrap),
 }
 
 export const markSubmissionApi = {

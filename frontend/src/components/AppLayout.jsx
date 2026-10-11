@@ -46,6 +46,10 @@ const MENU = [
       { to: '/rollover', label: 'PSM 2 Rollover', roles: ['coordinator', 'admin'] },
       { to: '/projects', label: 'All Projects', roles: ['student', 'supervisor', 'coordinator', 'admin'] },
       { to: '/milestones', label: 'Milestones', roles: ['student', 'supervisor', 'coordinator'] },
+      // The term's calendar: one set of deadlines per batch, set once and
+      // applied to every student in it. Its own screen because it is a
+      // faculty-level decision, not a per-project edit.
+      { to: '/milestones/schedule', label: 'Deadline Schedule', roles: ['coordinator', 'admin'] },
       { to: '/assignments', label: 'Supervision', roles: ['coordinator', 'admin'] },
       // Seating a panel is the coordinator's other pairing decision: two
       // examiners per student, never including their own supervisor.

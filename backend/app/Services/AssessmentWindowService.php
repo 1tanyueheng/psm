@@ -179,9 +179,14 @@ class AssessmentWindowService
     /**
      * The evaluations this window is responsible for.
      *
-     * Narrowed to the window's own form when it has one. The form lives on the
-     * rubric template rather than on the evaluation, so the filter is a
-     * `whereHas` — the same join `MarkSubmission::forms()` reads through.
+     * Always narrowed to the window's own Lampiran, because every window governs
+     * exactly one. Counting the whole batch would report "2 of 4 filed" on a
+     * window that only ever asked for one form, which reads as an unfinished job
+     * rather than a complete one.
+     *
+     * The form lives on the rubric template rather than on the evaluation, so
+     * the filter is a `whereHas` — the same join `MarkSubmission::forms()` reads
+     * through.
      *
      * @return Collection<int, Evaluation>
      */
@@ -192,10 +197,7 @@ class AssessmentWindowService
                 ? [$projectId]
                 : $this->projects($window)->pluck('id'))
             ->where('psm_part', $window->psm_part)
-            ->when($window->form_code !== null, fn ($q) => $q->whereHas(
-                'rubricTemplate',
-                fn ($sub) => $sub->where('form_code', $window->form_code)
-            ))
+            ->whereHas('rubricTemplate', fn ($q) => $q->where('form_code', $window->form_code))
             ->with('rubricTemplate')
             ->get();
     }

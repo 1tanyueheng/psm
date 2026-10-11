@@ -1,138 +1,88 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { assessmentWindowApi } from '../../api/endpoints'
-import { unwrap } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import { useSemesters } from '../../context/SemesterContext'
 import {
   Card, CardHeader, PageHeader, Badge, EmptyState, Spinner, ErrorState,
-  Button, Field, Input, Textarea, FieldErrors, Select, DataTable, Td,
-  ProgressBar,
+  Button, Field, Input, ProgressBar,
 } from '../../components/ui'
 import { PSM_PARTS, partLabel, PSM_PART_BADGE_TONES } from '../../lib/psmPart'
 import { formatDateTime } from '../../lib/format'
 
 /**
- * Coordinator â€” the assessment window.
+ * Coordinator — the assessment window board.
  *
- * One window per (term, batch), optionally narrowed to a single Lampiran.
- * Opening it is the whole job: it allocates the forms it governs â€” Lampiran E
- * to each supervisor, I to both panel examiners for PSM 1, and for PSM 2 the
- * supervisor's G plus the two H progress reports and J to the panel â€” and only
- * then does it start accepting marks. Assessors then pick a student and file
- * their form.
+ * One row per Lampiran. Each form is marked at a different time by different
+ * people — the supervisor files Lampiran E when the project is finished, the
+ * examiners file Lampiran I on seminar day, the PSM 2 progress reports are filed
+ * mid-project — so each has its own open/close control and its own dates.
  *
- * The form scope is what makes "open Lampiran E and Lampiran I separately"
- * possible: they are different events, marked at different times by different
- * people, so a form-scoped window allocates only its own Lampiran and leaves
- * the rest untouched. A window with no form stays batch-wide and opens
- * everything at once.
+ * This screen is the whole management surface for that. Opening a form also
+ * allocates it to every student in the batch, so "marking is open" and "there is
+ * something to mark" cannot disagree. Closing stops new marks but keeps what was
+ * filed.
  *
- * Closing is not the same as releasing. It stops new marks; locking the
- * aggregate and releasing the mark stay on the per-student mark submission.
+ * The board is grouped by batch because that is how the forms are organised in
+ * the process: PSM 1 runs Lampiran E and I, PSM 2 runs G, H1, H2 and J.
  */
 export default function AssessmentWindowPage() {
   const { user } = useAuth()
-  const { semesters, selectedId: termId, active } = useSemesters()
+  const { selectedId: termId, active } = useSemesters()
   const [searchParams] = useSearchParams()
 
   /**
-   * A link from a project's page arrives scoped to that project's term and
-   * batch, so the coordinator lands on the batch they were just looking at
-   * rather than an unscoped list.
-   *
-   * The list is filtered by the scoped term and the matching batch's window is
-   * selected. The create form is *not* opened automatically: a batch may only
-   * have one window per term (a unique key enforces it), so opening the form for
-   * a batch that already has one would only offer an action that cannot succeed.
-   * The scoped values still pre-fill the form when the coordinator asks for a
-   * new window.
+   * A link from a project's page arrives scoped to that project's term, so the
+   * coordinator lands on the batch they were just looking at rather than an
+   * unscoped board.
    */
   const scopedSemesterId = searchParams.get('semester_id')
-  const scopedPart = searchParams.get('psm_part')
 
   const [windows, setWindows] = useState([])
+  const [expandedId, setExpandedId] = useState(null)
   const [detail, setDetail] = useState(null)
-  /**
-   * The window whose detail is being shown.
-   *
-   * A single source of truth on purpose. It used to be duplicated: a
-   * `windowId` state for "which row is selected" *and* an inline fetch that set
-   * `detail`. Selecting a row then called `act()`, which reloaded the list, and
-   * `load` read the id frozen in its closure â€” the previous window â€” found it
-   * still present, and re-selected it. Clicking a window appeared to do nothing.
-   */
-  const [needsDetail, setNeedsDetail] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [busy, setBusy] = useState(false)
+  const [busyId, setBusyId] = useState(null)
   const [actionError, setActionError] = useState(null)
-  const [showCreate, setShowCreate] = useState(false)
   const [notice, setNotice] = useState(null)
+  const [editingDates, setEditingDates] = useState(null)
 
   const canManage = ['coordinator', 'admin'].includes(user?.role)
 
-  /**
-   * What `load()` should keep selected across a reload.
-   *
-   * A ref, not a dependency. Taking the selection as a dependency while `load`
-   * also *set* it meant selecting a window could re-create `load`, re-run the
-   * effect and fetch again. A ref breaks that: it is always current when `load`
-   * reads it, and changing it cannot re-trigger the effect.
-   */
-  const selectedWindowId = useRef(null)
+  /** The term the board is showing: the scoped one wins over the switcher. */
+  const semesterId = scopedSemesterId ?? termId ?? active?.id ?? null
 
-  /**
-   * Read the window list.
-   *
-   * `quiet` skips the full-page skeleton for a refresh the user did not ask for
-   * and does not need to see â€” after an open/close the button already shows a
-   * busy state, and replacing the whole page with "Loading assessment windows"
-   * loses their place.
-   */
   const load = useCallback(async ({ quiet = false } = {}) => {
     if (!quiet) setLoading(true)
     setError(null)
     try {
-      // The scoped term wins over the global one, so a link from a project's
-      // page shows that project's batch even when the term switcher is elsewhere.
       const list = (await assessmentWindowApi.list({
-        semester_id: scopedSemesterId ?? termId ?? undefined,
+        semester_id: semesterId ?? undefined,
       })) ?? []
       setWindows(list)
-
-      // Keep the current selection when it is still in the refreshed list;
-      // otherwise fall back to the batch the caller linked in with, then to the
-      // first row.
-      const keep = list.find((w) => w.id === selectedWindowId.current)
-      const scoped = scopedPart ? list.find((w) => w.psm_part === scopedPart) : null
-      const next = keep ?? scoped ?? list[0] ?? null
-
-      selectedWindowId.current = next?.id ?? null
-      setNeedsDetail(next?.id ?? null)
     } catch (err) {
       setError(err)
     } finally {
       if (!quiet) setLoading(false)
     }
-  }, [termId, scopedSemesterId, scopedPart])
+  }, [semesterId])
 
   useEffect(() => {
     load()
   }, [load])
 
-  // The detail fetch is a separate effect so `load` does not have to be async
-  // about two different things â€” and so selecting a window does not refetch the
-  // list it was selected from.
+  // The expanded row's detail is a separate fetch so opening one does not
+  // refetch the whole board.
   useEffect(() => {
-    if (needsDetail == null) {
+    if (expandedId == null) {
       setDetail(null)
       return undefined
     }
 
     let cancelled = false
     assessmentWindowApi
-      .show(needsDetail)
+      .show(expandedId)
       .then((data) => {
         if (!cancelled) setDetail(data)
       })
@@ -143,61 +93,54 @@ export default function AssessmentWindowPage() {
     return () => {
       cancelled = true
     }
-  }, [needsDetail])
+  }, [expandedId])
 
-  /** Select one window without reloading the list it came from. */
-  function selectWindow(id) {
-    selectedWindowId.current = id
-    setNeedsDetail(id)
-  }
-
-  async function act(fn) {
-    setBusy(true)
+  async function act(id, fn) {
+    setBusyId(id)
     setActionError(null)
     setNotice(null)
     try {
       const result = await fn()
-      // The list, then the detail. The detail has to be refetched explicitly:
-      // `load()` deliberately leaves the selected window alone, because bumping
-      // `needsDetail` to the value it already holds would not re-run the effect
-      // that fetches it.
       await load({ quiet: true })
-      await refreshDetail()
+      if (expandedId === id) {
+        setDetail(await assessmentWindowApi.show(id))
+      }
       if (result?.message) setNotice(result.message)
     } catch (err) {
       setActionError(err?.message ?? 'That action could not be completed.')
     } finally {
-      setBusy(false)
-    }
-  }
-
-  /** Re-fetch the selected window so the panel reflects what just happened. */
-  async function refreshDetail() {
-    const id = selectedWindowId.current
-
-    if (id == null) return
-
-    try {
-      setDetail(await assessmentWindowApi.show(id))
-    } catch (err) {
-      setError(err)
+      setBusyId(null)
     }
   }
 
   if (loading) return <Spinner label="Loading assessment windows" />
   if (error) return <ErrorState error={error} />
 
+  // Grouped by batch, and within a batch in the order the forms are filed, so
+  // the board reads like the process rather than like a table.
+  const grouped = PSM_PARTS
+    .map((part) => ({
+      part,
+      rows: windows
+        .filter((w) => w.psm_part === part)
+        .sort((a, b) => String(a.form_code).localeCompare(String(b.form_code))),
+    }))
+    .filter((g) => g.rows.length > 0)
+
+  const openCount = windows.filter((w) => w.accepts_marks).length
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Assessment"
-        subtitle="Open marking for a batch — or for a single Lampiran — then let the assessors file their forms"
+        subtitle="Open each Lampiran when its marking period begins. Every form has its own dates."
         action={
-          canManage ? (
-            <Button onClick={() => setShowCreate((v) => !v)}>
-              {showCreate ? 'Cancel' : 'New window'}
-            </Button>
-          ) : undefined
+          <div className="text-right text-sm text-slate-500">
+            <div className="font-medium text-slate-700">
+              {openCount} of {windows.length} open
+            </div>
+            <div>{active?.name ?? 'No active term'}</div>
+          </div>
         }
       />
 
@@ -212,418 +155,268 @@ export default function AssessmentWindowPage() {
         </Card>
       )}
 
-      {showCreate && (
-        <CreateWindowForm
-          semesters={semesters}
-          activeSemester={active}
-          defaultPart={scopedPart}
-          onCreated={async (created) => {
-            setShowCreate(false)
-            // Select the new window through the same path a click uses, then
-            // refresh the list â€” the ref keeps the selection across that reload.
-            if (created?.id != null) selectWindow(created.id)
-            await load()
-            setNotice('Assessment window created. Open it when marking should begin.')
-          }}
-          onError={setActionError}
-        />
-      )}
-
-      {windows.length === 0 && !showCreate ? (
+      {windows.length === 0 ? (
         <Card>
           <EmptyState
-            title="No assessment window"
-            message="Create one for a batch, then open it. Opening allocates the Lampiran that window governs — all of them, or just one if you scope it to a form."
+            title="No assessment windows for this term"
+            message="Windows are created with the term, one per Lampiran. If this term predates that, a coordinator can create them on the Semesters screen."
           />
         </Card>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Card className="lg:col-span-1">
-            <CardHeader title="Windows" />
-            <ul className="divide-y divide-slate-100">
-              {windows.map((w) => (
-                <li key={w.id}>
-                  <button
-                    type="button"
-                    // Selecting is a local, synchronous act â€” no reload, so the
-                    // choice cannot be overwritten by the list refetching itself.
-                    onClick={() => selectWindow(w.id)}
-                    className={`w-full py-3 pl-3 text-left transition ${
-                      detail?.id === w.id
-                        ? 'border-l-2 border-brand-600'
-                        : 'border-l-2 border-transparent hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Badge tone={PSM_PART_BADGE_TONES[w.psm_part] ?? 'neutral'}>
-                        {partLabel(w.psm_part)}
-                      </Badge>
-                      {/*
-                        The Lampiran scope, spelled out. Rendering a form-scoped
-                        window and a batch-wide one both as "PSM 1" is how a
-                        coordinator opens the wrong one and believes marking has
-                        started for a form it has not.
-                      */}
-                      {w.form_code && <Badge tone="neutral">Lampiran {w.form_code}</Badge>}
-                      <span className="truncate text-sm font-medium text-slate-800">{w.name}</span>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {w.semester ?? w.academic_session} Â· {w.window_label}
-                    </p>
-                    <div className="mt-1">
-                      <Badge tone={w.accepts_marks ? 'success' : w.is_open ? 'warning' : 'neutral'}>
-                        {w.state_label}
-                      </Badge>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </Card>
+        grouped.map(({ part, rows }) => (
+          <Card key={part} className="overflow-hidden p-0">
+            <CardHeader
+              title={
+                <span className="flex items-center gap-2">
+                  <Badge tone={PSM_PART_BADGE_TONES[part] ?? 'neutral'}>{partLabel(part)}</Badge>
+                  <span className="text-sm font-normal text-slate-500">
+                    {rows.length} Lampiran
+                  </span>
+                </span>
+              }
+              subtitle="Each form is opened and closed on its own"
+            />
 
-          <div className="space-y-6 lg:col-span-2">
-            {detail ? (
-              <>
-                <Card>
-                  <CardHeader
-                    title={detail.name}
-                    subtitle={`${detail.semester ?? detail.academic_session} Â· ${detail.window_label}`}
-                    action={
-                      canManage ? (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            disabled={busy}
-                            onClick={() =>
-                              act(async () => {
-                                const res = await assessmentWindowApi.open(detail.id)
-                                return { message: res?.message }
-                              })
-                            }
-                          >
-                            {detail.is_open ? 'Re-open / top up forms' : 'Open for marking'}
-                          </Button>
-                          {detail.is_open && (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              disabled={busy}
-                              onClick={() =>
-                                act(async () => {
-                                  const res = await assessmentWindowApi.close(detail.id)
-                                  return { message: res?.message }
-                                })
-                              }
-                            >
-                              Close
-                            </Button>
-                          )}
-                        </div>
-                      ) : undefined
-                    }
-                  />
-
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                    <Meta label="Scope" value={detail.scope_label ?? detail.psm_part} />
-                    <Meta label="Students" value={detail.progress?.students ?? 0} />
-                    <Meta
-                      label="Forms filed"
-                      value={`${detail.progress?.filed ?? 0} / ${detail.progress?.forms ?? 0}`}
-                    />
-                    <Meta label="Outstanding" value={detail.progress?.outstanding ?? 0} />
-                  </div>
-
-                  <div className="mt-4">
-                    <ProgressBar value={detail.progress?.percent ?? 0} tone="brand" showLabel />
-                  </div>
-
-                  <p className="mt-3 text-xs text-slate-500">
-                    {detail.form_code
-                      ? `This window governs Lampiran ${detail.form_code} only, so the other `
-                        + 'Lampiran in this batch stay closed until their own window opens. '
-                        + 'The counts above cover this form alone.'
-                      : 'Opening allocates Lampiran E to each student\u2019s supervisor and '
-                        + 'Lampiran I to both panel examiners; PSM 2 adds the supervisor\u2019s '
-                        + 'Lampiran G and the two progress reports H1 and H2. '}
-                    {' '}Re-opening only tops up students who were missed.
-                  </p>
-                </Card>
-
-                <Card className="overflow-hidden p-0">
-                  <CardHeader
-                    title="Students"
-                    subtitle={
-                      <>
-                        <Badge tone={PSM_PART_BADGE_TONES[detail.psm_part] ?? 'neutral'}>
-                          {partLabel(detail.psm_part)}
-                        </Badge>{' '}
-                        only â€” of {detail.semester ?? detail.academic_session}. Who has been
-                        marked, and who has not.
-                      </>
-                    }
-                  />
-                  <DataTable columns={['Student', 'Project', 'Lampiran', 'Filed', '']}>
-                      {(detail.roster ?? []).map((row) => (
-                        <tr key={row.project_id} className="hover:bg-slate-50/60">
-                          <Td>
-                            <div className="text-sm font-medium text-slate-800">{row.name ?? 'â€”'}</div>
-                            <div className="font-mono text-xs text-slate-400">{row.student}</div>
-                          </Td>
-                          <Td className="font-mono text-xs text-slate-500">{row.code}</Td>
-                          <Td>
-                            <div className="flex flex-wrap gap-1">
-                              {(row.forms ?? []).map((f, i) => (
-                                <Badge
-                                  key={`${row.project_id}-${i}`}
-                                  tone={
-                                    ['submitted', 'released'].includes(f.status)
-                                      ? 'success'
-                                      : 'neutral'
-                                  }
-                                >
-                                  {f.form_code ?? 'â€”'}
-                                </Badge>
-                              ))}
-                            </div>
-                          </Td>
-                          <Td className="tabular-nums text-slate-600">
-                            {row.filed} / {row.total}
-                          </Td>
-                          <Td>
-                            <Link
-                              to={`/projects/${row.project_id}`}
-                              className="text-sm font-medium text-brand-700 hover:underline"
-                            >
-                              Open
-                            </Link>
-                          </Td>
-                        </tr>
-                      ))}
-                    </DataTable>
-                </Card>
-              </>
-            ) : (
-              <Card>
-                <EmptyState
-                  title="Select a window"
-                  message="Choose an assessment window on the left to see its progress."
+            <div className="divide-y divide-slate-100">
+              {rows.map((w) => (
+                <FormRow
+                  key={w.id}
+                  window={w}
+                  canManage={canManage}
+                  busy={busyId === w.id}
+                  expanded={expandedId === w.id}
+                  detail={expandedId === w.id ? detail : null}
+                  editing={editingDates === w.id}
+                  onToggleExpand={() => setExpandedId(expandedId === w.id ? null : w.id)}
+                  onToggleDates={() => setEditingDates(editingDates === w.id ? null : w.id)}
+                  onOpen={() => act(w.id, async () => {
+                    const res = await assessmentWindowApi.open(w.id)
+                    return { message: res?.message }
+                  })}
+                  onClose={() => act(w.id, async () => {
+                    const res = await assessmentWindowApi.close(w.id)
+                    return { message: res?.message }
+                  })}
+                  onSaveDates={(payload) => act(w.id, async () => {
+                    const res = await assessmentWindowApi.update(w.id, payload)
+                    setEditingDates(null)
+                    return { message: res?.message }
+                  })}
                 />
-              </Card>
-            )}
-          </div>
-        </div>
+              ))}
+            </div>
+          </Card>
+        ))
       )}
     </div>
   )
 }
 
-function CreateWindowForm({ semesters, activeSemester, defaultPart, onCreated, onError }) {
-  const [form, setForm] = useState({
-    name: '',
-    // Always the running term. The server refuses anything else â€” a window
-    // opened against a closed or not-yet-started term lists whatever projects
-    // that term happens to hold, which is how a window named "PSM 2" ended up
-    // showing a PSM 1 cohort with nothing on screen to contradict it.
-    academic_semester_id: activeSemester?.id ?? '',
-    // Defaults to the batch the coordinator arrived from, and to PSM 1
-    // otherwise â€” the batch whose marking opens first in a term.
-    psm_part: defaultPart || 'PSM1',
-    // Empty string = the whole batch. The server reads null as "every Lampiran
-    // in this batch", which is the pre-existing behaviour.
-    form_code: '',
-    scheduled_start_at: '',
-    scheduled_end_at: '',
-    notes: '',
-  })
-  const [errors, setErrors] = useState(null)
-  const [busy, setBusy] = useState(false)
+/**
+ * One Lampiran on the board.
+ *
+ * Collapsed it is a single line: the form, its state, and the two buttons that
+ * matter. Expanded it adds the progress and the per-student roster, because the
+ * coordinator only needs that when deciding whether a form can be closed.
+ */
+function FormRow({
+  window: w,
+  canManage,
+  busy,
+  expanded,
+  detail,
+  editing,
+  onToggleExpand,
+  onToggleDates,
+  onOpen,
+  onClose,
+  onSaveDates,
+}) {
+  const tone = w.accepts_marks ? 'success' : w.is_open ? 'warning' : 'neutral'
 
-  /**
-   * The Lampiran that actually exist, per batch.
-   *
-   * Fetched rather than hardcoded so the choices match the seeded rubrics. A
-   * code offered here with no form behind it would create a window governing
-   * nothing, and nothing on the screen would say so.
-   */
-  const [formsByPart, setFormsByPart] = useState(null)
+  return (
+    <div className={expanded ? 'bg-slate-50/50' : ''}>
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+        <button
+          type="button"
+          onClick={onToggleExpand}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+        >
+          <span className="font-mono text-xs text-slate-400">{expanded ? '▾' : '▸'}</span>
+          <span className="w-16 shrink-0 font-medium text-slate-800">
+            Lampiran {w.form_code}
+          </span>
+          <Badge tone={tone}>{w.state_label}</Badge>
+          <span className="truncate text-xs text-slate-500">
+            {w.window_label}
+            {w.opened_at && ` · opened ${formatDateTime(w.opened_at)}`}
+          </span>
+        </button>
 
-  useEffect(() => {
-    let cancelled = false
+        {canManage && (
+          <div className="flex shrink-0 gap-2">
+            <Button size="sm" variant="secondary" onClick={onToggleDates} disabled={busy}>
+              {editing ? 'Cancel' : 'Dates'}
+            </Button>
+            {w.is_open ? (
+              <Button size="sm" variant="secondary" onClick={onClose} disabled={busy}>
+                {busy ? 'Closing…' : 'Close'}
+              </Button>
+            ) : (
+              <Button size="sm" onClick={onOpen} disabled={busy}>
+                {busy ? 'Opening…' : 'Open'}
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
 
-    assessmentWindowApi
-      .forms()
-      .then((data) => {
-        if (!cancelled) setFormsByPart(data ?? {})
-      })
-      .catch(() => {
-        // Not fatal: the selector falls back to the batch-wide option only,
-        // which still creates a valid window.
-        if (!cancelled) setFormsByPart({})
-      })
+      {editing && (
+        <DateEditor window={w} busy={busy} onSave={onSaveDates} />
+      )}
 
-    return () => {
-      cancelled = true
+      {expanded && (
+        <ExpandedDetail detail={detail} />
+      )}
+    </div>
+  )
+}
+
+/**
+ * The form's own published period.
+ *
+ * Separate from opening: the coordinator can publish "Lampiran I closes 20
+ * December" in advance and open it on the day, which is how a real marking
+ * period is arranged.
+ */
+function DateEditor({ window: w, busy, onSave }) {
+  const toLocal = (iso) => (iso ? String(iso).slice(0, 16) : '')
+
+  const [start, setStart] = useState(toLocal(w.scheduled_start_at))
+  const [end, setEnd] = useState(toLocal(w.scheduled_end_at))
+  const [error, setError] = useState(null)
+
+  async function save() {
+    if (start && end && new Date(end) <= new Date(start)) {
+      setError('The closing time must be after the opening time.')
+      return
     }
-  }, [])
 
-  const set = (key) => (e) => {
-    const value = e.target.value
-
-    // Changing the batch changes which Lampiran exist, so a code carried over
-    // from the previous batch would be rejected by the server. Reset it.
-    setForm((f) => (key === 'psm_part' ? { ...f, psm_part: value, form_code: '' } : { ...f, [key]: value }))
-  }
-
-  const batchForms = formsByPart?.[form.psm_part]
-  const lampiranOptions = batchForms?.forms ?? []
-
-  async function submit(e) {
-    e.preventDefault()
-    setBusy(true)
-    setErrors(null)
-    onError(null)
-    try {
-      const created = await assessmentWindowApi.create({
-        ...form,
-        academic_semester_id: Number(form.academic_semester_id),
-        // Empty means the whole batch, which the API expects as null.
-        form_code: form.form_code || null,
-        // Empty date inputs must not be sent as "" â€” the API expects null.
-        scheduled_start_at: form.scheduled_start_at || null,
-        scheduled_end_at: form.scheduled_end_at || null,
-        notes: form.notes || null,
-      })
-      await onCreated(created)
-    } catch (err) {
-      setErrors(err?.errors ?? { name: err?.message })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  if (!activeSemester) {
-    return (
-      <Card>
-        <CardHeader title="New assessment window" />
-        <p className="text-sm text-amber-800">
-          No semester is active, so marking cannot be opened. Activate a semester
-          on the Semesters screen first â€” a window has to belong to the term the
-          students are actually enrolled in.
-        </p>
-      </Card>
-    )
+    setError(null)
+    await onSave({
+      scheduled_start_at: start || null,
+      scheduled_end_at: end || null,
+    })
   }
 
   return (
-    <Card>
-      <CardHeader
-        title="New assessment window"
-        subtitle="One per batch per term, or one per Lampiran — opening it allocates the forms it governs"
-      />
-      <form onSubmit={submit} className="space-y-4">
-        <FieldErrors errors={errors} />
+    <div className="border-t border-slate-100 bg-white px-4 py-4">
+      <p className="mb-3 text-xs text-slate-500">
+        The period this Lampiran accepts marks. Leave both blank for no fixed
+        period — the open/close buttons still control it.
+      </p>
 
-        <Field label="Name" required>
+      {error && (
+        <p className="mb-3 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Accepts from" hint="Optional">
           <Input
-            value={form.name}
-            onChange={set('name')}
-            placeholder={`e.g. PSM 1 Assessment â€” ${activeSemester.name}`}
-            required
+            type="datetime-local"
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
           />
         </Field>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          {/*
-            The term is shown, not chosen. It is always the active semester,
-            because that is the only term the server will accept: a window on
-            any other term would list that term's projects, which is how the
-            wrong cohort ends up under the wrong batch heading.
-          */}
-          <Field
-            label="Term"
-            hint="Fixed to the active semester â€” marking can only be opened for the term students are enrolled in"
-          >
-            <Input value={activeSemester.name} readOnly disabled />
-          </Field>
-
-          <Field
-            label="Batch"
-            required
-            hint="The batch being marked. The two run in the same term but have different forms, so each needs its own window."
-          >
-            <Select value={form.psm_part} onChange={set('psm_part')}>
-              {PSM_PARTS.map((p) => (
-                <option key={p} value={p}>
-                  {partLabel(p)}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          {/*
-            The Lampiran scope. Leaving it on "all Lampiran" keeps the original
-            behaviour; picking one opens only that form, which is what lets the
-            supervisor's Lampiran E and the examiners' Lampiran I be opened as
-            the two separate events they are.
-          */}
-          <Field
-            label="Lampiran"
-            hint={
-              lampiranOptions.length === 0
-                ? 'Every Lampiran in this batch opens together'
-                : 'Pick one to open that form on its own, or leave it to open them all together'
-            }
-          >
-            <Select value={form.form_code} onChange={set('form_code')}>
-              <option value="">All Lampiran — open everything at once</option>
-              {lampiranOptions.map((f) => (
-                <option key={f.form_code} value={f.form_code}>
-                  {f.label}
-                  {f.assessor_type ? ` — ${f.assessor_type}` : ''}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          <Field label="Opens at" hint="Optional â€” leave blank for no start time">
-            <Input type="datetime-local" value={form.scheduled_start_at} onChange={set('scheduled_start_at')} />
-          </Field>
-
-          <Field
-            label="Closes at"
-            hint="Optional â€” a window left open past this stops accepting marks"
-          >
-            <Input type="datetime-local" value={form.scheduled_end_at} onChange={set('scheduled_end_at')} />
-          </Field>
-        </div>
-
-        <Field label="Notes">
-          <Textarea value={form.notes} onChange={set('notes')} rows={2} />
+        <Field
+          label="Accepts until"
+          hint="Optional — a form left open past this stops accepting marks"
+        >
+          <Input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
         </Field>
+      </div>
 
-        <p className="rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
-          Opening this window will allocate{' '}
-          {form.form_code ? (
-            <>
-              <b>Lampiran {form.form_code}</b> only
-            </>
-          ) : (
-            <>every Lampiran</>
-          )}{' '}
-          for every live student in <b>{partLabel(form.psm_part)}</b> of{' '}
-          <b>{activeSemester.name}</b>. Lampiran E goes to each student&apos;s supervisor and
-          Lampiran I to both panel examiners; PSM 2 adds the supervisor&apos;s Lampiran G and the
-          two progress reports H1 and H2. A term and batch with no students will allocate
-          nothing.
+      <div className="mt-3 flex justify-end">
+        <Button size="sm" onClick={save} disabled={busy}>
+          {busy ? 'Saving…' : 'Save dates'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/** Progress and the per-student roster for one Lampiran. */
+function ExpandedDetail({ detail }) {
+  if (!detail) {
+    return (
+      <div className="border-t border-slate-100 bg-white px-4 py-4">
+        <p className="text-sm text-slate-500">Loading…</p>
+      </div>
+    )
+  }
+
+  const progress = detail.progress ?? {}
+
+  return (
+    <div className="space-y-4 border-t border-slate-100 bg-white px-4 py-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Meta label="Students" value={progress.students ?? 0} />
+        <Meta label="Forms filed" value={`${progress.filed ?? 0} / ${progress.forms ?? 0}`} />
+        <Meta label="Outstanding" value={progress.outstanding ?? 0} />
+        <Meta label="Complete" value={`${progress.percent ?? 0}%`} />
+      </div>
+
+      <ProgressBar value={progress.percent ?? 0} tone="brand" showLabel />
+
+      <div>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
+          Who has filed
         </p>
 
-        <div className="flex justify-end gap-2">
-          <Button type="submit" disabled={busy}>
-            {busy ? 'Creatingâ€¦' : 'Create window'}
-          </Button>
-        </div>
-      </form>
-    </Card>
+        {(detail.roster ?? []).length === 0 ? (
+          <p className="text-sm text-slate-500">
+            No students in this batch yet. Opening the form will allocate it as
+            soon as there are any.
+          </p>
+        ) : (
+          <ul className="divide-y divide-slate-100 rounded-md border border-slate-100">
+            {(detail.roster ?? []).map((row) => (
+              <li
+                key={row.project_id}
+                className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <span className="text-sm text-slate-800">{row.name ?? '—'}</span>
+                  <span className="ml-2 font-mono text-xs text-slate-400">{row.student}</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap gap-1">
+                    {(row.forms ?? []).map((f, i) => (
+                      <Badge
+                        key={`${row.project_id}-${i}`}
+                        tone={['submitted', 'released'].includes(f.status) ? 'success' : 'neutral'}
+                      >
+                        {f.form_code ?? '—'}
+                      </Badge>
+                    ))}
+                  </div>
+                  <span className="tabular-nums text-xs text-slate-500">
+                    {row.filed} / {row.total}
+                  </span>
+                  <Link
+                    to={`/projects/${row.project_id}`}
+                    className="text-xs font-medium text-brand-700 hover:underline"
+                  >
+                    Open
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   )
 }
 

@@ -13,6 +13,7 @@ use App\Models\SubmissionEvent;
 use App\Models\SubmissionFile;
 use App\Models\SupervisionAssignment;
 use App\Models\User;
+use App\Services\MilestoneScheduleService;
 use App\Services\MilestoneService;
 use Illuminate\Database\Seeder;
 
@@ -49,6 +50,7 @@ class ProjectSeeder extends Seeder
 
     public function __construct(
         protected MilestoneService $milestones,
+        protected MilestoneScheduleService $schedules,
     ) {
     }
 
@@ -70,6 +72,22 @@ class ProjectSeeder extends Seeder
             ->whereHas('activeSupervisions')
             ->orderBy('id')
             ->get();
+
+        /**
+         * Publish the term's milestone calendar before any project is created,
+         * so every project in the batch is instantiated against the same dates.
+         *
+         * That is the point of the feature: the faculty sets Chapter 1 once and
+         * the whole cohort follows, rather than each project deriving its own
+         * dates from its own registration date.
+         *
+         * Anchored near today rather than on the term's official `starts_at`,
+         * because the seeded terms are historical — the active one ran January
+         * to May, and anchoring there would put every deadline months in the
+         * past and make the whole demo look stale. The demo is synthetic data;
+         * the coordinator's real calendar is set from the screen.
+         */
+        $this->seedMilestoneCalendar($semester, $coordinator);
 
         foreach ($students as $index => $student) {
             // Interleave the two parts rather than assigning a contiguous block, so
@@ -118,6 +136,43 @@ class ProjectSeeder extends Seeder
             Milestone::count(),
             SubmissionFile::count(),
             SubmissionEvent::count()
+        ));
+    }
+
+    /**
+     * Publish the demo term's milestone calendar for both batches.
+     *
+     * Dates are laid out from a single anchor so the chain reads like a real
+     * semester: the proposal first, then the chapters in order, the final report
+     * last, each opening when the previous one is due. Deriving them from the
+     * template's own offsets keeps the seeded calendar consistent with what the
+     * "re-seed from template" action would produce.
+     *
+     * `seedDefaultsFor` is idempotent, so a re-seed does not fight dates a
+     * coordinator has since changed.
+     */
+    protected function seedMilestoneCalendar(AcademicSemester $semester, User $coordinator): void
+    {
+        // Anchored a few weeks back so the earlier milestones have already
+        // opened and the later ones are still ahead — the spread the demo needs
+        // to show both an overdue chapter and an upcoming one.
+        $anchor = now()->subDays(21)->startOfDay();
+
+        $seeded = 0;
+
+        foreach (['PSM1', 'PSM2'] as $psmPart) {
+            $seeded += $this->schedules->seedDefaultsFor(
+                $semester->id,
+                $psmPart,
+                $anchor,
+                $coordinator,
+            );
+        }
+
+        $this->command?->line(sprintf(
+            '  <info>Milestone calendar</info> %d date(s) published for %s.',
+            $seeded,
+            $semester->name,
         ));
     }
 
