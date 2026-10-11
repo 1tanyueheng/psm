@@ -56,6 +56,11 @@ docker-compose.override.yml
 *.swp
 *.swo
 *~
+# Word, Excel and PowerPoint lock files. They are created while a document is
+# open and deleted when it closes, so committing one records a file that cannot
+# exist afterwards. The prefix replaces the first two characters of the real
+# name, which is why `*~` above does not catch them.
+~$*
 .DS_Store
 Thumbs.db
 desktop.ini
