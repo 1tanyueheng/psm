@@ -146,6 +146,26 @@ class ProjectPolicy
         return $this->isMember($actor, $project) || $actor->hasRole('admin');
     }
 
+    /**
+     * Module 5 — export the project list as CSV.
+     *
+     * A class-level ability: the decision is "may this actor export projects at
+     * all", not "may they export *this* project". The export is a cohort-wide
+     * file, so there is no single target to check.
+     *
+     * This exists because `ReportController::exportProjects()` authorised
+     * against `User::class`, and `UserPolicy` has no `export` method — Gate
+     * found nothing, returned false, and the endpoint answered a bare 403 to
+     * everyone including admins. The marks export worked because it authorises
+     * against `FinalGrade`, which *does* define `export`; the asymmetry is what
+     * hid the mistake. Same failure mode as the `allocateExaminer` note in
+     * UserPolicy.
+     */
+    public function export(User $actor): bool
+    {
+        return $actor->hasRole('admin', 'coordinator');
+    }
+
     // -----------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------

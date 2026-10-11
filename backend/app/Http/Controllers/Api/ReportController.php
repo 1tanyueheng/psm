@@ -254,7 +254,11 @@ class ReportController extends ApiController
     /** GET /api/reports/export/projects.csv */
     public function exportProjects(Request $request): StreamedResponse
     {
-        $this->authorize('export', User::class);
+        // Against `Project`, not `User`. `UserPolicy` has no `export` method, so
+        // the previous target made Gate deny everyone — a bare 403 for admins
+        // included — while the marks export next door worked, which is what made
+        // the asymmetry easy to miss.
+        $this->authorize('export', Project::class);
 
         [$batch, $psmPart, $semesterId] = $this->filters($request);
 

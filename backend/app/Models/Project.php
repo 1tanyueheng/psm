@@ -354,13 +354,26 @@ class Project extends Model
      * Both parts of a term together is just `scopeForSemester`; naming the pair
      * separately keeps the call sites from each hand-rolling both filters and
      * forgetting one, which is how a roster ends up mixing batches.
+     *
+     * `$psmPart` is nullable, and null means *both* batches. That matches
+     * `FinalGrade::scopeForSemesterPart()` and the API's own convention, where a
+     * missing `psm_part` filter means "do not filter by batch" — the report
+     * screen relies on it, because its Batch/Part controls are optional.
+     *
+     * The parameter used to be a non-nullable `string`, which made the project
+     * export fail the moment no batch was selected: PHP threw a TypeError inside
+     * the streamed response, after the CSV header had already been sent. The
+     * caller saw a file whose first row was a JSON error rather than a 500,
+     * which is how it stayed hidden behind the 403 on that same endpoint.
      */
     public function scopeForSemesterPart(
         Builder $query,
         int|AcademicSemester|null $semester,
-        string $psmPart
+        ?string $psmPart
     ): Builder {
-        return $query->forSemester($semester)->forPart($psmPart);
+        return $query
+            ->forSemester($semester)
+            ->when($psmPart !== null, fn ($q) => $q->forPart($psmPart));
     }
 
     /**
