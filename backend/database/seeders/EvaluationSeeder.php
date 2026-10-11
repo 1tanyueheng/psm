@@ -15,6 +15,7 @@ use App\Models\Project;
 use App\Models\StudentProfile;
 use App\Models\User;
 use App\Services\EvaluationService;
+use App\Services\MarkSubmissionService;
 use App\Services\MarkVisibilityService;
 use App\Services\SemesterService;
 use Illuminate\Database\Seeder;
@@ -75,6 +76,7 @@ class EvaluationSeeder extends Seeder
 public function __construct(
     protected EvaluationService $evaluations,
     protected SemesterService $semesters,
+    protected MarkSubmissionService $submissions,
     ) {
     }
 
@@ -143,6 +145,38 @@ public function __construct(
             // Marking only makes sense once there is something to mark
             if (! $this->isMarkable($project)) {
                 continue;
+            }
+
+            /**
+             * Open the mark submission first, through the real service.
+             *
+             * Everything downstream depends on this row existing. Without it the
+             * forms are allocated but belong to no submission: `MarkVisibility`
+             * reads the components through `submissionFor()` and finds nothing,
+             * so a student with three submitted forms sees no mark at all; the
+             * examiner queue resolves through the same relation and shows
+             * nothing to file; and `readiness()` cannot report on a set it
+             * cannot see.
+             *
+             * PSM 2 made it visible because it is where the form set grew — the
+             * seeder marked G, H1, H2 and J by hand while no submission existed
+             * to hold them, so nine PSM 2 projects ended up with marks that the
+             * application could not display.
+             *
+             * Opening here means the seeded state is reachable through the
+             * running system, which is the rule this seeder holds everywhere
+             * else. Allocation is idempotent, so the marking below re-uses the
+             * forms this creates rather than making a second set.
+             */
+            foreach ($project->students as $student) {
+                try {
+                    $this->submissions->open($project, $student->id, $coordinator);
+                } catch (\InvalidArgumentException $e) {
+                    $this->command?->warn(
+                        "  Could not open a mark submission for {$project->code}/{$student->student_id}: "
+                        .$e->getMessage()
+                    );
+                }
             }
 
             // --- Supervisor -------------------------------------------------

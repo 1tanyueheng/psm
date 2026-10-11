@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Support\Collection;
 
 /**
  * Module 4 — A versioned rubric, scoped to category + PSM part + assessor type.
@@ -86,9 +87,22 @@ class RubricTemplate extends Model
             ->flatMap(fn (RubricComponent $c) => $c->criteria);
     }
 
+    /**
+     * Memoised component weight, so `weightsBalance()` costs one query per
+     * template instance rather than one per call.
+     *
+     * Allocation validates the balance once per student, and the answer cannot
+     * change between those calls within a request — a template is only mutated
+     * by an explicit edit, which loads its own instance.
+     */
+    protected ?float $componentWeightTotal = null;
+
+    /** @var Collection<int, RubricComponent>|null */
+    protected ?Collection $componentsWithCriteria = null;
+
     public function totalComponentWeight(): float
     {
-        return (float) $this->components()->sum('weight_percent');
+        return $this->componentWeightTotal ??= (float) $this->components()->sum('weight_percent');
     }
 
     /** A rubric may only be used for marking once its components sum to 100. */
@@ -183,6 +197,26 @@ class RubricTemplate extends Model
     }
 
     /**
+     * Components with their criteria, loaded once per template instance.
+     *
+     * `snapshot()` and the score-row builder both need this, and they used to
+     * each issue their own query — two full component+criteria reads per form
+     * created, which is the single largest cost when allocating a whole cohort.
+     *
+     * The in-memory copy is safe to reuse because a template's criteria are only
+     * rewritten through the authoring path, which loads its own instance.
+     *
+     * @return Collection<int, RubricComponent>
+     */
+    public function componentsWithCriteria(): Collection
+    {
+        return $this->componentsWithCriteria ??= $this->components()
+            ->with('criteria')
+            ->orderBy('sequence')
+            ->get();
+    }
+
+    /**
      * A self-contained copy of this rubric, stored on an evaluation so that
      * historical marks stay interpretable after the template changes.
      */
@@ -193,7 +227,7 @@ class RubricTemplate extends Model
             'name'         => $this->name,
             'version'      => $this->version,
             'total_marks'  => (float) $this->total_marks,
-            'components'   => $this->components()->with('criteria')->get()->map(fn (RubricComponent $c) => [
+            'components'   => $this->componentsWithCriteria()->map(fn (RubricComponent $c) => [
                 'code'          => $c->code,
                 // Carried into the snapshot so a form created now can still be
                 // matched to its chapters after the template is reworked.

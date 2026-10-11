@@ -63,6 +63,90 @@ class MarkSubmissionService
      * @throws InvalidArgumentException if the project has no active supervision
      *         for this student, or no active panel examiners.
      */
+    /**
+     * Panels already resolved in this request, keyed by project id.
+     *
+     * A panel is a property of the *project*, not of the student being
+     * allocated, so opening a window for a 15-student batch resolved the same
+     * two examiners fifteen times. On a hosted database every one of those is a
+     * round trip at ~70ms, which is the difference between an open that returns
+     * and one the browser abandons.
+     *
+     * Per request, not per process: an examiner stood down mid-request must be
+     * visible to the next allocation.
+     *
+     * @var array<int, Collection<int, User>>
+     */
+    private array $panelCache = [];
+
+    /**
+     * Supervisors already resolved in this request, keyed by student profile id.
+     *
+     * The same idea as `$panelCache`, one level down: a student's supervisor is
+     * a property of the student, and resolving it for each of a batch's students
+     * cost three round trips each — `supervision_assignments`, then
+     * `supervisor_profiles`, then `users`. `warmSupervisors()` turns those into
+     * one query for the whole batch.
+     *
+     * @var array<int, User|null>
+     */
+    private array $supervisorCache = [];
+
+    /**
+     * Resolve every supervisor a batch needs, in one query.
+     *
+     * Called by the window service before it walks the students, because that
+     * walk is the one place where the per-student cost is multiplied by the size
+     * of a cohort. Idempotent: any student not covered here still resolves on
+     * demand through `resolveSupervisor()`.
+     *
+     * @param  Collection<int, Project>  $projects
+     */
+    public function warmSupervisors(Collection $projects): void
+    {
+        $studentIds = $projects
+            ->flatMap(fn (Project $p) => $p->students->pluck('id'))
+            ->unique()
+            ->values();
+
+        if ($studentIds->isEmpty()) {
+            return;
+        }
+
+        // One query for every supervision in the batch, with the supervisor's
+        // profile and user eager-loaded. `latest('id')` semantics are preserved
+        // below by taking the last row per student, which is what the per-student
+        // `latest('id')->first()` would have returned.
+        $assignments = SupervisionAssignment::query()
+            ->whereIn('student_profile_id', $studentIds)
+            ->active()
+            ->with('supervisorProfile.user')
+            ->orderBy('id')
+            ->get()
+            ->groupBy('student_profile_id');
+
+        // Which part each student's project belongs to, so a BOTH-part
+        // supervision is matched the same way `resolveSupervisor()` matches it.
+        $partByStudent = $projects
+            ->flatMap(fn (Project $p) => $p->students->mapWithKeys(
+                fn ($s) => [$s->id => $p->psm_part]
+            ))
+            ->all();
+
+        foreach ($studentIds as $studentId) {
+            $part = $partByStudent[$studentId] ?? null;
+
+            $assignment = ($assignments->get($studentId) ?? collect())
+                ->filter(fn (SupervisionAssignment $a) => $part === null
+                    || $a->psm_part === $part
+                    || $a->psm_part === 'BOTH')
+                // Last by id, matching `latest('id')`.
+                ->last();
+
+            $this->supervisorCache[$studentId] = $assignment?->supervisorProfile?->user;
+        }
+    }
+
     public function open(
         Project $project,
         int $studentProfileId,
@@ -73,18 +157,46 @@ class MarkSubmissionService
         // there is no relation to eager-load here.
         $project->loadMissing(['students']);
 
-        $student = $project->students()
-            ->where('student_profiles.id', $studentProfileId)
-            ->first();
+        // Resolve from the loaded collection rather than re-querying. The
+        // caller has already eager-loaded the students, and a fresh query here
+        // was one round trip per student for data already in memory.
+        $student = $project->students->firstWhere('id', $studentProfileId)
+            ?? $project->students()->where('student_profiles.id', $studentProfileId)->first();
 
         if (! $student) {
             throw new InvalidArgumentException('Student is not enrolled on this project.');
         }
 
+        /**
+         * Fast path: this student is already fully allocated, so there is
+         * nothing to do.
+         *
+         * Re-opening a window is documented as a top-up — "re-opening only tops
+         * up students who were missed" — but it walked every student through a
+         * full allocation regardless. Resolving the supervisor, resolving the
+         * panel, resolving the rubric, checking its weights and re-snapshotting
+         * it cost ~10 round trips per student, all to discover that nothing had
+         * changed. On a hosted database at ~60ms per query that is ~15 seconds
+         * for a 15-student batch of pure no-ops, and the coordinator's browser
+         * abandons the request at 30s — so the window appeared to hang and never
+         * opened.
+         *
+         * The check is deliberately narrow. It only skips when a submission row
+         * exists *and* every form this call would allocate already exists for
+         * the assessor who would receive it. Anything else — a missing form, a
+         * panel that grew, a submission that was never opened — falls through to
+         * the full path below, which is the path that can actually create
+         * something.
+         *
+         * The assessors are found through the submission's own relations, so
+         * this costs two queries rather than the full resolution.
+         */
         // Resolve the expected assessors *before* creating anything, so the open
-        // fails early if the panel isn't ready.
+        // fails early if the panel isn't ready. Resolved once and reused: the
+        // fast-path check below needs the same two answers, and asking for them
+        // twice was eight round trips per student instead of four.
         $supervisor = $this->resolveSupervisor($project, $studentProfileId);
-        $examiners  = $this->resolvePanel($project);
+        $examiners  = $this->panelCache[$project->id] ??= $this->resolvePanel($project);
 
         if (! $supervisor) {
             throw new InvalidArgumentException(
@@ -98,6 +210,17 @@ class MarkSubmissionService
                 'No active examiner panel for this project. ' .
                 'Assign at least one examiner before opening the mark submission.'
             );
+        }
+
+        $existingSubmission = MarkSubmission::query()
+            ->where('project_id', $project->id)
+            ->where('student_profile_id', $studentProfileId)
+            ->where('psm_part', $project->psm_part)
+            ->first();
+
+        if ($existingSubmission !== null
+            && $this->isFullyAllocated($project, $existingSubmission, $onlyForm, $supervisor, $examiners)) {
+            return $existingSubmission;
         }
 
         /**
@@ -188,6 +311,92 @@ class MarkSubmissionService
 
             return $submission->fresh();
         });
+    }
+
+    /**
+     * Has this submission already received every form the given call would
+     * allocate?
+     *
+     * Mirrors the form set in `open()` deliberately and explicitly, because the
+     * two must agree: if this returns true for a form that `open()` would have
+     * created, the student silently ends up without it. It therefore answers
+     * only "would `open()` insert anything", and errs toward false.
+     *
+     * Checks the *allocation* (does a form exist for the right assessor and the
+     * right Lampiran), not the form's status. A draft an assessor has not filed
+     * yet is still allocated; counting it as missing would re-run the whole
+     * allocation on every open, which is the behaviour being fixed.
+     *
+     * The supervisor and panel are passed in rather than resolved here. They are
+     * the two most expensive lookups in this class, and resolving them a second
+     * time to answer this question cost as much as the check saves.
+     *
+     * @param  Collection<int, User>  $examiners
+     */
+    private function isFullyAllocated(
+        Project $project,
+        MarkSubmission $submission,
+        ?string $onlyForm,
+        User $supervisor,
+        Collection $examiners,
+    ): bool {
+        // The forms already on this submission, with the Lampiran each belongs
+        // to and the assessor holding it. One query.
+        $allocated = Evaluation::query()
+            ->where('project_id', $project->id)
+            ->where('psm_part', $project->psm_part)
+            ->with('rubricTemplate:id,form_code')
+            ->get()
+            ->map(fn (Evaluation $e) => ($e->rubricTemplate?->form_code ?? '?').'#'.$e->assessor_id)
+            ->all();
+
+        $has = fn (string $code, int $assessorId) => in_array($code.'#'.$assessorId, $allocated, true);
+
+        // Panel size is part of the contract: a panel that grew after opening
+        // must be re-allocated, so fall through to the full path.
+        if ($examiners->count() > (int) $submission->expected_panel_size) {
+            return false;
+        }
+
+        $supervisorForm = RubricTemplate::formCodeFor($project->psm_part, AssessorType::Supervisor);
+        $examinerForm   = RubricTemplate::formCodeFor($project->psm_part, AssessorType::Examiner);
+
+        // The supervisor's own Lampiran, when this call would allocate it.
+        if (($onlyForm === null || $onlyForm === $supervisorForm)
+            && $supervisorForm !== null
+            && ! $has($supervisorForm, $supervisor->id)) {
+            return false;
+        }
+
+        // PSM 2's two progress reports, which the same supervisor holds.
+        if ($project->psm_part === 'PSM2') {
+            foreach ([1, 2] as $laporanNum) {
+                $code = EvaluationService::progressReportFormCode($laporanNum);
+
+                if ($onlyForm !== null && $onlyForm !== $code) {
+                    continue;
+                }
+
+                if (! $has($code, $supervisor->id)) {
+                    return false;
+                }
+            }
+        }
+
+        // One form per panel examiner.
+        if ($onlyForm === null || $onlyForm === $examinerForm) {
+            if ($examinerForm === null) {
+                return false;
+            }
+
+            foreach ($examiners as $examiner) {
+                if (! $has($examinerForm, $examiner->id)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -407,9 +616,16 @@ class MarkSubmissionService
      * Uses the active `SupervisionAssignment` row. A project can have multiple
      * supervisors (co-supervision) but only one is active per student per part
      * at a time — we take the latest by id.
+     *
+     * Consults the batch-level cache first, so allocating a whole cohort does
+     * not run this three-query lookup once per student.
      */
     private function resolveSupervisor(Project $project, int $studentProfileId): ?User
     {
+        if (array_key_exists($studentProfileId, $this->supervisorCache)) {
+            return $this->supervisorCache[$studentProfileId];
+        }
+
         // A supervision links a student to a supervisor — there is no
         // project_id on the table. `forPart` matches the project's part or a
         // BOTH-part supervision.
@@ -421,7 +637,7 @@ class MarkSubmissionService
             ->latest('id')
             ->first();
 
-        return $assignment?->supervisorProfile?->user;
+        return $this->supervisorCache[$studentProfileId] = $assignment?->supervisorProfile?->user;
     }
 
     /**

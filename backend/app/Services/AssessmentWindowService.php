@@ -55,7 +55,20 @@ class AssessmentWindowService
         $failed = [];
 
         DB::transaction(function () use ($window, $actor, &$allocated, &$failed) {
-            foreach ($this->projects($window) as $project) {
+            $projects = $this->projects($window);
+
+            /**
+             * Resolve the batch's supervisors up front, in one query.
+             *
+             * The loop below asks for each student's supervisor, and doing that
+             * lazily cost three round trips per student — a lookup for the
+             * supervision, then the supervisor's profile, then their user. On a
+             * hosted database at ~60ms per query that is most of a second per
+             * student before any work happens, multiplied by the cohort.
+             */
+            $this->submissions->warmSupervisors($projects);
+
+            foreach ($projects as $project) {
                 foreach ($project->students as $student) {
                     try {
                         $this->submissions->open(

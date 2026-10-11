@@ -1,4 +1,4 @@
-import api, { unwrap, unwrapPaged, saveDownload, UPLOAD_TIMEOUT_MS } from './client'
+import api, { unwrap, unwrapPaged, saveDownload, UPLOAD_TIMEOUT_MS, BULK_TIMEOUT_MS } from './client'
 
 /**
  * The API surface, grouped to mirror the backend's module layout.
@@ -505,7 +505,15 @@ export const assessmentWindowApi = {
   create: (payload) => api.post('/assessment-windows', payload).then(unwrap),
   /** Set the published period this Lampiran accepts marks for. */
   update: (id, payload) => api.patch(`/assessment-windows/${id}`, payload).then(unwrap),
-  open: (id) => api.post(`/assessment-windows/${id}/open`).then(unwrap),
+  /**
+   * Open the window, allocating its Lampiran to every student in the batch.
+   *
+   * Given the bulk budget: this is the one call on the screen that walks a
+   * whole cohort, and it legitimately outruns the 30s general timeout on a
+   * hosted database. See BULK_TIMEOUT_MS in client.js.
+   */
+  open: (id) =>
+    api.post(`/assessment-windows/${id}/open`, null, { timeout: BULK_TIMEOUT_MS }).then(unwrap),
   close: (id) => api.post(`/assessment-windows/${id}/close`).then(unwrap),
 }
 

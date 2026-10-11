@@ -110,6 +110,23 @@ class EvaluationService
         };
     }
 
+    /**
+     * Rubrics already resolved in this request, keyed by context.
+     *
+     * `resolveFor()` and the balance check are pure functions of
+     * (category, part, assessor type, form code) — they cannot differ between
+     * two students in the same batch. Opening an assessment window calls this
+     * once per student, so a 15-student batch resolved the *same* two rubrics
+     * fifteen times and re-read their component weights fifteen times more.
+     *
+     * Cached per request rather than per process: a coordinator editing a rubric
+     * must see the change on their next action, and a long-lived worker must not
+     * hold a stale template across jobs.
+     *
+     * @var array<string, RubricTemplate>
+     */
+    protected array $rubricCache = [];
+
     protected function createEvaluation(
         Project $project,
         User $assessor,
@@ -126,7 +143,14 @@ class EvaluationService
         //
         // Checking here as well made opening a window allocate nothing for any
         // student still mid-project, which is most of them.
-        $rubric = RubricTemplate::resolveFor(
+        $cacheKey = implode('|', [
+            $project->category->value,
+            $project->psm_part,
+            $assessorType->value,
+            $formCode ?? '-',
+        ]);
+
+        $rubric = $this->rubricCache[$cacheKey] ??= RubricTemplate::resolveFor(
             $project->category,
             $project->psm_part,
             $assessorType,
@@ -150,61 +174,99 @@ class EvaluationService
         }
 
         return DB::transaction(function () use ($project, $assessor, $assessorType, $rubric, $formInstance) {
-            $evaluation = Evaluation::firstOrCreate(
-                [
-                    'project_id'         => $project->id,
-                    'assessor_id'        => $assessor->id,
-                    'rubric_template_id' => $rubric->id,
-                    'form_instance'      => $formInstance,
-                ],
-                [
-                    'assessor_type'   => $assessorType,
-                    'psm_part'        => $project->psm_part,
-                    'status'          => EvaluationStatus::Draft,
-                    // Freeze the rubric now: later template edits cannot
-                    // reinterpret this assessment.
-                    'rubric_snapshot' => $rubric->snapshot(),
-                    'max_score'       => $rubric->total_marks,
-                ]
+            /**
+             * Find the form first, and only build it if it is genuinely absent.
+             *
+             * The rubric work below — `snapshot()`, the weight check, loading
+             * every component and criterion — is what makes a form, not what
+             * finds one. It used to run inside `firstOrCreate`'s create array,
+             * which Eloquent evaluates on *every* call whether or not anything
+             * is inserted. So re-opening an assessment window re-snapshotted the
+             * rubric for every student and re-read its components twice, for
+             * forms that already existed and were not touched.
+             *
+             * That is the difference between an open taking 1s and taking 25s:
+             * the coordinator's screen calls this once per student, the browser
+             * gives up at 30s, and on a hosted database it crossed that line —
+             * "open" appeared to hang, and the window never opened.
+             */
+            $existing = Evaluation::query()
+                ->where('project_id', $project->id)
+                ->where('assessor_id', $assessor->id)
+                ->where('rubric_template_id', $rubric->id)
+                ->where('form_instance', $formInstance)
+                ->first();
+
+            if ($existing !== null) {
+                // Nothing to build and nothing to record: the form is already
+                // there, in whatever state the assessor left it.
+                return $existing->load('scores');
+            }
+
+            $evaluation = Evaluation::create([
+                'project_id'         => $project->id,
+                'assessor_id'        => $assessor->id,
+                'rubric_template_id' => $rubric->id,
+                'form_instance'      => $formInstance,
+                'assessor_type'      => $assessorType,
+                'psm_part'           => $project->psm_part,
+                'status'             => EvaluationStatus::Draft,
+                // Freeze the rubric now: later template edits cannot
+                // reinterpret this assessment.
+                'rubric_snapshot'    => $rubric->snapshot(),
+                'max_score'          => $rubric->total_marks,
+            ]);
+
+            // Pre-create the score rows so the form can be saved incrementally.
+            // Every row is inserted in one statement rather than one per
+            // criterion: Lampiran E carries 13 criteria, and 13 round trips per
+            // form is the same per-student cost this method is being fixed for.
+            $rows = [];
+            $now = now();
+
+            // One load, shared with the snapshot taken above. Reading the
+            // components and their criteria twice per form was the largest
+            // single cost when allocating a whole cohort.
+            foreach ($rubric->componentsWithCriteria() as $component) {
+                foreach ($component->criteria as $criterion) {
+                    $rows[] = [
+                        'evaluation_id'       => $evaluation->id,
+                        'rubric_component_id' => $component->id,
+                        'rubric_criterion_id' => $criterion->id,
+                        'component_code'      => $component->code,
+                        'criterion_code'      => $criterion->code,
+                        'criterion_title'     => $criterion->title,
+                        'max_marks'           => $criterion->max_marks,
+                        'marks_awarded'       => 0,
+                        'created_at'          => $now,
+                        'updated_at'          => $now,
+                    ];
+                }
+            }
+
+            if ($rows !== []) {
+                EvaluationScore::insert($rows);
+            }
+
+            GradeScheme::ensureFor($project);
+
+            $this->audit->log(
+                action: AuditAction::EvaluationCreated,
+                description: "Evaluation form created for {$assessor->name} on {$project->code}",
+                subject: $evaluation,
+                actor: $assessor->id === auth()->id() ? $assessor : auth()->user(),
             );
 
-            // Pre-create the score rows so the form can be saved incrementally
-            if ($evaluation->wasRecentlyCreated) {
-                foreach ($rubric->components()->with('criteria')->get() as $component) {
-                    foreach ($component->criteria as $criterion) {
-                        EvaluationScore::create([
-                            'evaluation_id'        => $evaluation->id,
-                            'rubric_component_id'  => $component->id,
-                            'rubric_criterion_id'  => $criterion->id,
-                            'component_code'       => $component->code,
-                            'criterion_code'       => $criterion->code,
-                            'criterion_title'      => $criterion->title,
-                            'max_marks'            => $criterion->max_marks,
-                            'marks_awarded'        => 0,
-                        ]);
-                    }
-                }
-
-                GradeScheme::ensureFor($project);
-
-                $this->audit->log(
-                    action: AuditAction::EvaluationCreated,
-                    description: "Evaluation form created for {$assessor->name} on {$project->code}",
-                    subject: $evaluation,
-                    actor: $assessor->id === auth()->id() ? $assessor : auth()->user(),
-                );
-
-                $this->notifications->notify(
-                    [$assessor],
-                    NotificationType::EvaluationAssigned,
-                    [
-                        'title'      => 'Evaluation assigned',
-                        'body'       => "You have been asked to assess {$project->title}.",
-                        'action_url' => "/evaluations/{$evaluation->id}",
-                    ],
-                    $evaluation,
-                );
-            }
+            $this->notifications->notify(
+                [$assessor],
+                NotificationType::EvaluationAssigned,
+                [
+                    'title'      => 'Evaluation assigned',
+                    'body'       => "You have been asked to assess {$project->title}.",
+                    'action_url' => "/evaluations/{$evaluation->id}",
+                ],
+                $evaluation,
+            );
 
             return $evaluation->load('scores');
         });

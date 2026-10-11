@@ -33,6 +33,27 @@ export const tokenStore = {
 const REQUEST_TIMEOUT_MS = 30_000
 export const UPLOAD_TIMEOUT_MS = 10 * 60_000
 
+/**
+ * How long to wait for a bulk operation, in milliseconds.
+ *
+ * Opening an assessment window allocates a form to *every* student in the
+ * batch: it resolves each student's supervisor and panel, resolves and
+ * snapshots the rubric, and inserts the form with its criteria. That is tens of
+ * round trips per student, and on a hosted database each one costs ~60ms — so a
+ * 15-student batch legitimately takes 25-30 seconds, right on the general
+ * timeout.
+ *
+ * The observable symptom was a coordinator pressing "Open", waiting, and
+ * getting `timeout of 30000ms exceeded` while the server carried on and
+ * finished. The window really did open; the screen simply never heard about it,
+ * and pressing it again re-ran the whole allocation.
+ *
+ * Same reasoning as the upload budget above, and the same asymmetry: waiting
+ * too long costs a slow screen, giving up too early costs a coordinator who
+ * believes an action failed when it succeeded.
+ */
+export const BULK_TIMEOUT_MS = 5 * 60_000
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
   headers: { Accept: 'application/json' },
