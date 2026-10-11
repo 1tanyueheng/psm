@@ -1,7 +1,14 @@
 # Render Deployment Fix Checklist
 
 **Service:** `https://psm-1-xcaz.onrender.com`
-**Frontend:** `https://psm-hepy108ko-psm-proj.vercel.app`
+**Frontend:** `https://psm-git-main-psm-proj.vercel.app`
+
+> The frontend URL above is the **branch alias**, which follows `main`. An
+> earlier revision of this file pointed at
+> `https://psm-hepy108ko-psm-proj.vercel.app` — that is a pinned *deployment*
+> URL, frozen at the build it was created for, and it kept serving an old bundle
+> long after the code moved on. Use the branch alias. See section 8 of
+> `docs/DEPLOYMENT.md`.
 
 ---
 

@@ -7,6 +7,11 @@ code itself.
 
 ## 1. Verdict on the proposed stack
 
+> **As deployed:** frontend on **Vercel**, backend on **Render**, database and
+> file storage on **Supabase**. Section 4 lists the exact URLs. Read section 8
+> first if the site looks out of date — the most common cause is a frozen
+> deployment URL, not a failed build.
+
 The stack as described was:
 
 | Piece | Proposed | Verdict |
@@ -14,6 +19,7 @@ The stack as described was:
 | Frontend | Render | ✅ Works, but Vercel suits it better |
 | Backend | **Vercel** | ❌ **Wrong architecture for this app** |
 | Database | **Neon / Supabase** | ✅ Fine — both PostgreSQL, and this project now runs on either |
+| Database (**as deployed**) | **Supabase** | ✅ Singapore region, pooler host |
 
 ### Why the backend should not go on Vercel
 
@@ -196,25 +202,47 @@ configuration-only changes now, with the code already in place.
 
 ## 4. Choosing the database
 
+### What this deployment actually runs
+
+| Piece | Where | URL |
+|---|---|---|
+| Frontend (SPA) | **Vercel** | `https://psm-git-main-psm-proj.vercel.app` |
+| Backend (Laravel) | **Render** (Docker) | `https://psm-1-xcaz.onrender.com` |
+| Database | **Supabase** (Singapore, `ap-southeast-1`) | pooler host, see below |
+| Uploaded files | **Supabase Storage** (`FILESYSTEM_DISK=s3`) | same project |
+
+**Supabase is the database, not Neon.** Neon appears throughout this document
+only because it was the first option tried; the live service reads Supabase.
+Two consequences worth knowing:
+
+- The Render `DB_HOST` must be the **Supabase pooler**
+  (`aws-0-ap-southeast-1.pooler.supabase.com`) with `DB_USERNAME` carrying the
+  project ref (`postgres.<ref>`). Pointing it at Neon produces an app that runs
+  perfectly while reading an entirely different cohort — which is exactly the
+  confusion recorded in `RENDER-FIX-CHECKLIST.md`.
+- The data you see is the **seeded demo cohort**. Supabase SG holds 26 projects;
+  Neon holds 78. That difference is the quickest way to tell which database a
+  service is really reading: `GET /api/projects` and check the total.
+
 ### The options
 
 | Option | Engine | Free tier | Catch |
 |---|---|---|---|
-| **Neon** | Postgres | 1 GB | Scales to zero when idle — first query is slow, but it wakes on connect |
 | **Supabase** | Postgres | 1 GB | **Pauses after 7 days of low activity**; restore is a manual click |
+| **Neon** | Postgres | 1 GB | Scales to zero when idle — first query is slow, but it wakes on connect |
 | Render | Postgres | 1 GB | **Deleted 30 days after creation on the free tier** |
 | Aiven | MySQL | 1 GB | Fewer regions, slower support |
 | TiDB Cloud | MySQL-compatible | 5 GB | Compatible, not actually MySQL |
 
-**Pick Neon or Supabase.** Both are Postgres and both work with this codebase
-unchanged. The difference that matters is what happens when the project is idle:
+Both Postgres options work with this codebase unchanged. The difference that
+matters is what happens when the project is idle:
 
-- **Neon** scales to zero but **wakes automatically on the next connection**.
-  A dormant semester costs one slow query, nothing more.
 - **Supabase** pauses the whole project after a week of low *database* activity
   and needs a **manual "Resume project"** from the dashboard. The docs warn by
   email about a week ahead, and the restore window is a year, so nothing is
   lost — but the app is down until someone clicks.
+- **Neon** scales to zero but **wakes automatically on the next connection**.
+  A dormant semester costs one slow query, nothing more.
 
 That distinction shapes the advice on storage below: a Supabase project kept
 alive only by file uploads may still be judged inactive, because the pause
@@ -224,17 +252,21 @@ Note that free tiers change often. Verify current limits before committing.
 
 ### How to switch
 
-Change only the environment variables:
+Change only the environment variables. **Supabase, which is what this deployment
+uses:**
 
 ```
 DB_CONNECTION=pgsql
-DB_HOST=your-project.neon.tech
+DB_HOST=aws-0-ap-southeast-1.pooler.supabase.com   # pooler, NOT db.<ref>.supabase.co
 DB_PORT=5432
-DB_DATABASE=psm_system
-DB_USERNAME=your_user
-DB_PASSWORD=your_password
+DB_DATABASE=postgres                                # Supabase names it `postgres`
+DB_USERNAME=postgres.<project-ref>                  # the ref suffix is REQUIRED
+DB_PASSWORD=<database password>                     # NOT the S3 secret key
 DB_SSLMODE=require
 ```
+
+Neon, if you prefer it, is the same block with `DB_HOST=<project>.neon.tech`
+and a plain username. Both are Postgres; neither needs a code change.
 
 `DB_SSLMODE=require` matters — hosted providers reject unencrypted
 connections. The `pgsql` driver block already exists in
@@ -248,6 +280,38 @@ php artisan migrate --force
 
    Do not add `--seed` against production. See the pre-flight checklist in
    section 7.
+
+### Seeding and migrations on Render — the two switches
+
+The container decides what to do at boot from two environment variables, read by
+`[program:migrate]` in `docker/supervisord.conf`:
+
+| Variable | What it does | Production |
+|---|---|---|
+| `RUN_MIGRATIONS` | Runs `php artisan migrate --force`, then exits | `true` |
+| `RUN_SEED` | Runs `php artisan db:seed --force`, **only after migrations succeed** | **leave `false`** |
+
+**`RUN_SEED=true` must not be set in production.** `DatabaseSeeder` creates
+accounts on the well-known password `password`, including `admin@psm.test` and
+`coordinator@psm.test`. On a public URL that is an open admin account, and it is
+the first thing anyone would try. `GO_LIVE.md` says the same — "do not run
+`--seed` against production" — and the switch exists only so a demo deployment
+can be rebuilt from scratch.
+
+The live service currently runs the seeded demo cohort (26 projects, matching
+`DatabaseSeeder`), so `RUN_SEED` has been used at least once. That is fine for a
+demo; turn it off before the cohort is real.
+
+**Why seeding is ordered after migrating.** `db:seed` used to run from
+`entrypoint.sh`, which executes *before* supervisord starts anything — so it
+seeded against the **previous** deploy's schema and died on its first seeder
+with `column "max_supervisees_psm1" does not exist`. It now runs inside
+`[program:migrate]`, strictly after `migrate` exits successfully, which is the
+only ordering supervisord can actually guarantee.
+
+**Why migrations live there at all.** `migrate` is a supervised one-shot program
+at `priority 15`, not a line in the entrypoint, because the queue workers read
+the `cache` table on startup and must not start before it exists. See section 2.
 
 ### Supabase specifics (verified against a live project)
 
@@ -465,6 +529,12 @@ Before pointing a real cohort at this:
 - [ ] `APP_KEY` set, and **never regenerated** — doing so invalidates every
       session and encrypted value
 - [ ] `APP_DEBUG=false`
+- [ ] **The service is reading the database you think it is.** `GET /api/projects`
+      and compare the total against what you expect. Neon and Supabase can both
+      hold a full seeded cohort, and an app pointed at the wrong one looks
+      completely healthy. See section 4.
+- [ ] **The frontend URL is the branch alias, not a frozen deployment URL.**
+      Compare the `assets/index-*.js` hash it serves (section 8).
 - [ ] Uploads moved to object storage, and a test upload survives a redeploy
 - [ ] **The storage bucket is private.** Fetch an object path anonymously and
       confirm it is refused (`403`); a public bucket exposes every student's
@@ -496,6 +566,41 @@ Before pointing a real cohort at this:
 
 Both of these were hit on a real deploy. Both are fixed in the repository, and
 both are recorded here because each is easy to misdiagnose.
+
+### "The site is not updated" — you are looking at a frozen deployment URL
+
+**Symptom.** You push, the deploy succeeds, and the browser still shows the old
+site. Nothing is broken; the URL is.
+
+Vercel gives every deployment an **immutable URL** of the form
+`<project>-<hash>-<team>.vercel.app`, and separately maintains moving aliases:
+
+| URL | What it is |
+|---|---|
+| `psm-git-main-psm-proj.vercel.app` | **Follows `main`** — this is the one to bookmark |
+| `psm-<hash>-psm-proj.vercel.app` | Pinned to one deployment, **frozen forever** |
+| `<project>.vercel.app` | The production alias, once a domain is promoted to it |
+
+The hash URL never changes after it is created, so it keeps serving the build
+from the day it was made. That is precisely what happened here: the app was
+reached at `psm-hepy108ko-psm-proj.vercel.app`, which was still serving
+`index-CAAVXcsn.js` weeks after the code moved on, while `psm-git-main-…` served
+the current `index-BOtrsHa1.js`.
+
+**How to tell in one command** — compare the bundle each URL actually loads:
+
+```sh
+curl -s https://psm-git-main-psm-proj.vercel.app | grep -o 'assets/index-[^"]*\.js'
+curl -s https://psm-hepy108ko-psm-proj.vercel.app | grep -o 'assets/index-[^"]*\.js'
+```
+
+Different filenames mean different builds. A Vite bundle name is a content hash,
+so it changes whenever the code does — which makes this a reliable check in both
+directions: if the hash is unchanged, the deploy really did not happen.
+
+**The fix** is to use the branch alias, or promote a stable domain under
+**Project → Settings → Domains** so the URL you share is the one that moves.
+Before concluding a deploy failed, confirm which URL you are on.
 
 ### `relation "cache" does not exist`, repeating forever
 
