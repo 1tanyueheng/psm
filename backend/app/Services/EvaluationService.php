@@ -13,6 +13,7 @@ use App\Models\EvaluationScore;
 use App\Models\ExaminerAssignment;
 use App\Models\FinalGrade;
 use App\Models\GradeScheme;
+use App\Models\LecturerMark;
 use App\Models\MarkSubmission;
 use App\Models\Milestone;
 use App\Models\Project;
@@ -632,29 +633,87 @@ class EvaluationService
             ];
         }
 
+        /**
+         * --- 2b. The coursework component ---------------------------------
+         *
+         * A lecturer's four marks enter the aggregate as one weighted
+         * component, exactly like a Lampiran — same `subtotal` (a percentage),
+         * same `weight`, same place in the weighted mean below. That is the
+         * whole reason it is modelled this way: `computeFinalGrade()` stays the
+         * single place a PSM mark is computed, and coursework is not a special
+         * case bolted onto the formula.
+         *
+         * It carries **no `Evaluation`**, which is the one place it differs:
+         * there is no rubric, no assessor type and no per-criterion row. So the
+         * synthetic entry below supplies the fields the shape needs and marks
+         * itself as `source = 'coursework'` so the breakdown UI can render it
+         * without pretending an evaluator filed it.
+         *
+         * It is only added when the scheme actually gives it a weight. PSM 2 has
+         * no coursework, so a stray `lecturer_marks` row for a PSM 2 student —
+         * which nothing creates, but which nothing prevents either — must not
+         * silently weight itself into a PSM 2 mark.
+         */
+        $courseworkCode = LecturerMark::formCode();
+        $courseworkWeight = $scheme->weightForForm($courseworkCode);
+
+        if ($courseworkWeight > 0.0) {
+            $coursework = LecturerMark::forStudent($studentProfileId, $project->academic_semester_id);
+
+            // A partly-keyed or absent set contributes nothing, and the weight
+            // is then excluded from `$weightSum` below — so an unmarked
+            // coursework does not drag a student's mark down. The rescale over
+            // the weight *present* already handles that case; this only has to
+            // avoid inventing a zero.
+            if ($coursework !== null && $coursework->percent() !== null) {
+                $perForm[$courseworkCode] = [
+                    'subtotal'         => $coursework->percent(),
+                    'evaluation_count' => 1,
+                    'weight'           => $courseworkWeight,
+                    'assessor_type'    => 'lecturer',
+                    // Same shape as an evaluation's entry, so consumers do not
+                    // need a second branch: the "assessor" is the section's
+                    // lecturer, and the raw component marks travel alongside.
+                    'individual'       => [[
+                        'assessor_id'   => $coursework->entered_by,
+                        'assessor_name' => $coursework->enteredBy?->name
+                            ?? $coursework->section?->lecturer?->name,
+                        'percent'       => $coursework->percent(),
+                        'moderated'     => false,
+                        'source'        => 'coursework',
+                        'marks'         => $coursework->total(),
+                        'max'           => LecturerMark::maxTotal(),
+                        'components'    => $coursework->breakdown(),
+                    ]],
+                    'source'           => 'coursework',
+                ];
+            }
+        }
+
         // --- 3. Per-assessor-type rollup (for the persisted columns) --
         //
         // Weighted by each form's share, so "supervisor score" means the
         // supervisor's contribution and not a flat mean across G and H.
+        //
+        // `lecturer` is not an `AssessorType` case — coursework has no assessor
+        // — so its rollup is assembled from the same helper rather than by
+        // iterating the enum, and appended below. Skipping it would leave the
+        // coursework out of `assessor_types`, so the stored breakdown could not
+        // account for the component the aggregate had already counted.
         $perType = [];
 
         foreach (AssessorType::cases() as $type) {
-            $forms = collect($perForm)->filter(fn ($data) => $data['assessor_type'] === $type->value);
+            $rollup = $this->rollupForType($perForm, $type->value);
 
-            if ($forms->isEmpty()) {
-                continue;
+            if ($rollup !== null) {
+                $perType[$type->value] = $rollup;
             }
+        }
 
-            $weightSum = $forms->sum('weight');
+        $lecturerRollup = $this->rollupForType($perForm, 'lecturer');
 
-            $perType[$type->value] = [
-                'subtotal'       => $weightSum > 0
-                    ? round($forms->sum(fn ($d) => $d['subtotal'] * $d['weight']) / $weightSum, 2)
-                    : round($forms->avg('subtotal'), 2),
-                'assessor_count' => $forms->sum('evaluation_count'),
-                'forms'          => $forms->keys()->values()->all(),
-                'individual'     => $forms->pluck('individual')->flatten(1)->values()->all(),
-            ];
+        if ($lecturerRollup !== null) {
+            $perType['lecturer'] = $lecturerRollup;
         }
 
         // --- 4. Weighted sum over forms ------------------------------
@@ -707,7 +766,13 @@ class EvaluationService
         // 0.00 would show the student a failing result, and would satisfy
         // `qualifiesForPublication()` (which only checks `final_mark !== null`),
         // putting a zero on the public leaderboard.
-        if ($evaluations->isEmpty()) {
+        //
+        // The test is on `$weightSum`, not on `$evaluations`, because since
+        // coursework was added a mark can exist with no evaluation at all — a
+        // student whose lecturer has keyed coursework but whose supervisor has
+        // not yet filed. Keying off the evaluation collection would discard a
+        // real, lone coursework mark and show the student nothing.
+        if ($weightSum <= 0) {
             $finalMark = null;
             $aggregate = null;
         }
@@ -859,8 +924,13 @@ class EvaluationService
      *   evaluations:int, marked:int, marks:?float, max:float,
      *   components:array<int, array{code:string, title:string, weight_percent:float, marks:?float, max:float}>
      * }>
+     *
+     * $studentProfileId is required to show the coursework component, because
+     * coursework is per student while every Lampiran is per project. Pass null
+     * for a project-wide view (the coordinator's), where coursework is simply
+     * omitted rather than attributed to one student.
      */
-    public function componentBreakdown(Project $project): array
+    public function componentBreakdown(Project $project, ?int $studentProfileId = null): array
     {
         // Same panel rule as computeFinalGrade: only the current panel's
         // examiner forms count, so the breakdown can never show a form the
@@ -900,6 +970,32 @@ class EvaluationService
         $forms = [];
 
         foreach ($formCodes as $formCode) {
+            /**
+             * Coursework is not an evaluation and has no rubric, so it cannot go
+             * through `formBreakdown()` — that reads rubric components and score
+             * rows, and would return null for `CW`, dropping it entirely.
+             *
+             * Dropping it is not cosmetic. The weights now total 100, so the
+             * student's page says "out of 100" while the components it lists add
+             * up to 65 — a student with full coursework would appear to be
+             * missing 35 marks they actually earned. It gets its own shape built
+             * from `lecturer_marks` instead, and the four component rows are the
+             * lecturer's own items.
+             */
+            if ($formCode === LecturerMark::formCode()) {
+                // Null student means a project-wide view, which has no single
+                // coursework row to show — omitted rather than guessed at.
+                $coursework = $studentProfileId !== null
+                    ? $this->courseworkBreakdown($project, $studentProfileId)
+                    : null;
+
+                if ($coursework !== null) {
+                    $forms[] = $coursework;
+                }
+
+                continue;
+            }
+
             $form = $this->formBreakdown($project, $formCode, $evaluations->get($formCode) ?? collect());
 
             if ($form !== null) {
@@ -911,21 +1007,86 @@ class EvaluationService
     }
 
     /**
+     * The coursework component, in the same shape as a Lampiran breakdown.
+     *
+     * The student's page renders one list, so coursework has to look like the
+     * forms beside it: a form code, a title, the marks, and the rows underneath.
+     * The four rows are the lecturer's own items rather than rubric criteria,
+     * which is why they carry `weight_percent` of the item's share of 35 — the
+     * page shows a weight column and leaving it blank would look like missing
+     * data.
+     *
+     * Returns null when there is nothing to show, so an unmarked coursework adds
+     * no row and no denominator.
+     */
+    private function courseworkBreakdown(Project $project, int $studentProfileId): ?array
+    {
+        $mark = LecturerMark::forStudent($studentProfileId, $project->academic_semester_id);
+
+        if ($mark === null) {
+            return null;
+        }
+
+        $max = LecturerMark::maxTotal();
+
+        $rows = collect($mark->breakdown())
+            ->map(fn (array $row): array => [
+                'code'           => $row['key'],
+                'title'          => $row['label'],
+                // The item's share of the coursework component, so the column
+                // means the same thing here as it does for a Lampiran.
+                'weight_percent' => $max > 0 ? round(($row['max'] / $max) * 100, 2) : 0.0,
+                'marks'          => $row['marks'],
+                'max'            => round($row['max'], 2),
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'form_code'      => LecturerMark::formCode(),
+            'title'          => (string) config('psm.coursework.label', 'Coursework'),
+            'status'         => $mark->isComplete() ? 'marked' : 'pending',
+            // Total is the raw coursework marks out of 35, matching how a
+            // Lampiran reports its own units rather than a percentage.
+            'marks'          => $mark->total(),
+            'max'            => $max,
+            'components'     => $rows,
+            /**
+             * `assessor_type` is what `markShare()` groups by, so coursework is
+             * labelled `lecturer` rather than falling through to `other` — a
+             * bucket named "other" would make 35% of the mark look unattributed.
+             */
+            'assessor_type'  => 'lecturer',
+            'evaluations'    => 0,
+            'marked'         => $mark->isComplete() ? 1 : 0,
+            // Marks that no assessor filed. The page uses this to label the
+            // source, so it does not claim a supervisor awarded the quiz.
+            'source'         => 'coursework',
+            'entered_by'     => $mark->enteredBy?->name ?? $mark->section?->lecturer?->name,
+            'entered_at'     => $mark->entered_at?->toIso8601String(),
+        ];
+    }
+
+    /**
      * The mark as the Lampiran forms print it: a total against the marks those
      * forms actually carry.
      *
      * This is the figure a student is shown, and it is deliberately **not**
      * `final_mark`. `computeFinalGrade()` rescales the weighted subtotals onto a
-     * 0-100 scale, because the system holds only part of the official
-     * assessment — PSM 1's forms carry 65 marks (E 35 + I 30) and PSM 2's carry
-     * 95 (G 50 + H 5 + J 40), with the remainder marked outside the system. A
-     * rescaled 70% is a fair comparator between students but is not a mark
-     * anybody awarded, and showing it next to a breakdown that reads "45.52 /
-     * 65" makes the page contradict itself.
+     * 0-100 scale, which is a fair comparator between students but is not a mark
+     * anybody awarded — showing it next to a breakdown that reads "45.52 / 35"
+     * makes the page contradict itself.
      *
-     * The two figures also diverge while forms are still arriving: a form that
-     * is marked but withheld (one of two panel members) contributes to the
-     * rescaled aggregate but not here, so the total grows as the panel files.
+     * Both parts now carry the full 100 (see `psm.assessment_weights`), so the
+     * two figures are closer than they were — PSM 1 used to hold 65 of the
+     * assessment with the rest marked outside the system. They still diverge for
+     * a reason that has not changed: a form that is marked but *withheld* (one
+     * of two panel members) contributes to the rescaled aggregate but not to
+     * this total, so the total grows as the panel files.
+     *
+     * Coursework counts here too. It is part of the student's mark, and leaving
+     * it out would show a denominator of 100 against a total that could not
+     * exceed 65.
      *
      * @return array{
      *     total_marks: ?float,
@@ -934,9 +1095,9 @@ class EvaluationService
      *     by_assessor: array<string, ?float>
      * }
      */
-    public function markShare(Project $project): array
+    public function markShare(Project $project, ?int $studentProfileId = null): array
     {
-        $forms = $this->componentBreakdown($project);
+        $forms = $this->componentBreakdown($project, $studentProfileId);
 
         $outOf = (float) GradeScheme::expectedWeightTotal($project->psm_part);
 
@@ -966,7 +1127,9 @@ class EvaluationService
         return [
             'total_marks' => $awarded === [] ? null : round(array_sum($awarded), 2),
             'total_max'   => round(array_sum(array_column($forms, 'max')), 2),
-            // The denominator that does not move as forms arrive: "out of 65".
+            // The denominator that does not move as forms arrive: the part's
+            // configured total, so a total that grows is read against a stable
+            // figure rather than against whatever has been filed so far.
             'out_of'      => $outOf,
             'by_assessor' => $byAssessor,
         ];
@@ -1198,6 +1361,41 @@ class EvaluationService
             'Lampiran E is the final PSM 1 evaluation and opens only once every milestone '
             ."has been approved. {$outstanding} of {$milestones->count()} milestone(s) are still outstanding."
         );
+    }
+
+    /**
+     * Roll several forms up into one assessor-type subtotal.
+     *
+     * Extracted from the loop that builds `assessor_types` so coursework can use
+     * it too. `lecturer` is not an `AssessorType` case — coursework has no
+     * assessor — so the loop over the enum cannot reach it, and without this
+     * helper the component would be counted in the aggregate while being absent
+     * from the stored breakdown that explains the aggregate.
+     *
+     * Returns null when no form of that type is present, which is how the caller
+     * omits the key entirely rather than recording a zero subtotal.
+     *
+     * @param  array<string, array<string, mixed>>  $perForm
+     * @return array{subtotal: float, assessor_count: int, forms: array<int, string>, individual: array<int, mixed>}|null
+     */
+    protected function rollupForType(array $perForm, string $type): ?array
+    {
+        $forms = collect($perForm)->filter(fn ($data) => ($data['assessor_type'] ?? null) === $type);
+
+        if ($forms->isEmpty()) {
+            return null;
+        }
+
+        $weightSum = $forms->sum('weight');
+
+        return [
+            'subtotal'       => $weightSum > 0
+                ? round($forms->sum(fn ($d) => $d['subtotal'] * $d['weight']) / $weightSum, 2)
+                : round($forms->avg('subtotal'), 2),
+            'assessor_count' => $forms->sum('evaluation_count'),
+            'forms'          => $forms->keys()->values()->all(),
+            'individual'     => $forms->pluck('individual')->flatten(1)->values()->all(),
+        ];
     }
 
     protected function combineGroup(Collection $group, GradeScheme $scheme): float

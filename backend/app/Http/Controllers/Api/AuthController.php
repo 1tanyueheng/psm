@@ -107,8 +107,17 @@ class AuthController extends ApiController
         return $this->ok([
             'token' => $token,
             'user'  => new UserResource($user->load(['studentProfile', 'supervisorProfile'])),
-            // The SPA uses this to pick a landing dashboard
-            'home'  => $user->role->homeRoute(),
+            /**
+             * The SPA's landing dashboard for this role.
+             *
+             * Named `home_route` to match what the client reads. It was sent as
+             * `home`, which the SPA never looked for — `AuthContext` reads
+             * `payload.home_route`, so the value was silently `undefined` on
+             * every login and the client fell back to its own local map. That
+             * map is a duplicate of `Role::homeRoute()` and had already drifted
+             * from it, so the two disagreed about where three roles land.
+             */
+            'home_route' => $user->role->homeRoute(),
         ], 'Signed in successfully.');
     }
 

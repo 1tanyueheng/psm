@@ -144,7 +144,28 @@ class UserController extends ApiController
             'academic_semester_id' => ['nullable', 'integer', 'exists:academic_semesters,id'],
 
             // Supervisor profile
-            'staff_no'          => ['required_if:role,supervisor', 'nullable', 'string', 'max:32', 'unique:supervisor_profiles,staff_no'],
+            /**
+             * Staff number: required for a supervisor **and a lecturer**.
+             *
+             * Both are academic staff identified by their staff number, and both
+             * carry it into `users.staff_id` since neither has a profile row.
+             * A lecturer created without one gets a blank identifier on every
+             * staff list.
+             *
+             * Uniqueness is checked against **both** places the number is
+             * stored. A supervisor's lives on `supervisor_profiles.staff_no` and
+             * a lecturer's on `users.staff_id`, so testing only the first would
+             * let a lecturer be created with a number a supervisor already holds
+             * — two people sharing one staff identity.
+             */
+            'staff_no'          => [
+                'required_if:role,supervisor,lecturer',
+                'nullable',
+                'string',
+                'max:32',
+                'unique:supervisor_profiles,staff_no',
+                Rule::unique('users', 'staff_id'),
+            ],
             /**
              * FSKTM programme ownership.
              *
@@ -172,7 +193,8 @@ class UserController extends ApiController
             'student_id.required_if' => 'A student needs a matric number.',
             'program.required_if'    => 'A student needs a programme.',
             'batch.required_if'      => 'A student needs a batch — the cohort year.',
-            'staff_no.required_if'   => 'A supervisor needs a staff number.',
+            'staff_no.required_if'   => 'A supervisor or lecturer needs a staff number.',
+            'staff_no.unique'        => 'That staff number already belongs to another account.',
             'email.unique'           => 'That email address is already in use by an active account.',
         ]);
 
@@ -227,8 +249,14 @@ class UserController extends ApiController
                  * disagree. Academic staff are asked for `staff_no`, which is the
                  * one the profile reads; coordinators and admins have no profile,
                  * so their `staff_id` stands alone.
+                 *
+                 * A lecturer counts as staff here for the same reason a supervisor
+                 * does: they are academic staff with a staff number and no
+                 * profile row to hold it. Omitting them left the account with an
+                 * empty `staff_id`, which is the field every staff list and
+                 * export keys on.
                  */
-                'staff_id'             => $validated['role'] === Role::Supervisor->value
+                'staff_id'             => in_array($validated['role'], [Role::Supervisor->value, Role::Lecturer->value], true)
                     ? ($validated['staff_no'] ?? null)
                     : ($validated['staff_id'] ?? null),
                 'department'           => $validated['department'] ?? null,

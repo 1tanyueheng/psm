@@ -140,8 +140,39 @@ class User extends Authenticatable
 
     public function isStudent(): bool     { return $this->role === Role::Student; }
     public function isSupervisor(): bool  { return $this->role === Role::Supervisor; }
+    public function isLecturer(): bool    { return $this->role === Role::Lecturer; }
     public function isCoordinator(): bool { return $this->role === Role::Coordinator; }
     public function isAdmin(): bool       { return $this->role === Role::Admin; }
+
+    /**
+     * The section this lecturer owns, if they are one and have been appointed.
+     *
+     * One section per lecturer is the faculty's rule, so this returns a single
+     * model rather than a collection. A lecturer with no section gets null,
+     * which the policy reads as "may key nothing" — deliberately, so an
+     * unappointed account is inert instead of unrestricted.
+     *
+     * Memoised, including the null. `LecturerMarkPolicy` calls this once per row
+     * while checking a roster, and without the cache that is a query per student
+     * on a page that already loads every student. The `array_key_exists` form
+     * matters: caching on `$this->lecturerSection !== null` would re-query for
+     * every unappointed lecturer, which is the case the null exists to handle.
+     */
+    public function lecturerSection(): ?Section
+    {
+        if (! $this->isLecturer()) {
+            return null;
+        }
+
+        if (! array_key_exists('lecturerSection', $this->cachedRelations ?? [])) {
+            $this->cachedRelations['lecturerSection'] = $this->hasOne(Section::class, 'lecturer_id')->first();
+        }
+
+        return $this->cachedRelations['lecturerSection'];
+    }
+
+    /** @var array<string, mixed> */
+    protected array $cachedRelations = [];
 
     /** Module 4 — may this user submit marks at all? */
     public function canAssess(): bool

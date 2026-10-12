@@ -186,13 +186,21 @@ return [
     /**
      * Module 4 — Assessment weights, by official form (Lampiran code).
      *
-     * These are the shares the system is responsible for. The remainder of the
-     * official weighting is marked outside it — by the lecturer in class — so
-     * PSM 1's total is deliberately below 100:
+     * Both parts now total 100. PSM 1 was assembled from the two Lampiran alone
+     * and so reached only 65, on the understanding that the remainder was marked
+     * outside the system — which is exactly the gap the coursework component
+     * fills. It is no longer outside the system, so PSM 1 is whole:
      *
-     *   PSM 1   Lampiran E 35 (supervisor) + Lampiran I 30 (examiners)  = 65
+     *   PSM 1   Coursework 35 (the section lecturer: quiz + 3 assignments)
+     *           + Lampiran E 35 (supervisor)
+     *           + Lampiran I 30 (examiners)                            = 100
      *   PSM 2   Lampiran G 50 + Lampiran H1 5 + Lampiran H2 5
      *           + Lampiran J 40 (examiners)                            = 100
+     *
+     * Coursework is a form code rather than an assessor type so the aggregate can
+     * weight it like any other component. It carries no rubric and no evaluation
+     * row — see `LecturerMark` — and `EvaluationService::computeFinalGrade()`
+     * injects it into the per-form totals.
      *
      * Keyed by FORM, not by assessor role. G, H1 and H2 are all supervisor
      * forms carrying different shares, so a per-role scheme would collapse them
@@ -208,8 +216,34 @@ return [
      * award marks.
      */
     'assessment_weights' => [
-        'PSM1' => ['E' => 35.0, 'I' => 30.0],
+        'PSM1' => ['E' => 35.0, 'I' => 30.0, 'CW' => 35.0],
         'PSM2' => ['G' => 50.0, 'H1' => 5.0, 'H2' => 5.0, 'J' => 40.0],
+    ],
+
+    /**
+     * Module 4 — the coursework component (`CW`).
+     *
+     * A lecturer marks four items for one section of a service course that runs
+     * alongside PSM 1. They are not Lampiran: there is no rubric behind them,
+     * no assessor type, and no evaluation row — the lecturer keys a number per
+     * item and it is stored on `lecturer_marks`. The four sum to exactly the
+     * `CW` weight above, and `LecturerMark::COMPONENTS` is the single
+     * declaration of both the names and the maxima so the form, the validation
+     * and the aggregate cannot disagree.
+     *
+     * **These are fixed by faculty decision, not configurable.** The split is
+     * what the course coordinator publishes, so it is a constant rather than
+     * settings a term could drift from.
+     */
+    'coursework' => [
+        'form_code' => 'CW',
+        'label'     => 'Coursework',
+        'components' => [
+            'quiz'          => ['label' => 'Quiz',         'max' => 5.0],
+            'assignment_c'  => ['label' => 'Assignment-C', 'max' => 12.0],
+            'assignment_p'  => ['label' => 'Assignment-P', 'max' => 9.0],
+            'assignment_a'  => ['label' => 'Assignment-A', 'max' => 9.0],
+        ],
     ],
 
     /**

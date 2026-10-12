@@ -553,13 +553,19 @@ class EvaluationController extends ApiController
             ], 'The mark has not been released yet.');
         }
 
-        $forms = $this->evaluations->componentBreakdown($project);
+        /**
+         * The student is passed through because coursework is per student while
+         * every Lampiran is per project. Without it the breakdown would list the
+         * forms summing to 65 against a denominator of 100 — the coursework
+         * being silently missing from a number the student is shown.
+         */
+        $forms = $this->evaluations->componentBreakdown($project, $studentProfileId);
 
         // The total as the Lampiran prints it, plus the "out of" figure for the
         // part. Deliberately *not* the rescaled aggregate from `final_grades`:
         // that number exists for ranking students against each other and is not
         // a mark anybody awarded. See `EvaluationService::markShare()`.
-        $share = $this->evaluations->markShare($project);
+        $share = $this->evaluations->markShare($project, $studentProfileId);
 
         return $this->ok([
             'released'    => $released,

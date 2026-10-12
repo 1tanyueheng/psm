@@ -24,10 +24,12 @@ const SupervisorDashboard = lazy(() => import('./pages/supervisor/SupervisorDash
 const CoordinatorDashboard = lazy(() => import('./pages/coordinator/CoordinatorDashboard'))
 const MarkSubmissionPage = lazy(() => import('./pages/coordinator/MarkSubmissionPage'))
 const PanelWorkPage = lazy(() => import('./pages/panel/PanelWorkPage'))
+const LecturerDashboard = lazy(() => import('./pages/lecturer/LecturerDashboard'))
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 const UserListPage = lazy(() => import('./pages/admin/UserListPage'))
 const SemesterListPage = lazy(() => import('./pages/admin/SemesterListPage'))
 const RolloverPage = lazy(() => import('./pages/admin/RolloverPage'))
+const SectionManagementPage = lazy(() => import('./pages/admin/SectionManagementPage'))
 
 const ProjectListPage = lazy(() => import('./pages/projects/ProjectListPage'))
 const ProjectDetailPage = lazy(() => import('./pages/projects/ProjectDetailPage'))
@@ -144,6 +146,28 @@ export default function AppRoutes() {
               <RequireRole roles={['supervisor']}>
                 <PanelWorkPage />
               </RequireRole>
+            }
+          />
+          {/*
+            The lecturer's coursework screen — their whole application.
+
+            `/dashboard/lecturer`, not `/lecturer/dashboard`: the backend's
+            `Role::homeRoute()` returns this path in the login response, so a
+            lecturer signing in lands on the route the guard also protects.
+            Registering it under the other spelling would send them to a 404
+            they could only leave by typing a URL.
+
+            Guarded by capability rather than by role because an admin or
+            coordinator reaches the same screen to correct a mark — the API
+            permits both, resolving the section from the student's own
+            placement instead of from the session.
+          */}
+          <Route
+            path="/dashboard/lecturer"
+            element={
+              <RequireCapability capability="keyCoursework">
+                <LecturerDashboard />
+              </RequireCapability>
             }
           />
           <Route
@@ -280,6 +304,23 @@ export default function AppRoutes() {
             element={
               <RequireCapability capability="manageUsers">
                 <UserListPage />
+              </RequireCapability>
+            }
+          />
+
+          {/*
+            Teaching sections and their lecturers.
+
+            Readable by an admin or a coordinator (`viewAny` on Section), but
+            appointing a section's lecturer is admin-only, so the *page* is
+            gated on `manageSections` — a coordinator who could reach it would
+            see a form whose Save the server refuses.
+          */}
+          <Route
+            path="/admin/sections"
+            element={
+              <RequireCapability capability="manageSections">
+                <SectionManagementPage />
               </RequireCapability>
             }
           />

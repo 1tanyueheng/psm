@@ -48,6 +48,19 @@ class DatabaseSeeder extends Seeder
             // Module 4 — evaluations and computed grades
             EvaluationSeeder::class,
 
+            /**
+             * Module 1/4 — the four sections and their lecturers, plus the
+             * coursework marks that make up 35% of a PSM 1 result.
+             *
+             * After `EvaluationSeeder` on purpose. That seeder computes the PSM 1
+             * grades, and coursework only enters the aggregate once a
+             * `lecturer_marks` row exists — so running this first would compute
+             * every PSM 1 mark without the component and leave the seeded grades
+             * disagreeing with the seeded marks. The same ordering the real system
+             * has: a lecturer keys marks, the grade is recomputed afterwards.
+             */
+            LecturerMarkSeeder::class,
+
             // Module 3 — a small cohort with Lampiran A agreements driven through
             // the supervisor's acknowledgement and the panel's review, so the
             // registration queue is populated. It creates its own students rather

@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Spinner } from '../components/ui'
+import { homeRouteFor } from '../lib/permissions'
+import { EmptyState, Spinner } from '../components/ui'
 
 /**
  * Role-agnostic dashboard entry point.
@@ -24,5 +25,27 @@ export default function DashboardRouter() {
     return <Navigate to="/login" replace />
   }
 
-  return <Navigate to={homeRoute} replace />
+  /**
+   * Stop rather than redirect when this is already the role's own home.
+   *
+   * A role the build does not recognise falls back to `/dashboard` — which is
+   * this component. Navigating to ourselves would replace the history entry
+   * forever and the screen would never paint, so an account with an unknown
+   * role gets a sentence instead of a spinner that never resolves. That is
+   * strictly better than the previous behaviour, where the fallback was
+   * `/login` and `RedirectIfAuthenticated` bounced the user back here.
+   */
+  const target = homeRoute || homeRouteFor(role)
+
+  if (target === '/dashboard') {
+    return (
+      <EmptyState
+        title="No dashboard for this account"
+        message={`Your account has the role "${role}", which this version of the system `
+          + 'does not have a dashboard for. Ask an administrator to check your account.'}
+      />
+    )
+  }
+
+  return <Navigate to={target} replace />
 }

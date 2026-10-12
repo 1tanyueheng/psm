@@ -52,12 +52,30 @@ class UserResource extends JsonResource
                 'can_manage_rubrics'       => $this->hasRole('admin', 'coordinator'),
                 'is_student'               => $this->isStudent(),
                 'is_supervisor'            => $this->isSupervisor(),
+                'is_lecturer'              => $this->isLecturer(),
                 'is_coordinator'           => $this->isCoordinator(),
                 'is_admin'                 => $this->isAdmin(),
+                /**
+                 * Does this role work on PSM at all?
+                 *
+                 * False for a lecturer, who marks coursework for one section of a
+                 * service course and has no project, milestones, supervision,
+                 * panel or submission. `Role::worksOnPsm()` is the explanation;
+                 * this is the copy the SPA reads so it can omit those sections
+                 * rather than render them empty.
+                 */
+                'works_on_psm'             => $this->role->worksOnPsm(),
             ],
 
-            // Where this role's dashboard lives
-            'home' => $this->role->homeRoute(),
+            /**
+             * Where this role's dashboard lives.
+             *
+             * `home_route` — the same key the login response uses. It was `home`
+             * here and `home` there, while the SPA read `home_route` in both
+             * places, so the value never arrived and the client fell back to its
+             * own map. One name for one thing.
+             */
+            'home_route' => $this->role->homeRoute(),
 
             'student_profile'    => new StudentProfileResource($this->whenLoaded('studentProfile')),
             'supervisor_profile' => new SupervisorProfileResource($this->whenLoaded('supervisorProfile')),

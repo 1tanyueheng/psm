@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AssignmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EvaluationController;
 use App\Http\Controllers\Api\LeaderboardController;
+use App\Http\Controllers\Api\LecturerMarkController;
 use App\Http\Controllers\Api\MilestoneController;
 use App\Http\Controllers\Api\MilestoneScheduleController;
 use App\Http\Controllers\Api\NotificationController;
@@ -235,7 +236,48 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
             'label' => $p->label(),
             'short' => $p->shortLabel(),
         ])->all(),
-    ]))->middleware('role:admin,coordinator,supervisor,student')->name('programmes.index');
+    ]))->middleware('role:admin,coordinator,supervisor,student,lecturer')->name('programmes.index');
+
+    // -----------------------------------------------------------------
+    // Module 1/4 — Teaching sections and coursework marks
+    // -----------------------------------------------------------------
+    /**
+     * The lecturer's own screen.
+     *
+     * A lecturer is deliberately outside PSM: they mark coursework for one
+     * section of a service course and nothing else. These three routes are the
+     * whole of their access — the section is resolved from the session rather
+     * than from a parameter, so there is no id a lecturer could change to reach
+     * a colleague's roster.
+     *
+     * Admins and coordinators reach the same endpoints to correct a mark, which
+     * is why the role list is not `lecturer` alone.
+     */
+    Route::middleware('role:admin,coordinator,lecturer')->group(function () {
+        Route::get('lecturer/section', [LecturerMarkController::class, 'mySection'])
+            ->name('lecturer.section');
+        Route::get('lecturer/roster', [LecturerMarkController::class, 'roster'])
+            ->name('lecturer.roster');
+        Route::put('lecturer/students/{studentProfileId}/marks', [LecturerMarkController::class, 'saveMarks'])
+            ->name('lecturer.marks.save');
+
+        /**
+         * Section administration.
+         *
+         * The list is readable by a lecturer too — they need to know their own
+         * section's name — but the policy narrows `view()` to the section they
+         * own, and `manage()` / `assignStudents()` are admin and coordinator
+         * only. Migration of a student between sections is an admin decision.
+         */
+        Route::get('sections', [LecturerMarkController::class, 'index'])->name('sections.index');
+        Route::put('students/{studentProfileId}/section', [LecturerMarkController::class, 'assignStudent'])
+            ->name('students.section.assign');
+    });
+
+    // Appointing a section's lecturer is admin-only, per `SectionPolicy::manage()`.
+    Route::put('sections/{section}', [LecturerMarkController::class, 'update'])
+        ->middleware('role:admin')
+        ->name('sections.update');
 
     // -----------------------------------------------------------------
     // Module 2/3 — Registration flow (Lampiran A & B)

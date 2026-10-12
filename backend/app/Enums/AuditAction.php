@@ -77,6 +77,19 @@ enum AuditAction: string
     case MarkSubmissionAutoLocked   = 'mark_submission.auto_locked';
     case MarkSubmissionUnlocked     = 'mark_submission.unlocked';
 
+    /**
+     * Coursework marks keyed by a section lecturer.
+     *
+     * Audited with both sides of the change because these four numbers are 35%
+     * of a PSM 1 result. A correction months later is an appeal, and the trail
+     * has to answer "what did it say before, who changed it, and when" without
+     * anyone reconstructing it from memory.
+     */
+    case LecturerMarksRecorded = 'lecturer_marks.recorded';
+    // A section's lecturer, or a student's placement in one.
+    case SectionChanged        = 'section.changed';
+    case StudentSectionAssigned = 'section.student_assigned';
+
     // Reporting (Module 5)
     case ReportExported    = 'report.exported';
     case ReportViewed      = 'report.viewed';
@@ -168,7 +181,9 @@ enum AuditAction: string
             str_starts_with($this->value, 'milestone.')   => 'Projects & Milestones',
             str_starts_with($this->value, 'evaluation.'),
             str_starts_with($this->value, 'grade.'),
+            str_starts_with($this->value, 'lecturer_marks.'),
             str_starts_with($this->value, 'mark_submission.') => 'Evaluation & Grading',
+            str_starts_with($this->value, 'section.')     => 'Accounts & Profiles',
             str_starts_with($this->value, 'report.')      => 'Reporting',
             str_starts_with($this->value, 'leaderboard.') => 'Recognitions',
             str_starts_with($this->value, 'semester.')    => 'Semesters',

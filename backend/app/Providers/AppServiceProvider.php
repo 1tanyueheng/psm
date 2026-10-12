@@ -9,6 +9,8 @@ use App\Models\FinalGrade;
 use App\Models\Leaderboard;
 use App\Models\AssessmentWindow;
 use App\Models\MarkSubmission;
+use App\Models\LecturerMark;
+use App\Models\Section;
 use App\Models\Milestone;
 use App\Models\Project;
 use App\Models\SupervisionAssignment;
@@ -19,6 +21,8 @@ use App\Policies\FinalGradePolicy;
 use App\Policies\LeaderboardPolicy;
 use App\Policies\AssessmentWindowPolicy;
 use App\Policies\MarkSubmissionPolicy;
+use App\Policies\LecturerMarkPolicy;
+use App\Policies\SectionPolicy;
 use App\Policies\MilestonePolicy;
 use App\Policies\ProjectPolicy;
 use App\Policies\SemesterPolicy;
@@ -61,6 +65,8 @@ class AppServiceProvider extends ServiceProvider
         ArchivedProject::class       => ArchivePolicy::class,
         MarkSubmission::class        => MarkSubmissionPolicy::class,
         AssessmentWindow::class      => AssessmentWindowPolicy::class,
+        LecturerMark::class          => LecturerMarkPolicy::class,
+        Section::class               => SectionPolicy::class,
     ];
 
     public function register(): void

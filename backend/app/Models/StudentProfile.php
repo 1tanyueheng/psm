@@ -27,6 +27,7 @@ class StudentProfile extends Model
         'faculty',
         'current_semester',
         'academic_semester_id',
+        'section_id',
         'phone_emergency',
         'thesis_title',
         'thesis_abstract',
@@ -74,6 +75,23 @@ class StudentProfile extends Model
     public function academicSemester(): BelongsTo
     {
         return $this->belongsTo(AcademicSemester::class, 'academic_semester_id');
+    }
+
+    /**
+     * The teaching section this student is placed in.
+     *
+     * Independent of their PSM project and of their supervision: a section is a
+     * group on the service course that runs alongside PSM 1, and an admin sets
+     * it. A student's lecturer and their PSM supervisor are therefore different
+     * people in different roles, which is why this is a second relation rather
+     * than a flag on the supervision.
+     *
+     * Nullable: a student not on that course has none, and a section's roster
+     * simply omits them.
+     */
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(Section::class);
     }
 
     // -----------------------------------------------------------------

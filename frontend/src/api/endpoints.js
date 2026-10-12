@@ -109,6 +109,99 @@ export const profileApi = {
   me: () => api.get('/profile').then(unwrap),
 }
 
+// =====================================================================
+// Module 1/4 — teaching sections and coursework marks
+// =====================================================================
+/**
+ * The lecturer's coursework screen.
+ *
+ * A lecturer is deliberately outside PSM: they mark four coursework items for
+ * one section of a service course that runs alongside PSM 1, and nothing else
+ * in the system. The backend reflects that by resolving the section from the
+ * session rather than from a parameter — there is no section id in any of these
+ * calls, so there is no id for a caller to change and reach a colleague's
+ * roster. `section()` answers `null` for a lecturer the admin has not appointed
+ * yet, which is a normal state rather than an error.
+ */
+export const lecturerApi = {
+  /**
+   * The signed-in lecturer's own section, or `null` if they have none.
+   *
+   * Also reachable by admin and coordinator, who see the section of the person
+   * they are correcting rather than one of their own — which is why the screen
+   * treats `null` as "not appointed" rather than as a failure.
+   */
+  section: () => api.get('/lecturer/section').then(unwrap),
+
+  /**
+   * The roster: every student in the lecturer's section, each with their marks.
+   *
+   * `semester_id` matters more than it looks. A marks row is per student *per
+   * term*, so omitting the term does not mean "the current one" — it reads the
+   * rows where the term is null, which is a different set. The screen therefore
+   * always passes the term it is displaying.
+   */
+  roster: (params) => api.get('/lecturer/roster', { params }).then(unwrap),
+
+  /**
+   * Save one student's four coursework marks.
+   *
+   * A component may be `null` or omitted, and **that means "not entered" — not
+   * zero**. The two are genuinely different facts and the distinction is load
+   * bearing: four components become one weighted coursework component in the
+   * PSM 1 aggregate, so a row that is missing its quiz is treated by the server
+   * as an incomplete mark with no total at all, rather than as a student who
+   * scored nothing. Sending `0` would enter a real zero and fail them on that
+   * item, so the screen leaves an unkeyed box empty and sends `null`, never
+   * `0`, for it.
+   *
+   * Out-of-range or non-numeric values come back as a 422 with `message` and
+   * `errors`; the caller is expected to surface the server's message rather
+   * than substituting one of its own.
+   */
+  saveMarks: (studentProfileId, payload) =>
+    api.put(`/lecturer/students/${studentProfileId}/marks`, payload).then(unwrap),
+}
+
+/**
+ * Section administration — the other half of the coursework feature.
+ *
+ * An admin appoints each section's lecturer and places students into sections;
+ * a lecturer can read the list (they need their own section's name) but the
+ * server narrows what they see to the section they own.
+ */
+export const sectionApi = {
+  /**
+   * Every section, with its lecturer and roster size.
+   *
+   * Readable by admin, coordinator and lecturer alike — the policy narrows a
+   * lecturer's view to their own row rather than the route refusing them, so
+   * one call serves both screens.
+   */
+  list: (params) => api.get('/sections', { params }).then(unwrap),
+
+  /**
+   * Rename a section, appoint its lecturer, or move it to another term.
+   *
+   * Admin only, and the server refuses a lecturer who already owns a section:
+   * `User::lecturerSection()` returns a single section, so two rows pointing at
+   * one person would make which roster they may key depend on row order.
+   */
+  update: (id, payload) => api.put(`/sections/${id}`, payload).then(unwrap),
+
+  /**
+   * Place a student into a section, or remove them from one.
+   *
+   * Admin or coordinator. A lecturer is deliberately excluded: letting them add
+   * a student to their own roster would let them mark someone the faculty never
+   * placed with them. Passing `null` removes the student from their section.
+   */
+  assignStudent: (studentProfileId, sectionId) =>
+    api
+      .put(`/students/${studentProfileId}/section`, { section_id: sectionId ?? null })
+      .then(unwrap),
+}
+
 export const assignmentApi = {
   supervisions: (params) => api.get('/assignments/supervisions', { params }).then(unwrapPaged),
   assignSupervisor: (payload) => api.post('/assignments/supervisions', payload).then(unwrap),

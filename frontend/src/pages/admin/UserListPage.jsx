@@ -31,6 +31,12 @@ const ROLES = [
     hint: 'Supervises students, and may be seated on a panel. Needs a staff number.',
   },
   {
+    value: 'lecturer',
+    label: 'Lecturer',
+    hint: 'Marks coursework for one teaching section. Needs a staff number, and an '
+      + 'admin appoints them to a section afterwards.',
+  },
+  {
     value: 'coordinator',
     label: 'Coordinator',
     hint: 'Runs a batch: terms, allocation, assessment windows.',
@@ -90,6 +96,24 @@ function payloadFor(form) {
       academic_semester_id: form.academic_semester_id === ''
         ? undefined
         : Number(form.academic_semester_id),
+    }
+  }
+
+  /**
+   * A lecturer is academic staff with a staff number and no profile row, so the
+   * payload is the same as a supervisor's minus everything that belongs to
+   * supervision: no programme (that rule is about who may supervise, and a
+   * lecturer supervises nobody), no capacity, no expertise areas.
+   *
+   * Which section they own is set afterwards on the Sections screen, not here —
+   * appointing a lecturer to a section is a separate decision from creating the
+   * account, and the account is useful before it.
+   */
+  if (form.role === 'lecturer') {
+    return {
+      ...base,
+      staff_no: form.staff_no.trim(),
+      academic_title: form.academic_title.trim() || undefined,
     }
   }
 
@@ -681,6 +705,36 @@ function CreateUserPanel({
             </Field>
             <Field label="Faculty" htmlFor="new_faculty" errors={errors} field="faculty">
               <Input id="new_faculty" value={form.faculty} onChange={set('faculty')} maxLength={255} />
+            </Field>
+          </div>
+        )}
+
+        {/*
+          A lecturer shares the staff-number field with a supervisor, but nothing
+          else in that block: the programme, capacity and expertise fields all
+          describe supervision, and a lecturer supervises nobody. Showing them
+          would invite an admin to fill in values that are then discarded.
+        */}
+        {form.role === 'lecturer' && (
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field
+              label="Staff number"
+              htmlFor="new_staff_no"
+              required
+              errors={errors}
+              field="staff_no"
+              hint="Recorded once and used everywhere"
+            >
+              <Input id="new_staff_no" value={form.staff_no} onChange={set('staff_no')} maxLength={32} />
+            </Field>
+            <Field label="Academic title" htmlFor="new_academic_title" errors={errors} field="academic_title">
+              <Input
+                id="new_academic_title"
+                value={form.academic_title}
+                onChange={set('academic_title')}
+                maxLength={64}
+                placeholder="Dr."
+              />
             </Field>
           </div>
         )}

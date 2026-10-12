@@ -30,6 +30,17 @@ const MENU = [
       // from the people who supervise, so one account supervises its own
       // students and sits on the panel of someone else's.
       { to: '/panel/dashboard', label: 'My Panel Work', roles: ['supervisor'] },
+      /*
+       * The lecturer's one screen, and the lecturer's *only* entry.
+       *
+       * A lecturer marks coursework for one section of a service course that
+       * runs alongside PSM; they have no project, milestones, panel or
+       * submission of their own, so `Role::worksOnPsm()` is false for them and
+       * every PSM line below omits them. That is why a lecturer's sidebar has
+       * exactly one item: not a gap someone forgot to fill, but the whole of
+       * what the role does.
+       */
+      { to: '/dashboard/lecturer', label: 'Coursework Marks', roles: ['lecturer'] },
       { to: '/coordinator/dashboard', label: 'Cohort Overview', roles: ['coordinator', 'admin'] },
       { to: '/admin/dashboard', label: 'System Overview', roles: ['admin'] },
     ],
@@ -82,8 +93,16 @@ const MENU = [
   {
     group: 'Account',
     items: [
-      { to: '/notifications', label: 'Notifications', roles: ['student', 'supervisor', 'coordinator', 'admin'] },
-      { to: '/profile', label: 'My Profile', roles: ['student', 'supervisor', 'coordinator', 'admin'] },
+      /*
+       * The lecturer is listed here but *not* on any PSM surface above. These
+       * two are account features rather than PSM features — notifications are
+       * addressed to whoever holds the account, and a profile is how a password
+       * is changed — so a lecturer needs them for the same reason everybody
+       * does. `RequireAuth` rather than a role list is what actually guards the
+       * routes; this is the menu's copy of that.
+       */
+      { to: '/notifications', label: 'Notifications', roles: ['student', 'supervisor', 'lecturer', 'coordinator', 'admin'] },
+      { to: '/profile', label: 'My Profile', roles: ['student', 'supervisor', 'lecturer', 'coordinator', 'admin'] },
     ],
   },
 ]

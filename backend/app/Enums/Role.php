@@ -24,6 +24,7 @@ enum Role: string
 {
     case Student     = 'student';
     case Supervisor  = 'supervisor';
+    case Lecturer    = 'lecturer';
     case Coordinator = 'coordinator';
     case Admin       = 'admin';
 
@@ -32,19 +33,32 @@ enum Role: string
         return match ($this) {
             self::Student     => 'Student',
             self::Supervisor  => 'Supervisor',
+            self::Lecturer    => 'Lecturer',
             self::Coordinator => 'Coordinator',
             self::Admin       => 'System Administrator',
         };
     }
 
-    /** Landing route for this role's dashboard in the SPA. */
+    /**
+     * Landing route for this role's dashboard in the SPA.
+     *
+     * These must match the route table in `frontend/src/App.jsx` **exactly**.
+     * They were `/dashboard/{role}` for every role, which only the lecturer's
+     * route ever used — the other four are mounted at `/{role}/dashboard`. The
+     * paths were wrong for four roles and nobody noticed, because the login
+     * response sent this value under a key the client never read (`home` rather
+     * than `home_route`), so the SPA silently used its own map instead. Fixing
+     * the key exposed the drift; keeping the two in step is why the client map
+     * is now only a fallback.
+     */
     public function homeRoute(): string
     {
         return match ($this) {
-            self::Student     => '/dashboard/student',
-            self::Supervisor  => '/dashboard/supervisor',
-            self::Coordinator => '/dashboard/coordinator',
-            self::Admin       => '/dashboard/admin',
+            self::Student     => '/student/dashboard',
+            self::Supervisor  => '/supervisor/dashboard',
+            self::Lecturer    => '/dashboard/lecturer',
+            self::Coordinator => '/coordinator/dashboard',
+            self::Admin       => '/admin/dashboard',
         };
     }
 
@@ -56,10 +70,33 @@ enum Role: string
      * E / G / H) for their students, and the examiner's (Lampiran I / J) for the
      * students whose panel they sit on. Which one applies is decided by the
      * assessor type on the evaluation, not by the role.
+     *
+     * **A lecturer is deliberately absent.** A lecturer marks coursework —
+     * quizzes and assignments — for one section of a *service* course that runs
+     * alongside PSM. That is not a Lampiran, carries no rubric, and is keyed
+     * directly into `lecturer_marks`; it reaches the PSM 1 aggregate as a single
+     * weighted component, not as an evaluation row. Letting a lecturer assess
+     * would put them in every "pick an assessor" list in the system for a form
+     * they cannot meaningfully fill in.
      */
     public function canAssess(): bool
     {
         return in_array($this, [self::Supervisor, self::Coordinator], true);
+    }
+
+    /**
+     * Does this role work on PSM itself?
+     *
+     * A lecturer does not. They share a page with PSM students — the coursework
+     * component appears on a student's result — but they have no project,
+     * milestones, supervision, panel or submission of their own, and every PSM
+     * surface should treat them as an outsider rather than as staff who happen
+     * to have nothing assigned yet. Screens that would otherwise offer "your
+     * students" or "your projects" use this to omit the section entirely.
+     */
+    public function worksOnPsm(): bool
+    {
+        return $this !== self::Lecturer;
     }
 
     /** Roles that see cohort-wide analytics (Module 5). */
