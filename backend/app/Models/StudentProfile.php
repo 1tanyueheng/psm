@@ -251,10 +251,24 @@ class StudentProfile extends Model
     /**
      * Module 2 — how many more supervisors this student may be paired with.
      * The coordinator UI hides the "add supervisor" button at zero.
+     *
+     * Reads the eager-loaded relation when there is one. It used to call
+     * `activeSupervisions()->count()` unconditionally — correct, but one query
+     * per student, and `StudentProfileResource` renders this on every row of the
+     * admin user list. With 29 students that alone was 1.9 seconds of the 3.3
+     * the screen took, on a page that had already been fixed once for the same
+     * N+1 on the supervisor side.
+     *
+     * This is a display count, so the loaded relation is the right source. The
+     * allocation gate is a different question: `AssignmentService` reads the
+     * live rows, so a stale eager load can never authorise a pairing the
+     * capacity rule would refuse.
      */
     public function remainingSupervisorSlots(): int
     {
-        $used = $this->activeSupervisions()->count();
+        $used = $this->relationLoaded('activeSupervisions')
+            ? $this->activeSupervisions->count()
+            : $this->activeSupervisions()->count();
 
         return max(0, $this->max_supervisors - $used);
     }

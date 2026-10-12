@@ -42,8 +42,28 @@ class UserController extends ApiController
     {
         $this->authorize('viewAny', User::class);
 
+        /**
+         * Eager-load everything `UserResource` reads, including the relations
+         * *behind* the relations.
+         *
+         * `supervisorProfile` alone is not enough. The resource renders five
+         * capacity figures per supervisor — current load, remaining, utilisation,
+         * full, overloaded — and each is built on the supervisor's active
+         * supervisions. Without that relation loaded, every one of those five
+         * lazy-loaded it: 16 queries per supervisor row, 208 for the thirteen in
+         * the demo cohort, which took 12.5 seconds on the hosted database and
+         * timed out in the browser.
+         *
+         * Loading `activeSupervisions` turns those 16 into 1. `user` is nested
+         * because `SupervisorProfileResource` reads it for the name and email.
+         */
         $query = User::query()
-            ->with(['studentProfile', 'supervisorProfile'])
+            ->with([
+                'studentProfile.activeSupervisions',
+                'supervisorProfile.user',
+                'supervisorProfile.activeSupervisions',
+                'coordinatorScopes',
+            ])
             ->when($request->filled('role'), fn ($q) => $q->where('role', $request->input('role')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
             ->when($request->filled('search'), function ($q) use ($request) {
@@ -584,7 +604,29 @@ class UserController extends ApiController
         $users = User::query()
             ->active()
             ->withRole($role)
-            ->with(['supervisorProfile', 'studentProfile'])
+            /**
+             * The nested eager loads are what keep this endpoint fast.
+             *
+             * Everything below resolves per-supervisor capacity, and every one of
+             * those lookups walks the supervisor's active supervisions. Loading
+             * `supervisorProfile` alone left it lazy: thirteen supervisors cost
+             * 7.3 seconds, and the picker is fetched on the same screen as the
+             * user list, so the two together blew the browser's 30s budget.
+             */
+            ->with([
+                'supervisorProfile.user',
+                /**
+                 * The nested chain is the whole cost of this endpoint.
+                 *
+                 * Term-scoped load per supervisor walks supervision →
+                 * student → projects, so `activeSupervisions` alone is not
+                 * enough: without `studentProfile.projects` the filter
+                 * lazy-loads a query per supervisor to answer a display
+                 * question. Thirteen supervisors took 3.8 seconds.
+                 */
+                'supervisorProfile.activeSupervisions.studentProfile.projects',
+                'studentProfile.activeSupervisions',
+            ])
             ->orderBy('name')
             ->get()
             ->map(function (User $u) use ($role, $semesterId) {

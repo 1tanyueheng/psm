@@ -183,9 +183,27 @@ class SupervisorProfile extends Model
      * report has always shown. It is deliberately not the number the allocation
      * screen gates on — see hasCapacityFor().
      */
+    /**
+     * How many active supervisions this supervisor carries, across both parts.
+     *
+     * Reads the eager-loaded relation when one is present, the same way
+     * `currentLoadForPart()` does. It used to call `activeSupervisions()->count()`
+     * unconditionally, which is one query per supervisor — and because
+     * `remainingCapacity()`, `utilisationPercent()`, `isFull()` and
+     * `isOverloaded()` are all built on it, a single supervisor row in the admin
+     * user list cost **16 queries**. Thirteen supervisors made that 208 round
+     * trips, and on a hosted database at ~60ms each the screen took 12.5 seconds
+     * and timed out in the browser.
+     *
+     * The eager-loaded relation is safe here because this is a display count over
+     * rows the caller already fetched. The allocation gate is a different
+     * question and a different method: `hasCapacityFor()` reads
+     * `currentLoadForPartFromDatabase()`, precisely so a stale or absent eager
+     * load can never authorise an over-allocation.
+     */
     public function currentLoad(): int
     {
-        return $this->activeSupervisions()->count();
+        return $this->activeSupervisionsLoaded()->count();
     }
 
     /**
@@ -295,9 +313,59 @@ class SupervisorProfile extends Model
             return $this->currentLoadByPart();
         }
 
-        $inTerm = $this->activeSupervisions()
-            ->whereHas('studentProfile.projects', fn ($p) => $p->forSemester($semesterId)->live())
-            ->get();
+        /**
+         * Memoised per term.
+         *
+         * `isFullInSemester()` loops the parts and calls
+         * `remainingCapacityForPartInSemester()` for each, which calls this — so
+         * one supervisor's "is full" question walked the same relations twice
+         * over. With the filter below in memory that is only wasteful, but
+         * without an eager load it was two full query chains per supervisor.
+         */
+        if (isset($this->semesterLoadCache[$semesterId])) {
+            return $this->semesterLoadCache[$semesterId];
+        }
+
+        return $this->semesterLoadCache[$semesterId] = $this->computeLoadByPartInSemester($semesterId);
+    }
+
+    /** @var array<int, array<string, int>> */
+    protected array $semesterLoadCache = [];
+
+    /** @return array<string, int> */
+    protected function computeLoadByPartInSemester(int $semesterId): array
+    {
+        /**
+         * Filtered in memory when the relation is already loaded.
+         *
+         * The query below is correct but costs a round trip per supervisor, and
+         * the assignment picker asks for every supervisor at once — thirteen
+         * queries at ~60ms each, which is most of the 3.8 seconds that endpoint
+         * took. `SupervisorProfileResource` and the options list both eager-load
+         * `activeSupervisions`, so the filter runs over rows already in hand.
+         *
+         * The predicate is the same one the query expresses: a supervision counts
+         * against this term if the student's project for it is in the term and
+         * not archived. `forSemester` and `live` own those two conditions, and
+         * they are re-stated here rather than approximated — a looser filter
+         * would over-count and refuse an allocation the rule permits.
+         */
+        if ($this->relationLoaded('activeSupervisions')) {
+            $inTerm = $this->activeSupervisions->filter(function (SupervisionAssignment $a) use ($semesterId) {
+                $projects = $a->studentProfile?->projects;
+
+                if ($projects === null) {
+                    return false;
+                }
+
+                return $projects->contains(fn ($p) => $p->academic_semester_id === $semesterId
+                    && $p->archived_at === null);
+            });
+        } else {
+            $inTerm = $this->activeSupervisions()
+                ->whereHas('studentProfile.projects', fn ($p) => $p->forSemester($semesterId)->live())
+                ->get();
+        }
 
         $loads = [];
 
