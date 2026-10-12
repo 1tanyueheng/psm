@@ -88,6 +88,16 @@ const MENU = [
       { to: '/archive', label: 'Archive', roles: ['student', 'supervisor', 'coordinator', 'admin'] },
       { to: '/audit', label: 'Audit Log', roles: ['coordinator', 'admin'] },
       { to: '/users', label: 'User Accounts', roles: ['admin'] },
+      /*
+       * Teaching sections, and who lectures each one.
+       *
+       * Admin-only, matching `SectionPolicy::manage()` — appointing a section's
+       * lecturer is a faculty decision, and moving a student between sections is
+       * administrative. The route carries the same guard; this entry is what
+       * makes the screen discoverable, which it was not: it had a route and no
+       * link, so the only way in was to type the URL.
+       */
+      { to: '/admin/sections', label: 'Sections', roles: ['admin'] },
     ],
   },
   {
