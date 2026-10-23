@@ -113,6 +113,20 @@ class UserSeeder extends Seeder
          *
          * They are spread across the five programmes so each has supervisors,
          * which is what lets the pairing logic actually place the cohort.
+         *
+         * **Four per programme, deliberately.** A panel needs two examiners from
+         * the student's own programme, so a programme with one member of staff
+         * can never seat a panel at all, and a programme with two deadlocks the
+         * moment one of them supervises the student and the other is already
+         * seated. BIW was seeded with a single supervisor and BIM with two, which
+         * made those programmes unexaminable — correctly, under the programme
+         * rule, but with no way out. Four leaves one supervising, one examining,
+         * and two with room as the cohort grows.
+         *
+         * SUP-009 to SUP-014 are those additions. They start with no students
+         * and no panels: the point of adding them is that capacity exists to be
+         * allocated, and pre-loading them would hide whether the pairing screens
+         * actually work.
          */
         $supervisorData = [
             ['Dr.',  'Ahmad Faizal bin Hassan',  'SUP-001',  8,  ['Artificial Intelligence', 'Machine Learning', 'Data Mining'], 2, null, 'BIP'],
@@ -123,6 +137,22 @@ class UserSeeder extends Seeder
             ['Dr.',  'Nurul Aini binti Yusof',   'SUP-006',  8,  ['Database Systems', 'Big Data Analytics'], null, null, 'BIT'],
             ['Dr.',  'Wong Hui Ling',            'SUP-007',  6,  ['Computer Vision', 'Natural Language Processing', 'Machine Learning'], null, null, 'BIW'],
             ['Dr.',  'Muhammad Arif bin Zainal', 'SUP-008',  6,  ['Educational Technology', 'Healthcare Informatics'], null, null, 'BIS'],
+
+            // --- BIW: was one supervisor, so no panel could ever be formed ---
+            // Expertise is drawn only from the seeded `expertise_areas` table;
+            // an area that does not exist is silently dropped by the sync, so a
+            // plausible-sounding invention here would leave the profile empty
+            // and the workload report unable to match them to a topic.
+            ['Dr.',  'Nor Azlina binti Mokhtar', 'SUP-009',  6,  ['Web Development', 'User Experience Design', 'Software Engineering'], null, null, 'BIW'],
+            ['Ts.',  'Goh Chun Wei',             'SUP-010',  6,  ['Cybersecurity', 'Computer Networks', 'Cloud Computing'], null, null, 'BIW'],
+            ['Dr.',  'Saraswathy a/p Muniandy',  'SUP-011',  6,  ['Database Systems', 'Big Data Analytics', 'Machine Learning'], null, null, 'BIW'],
+
+            // --- BIM: two staff, both fully committed ---
+            ['Dr.',  'Izzat bin Kamaruddin',     'SUP-012',  6,  ['Mobile Computing', 'Human-Computer Interaction', 'Software Engineering'], null, null, 'BIM'],
+            ['Dr.',  'Ho Li Shan',               'SUP-013',  6,  ['Computer Vision', 'Machine Learning', 'Natural Language Processing'], null, null, 'BIM'],
+
+            // --- BIS: three, to match the others ---
+            ['Dr.',  'Faizal bin Ramlee',        'SUP-014',  6,  ['Cybersecurity', 'Digital Forensics', 'Computer Networks'], null, null, 'BIS'],
         ];
 
         $supervisors = [];
