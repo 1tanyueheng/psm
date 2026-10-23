@@ -574,10 +574,18 @@ class AssignmentService
          * violation surfaced to the coordinator as a crash rather than as the
          * sentence they could act on.
          *
-         * A retired seating is still a seating: re-seating the same examiner
-         * means reactivating that row, not creating a second one. So this
-         * branch reports it, and the caller is told to remove the existing
-         * allocation first — which is the action that actually works.
+         * A retired seating therefore has to be *reopened*, not refused. It used
+         * to throw with the advice "reopen it instead of adding a duplicate",
+         * which was bad advice: nothing in the interface reopens one, and
+         * `assignPair()` retires the current panel before seating the new one —
+         * so re-seating a pair that included a previously-retired examiner could
+         * never succeed, from any screen. The coordinator was told to do
+         * something that did not exist.
+         *
+         * The row is reused instead. Reactivating it keeps the unique indexes
+         * satisfied and preserves the original `id`, so the audit trail still
+         * shows one continuous relationship that was paused and resumed rather
+         * than two unrelated ones.
          */
         $existing = ExaminerAssignment::query()
             ->forStudent($student->id)
@@ -585,12 +593,9 @@ class AssignmentService
             ->where('psm_part', $psmPart)
             ->first();
 
-        if ($existing) {
+        if ($existing?->is_active) {
             throw new InvalidArgumentException(
-                $existing->is_active
-                    ? "{$examiner->name} is already on this student's panel."
-                    : "{$examiner->name} was previously on this student's panel and the allocation was "
-                        .'retired. Reopen it instead of adding a duplicate.'
+                "{$examiner->name} is already on this student's panel."
             );
         }
 
@@ -620,7 +625,37 @@ class AssignmentService
 
         $projectId = $student->projectForPart($psmPart)?->id;
 
-        return DB::transaction(function () use ($student, $examiner, $actor, $psmPart, $panelRole, $projectId) {
+        return DB::transaction(function () use ($student, $examiner, $actor, $psmPart, $panelRole, $projectId, $existing) {
+            /**
+             * A retired row is reopened, not re-inserted.
+             *
+             * The unique indexes do not ignore retired rows, so inserting would
+             * fail; and refusing — which this did before — left the coordinator
+             * with no way forward, because nothing in the interface reopens a
+             * retired panel. Reusing the row satisfies both indexes, keeps the
+             * original id so the audit trail reads as one relationship paused and
+             * resumed, and preserves the fact that this examiner has examined
+             * this student before.
+             */
+            if ($existing !== null) {
+                $existing->forceFill([
+                    'project_id'  => $projectId,
+                    'panel_role'  => $panelRole,
+                    'is_active'   => true,
+                    'assigned_by' => $actor->id,
+                ])->save();
+
+                $this->audit->log(
+                    action: AuditAction::SupervisorAssigned,
+                    description: "Examiner {$examiner->name} reopened on {$student->student_id}'s "
+                        ."{$psmPart} panel",
+                    subject: $existing,
+                    actor: $actor,
+                );
+
+                return $existing->fresh();
+            }
+
             /**
              * Catch the unique violation rather than let it escape.
              *
@@ -634,8 +669,7 @@ class AssignmentService
              *
              * A raw `23505` reached the coordinator as a crash mid-allocation.
              * Converting it into the same message the pre-check produces keeps
-             * the outcome honest whatever the table state is: the examiner is
-             * already seated, and the action is to reopen or remove that row.
+             * the outcome honest whatever the table state is.
              */
             try {
                 $assignment = ExaminerAssignment::create([
