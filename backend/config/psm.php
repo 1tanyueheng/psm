@@ -155,12 +155,28 @@ return [
      */
     'examiner_panel_size' => (int) env('EXAMINER_PANEL_SIZE', 2),
 
-    // Module 4 — no grade bands.
-    //
-    // The system releases a mark, not a grade. The forms it scores carry only
-    // part of the assessment (the remainder is marked outside the system), so
-    // the released total is not on a 0-100 scale and mapping it onto A/B/C
-    // bands would invent a grade the faculty never awarded.
+    /**
+     * Module 4/5 — the pass mark, and why there is now one.
+     *
+     * This used to read "no grade bands": the released total was not on a
+     * 0-100 scale, because the forms the system scored carried only part of the
+     * assessment and the remainder was marked outside it. Mapping a 0-65 figure
+     * onto A/B/C would indeed have invented a grade.
+     *
+     * That premise no longer holds. PSM 1 and PSM 2 both total exactly 100 —
+     * coursework 35 + Lampiran E 35 + Lampiran I 30, and G 50 + H1 5 + H2 5 +
+     * J 40 — so a released mark *is* a percentage, and asking whether it clears
+     * the faculty's pass mark is a meaningful question rather than a banding.
+     *
+     * A pass/fail split is not a letter grade. It names one boundary the faculty
+     * already applies, and reports need it: a cohort's pass rate is the first
+     * number anyone asks for, and it could not be computed at all while the
+     * system refused to have an opinion about 40.
+     *
+     * Configurable because it is a faculty regulation, not a constant of the
+     * code — if the boundary moves, this is the one place to change.
+     */
+    'pass_mark' => (float) env('PSM_PASS_MARK', 40),
 
     // Module 6 — Reminder schedule
     'reminder_days_before' => array_map(

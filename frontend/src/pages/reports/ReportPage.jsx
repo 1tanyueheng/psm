@@ -36,6 +36,9 @@ export default function ReportPage() {
   const [cohort, setCohort] = useState(null)
   const [stages, setStages] = useState([])
   const [ranges, setRanges] = useState([])
+  // The full distribution payload: `by_range` drives the bars, and the pass
+  // split below comes from the same response.
+  const [distribution, setDistribution] = useState(null)
   const [breakdown, setBreakdown] = useState([])
   const [workload, setWorkload] = useState([])
   const [loading, setLoading] = useState(true)
@@ -94,6 +97,15 @@ export default function ReportPage() {
             .filter((stage) => stage.count > 0)
         )
         setRanges(distRes.status === 'fulfilled' ? unwrap(distRes.value)?.by_range ?? [] : [])
+        /**
+         * The whole distribution payload, kept for the pass split.
+         *
+         * Only `by_range` was extracted before, which discarded `pass_rate`,
+         * `passed` and `failed` along with it — the numbers a report chapter
+         * needs most. Keeping the object means the pass figure and the
+         * distribution can never come from different responses.
+         */
+        setDistribution(distRes.status === 'fulfilled' ? unwrap(distRes.value) ?? null : null)
         setBreakdown(
           breakdownRes.status === 'fulfilled' ? unwrap(breakdownRes.value) ?? [] : []
         )
@@ -207,6 +219,34 @@ export default function ReportPage() {
           label="Mean mark"
           value={kpis.mean != null ? formatMark(kpis.mean) : '—'}
           hint={`${marks.total ?? 0} released`}
+        />
+        {/*
+          Pass rate, restored.
+
+          It is null rather than 0 when nothing has been released — "no results
+          yet" and "everybody failed" must not look the same on a report a
+          faculty member is reading. The hint names the boundary and the split,
+          because a bare percentage invites the question "out of how many?".
+        */}
+        <StatCard
+          label="Pass rate"
+          value={
+            distribution?.pass_rate != null
+              ? formatPercent(distribution.pass_rate)
+              : '—'
+          }
+          hint={
+            distribution?.pass_rate != null
+              ? `${distribution.passed} passed · ${distribution.failed} failed (pass mark ${distribution.pass_mark})`
+              : 'No released marks yet'
+          }
+          tone={
+            distribution?.pass_rate == null
+              ? 'neutral'
+              : distribution.failed > 0
+                ? 'warning'
+                : 'success'
+          }
         />
       </div>
 

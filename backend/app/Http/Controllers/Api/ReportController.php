@@ -213,16 +213,37 @@ class ReportController extends ApiController
             fputcsv($out, [
                 'Project Code', 'Title', 'Category', 'Student ID', 'Student Name',
                 'Program', 'Batch', 'PSM Part', 'Supervisor Score', 'Examiner Score',
-                'Aggregate %', 'Milestone %', 'Final Mark',
-                'Assessors', 'Status', 'Released At',
+                'Aggregate %', 'Milestone %', 'Final Mark', 'Status', 'Pass/Fail',
+                'Assessors', 'Released At',
             ]);
+
+            /**
+             * The pass mark is read once, from config, so the exported column
+             * and the on-screen pass rate are decided by the same number. A
+             * spreadsheet that disagrees with the screen is worse than no
+             * column at all: it is the artefact people forward to the faculty.
+             *
+             * A grade with no `final_mark` is left blank rather than marked
+             * "Fail" — no mark is not a failure, for the same reason
+             * `markDistribution()` excludes it from the rate.
+             *
+             * **This export includes provisional marks; the pass rate does
+             * not.** That is not an oversight and it is why `Status` travels
+             * beside the verdict. The screen's rate counts *released* results
+             * only, because a withheld mark is not a published one; this file
+             * is a working extract for a coordinator, who needs to see the
+             * provisional rows too. Anyone counting "Pass" here to check the
+             * rate must filter on `Status = released` — so the column ordering
+             * keeps `Status` adjacent to the verdict rather than at the end.
+             */
+            $passMark = (float) config('psm.pass_mark', 40);
 
             FinalGrade::query()
                 ->with(['project', 'studentProfile.user'])
                 ->forSemesterPart($semesterId, $psmPart)
                 ->when($batch, fn ($q) => $q->forBatch($batch))
                 ->orderByDesc('final_mark')
-                ->chunk(200, function ($grades) use ($out) {
+                ->chunk(200, function ($grades) use ($out, $passMark) {
                     foreach ($grades as $g) {
                         fputcsv($out, [
                             $g->project?->code,
@@ -238,8 +259,11 @@ class ReportController extends ApiController
                             $g->aggregate_percent,
                             $g->milestone_score,
                             $g->final_mark,
-                            $g->assessor_count,
                             $g->status,
+                            $g->final_mark === null
+                                ? ''
+                                : ((float) $g->final_mark >= $passMark ? 'Pass' : 'Fail'),
+                            $g->assessor_count,
                             $g->released_at?->toDateTimeString(),
                         ]);
                     }

@@ -460,13 +460,29 @@ class ReportingService
 
     /**
      * Distribution of released marks for a cohort, plus the stats a report
-     * chapter needs.
+     * chapter needs — and the pass rate.
      *
-     * Buckets are fixed mark ranges rather than letter grades. The system
-     * releases a mark and that mark is not on a 0-100 scale, so banding it into
-     * A/B/C would invent a grade. Ranges are descriptive, not evaluative.
+     * Buckets are still fixed mark ranges rather than letter grades: a released
+     * mark is a percentage (both PSM parts total 100), and A/B/C bands would be
+     * a grading scale the faculty has not published. A **pass/fail boundary** is
+     * a different thing — it is one line the faculty already applies, taken from
+     * `psm.pass_mark`, and without it a report cannot answer the first question
+     * anyone asks of a cohort.
      *
-     * @return array{distribution:array<string,int>, by_range:array, stats:array, total:int}
+     * `pass_rate` was removed when the system deliberately had no opinion about
+     * a pass mark, because the released total was not on a 0-100 scale so the
+     * line could not be drawn honestly. That changed when coursework completed
+     * PSM 1: both parts now total 100, so the line is meaningful again.
+     *
+     * Only *released* grades are counted. A withheld mark is not a fail — it is
+     * a mark nobody has been told yet, and counting it would understate the pass
+     * rate while also leaking the existence of a withheld result through the
+     * totals.
+     *
+     * @return array{
+     *   distribution:array<string,int>, by_range:array, stats:array, total:int,
+     *   pass_mark:float, passed:int, failed:int, pass_rate:?float
+     * }
      */
     public function markDistribution(
         ?string $batch = null,
@@ -518,6 +534,19 @@ class ReportingService
 
         $total = $grades->count();
 
+        /**
+         * The pass split.
+         *
+         * Computed over the marks that exist, not over `$total`: a released
+         * grade whose `final_mark` is null has no number to compare, and
+         * treating "no mark" as a fail would report a failure that was never
+         * awarded. The rate is therefore over `$marks->count()`, and is null
+         * rather than zero when there is nothing to divide.
+         */
+        $passMark = (float) config('psm.pass_mark', 40);
+        $passed = $marks->filter(fn (float $m) => $m >= $passMark)->count();
+        $failed = $marks->count() - $passed;
+
         $byRange = collect($ranges)
             ->map(fn (array $range) => [
                 'range'   => $range['key'],
@@ -535,6 +564,12 @@ class ReportingService
             'by_range'     => $byRange,
             'stats'        => $stats,
             'total'        => $total,
+            'pass_mark'    => $passMark,
+            'passed'       => $passed,
+            'failed'       => $failed,
+            'pass_rate'    => $marks->isNotEmpty()
+                ? round(($passed / $marks->count()) * 100, 1)
+                : null,
         ];
     }
 
