@@ -18,7 +18,9 @@ import { initials } from '../lib/format'
 // Menu definition
 // ---------------------------------------------------------------------
 // Grouped so the sidebar reads as a workflow rather than a flat list.
-// `roles` is the complete set allowed to see the item.
+// `roles` is the complete set allowed to see the item. `capability` is the
+// alternative: an item whose right to appear follows from something other than
+// the role — today only a section's lecturer, which a supervisor may also be.
 
 const MENU = [
   {
@@ -31,7 +33,7 @@ const MENU = [
       // students and sits on the panel of someone else's.
       { to: '/panel/dashboard', label: 'My Panel Work', roles: ['supervisor'] },
       /*
-       * The lecturer's one screen, and the lecturer's *only* entry.
+       * The lecturer's one screen, and — for a lecturer — their only entry.
        *
        * A lecturer marks coursework for one section of a service course that
        * runs alongside PSM; they have no project, milestones, panel or
@@ -39,8 +41,15 @@ const MENU = [
        * every PSM line below omits them. That is why a lecturer's sidebar has
        * exactly one item: not a gap someone forgot to fill, but the whole of
        * what the role does.
+       *
+       * `capability` rather than a longer role list, because the staff who
+       * lecture a section are usually supervisors who also supervise projects:
+       * they hold the supervisor role for the PSM lines above *and* the
+       * coursework screen, which no role list can express. `can()` unions the
+       * server's `extra_capabilities` with the static map, and the server
+       * decides whether the appointment exists at all.
        */
-      { to: '/dashboard/lecturer', label: 'Coursework Marks', roles: ['lecturer'] },
+      { to: '/dashboard/lecturer', label: 'Coursework Marks', roles: ['lecturer'], capability: 'keyCoursework' },
       { to: '/coordinator/dashboard', label: 'Cohort Overview', roles: ['coordinator', 'admin'] },
       { to: '/admin/dashboard', label: 'System Overview', roles: ['admin'] },
     ],
@@ -85,7 +94,22 @@ const MENU = [
     group: 'Insight',
     items: [
       { to: '/reports', label: 'Reports', roles: ['coordinator', 'admin'] },
-      { to: '/archive', label: 'Archive', roles: ['student', 'supervisor', 'coordinator', 'admin'] },
+      /*
+       * The Archive entry is hidden, not deleted.
+       *
+       * The faculty's decision is that the archive module is not needed: a
+       * student's project records already persist across terms without it
+       * (`Project::visibleTo()` filters on membership, not on term or
+       * `archived_at`), so the module was a second, richer copy of something the
+       * system already keeps. Hiding the entry stops it being offered while the
+       * route, the API and the stored records remain — nothing is destroyed, and
+       * restoring the line restores the feature.
+       *
+       * The `Audit Log` beside it is a different module (Module 7's second half)
+       * and stays: who changed what is a compliance record, not a retired
+       * feature.
+       */
+      // { to: '/archive', label: 'Archive', roles: ['student', 'supervisor', 'coordinator', 'admin'] },
       { to: '/audit', label: 'Audit Log', roles: ['coordinator', 'admin'] },
       { to: '/users', label: 'User Accounts', roles: ['admin'] },
       /*
@@ -117,24 +141,34 @@ const MENU = [
   },
 ]
 
-function visibleMenu(role) {
+/**
+ * The menu as this user sees it.
+ *
+ * An item is shown when the role list names the role, or when the item carries
+ * a `capability` and the user holds it. The second test is not redundant with
+ * the first: it is how an appointed supervisor gets the coursework screen
+ * without a supervisor *who teaches nothing* getting it too.
+ */
+function visibleMenu(role, can) {
   return MENU.map((section) => ({
     ...section,
-    items: section.items.filter((item) => item.roles.includes(role)),
+    items: section.items.filter(
+      (item) => item.roles.includes(role) || (item.capability && can(item.capability)),
+    ),
   })).filter((section) => section.items.length > 0)
 }
 
 // ---------------------------------------------------------------------
 
 export default function AppLayout() {
-  const { user, logout } = useAuth()
+  const { user, logout, can } = useAuth()
   const location = useLocation()
 
   const [unread, setUnread] = useState(0)
   const [pendingAcks, setPendingAcks] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const sections = visibleMenu(user?.role)
+  const sections = visibleMenu(user?.role, can)
 
   // --- Unread notification count ---------------------------------------
   // Refetched on navigation rather than polled: the user is the only thing
