@@ -455,6 +455,32 @@ export default function PanelAssignmentPage() {
                   a supervisor who is already full can still take a panel.
                 </p>
 
+                {/*
+                  An empty list is a dead end for the coordinator unless it says
+                  why. It happens for a real reason: a programme can have more
+                  students than staff, and the two staff it has are either the
+                  student's own supervisor or already seated. Nothing on this
+                  screen can fix that, so the message names the actual remedy —
+                  recording a programme on another staff member, or an admin
+                  stepping in — instead of leaving a blank dropdown.
+                */}
+                {(selected?.excluded_by_programme?.length ?? 0) > 0 && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+                    <p className="text-sm text-amber-900">
+                      {selected.excluded_by_programme.length} examiner
+                      {selected.excluded_by_programme.length === 1 ? '' : 's'} excluded — they
+                      belong to another programme, and a panel is drawn only from the student&apos;s
+                      own programme.
+                    </p>
+                    {options.length === 0 && (
+                      <p className="mt-1 text-sm text-amber-800">
+                        Nobody is left for {selected.student?.program_code}. Record a programme on
+                        another staff member, or ask an administrator to seat this panel.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex justify-end">
                   <Button disabled={saving || !canSave} onClick={save}>
                     {saving ? 'Seating…' : 'Seat the panel'}

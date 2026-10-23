@@ -592,10 +592,41 @@ class ExaminerPairingService
             $this->supervisingUserIds(collect([$student])),
         )));
 
+        /**
+         * Only examiners from the student's own programme are offered.
+         *
+         * This is the list the coordinator actually picks from, and it used to
+         * be every active supervisor — so choosing a name from it looked valid
+         * and failed on save with "…is on Bachelor of Computer Science
+         * (Multimedia Computing), but Ahmad Faizal bin Hassan supervises
+         * Bachelor of Computer Science (Software Engineering)". The rule was
+         * being enforced by refusal after the fact, which tells the admin
+         * nothing they can use: staff rows carry a programme, but nothing on
+         * the screen showed it, so there was no way to pick correctly.
+         *
+         * `canSuperviseProgramme()` is the same predicate
+         * `AssignmentService::assignExaminerToStudent()` uses, including its
+         * fail-open on an unrecorded programme, so this list offers exactly what
+         * the seating would accept — never more, never less.
+         */
         return User::query()
             ->where('role', 'supervisor')
             ->where('status', 'active')
             ->when($excluded !== [], fn ($q) => $q->whereNotIn('id', $excluded))
+            ->whereHas('supervisorProfile', function ($q) use ($student) {
+                $programme = Programme::tryParse($student->program_code);
+
+                // No programme on the student means no programme rule to apply,
+                // so everybody stays eligible — matching the fail-open the
+                // predicate itself documents.
+                if ($programme === null) {
+                    return;
+                }
+
+                $q->where(fn ($sub) => $sub
+                    ->whereNull('programme')
+                    ->orWhere('programme', $programme->value));
+            })
             ->with('supervisorProfile')
             ->orderBy('name')
             ->get();
@@ -718,9 +749,30 @@ class ExaminerPairingService
 
             $seatedIds = $seatedForPart->pluck('examiner_id')->all();
 
+            /**
+             * Who may actually be seated.
+             *
+             * Three conditions, and they must be the same three the seating
+             * itself enforces — this list is what the coordinator chooses from,
+             * so anything it offers that `assignExaminerToStudent()` would
+             * refuse is a trap: the picker looks valid, the save fails, and the
+             * message names a programme the admin had no way to know.
+             *
+             *  1. not this student's own supervisor (conflict of interest)
+             *  2. not already on their panel (the unique index)
+             *  3. **the examiner's own programme** — FSKTM pairs staff with
+             *     students from their own programme only.
+             *
+             * The third was missing. `programmeRefusal()` returns null when
+             * either side has no programme recorded, so this filter is exactly
+             * as permissive as the rule and no more: staff rows that predate the
+             * field still appear, and are still seated on demand.
+             */
             $eligible = $pool
                 ->reject(fn (User $u) => in_array($u->id, $supervisorUserIds, true)
                     || in_array($u->id, $seatedIds, true))
+                ->filter(fn (User $u) => $u->supervisorProfile
+                    ?->canSuperviseProgramme($student->program_code) ?? true)
                 ->values();
 
             return [
@@ -769,10 +821,39 @@ class ExaminerPairingService
                     'panel_role'  => $ea->panel_role,
                 ])->values(),
                 'eligible' => $eligible->map(fn (User $u) => [
-                    'examiner_id' => $u->id,
-                    'name'        => $u->displayName(),
-                    'staff_no'    => $u->supervisorProfile?->staff_no,
+                    'examiner_id'  => $u->id,
+                    'name'         => $u->displayName(),
+                    'staff_no'     => $u->supervisorProfile?->staff_no,
+                    /**
+                     * The programme, because it is the reason an examiner
+                     * appears here at all.
+                     *
+                     * Without it the picker was a bare list of names and the
+                     * coordinator had no way to see that everyone offered shares
+                     * the student's programme — the rule was enforced silently
+                     * by refusal rather than shown. Null means the staff row
+                     * predates the field, which the rule treats as "permitted",
+                     * so the UI says so rather than rendering an empty badge.
+                     */
+                    'programme'      => $u->supervisorProfile?->programme?->value,
+                    'programme_label'=> $u->supervisorProfile?->programme?->shortLabel(),
                 ])->values(),
+                /**
+                 * Who was left out for being from another programme, so the
+                 * screen can say "4 examiners excluded" instead of leaving the
+                 * coordinator wondering where a colleague went.
+                 */
+                'excluded_by_programme' => $pool
+                    ->reject(fn (User $u) => in_array($u->id, $supervisorUserIds, true)
+                        || in_array($u->id, $seatedIds, true))
+                    ->reject(fn (User $u) => $u->supervisorProfile
+                        ?->canSuperviseProgramme($student->program_code) ?? true)
+                    ->map(fn (User $u) => [
+                        'examiner_id'    => $u->id,
+                        'name'           => $u->displayName(),
+                        'programme'      => $u->supervisorProfile?->programme?->value,
+                        'programme_label'=> $u->supervisorProfile?->programme?->shortLabel(),
+                    ])->values(),
             ];
         })->values();
     }
