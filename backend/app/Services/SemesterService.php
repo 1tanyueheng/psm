@@ -430,8 +430,20 @@ class SemesterService
      *
      * @return array{
      *     total:int, complete:int, outstanding:int, published:int,
+     *     students:int, unallocated:int,
      *     marks_released:bool, by_part:array<string, array{total:int, complete:int, published:int}>
      * }
+     *
+     * `total` counts **mark submissions**, not students, and the two are not the
+     * same number: a submission only exists once a coordinator opens an
+     * assessment window, so a student with a project but no window behind them
+     * appears in neither `total` nor `complete`. The term card read that figure
+     * as though it were the cohort, so a term showing "5 / 12" beside "26
+     * students" looked like the system had lost fourteen people — when in fact
+     * nobody had allocated them yet.
+     *
+     * `students` and `unallocated` are reported alongside so the card can say
+     * which of the three states a term is really in.
      */
     public function marksState(AcademicSemester $semester): array
     {
@@ -468,11 +480,37 @@ class SemesterService
             $published += $partPublished;
         }
 
+        /**
+         * Students who hold a live project in this term, and how many of them
+         * have no submission opened.
+         *
+         * Counted from projects rather than from submissions, because that is
+         * the population the coordinator is responsible for. A student whose
+         * project exists but whose window was never opened is the case that was
+         * invisible: they are not "awaiting a form" (nothing was ever sent) and
+         * they are not "complete" — they simply have not been started.
+         */
+        $students = Project::query()
+            ->where('academic_semester_id', $semester->id)
+            ->whereNull('archived_at')
+            ->with('members')
+            ->get()
+            ->flatMap(fn (Project $p) => $p->members->pluck('student_profile_id'))
+            ->unique()
+            ->count();
+
+        $allocated = MarkSubmission::query()
+            ->where('academic_semester_id', $semester->id)
+            ->distinct()
+            ->count('student_profile_id');
+
         return [
             'total'          => $total,
             'complete'       => $complete,
             'outstanding'    => max(0, $total - $complete),
             'published'      => $published,
+            'students'       => $students,
+            'unallocated'    => max(0, $students - $allocated),
             'marks_released' => $published > 0,
             'by_part'        => $byPart,
         ];

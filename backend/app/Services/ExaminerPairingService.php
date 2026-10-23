@@ -730,8 +730,27 @@ class ExaminerPairingService
                     'name'       => $student->user?->name,
                     'batch'      => $student->batch,
                     'program'    => $student->program,
+                    /**
+                     * The programme *code*, so the panel screen can filter by it.
+                     *
+                     * `program` carries the full official name, which is right for
+                     * display and wrong for filtering: the same programme appears
+                     * under several legacy spellings ("Computer Science",
+                     * "Bachelor of Computer Science"), so a select built from
+                     * names would offer duplicate entries that filter to
+                     * different sets. The code is the value `Programme` compares.
+                     */
+                    'program_code' => $student->program_code,
                 ],
                 'psm_part' => $part,
+                /**
+                 * The configured panel size, sent so the screen can tell a
+                 * partial panel from a full one without assuming it is 2. The
+                 * same value drives the allocation cap in
+                 * `AssignmentService::assignExaminerToStudent()`, so the UI and
+                 * the rule cannot disagree about when a panel is full.
+                 */
+                'panel_size' => (int) config('psm.examiner_panel_size', 2),
                 'project'  => ($p = $student->projectForPart($part)) ? [
                     'id'   => $p->id,
                     'code' => $p->code,

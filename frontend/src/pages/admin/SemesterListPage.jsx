@@ -384,6 +384,15 @@ export default function SemesterListPage() {
                     arrives, so a term has nothing to release. What a
                     coordinator needs from this column is progress towards
                     closing the term, which is the completeness count.
+
+                    The denominator is *submissions*, not students, and the two
+                    differ: a submission only exists once an assessment window
+                    has been opened for that student. Reading "5 / 12" beside a
+                    cohort of 26 made it look as though fourteen students had
+                    been lost, when in fact nobody had allocated them. The
+                    unallocated count below is that missing population, named —
+                    it is the number a coordinator has to act on, because those
+                    students cannot be marked at all until a window is opened.
                   */}
                   <Td className="tabular-nums">
                     {row.marks ? (
@@ -395,6 +404,16 @@ export default function SemesterListPage() {
                         {row.marks.outstanding > 0 && (
                           <div className="text-xs text-amber-600">
                             {row.marks.outstanding} awaiting a form
+                          </div>
+                        )}
+                        {row.marks.unallocated > 0 && (
+                          <div className="text-xs text-rose-600">
+                            {row.marks.unallocated} not yet allocated
+                          </div>
+                        )}
+                        {row.marks.students > 0 && (
+                          <div className="text-xs text-slate-400">
+                            of {row.marks.students} students
                           </div>
                         )}
                       </>

@@ -12,6 +12,7 @@ use App\Models\StudentProfile;
 use App\Models\SupervisionAssignment;
 use App\Models\SupervisorProfile;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -557,16 +558,39 @@ class AssignmentService
             throw new InvalidArgumentException($refusal);
         }
 
+        /**
+         * Has this examiner already been seated on this student's panel?
+         *
+         * Deliberately does **not** filter `is_active`. There are two unique
+         * indexes on this table — `examiner_unique_per_student` on
+         * (student, examiner, part) and `examiner_unique_per_part` on
+         * (project, examiner, part) — and neither of them ignores retired rows.
+         * Retiring an examiner sets `is_active = false` but leaves the row in
+         * place, so the index still sees it.
+         *
+         * Filtering by `is_active` here made the pre-check miss a retired row,
+         * let the insert through, and the database refused it with
+         * `SQLSTATE[23505] ... examiner_unique_per_part` — a constraint
+         * violation surfaced to the coordinator as a crash rather than as the
+         * sentence they could act on.
+         *
+         * A retired seating is still a seating: re-seating the same examiner
+         * means reactivating that row, not creating a second one. So this
+         * branch reports it, and the caller is told to remove the existing
+         * allocation first — which is the action that actually works.
+         */
         $existing = ExaminerAssignment::query()
             ->forStudent($student->id)
             ->where('examiner_id', $examiner->id)
             ->where('psm_part', $psmPart)
-            ->where('is_active', true)
             ->first();
 
         if ($existing) {
             throw new InvalidArgumentException(
-                "{$examiner->name} is already on this student's panel."
+                $existing->is_active
+                    ? "{$examiner->name} is already on this student's panel."
+                    : "{$examiner->name} was previously on this student's panel and the allocation was "
+                        .'retired. Reopen it instead of adding a duplicate.'
             );
         }
 
@@ -597,15 +621,42 @@ class AssignmentService
         $projectId = $student->projectForPart($psmPart)?->id;
 
         return DB::transaction(function () use ($student, $examiner, $actor, $psmPart, $panelRole, $projectId) {
-            $assignment = ExaminerAssignment::create([
-                'project_id'         => $projectId,
-                'student_profile_id' => $student->id,
-                'examiner_id'        => $examiner->id,
-                'psm_part'           => $psmPart,
-                'panel_role'         => $panelRole,
-                'is_active'          => true,
-                'assigned_by'        => $actor->id,
-            ]);
+            /**
+             * Catch the unique violation rather than let it escape.
+             *
+             * The pre-checks above should make this unreachable, but there are
+             * two indexes guarding this table and they key on different columns:
+             * (student, examiner, part) and (project, examiner, part). A row
+             * whose `project_id` is null — which happens if a panel is seated
+             * before the student's project exists — satisfies the first index
+             * while the second sees no conflict, and the two can disagree again
+             * as data moves.
+             *
+             * A raw `23505` reached the coordinator as a crash mid-allocation.
+             * Converting it into the same message the pre-check produces keeps
+             * the outcome honest whatever the table state is: the examiner is
+             * already seated, and the action is to reopen or remove that row.
+             */
+            try {
+                $assignment = ExaminerAssignment::create([
+                    'project_id'         => $projectId,
+                    'student_profile_id' => $student->id,
+                    'examiner_id'        => $examiner->id,
+                    'psm_part'           => $psmPart,
+                    'panel_role'         => $panelRole,
+                    'is_active'          => true,
+                    'assigned_by'        => $actor->id,
+                ]);
+            } catch (QueryException $e) {
+                if (($e->errorInfo[0] ?? null) === '23505') {
+                    throw new InvalidArgumentException(
+                        "{$examiner->name} is already on this project's panel for {$psmPart}. "
+                        .'Reopen or remove the existing allocation before seating them again.'
+                    );
+                }
+
+                throw $e;
+            }
 
             $this->audit->log(
                 action: AuditAction::SupervisorAssigned,

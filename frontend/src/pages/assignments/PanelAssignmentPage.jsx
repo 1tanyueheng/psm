@@ -38,6 +38,22 @@ export default function PanelAssignmentPage() {
   const [notice, setNotice] = useState(null)
   const [search, setSearch] = useState('')
 
+  /**
+   * Filters, added because the matching table is one long list and the
+   * coordinator's job on this screen is a *search* task, not a browse.
+   *
+   * Three axes, chosen from what actually varies between students rather than
+   * from what was easy to compute: their programme (the rule a panel must
+   * respect anyway), their batch, and whether they still need a panel. The
+   * last is the one that saves the most time — a coordinator working through
+   * the queue only ever wants the students who are still unseated, and
+   * scrolling past finished ones is the whole cost of this screen.
+   */
+  const [filterProgramme, setFilterProgramme] = useState('')
+  const [filterBatch, setFilterBatch] = useState('')
+  const [filterPanel, setFilterPanel] = useState('')
+  const [filterPart, setFilterPart] = useState('')
+
   const [chair, setChair] = useState('')
   const [member, setMember] = useState('')
 
@@ -119,16 +135,52 @@ export default function PanelAssignmentPage() {
     return [...merged.values()].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
   }, [panel])
 
+  /**
+   * The distinct values worth offering, derived from the rows themselves.
+   *
+   * Built from the data rather than from a hardcoded list so a filter can never
+   * offer a choice that matches nothing, and so a new batch or programme
+   * appears without a code change. Sorted for a stable order between renders.
+   */
+  const filterOptions = useMemo(() => {
+    const collect = (pick) => [...new Set(matching.map(pick).filter(Boolean))].sort()
+
+    return {
+      programmes: collect((r) => r.student?.program_code),
+      batches: collect((r) => r.student?.batch),
+      parts: collect((r) => r.psm_part),
+    }
+  }, [matching])
+
   const visibleRows = useMemo(() => {
     const needle = search.trim().toLowerCase()
-    if (!needle) return matching
 
-    return matching.filter((row) =>
-      [row.student?.name, row.student?.student_id, row.project?.code]
+    return matching.filter((row) => {
+      if (filterProgramme && row.student?.program_code !== filterProgramme) return false
+      if (filterBatch && row.student?.batch !== filterBatch) return false
+      if (filterPart && row.psm_part !== filterPart) return false
+
+      // "Needs a panel" is the seat count against the configured panel size.
+      // The size travels on the row rather than being assumed to be 2, so this
+      // keeps working if the faculty ever changes it.
+      if (filterPanel === 'unseated' && (row.seated ?? []).length > 0) return false
+      if (filterPanel === 'seated' && (row.seated ?? []).length === 0) return false
+      if (filterPanel === 'incomplete') {
+        const size = row.panel_size ?? 2
+        const count = (row.seated ?? []).length
+        if (count === 0 || count >= size) return false
+      }
+
+      if (!needle) return true
+
+      return [row.student?.name, row.student?.student_id, row.project?.code]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(needle)),
-    )
-  }, [matching, search])
+        .some((value) => String(value).toLowerCase().includes(needle))
+    })
+  }, [matching, search, filterProgramme, filterBatch, filterPanel, filterPart])
+
+  const filtersActive =
+    filterProgramme || filterBatch || filterPanel || filterPart || search.trim()
 
   const canSave = chair !== '' && member !== '' && chair !== member
 
@@ -196,10 +248,98 @@ export default function PanelAssignmentPage() {
               }
             />
 
+            {/*
+              The filter bar.
+
+              Sits between the header and the table rather than inside it, so a
+              coordinator can narrow the list without losing sight of what is
+              filtered — and so the active state is obvious. The reset only
+              appears when something is actually applied; a permanently visible
+              "Clear" invites people to press it when nothing is filtered.
+            */}
+            <div className="flex flex-wrap items-end gap-3 border-t border-slate-100 px-5 py-3">
+              <div className="w-40">
+                <Select
+                  value={filterProgramme}
+                  onChange={(e) => setFilterProgramme(e.target.value)}
+                  aria-label="Filter by programme"
+                >
+                  <option value="">All programmes</option>
+                  {filterOptions.programmes.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </Select>
+              </div>
+
+              <div className="w-32">
+                <Select
+                  value={filterBatch}
+                  onChange={(e) => setFilterBatch(e.target.value)}
+                  aria-label="Filter by batch"
+                >
+                  <option value="">All batches</option>
+                  {filterOptions.batches.map((b) => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </Select>
+              </div>
+
+              <div className="w-36">
+                <Select
+                  value={filterPart}
+                  onChange={(e) => setFilterPart(e.target.value)}
+                  aria-label="Filter by PSM part"
+                >
+                  <option value="">PSM 1 and 2</option>
+                  {filterOptions.parts.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </Select>
+              </div>
+
+              <div className="w-44">
+                <Select
+                  value={filterPanel}
+                  onChange={(e) => setFilterPanel(e.target.value)}
+                  aria-label="Filter by panel status"
+                >
+                  <option value="">Any panel status</option>
+                  <option value="unseated">Needs a panel</option>
+                  <option value="incomplete">Panel incomplete</option>
+                  <option value="seated">Panel seated</option>
+                </Select>
+              </div>
+
+              <div className="ml-auto flex items-center gap-3">
+                <span className="text-xs tabular-nums text-slate-500">
+                  {visibleRows.length} of {matching.length}
+                </span>
+                {filtersActive && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      setSearch('')
+                      setFilterProgramme('')
+                      setFilterBatch('')
+                      setFilterPanel('')
+                      setFilterPart('')
+                    }}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </div>
+
             <DataTable
               columns={['Student', 'Cannot examine', 'Seated', 'Eligible', '']}
               rows={visibleRows}
-              empty="No students match that search."
+              empty={
+                matching.length === 0
+                  ? 'No students with a supervisor yet.'
+                  : 'No students match these filters.'
+              }
               render={(row) => (
                 <tr key={row.student.profile_id} className="border-t border-slate-100">
                   <Td>
