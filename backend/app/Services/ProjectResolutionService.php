@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Enums\AuditAction;
+use App\Enums\MarkSubmissionStatus;
 use App\Models\AcademicSemester;
 use App\Models\ExaminerAssignment;
+use App\Models\MarkSubmission;
 use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\SupervisionAssignment;
@@ -87,6 +89,39 @@ class ProjectResolutionService
         if ($outcome === self::OUTCOME_FAILED && trim((string) $reason) === '') {
             throw new InvalidArgumentException(
                 'A fail must record a reason. The student is entitled to know why they are repeating.'
+            );
+        }
+
+        /**
+         * The marks must be in and locked before there is anything to rule on.
+         *
+         * A verdict is a judgement *of the assessment*. Ruling while forms are
+         * still outstanding would decide a student's semester on a partial
+         * picture — and because a fail entitles them to repeat, it would do so
+         * irreversibly: the repeat closes the attempt and the missing form can
+         * never be filed against it.
+         *
+         * `MarkSubmissionStatus::Locked` is the same condition the lock gate
+         * itself sets, so "may this be resolved" and "is this finished" are one
+         * question rather than two that can disagree.
+         */
+        $submission = MarkSubmission::query()
+            ->where('project_id', $project->id)
+            ->where('student_profile_id', $project->leader()?->id)
+            ->where('psm_part', $project->psm_part)
+            ->first();
+
+        if ($submission === null) {
+            throw new InvalidArgumentException(
+                "{$project->code} has no mark submission, so there is nothing to resolve. "
+                .'Open the assessment window first.'
+            );
+        }
+
+        if ($submission->status !== MarkSubmissionStatus::Locked) {
+            throw new InvalidArgumentException(
+                "The marks for {$project->code} are not locked yet ({$submission->status->value}). "
+                .'A project cannot be given a verdict until every assessor has filed.'
             );
         }
 
@@ -248,6 +283,23 @@ class ProjectResolutionService
          * is failed.
          */
         if ($failed->psm_part === 'PSM1') {
+            /**
+             * A PSM 1 repeat also starts in a later term.
+             *
+             * The student files Lampiran A again, and Lampiran A is gated on a
+             * term with registration open — so the repeat needs a *new* term to
+             * register into, exactly as PSM 2 does. Refusing while the failed
+             * term is still running is the same rule, not a second one.
+             */
+            $failedTerm = AcademicSemester::find($failed->academic_semester_id);
+
+            if ($failedTerm !== null && ! $failedTerm->isClosed()) {
+                throw new InvalidArgumentException(
+                    "{$failedTerm->name} is still open. A repeat starts in a later term — "
+                    .'close this semester first.'
+                );
+            }
+
             if ($student->hasActiveProjectInSemester($failed->academic_semester_id, 'PSM1')) {
                 throw new InvalidArgumentException(
                     "{$student->student_id} already has a PSM 1 project in progress. "
@@ -281,11 +333,48 @@ class ProjectResolutionService
             );
         }
 
-        $term = AcademicSemester::current() ?? AcademicSemester::find($failed->academic_semester_id);
+        /**
+         * A repeat begins in the **next** term, never the failed one.
+         *
+         * The student did not pass, so their PSM 2 is not being extended — they
+         * are being given another attempt, and an attempt belongs to a term.
+         * Placing the repeat in the term that just failed them would put the
+         * same student in two PSM 2 projects in one term, which is exactly what
+         * `hasActiveProjectInSemester()` forbids and what the term itself has
+         * already been assessed against.
+         *
+         * This is also why the button cannot be pressed while the source term is
+         * still running: that term has not finished judging the attempt yet. The
+         * next attempt goes into whatever term follows — the live one once the
+         * old term has closed, which is the normal path.
+         */
+        $failedTerm = AcademicSemester::find($failed->academic_semester_id);
+
+        if ($failedTerm === null) {
+            throw new InvalidArgumentException(
+                "{$failed->code} has no academic term recorded, so the repeat term cannot be derived."
+            );
+        }
+
+        if (! $failedTerm->isClosed()) {
+            throw new InvalidArgumentException(
+                "{$failedTerm->name} is still open. A repeat starts in a later term — "
+                .'close this semester first.'
+            );
+        }
+
+        $term = AcademicSemester::current() ?? $this->nextTermAfter($failedTerm);
 
         if ($term === null) {
             throw new InvalidArgumentException(
-                'No academic term is available to place the repeat into. Create or activate one first.'
+                'No later academic term exists for the repeat. Create or activate one first.'
+            );
+        }
+
+        if ($term->id === $failedTerm->id) {
+            throw new InvalidArgumentException(
+                "{$failedTerm->name} is the term that was failed, so it cannot host the repeat. "
+                .'Activate the following term.'
             );
         }
 
@@ -357,6 +446,31 @@ class ProjectResolutionService
             ->whereHas('members', fn ($q) => $q->where('student_profile_id', $student->id))
             ->where('psm_part', 'PSM2')
             ->active()
+            ->first();
+    }
+
+    /**
+     * The term that follows this one, by start date.
+     *
+     * Ordered by when a term *begins* rather than by id: ids are insertion order,
+     * and a term created out of sequence would otherwise be "later" than one
+     * that actually runs after it. Returns null when the failed term is the last
+     * one on record, which the caller reports rather than inventing a term.
+     *
+     * `starts_at` is nullable on the table, so a term with no recorded start
+     * cannot be ordered — it is excluded rather than sorted to the front, where
+     * a null would otherwise become "the next term".
+     */
+    protected function nextTermAfter(AcademicSemester $term): ?AcademicSemester
+    {
+        if ($term->starts_at === null) {
+            return null;
+        }
+
+        return AcademicSemester::query()
+            ->whereNotNull('starts_at')
+            ->where('starts_at', '>', $term->starts_at)
+            ->orderBy('starts_at')
             ->first();
     }
 }
