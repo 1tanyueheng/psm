@@ -244,9 +244,37 @@ class StudentProfile extends Model
             return false;
         }
 
+        /**
+         * **This stays a project query, and that is deliberate.**
+         *
+         * The name says "active project" and the callers mean it: this is asked
+         * when deciding whether a student may *register* a project, and the
+         * answer it must give is "is there already a running project here".
+         * A student who is enrolled but has not registered has no project, so
+         * this correctly says no and registration proceeds — which is exactly
+         * what the enrolment row is for.
+         *
+         * `hasLiveEnrolment()` is the other question, and the one to reach for
+         * when asking whether a student already holds a place.
+         */
         return $this->projects()
             ->where('academic_semester_id', $semesterId)
             ->active()
+            ->when($psmPart !== null, fn ($q) => $q->where('psm_part', $psmPart))
+            ->exists();
+    }
+
+    /**
+     * Whether this student holds a live place in a part, in any term.
+     *
+     * The enrolment-level question, and the one registration and repeat actually
+     * need: a student who is enrolled but has not registered still occupies the
+     * place, and enrolling them again would double-count them.
+     */
+    public function hasLiveEnrolment(?string $psmPart = null): bool
+    {
+        return $this->enrolments()
+            ->whereIn('status', ['enrolling', 'active'])
             ->when($psmPart !== null, fn ($q) => $q->where('psm_part', $psmPart))
             ->exists();
     }

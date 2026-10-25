@@ -1,6 +1,6 @@
 # PROGRESS — PSM Assessment System (thesis + code)
 
-**Last updated:** 2026-10-25
+**Last updated:** 2026-10-26
 **Owner:** yuehe
 **Purpose:** the single file another agent (or you, next month) reads first to
 know exactly where this project stands.
@@ -249,6 +249,72 @@ local disk. `FILESYSTEM_DISK=s3`.
   only what the save would accept. Earlier the picker offered everyone and the
   save refused afterwards — a trap the coordinator could not avoid.
 
+### End of a project — verdicts, repeats, enrolments (2026-10-26)
+
+**This is the newest part of the model and the part most likely to be
+misunderstood. Read it before touching anything about "finishing" a project.**
+
+A project used to have no way of *ending*. `archived_at` was the closest thing,
+but archiving only hid a project — it never said whether the student passed, so
+nothing downstream could act on the result. `resolve()` supplies the missing
+step, and `student_enrolments` supplies the missing record.
+
+**A project has three end states.** `in_progress` / `submitted` = running;
+`completed` = passed; `failed` = repeat required. `archived_at` is **not** a
+lifecycle marker — it is not used for anything.
+
+| Piece | Where | What it does |
+|---|---|---|
+| `ProjectResolutionService::resolve()` | `backend/app/Services/` | Records pass/fail on one project, stores who/when/why in `metadata`, closes the supervision (if no other part is running) and frees the panel seats. **Refuses until the term's `MarkSubmission` is `locked`.** |
+| `ProjectResolutionService::repeat()` | same | Marks a failed attempt repeatable. Creates **nothing** and **guesses no term** — it opens an unplaced `enrolling` enrolment. |
+| `EnrolmentService` | `backend/app/Services/` | `enrol()` places a student into a part for a term; `openRepeat()` opens an attempt with no term; `placeRepeat()` gives it one; `withdraw()` is a deferral, **not** a failure. |
+| `student_enrolments` | migration `2026_10_26_000001` | One row per student × PSM part × semester, with `attempt_no`. |
+| `GET /api/projects/verdicts` | `ProjectController` | The committee's worklist — **both** parts, per project, with a `blocker` on every row that cannot be ruled on yet. |
+| `VerdictPage` (`/verdicts`) | `frontend/src/pages/coordinator/` | Filters (batch / outcome / free text), row actions **Pass** · **Fail…** (reason required) · **Start repeat**. |
+| `GET/POST /api/enrolments` | `EnrolmentController` | Cohort register; `/eligible` lists every student with a blocker; batch enrol; `/{id}/place`; `/{id}/withdraw`. |
+| `EnrolmentPage` (`/enrolments`) | `frontend/src/pages/admin/` | **Cohort** tab + **Awaiting a term** tab (unplaced repeats). |
+
+**Why enrolments exist — the bug that forced them.** A student's term used to
+live *only* on their project (`projects.academic_semester_id`); `student_profiles`
+had no term at all. Three consequences:
+
+1. **A repeat had to guess its term.** PSM 2 repeat created the new project in
+   `AcademicSemester::current()` or the next term by start date. When neither
+   resolved, the project was written with a **null** `academic_semester_id` — a
+   repeat recorded with no term behind it. *Observed, not theoretical.*
+2. **Attempts could not be counted.** Only repeats carried
+   `metadata.repeat_number`; the first attempt carried nothing.
+3. **Registration had nothing to attach to.** "May this student register?" was
+   answered by the *absence* of an active project — which is why removing the
+   archive module forced seven queries off `archived_at IS NULL` onto
+   `->active()`.
+
+Now the committee's decision opens an enrolment with **no term**, and the admin
+chooses the term on `/enrolments`. There is no code path that can invent one.
+
+**Enrolment states:** `enrolling` → `active` → `completed` | `failed` |
+`withdrawn`. `withdrawn` is **not** `failed` — a deferral is not an academic
+failure and must not read as one in a transcript or the analytics.
+
+**Two partial unique indexes, not `$table->unique()`:** placed rows are unique on
+(student, term, part); unplaced repeats are unique on (student, part), so a
+student cannot hold two waiting repeats of the same part.
+
+**Rules, all enforced server-side:**
+
+- A verdict is refused until marks are `locked` (a verdict commits a grade).
+- A repeat is refused until the failed term **is closed** (`isClosed()` =
+  `closed_at` set, or `is_active` false — **not** `ends_at`).
+- A repeat goes into a **later** term than the one failed.
+- A part already **completed** cannot be repeated.
+- Resolving twice is refused; a verdict is not overwritten silently.
+- PSM 1 repeat **creates no project** — the student re-files Lampiran A.
+- Nothing is deleted: a failed attempt keeps its marks and its enrolment row.
+
+**Worklists show blocked rows, never omit them.** Both `/verdicts` and
+`/enrolments/eligible` return every student with a `blocker` string. A student
+absent from a picker is unpickable *and* undebuggable.
+
 ### Recently fixed — do not regress these
 
 - **Panel re-seating works.** A retired seat (`is_active = false`) is
@@ -259,6 +325,12 @@ local disk. `FILESYSTEM_DISK=s3`.
 - **`open` on an assessment window is fast.** It walked every student with a
   full allocation; now it has a fast path, per-request caches, one shared rubric
   load, and a bulk timeout on the client. Worst case went 31s → ~10s.
+- **Duplicate supervision rows are gone.** The seeder's `updateOrCreate` keyed on
+  `psm_part`, but `ProgressionService::progress()` rewrites that column
+  `PSM1 → BOTH` — so every re-seed inserted another active pairing (22 duplicate
+  groups, 48 active rows). Now keyed on the pair only, plus a partial unique
+  index on `(student_profile_id, supervisor_profile_id) WHERE is_active`. Loads
+  halved for affected supervisors.
 - **The admin user list no longer times out.** Capacity getters each queried
   per row (16 queries per supervisor). They read the eager-loaded relation now;
   endpoints load the nested chain. 12.7s → 1.4s.
@@ -297,6 +369,7 @@ design read the sections above.
 | `ccd5a141` | 10-13 | **Vercel + Render deployment**; per-form assessment windows; export-403 fix; Supabase corrections |
 | `0ac8f6d1` | 10-19 → 23 | Digital Lampiran **A/B/C**; **Lampiran R1**; **0–5 mark entry**; **OSHE** placement; milestone-chain restructure |
 | *(this session)* | 10-25 | Lecturer role + coursework (PSM 1 → 100); programme rule actually enforced; performance fixes; pass rate; PROGRESS.md |
+| *(this session)* | 10-26 | Archive **removed** from the UI; duplicate supervision fixed; **verdict + repeat** lifecycle; **Form K** milestone; **student enrolments** (a student finally has a term of their own) |
 
 The transcripts are zstd-compressed and unreadable to a new agent. They are not
 a substitute for this file — read `git log --oneline` instead.

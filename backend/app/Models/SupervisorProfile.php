@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\Programme;
 use App\Enums\PsmPart;
+use App\Models\StudentEnrolment;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -344,27 +345,30 @@ class SupervisorProfile extends Model
          * took. `SupervisorProfileResource` and the options list both eager-load
          * `activeSupervisions`, so the filter runs over rows already in hand.
          *
-         * The predicate counts a supervision against this term when the
-         * student's project for it is **running** in that term — `forSemester`
-         * supplies the term and `active()` supplies "not yet resolved". It used
-         * to test `archived_at`, which meant a project the student had already
-         * failed still consumed a slot against this supervisor for ever: the
-         * retake was refused for capacity the student was no longer using.
+         * **The term now comes from the student's enrolment, not their project.**
+         * This used to walk `studentProfile.projects` and test `active()`, which
+         * was the best available answer when a project was the only thing that
+         * carried a term. It had two flaws that no amount of care could fix:
+         * a project the student had failed still counted for ever (the retake
+         * was then refused for capacity nobody was using), and a student who was
+         * *enrolled but not yet registered* — the normal state in the first
+         * weeks of a term — carried no slot at all, so the picker over-offered.
+         *
+         * An enrolment is exactly the record of "this student holds a place in
+         * this part, this term", from the moment the admin registers them until
+         * the attempt is settled. So the load is the number of live enrolments.
          */
         if ($this->relationLoaded('activeSupervisions')) {
             $inTerm = $this->activeSupervisions->filter(function (SupervisionAssignment $a) use ($semesterId) {
-                $projects = $a->studentProfile?->projects;
-
-                if ($projects === null) {
-                    return false;
-                }
-
-                return $projects->contains(fn ($p) => $p->academic_semester_id === $semesterId
-                    && ! $p->isFinished());
+                return $a->studentProfile?->enrolments
+                    ?->contains(fn (StudentEnrolment $e) => $e->academic_semester_id === $semesterId
+                        && $e->isLive());
             });
         } else {
             $inTerm = $this->activeSupervisions()
-                ->whereHas('studentProfile.projects', fn ($p) => $p->forSemester($semesterId)->active())
+                ->whereHas('studentProfile.enrolments', fn ($q) => $q
+                    ->where('academic_semester_id', $semesterId)
+                    ->whereIn('status', ['enrolling', 'active']))
                 ->get();
         }
 
