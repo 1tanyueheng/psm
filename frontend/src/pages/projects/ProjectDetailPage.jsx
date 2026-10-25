@@ -35,8 +35,6 @@ export default function ProjectDetailPage() {
   const [tab, setTab] = useState('milestones')
   const [progressing, setProgressing] = useState(false)
   const [progressError, setProgressError] = useState(null)
-  const [archiving, setArchiving] = useState(false)
-  const [archiveError, setArchiveError] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -91,20 +89,6 @@ export default function ProjectDetailPage() {
    * list.
    */
   const canOpenAssessment = isCoordinator && !project.archived_at
-
-  /**
-   * Archiving is offered on a live project only — once archived there is nothing
-   * left to do, and the service refuses a second record.
-   *
-   * Offered for **any** status rather than only `completed`. `ArchiveService`
-   * does not gate on status: it snapshots whatever is there. Blocking the
-   * button below `completed` would therefore be the interface inventing a rule
-   * the server does not have, and it would leave a coordinator unable to retire
-   * a project that was abandoned mid-term — which is a real thing that happens
-   * and currently has no other route. The confirmation names the status instead,
-   * so an early archive is a deliberate act rather than an accident.
-   */
-  const canArchive = isCoordinator && !project.archived_at
   const assessmentHref =
     `/assessment?semester_id=${project.academic_semester_id ?? ''}`
     + `&psm_part=${project.psm_part ?? ''}`
@@ -220,56 +204,6 @@ export default function ProjectDetailPage() {
               >
                 {progressing ? 'Progressing…' : 'Progress to PSM 2'}
               </Button>
-            )}
-
-            {canArchive && (
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                disabled={archiving}
-                onClick={async () => {
-                  /**
-                   * The confirmation names the status, because archiving is not
-                   * only for finished work: the service will freeze whatever is
-                   * there, so an in-progress project archived by mistake keeps
-                   * an incomplete snapshot.
-                   */
-                  const finished = project.status === 'completed'
-                  const go = window.confirm(
-                    `Archive ${project.code}?\n\n`
-                    + (finished
-                      ? ''
-                      : `This project is "${project.status}", not completed. The archived record `
-                        + 'will freeze it in its current state.\n\n')
-                    + 'A self-contained record is written — students, supervisors, examiners, '
-                    + 'milestones, files and the final mark, copied rather than referenced, so it '
-                    + 'stays readable even if the project is later changed.\n\n'
-                    + 'The live project is retired: it leaves the active lists and any supervision '
-                    + 'ending with it is closed.',
-                  )
-                  if (!go) return
-
-                  setArchiving(true)
-                  setArchiveError(null)
-                  try {
-                    await projectApi.archive(id, `Archived from the project screen by ${user?.name ?? 'a coordinator'}.`)
-                    // The status changed under us, so the page is reloaded rather
-                    // than patched: the header, the badges and every action below
-                    // depend on `archived_at`.
-                    await load()
-                  } catch (err) {
-                    setArchiveError(err?.message ?? 'That project could not be archived.')
-                  } finally {
-                    setArchiving(false)
-                  }
-                }}
-              >
-                {archiving ? 'Archiving…' : 'Archive project'}
-              </Button>
-            )}
-
-            {archiveError && (
-              <p className="rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-700">{archiveError}</p>
             )}
 
             {progressError && (

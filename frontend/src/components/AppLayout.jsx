@@ -95,19 +95,21 @@ const MENU = [
     items: [
       { to: '/reports', label: 'Reports', roles: ['coordinator', 'admin'] },
       /*
-       * The Archive is offered again, at the faculty's request.
+       * The Archive entry is hidden, not deleted.
        *
-       * It was hidden for a while on the reasoning that a student's project
-       * records already persist across terms, so the module was a second copy of
-       * something the system keeps anyway. That reasoning about *persistence* was
-       * right and is still right; what it missed is that the archive is not only
-       * a copy — it is the deliberate act of freezing a finished project, with a
-       * snapshot that stays readable even if the supervisor leaves and the rubric
-       * is rewritten. A live project row does not do that.
+       * The faculty's decision is that the archive module is not needed: a
+       * student's project records already persist across terms without it
+       * (`Project::visibleTo()` filters on membership, not on term or
+       * `archived_at`), so the module was a second, richer copy of something the
+       * system already keeps. Hiding the entry stops it being offered while the
+       * route, the API and the stored records remain — nothing is destroyed, and
+       * restoring the line restores the feature.
        *
-       * The `Audit Log` beside it is a different module and unchanged.
+       * The `Audit Log` beside it is a different module (Module 7's second half)
+       * and stays: who changed what is a compliance record, not a retired
+       * feature.
        */
-      { to: '/archive', label: 'Archive', roles: ['student', 'supervisor', 'coordinator', 'admin'] },
+      // { to: '/archive', label: 'Archive', roles: ['student', 'supervisor', 'coordinator', 'admin'] },
       { to: '/audit', label: 'Audit Log', roles: ['coordinator', 'admin'] },
       { to: '/users', label: 'User Accounts', roles: ['admin'] },
       /*
