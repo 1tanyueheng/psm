@@ -270,31 +270,15 @@ local disk. `FILESYSTEM_DISK=s3`.
   form). The Mark tab read `final_mark`, which is withheld from students; it now
   uses the breakdown, the same source the dashboard uses.
 
-### Archive
-
-**Active again.** The sidebar entry, the admin dashboard card, and an **Archive
-project** button on `/projects/{id}` (coordinator/admin).
-
-The module was briefly hidden on the reasoning that project records already
-persist across terms, so it was a duplicate. That was right about persistence and
-wrong about purpose: a live project row does not *freeze*. The archive writes a
-snapshot — students, supervisors, examiners, milestones, files, mark — copied
-rather than referenced, so it stays readable after the supervisor leaves and the
-rubric is reworked.
-
-- `POST /api/projects/{id}/archive` snapshots and retires the live project.
-- Offered for **any** status. `ArchiveService` does not gate on `completed`, so
-  disabling the button there would invent a rule the server lacks — and would
-  leave no way to retire an abandoned project. The confirmation names the status
-  instead.
-- Archiving twice is refused. A **student** is denied by policy.
-- `/archive` lists records; `/archive/{id}` reads one; `export.csv` and
-  `restore` (admin-only) exist.
-
 ### Removed / retired
 
-Nothing at present. The Archive module was hidden in October and restored on
-request; see above.
+- **Archive module is hidden from the UI** (sidebar + admin dashboard card).
+  Routes, API and records remain so it can be restored. Project records already
+  persist across terms without it: `Project::visibleTo()` filters on
+  *membership*, not term or `archived_at`, so a student in PSM 2 still sees
+  their PSM 1. Nothing in the system deletes a student's project.
+- **No Archive button on the project page** — there never was one; the API
+  exists but no UI calls it. Archiving is currently unreachable from the browser.
 
 ### Session history — how this got built
 
@@ -487,6 +471,9 @@ write into ./thesis/ and tell the user to copy across.
       `5e9874c3` contains it in plain text on disk. Revoke it at Supabase →
       Settings → Storage → S3 Access Keys. It is not the key `.env` uses, but it
       is still valid until revoked.
+- [ ] **There is no Archive button on the project page.** The API exists
+      (`POST /api/projects/{id}/archive`) but no UI calls it, so archiving is
+      unreachable from the browser. The module is otherwise hidden — see §3A.
 - [ ] **Section placement is seeded round-robin by matric order**, so the demo
       rosters are arbitrary — not a real allocation.
 - [ ] **`RUN_SEED=true` must be turned off before the cohort is real.**
