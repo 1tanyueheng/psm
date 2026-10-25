@@ -162,13 +162,11 @@ export default function AdminDashboard() {
             title="Rubric templates"
             description="Publish new versions for future cohorts"
           />
-          {/*
-            The "Project archive" card is removed with the module. The route
-            still exists, so leaving this card would have been a live link to a
-            feature the faculty has retired — the sidebar hides it, and a
-            dashboard shortcut that contradicts the sidebar is worse than either
-            choice on its own.
-          */}
+          <AdminLink
+            to="/archive"
+            title="Project archive"
+            description="Browse frozen records of completed projects"
+          />
           <AdminLink
             to="/audit"
             title="Audit trail"
