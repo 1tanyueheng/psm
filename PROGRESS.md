@@ -186,9 +186,54 @@ programme rule and a set of correctness fixes.
 - Entry screen: `/dashboard/lecturer`. Admin assigns sections and places
   students at `/admin/sections` (admin-only nav entry; coordinators may place
   students but not appoint lecturers).
-- **Not built:** CSV import of `matric,section`. Placement is manual, one
-  student at a time. The external registration portal is the system of record;
-  this system only mirrors the result.
+- **CSV import exists**: `POST /api/sections/import` takes `matric,section` as
+  an uploaded file *or* pasted text, and returns a per-row report —
+  `placed` / `unchanged` / `failed`, each with a line number and a reason. The
+  external registration portal is the system of record; this only mirrors the
+  result, so an unrecognised matric is reported rather than invented.
+  It must name a term when uploading, because section codes repeat per term.
+- Also available: `POST /api/sections/copy` (provision a term by copying the
+  previous term's sections in one click) and `GET /api/sections/lecturers`.
+
+### Marking — 0–5 entry, converted to the rubric weight
+
+Every Lampiran is keyed as a **0–5 select per criterion**, not as raw rubric
+marks. The system converts that to the form's own weight. Lampiran J still
+totals 40; the *entry scale* changed, the weighting did not.
+
+- Do not "fix" a 0–5 entry by printing it as a mark. `add_item_score_to_evaluation_scores`
+  stores the item score **beside** the converted marks, which is why both exist.
+- Lampiran **R1** is the supervisor's per-milestone response (Chapters 1–4 in
+  PSM 1 only; Chapters 5–6 in PSM 2 have none). Its two checkboxes decide
+  whether the milestone settles or goes back. **Its scores are evidence only and
+  never reach a grade** — the R1 is the review, not a document the student files.
+- Chapter milestones stay **open**; a student may resubmit at any time and
+  nothing closes at the deadline. The due date drives the at-risk report only.
+
+### Digital forms
+
+Lampiran **A, B, C** are first-class documents rendered in the app — not HTML
+files, not uploads. A signature is drawn in the browser (`SignaturePad`) and
+stored with the form, so the evidence attached to assessment is the form itself.
+
+- **OSHE** sits *after* Lampiran C on the milestone chain, not after the
+  proposal. Order matters: OSHE → Lampiran C → Chapters.
+- The panel's proposal verdict remains separate from the supervisor's R1.
+
+### Storage
+
+Uploads go to **Supabase Storage via its S3 endpoint**
+(`qvivcqtvaiambvlzlwts.storage.supabase.co/storage/v1/s3`, bucket `PSM`), not to
+local disk. `FILESYSTEM_DISK=s3`.
+
+- The disk is configured to **throw** rather than silently fall back to local —
+  a missing S3 config should fail loudly, not scatter files across a container
+  that is rebuilt on every deploy.
+- **Two Supabase projects exist and were confused once.** Production is the
+  **Singapore** project `qvivcqtvaiambvlzlwts` (`aws-0-ap-southeast-1`). An older
+  **Tokyo** project (`szxyhboqbbrndozwburd`) appears in early sessions. Check the
+  host in `.env` before debugging "wrong data" — you may be looking at the other
+  database. The demo cohorts differ (Singapore has 26 projects).
 
 ### Programme rule (FSKTM)
 
@@ -234,6 +279,33 @@ programme rule and a set of correctness fixes.
   their PSM 1. Nothing in the system deletes a student's project.
 - **No Archive button on the project page** — there never was one; the API
   exists but no UI calls it. Archiving is currently unreachable from the browser.
+
+### Session history — how this got built
+
+Seven sessions built the system between 2026-10-05 and 2026-10-25. Each resumed
+the previous one from a session zip, so the thread is continuous. **This table is
+provenance only** — for detail read the commit messages, and for the current
+design read the sections above.
+
+| Session | Date | Delivered |
+|---|---|---|
+| `b4752247` | 10-05 | HIRARC Excel form; Chapter 2 literature review; **all activity + sequence diagrams**; system renamed "PSM Assessment System" |
+| `cc9c882f` | 10-05 | Semester **close** function; marking rework so marks appear on submit; PSM 2 inherits the title |
+| `5e941af5` | 10-06 | Assessment / mark-release access, window selection, supervisor list in registration |
+| `5e9874c3` | 10-06 | **Storage → Supabase** (via R2 first); **database → Supabase**; file management off local disk |
+| `68331978` | 10-11 | Supervisee dashboard fix; **marking hidden until the coordinator opens the window**; file-management advice |
+| `ccd5a141` | 10-13 | **Vercel + Render deployment**; per-form assessment windows; export-403 fix; Supabase corrections |
+| `0ac8f6d1` | 10-19 → 23 | Digital Lampiran **A/B/C**; **Lampiran R1**; **0–5 mark entry**; **OSHE** placement; milestone-chain restructure |
+| *(this session)* | 10-25 | Lecturer role + coursework (PSM 1 → 100); programme rule actually enforced; performance fixes; pass rate; PROGRESS.md |
+
+The transcripts are zstd-compressed and unreadable to a new agent. They are not
+a substitute for this file — read `git log --oneline` instead.
+
+> **⚠️ A Supabase storage key was pasted in plain text** in session `5e9874c3`
+> and is stored unencrypted in `~\.dsh\sessions\`. It is **not** the key
+> `backend/.env` uses today, but a valid key is a valid key: revoke it in
+> Supabase → Settings → Storage → S3 Access Keys. Never paste credentials into
+> chat; put them in `.env`.
 
 ### Seeded demo accounts
 
@@ -395,9 +467,13 @@ write into ./thesis/ and tell the user to copy across.
 
 ### Codebase (2026-10-25)
 
-- [ ] **CSV import of `matric,section` is not built.** Placement is manual, one
-      student at a time on `/admin/sections`. At real cohort size this is the
-      main gap: a missed student silently never appears on any lecturer's roster.
+- [ ] **The exposed Supabase storage key has not been revoked.** Session
+      `5e9874c3` contains it in plain text on disk. Revoke it at Supabase →
+      Settings → Storage → S3 Access Keys. It is not the key `.env` uses, but it
+      is still valid until revoked.
+- [ ] **There is no Archive button on the project page.** The API exists
+      (`POST /api/projects/{id}/archive`) but no UI calls it, so archiving is
+      unreachable from the browser. The module is otherwise hidden — see §3A.
 - [ ] **Section placement is seeded round-robin by matric order**, so the demo
       rosters are arbitrary — not a real allocation.
 - [ ] **`RUN_SEED=true` must be turned off before the cohort is real.**
