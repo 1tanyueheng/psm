@@ -1,0 +1,25 @@
+paragraphs: 32 tables: 1 images: 2
+words: 896
+
+HEADINGS:
+   '4.1\tIntroduction'
+   '4.2\tUse Case Specification'
+   '4.3\tSequence Diagram'
+   '4.4\tActivity Diagram'
+   '4.5\tChapter Summary'
+
+CAPTIONS:
+   Table 4.3: Use Case Specification for Manage Milestone
+   Figure 4.5: Sequence Diagram for Manage Milestone
+   Figure 4.6: Activity Diagram for Manage Milestone
+
+SPEC ROWS:
+   Use Case ID -> UC-03
+   Use Case Name -> Manage Milestone
+   Actor -> Student (submit), Supervisor (review), Coordin
+   Description -> The system generates a milestone chain for a p
+   Pre-condition -> The project is registered and its milestone ch
+   Trigger -> The student uploads work to an open milestone,
+   Main Flow -> 1. The system generates the milestone chain wh
+   Alternative Flow -> A1. Milestone not open: the student cannot upl
+   Post-condition -> On approval, the milestone is approved with it

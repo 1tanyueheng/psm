@@ -1,0 +1,54 @@
+WORDS: 1668
+
+CITATION STRINGS: 9
+   ( 2022 )
+   ( 2023, August 15 )
+   ( 2025 )
+   ( Arumugam & Abd Ishak, 2025 )
+   ( Arumugam & Abd Ishak, 2025; Wan Fauzi & Alduais, 2025; Tam & Abdullah, 2025 )
+   ( CIO Wiki, 2023 )
+   ( NIST, 2022 )
+   ( Tam & Abdullah, 2025 )
+   ( Wan Fauzi & Alduais, 2025 )
+
+REFERENCES:
+    i. Arumugam, S., & Abd Ishak, S. (2025). A Web-Based FSKTM FYP Management S
+    ii. CIO Wiki. (2023, August 15). Web Application. CIO Wiki. https://cio-wik
+    iii. National Institute of Standards and Technology. (2022). Role-based acc
+    iv. Tam, J. H., & Abdullah, N. (2025). Development of Final Year Project Su
+    v. Wan Fauzi, W. N. F., & Alduais, N. A. M. (2025). Development of a Web-Ba
+
+HEADINGS:
+    '2.1\tIntroduction'
+    '2.2\tDomain Case Study: PSM Assessment System'
+    '2.3\tWeb Based System'
+    '2.4\tStudy of Existing Related Systems'
+    '2.5\tYour Proposed System'
+    '2.6\tComparison with the Existing Systems'
+    '2.7\tChapter Summary'
+
+STALE REFERENCES TO OLD SYSTEMS:
+   BookIT: 0
+   EMS: 0
+   MPP: 0
+   Event Management: 0
+   Room Reservation: 0
+   UTMH: 0
+
+TABLE:
+   rows: 15 cols: 5
+    ['Features', 'FFMS', 'PSM Supervision', 'Supervisor Selection', 'PSM Assessment System']
+    ['Domain', 'FYP management', 'PSM supervision', 'Supervisor matching', 'PSM assessment']
+    ['User Authentication', '✔', '✔', '✔', '✔']
+    ['Role-Based Access', '✔', '✔ but limit', '✔ but limit', '✔']
+    ['Supervisor Selection / Matching', '✖', '✔', '✔', '✔']
+    ['Capacity Enforcement', '✖', '✖', '✖ but limit', '✔']
+    ['Title Registration and Panel Decision', '✖', '✖', '✖', '✔']
+    ['Progress Tracking', '✔', '✔', '✖', '✔']
+    ['Milestone Chain and Gating', '✖', '✖', '✖', '✔']
+    ['File Submission Management', '✔ but limit', '✔ but limit', '✖', '✔']
+    ['Automated Weighted Marking', '✖', '✖', '✖', '✔']
+    ['Result Release after All Assessors', '✖', '✖', '✖', '✔']
+    ['Notifications and Reminders', '✔', '✔ but limit', '✔ but limit', '✔']
+    ['Reporting and Analytics', '✔', '✖', '✔ but limit', '✔']
+    ['User Acceptance Testing', '✔', '✔', '✔', '✔']

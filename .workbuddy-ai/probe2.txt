@@ -1,0 +1,16 @@
+﻿--- sectPr 0 --- (pos 19075)
+<w:sectPr w:rsidR="0051371D" w:rsidRPr="0051371D" w:rsidSect="0051371D"><w:pgSz w:w="11906" w:h="16838" w:code="9"/><w:pgMar w:top="1418" w:right="1418" w:bottom="1418" w:left="2268" w:header="708" w:footer="708" w:gutter="0"/><w:cols w:space="708"/><w:titlePg/><w:docGrid w:linePitch="360"/></w:sectPr>
+
+--- sectPr 1 --- (pos 85365)
+<w:sectPr w:rsidR="0051371D" w:rsidRPr="0051371D" w:rsidSect="0051371D"><w:pgSz w:w="16838" w:h="11906" w:orient="landscape" w:code="9"/><w:pgMar w:top="1418" w:right="1418" w:bottom="1843" w:left="1418" w:header="708" w:footer="708" w:gutter="0"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr>
+
+--- sectPr 2 --- (pos 87280)
+<w:sectPr w:rsidR="0051371D" w:rsidRPr="0051371D" w:rsidSect="0051371D"><w:pgSz w:w="11906" w:h="16838" w:code="9"/><w:pgMar w:top="1418" w:right="1418" w:bottom="1418" w:left="2268" w:header="708" w:footer="708" w:gutter="0"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr>
+
+--- sectPr 3 --- (pos 87720)
+<w:sectPr w:rsidR="004A2897" w:rsidRPr="0051371D" w:rsidSect="004D2CF4"><w:footerReference w:type="default" r:id="rId7"/><w:pgSz w:w="11906" w:h="16838" w:code="9"/><w:pgMar w:top="1418" w:right="1418" w:bottom="1418" w:left="2268" w:header="708" w:footer="708" w:gutter="0"/><w:pgNumType w:start="1"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr>
+
+=== footer1 stripped ===
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
+<w:ftr mc:Ignorable="w14 w15 w16se w16cid w16 w16cex w16sdtdh w16sdtfl w16du wp14"><w:sdt><w:sdtPr><w:id w:val="926698129"/><w:docPartObj><w:docPartGallery w:val="Page Numbers (Bottom of Page)"/><w:docPartUnique/></w:docPartObj></w:sdtPr><w:sdtEndPr><w:rPr><w:noProof/></w:rPr></w:sdtEndPr><w:sdtContent><w:p w14:paraId="1DAF75A4" w14:textId="77777777" w:rsidR="00DC4E61" w:rsidRDefault="00DC4E61"><w:pPr><w:pStyle w:val="Footer"/><w:jc w:val="center"/></w:pPr><w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> PAGE   \* MERGEFORMAT </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:rPr><w:noProof/></w:rPr><w:t>2</w:t></w:r><w:r><w:rPr><w:noProof/></w:rPr><w:fldChar w:fldCharType="end"/></w:r></w:p></w:sdtContent></w:sdt><w:p w14:paraId="6F40E3ED" w14:textId="77777777" w:rsidR="00ED09CC" w:rsidRPr="00A55016" w:rsidRDefault="00ED09CC" w:rsidP="00D151CE"><w:pPr><w:pStyle w:val="Footer"/><w:jc w:val="center"/><w:rPr><w:lang w:val="en-US"/></w:rPr></w:pPr></w:p></w:ftr>

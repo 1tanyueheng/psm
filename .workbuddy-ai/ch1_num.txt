@@ -1,0 +1,137 @@
+===== Heading 1 =====
+<w:style xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:w16cex="http://schemas.microsoft.com/office/word/2018/wordml/cex" xmlns:w16cid="http://schemas.microsoft.com/office/word/2016/wordml/cid" xmlns:w16="http://schemas.microsoft.com/office/word/2018/wordml" xmlns:w16du="http://schemas.microsoft.com/office/word/2023/wordml/word16du" xmlns:w16sdtdh="http://schemas.microsoft.com/office/word/2020/wordml/sdtdatahash" xmlns:w16sdtfl="http://schemas.microsoft.com/office/word/2024/wordml/sdtformatlock" xmlns:w16se="http://schemas.microsoft.com/office/word/2015/wordml/symex" w:type="paragraph" w:styleId="Heading1">
+  <w:name w:val="heading 1"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="Heading1Char"/>
+  <w:autoRedefine/>
+  <w:uiPriority w:val="9"/>
+  <w:qFormat/>
+  <w:rsid w:val="00EF0F85"/>
+  <w:pPr>
+    <w:keepNext/>
+    <w:numPr>
+      <w:numId w:val="1"/>
+    </w:numPr>
+    <w:tabs>
+      <w:tab w:val="clear" w:pos="4536"/>
+    </w:tabs>
+    <w:spacing w:beforeLines="710" w:before="1704" w:afterLines="200" w:after="480" w:line="480" w:lineRule="auto"/>
+    <w:ind w:left="0" w:right="113"/>
+    <w:jc w:val="center"/>
+    <w:outlineLvl w:val="0"/>
+  </w:pPr>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:b/>
+    <w:caps/>
+    <w:szCs w:val="32"/>
+  </w:rPr>
+</w:style>
+
+
+===== Heading 2 =====
+<w:style xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:w16cex="http://schemas.microsoft.com/office/word/2018/wordml/cex" xmlns:w16cid="http://schemas.microsoft.com/office/word/2016/wordml/cid" xmlns:w16="http://schemas.microsoft.com/office/word/2018/wordml" xmlns:w16du="http://schemas.microsoft.com/office/word/2023/wordml/word16du" xmlns:w16sdtdh="http://schemas.microsoft.com/office/word/2020/wordml/sdtdatahash" xmlns:w16sdtfl="http://schemas.microsoft.com/office/word/2024/wordml/sdtformatlock" xmlns:w16se="http://schemas.microsoft.com/office/word/2015/wordml/symex" w:type="paragraph" w:styleId="Heading2">
+  <w:name w:val="heading 2"/>
+  <w:aliases w:val="Level x.x UTHM"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="Heading2Char"/>
+  <w:autoRedefine/>
+  <w:uiPriority w:val="9"/>
+  <w:qFormat/>
+  <w:rsid w:val="00445566"/>
+  <w:pPr>
+    <w:keepNext/>
+    <w:keepLines/>
+    <w:numPr>
+      <w:ilvl w:val="1"/>
+      <w:numId w:val="3"/>
+    </w:numPr>
+    <w:tabs>
+      <w:tab w:val="clear" w:pos="8366"/>
+      <w:tab w:val="num" w:pos="144"/>
+      <w:tab w:val="left" w:pos="720"/>
+    </w:tabs>
+    <w:spacing w:afterLines="250" w:after="600"/>
+    <w:ind w:left="709" w:hanging="709"/>
+    <w:outlineLvl w:val="1"/>
+  </w:pPr>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:b/>
+    <w:szCs w:val="26"/>
+    <w:shd w:val="clear" w:color="auto" w:fill="F7F7F8"/>
+  </w:rPr>
+</w:style>
+
+
+===== Heading 3 =====
+<w:style xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:w16cex="http://schemas.microsoft.com/office/word/2018/wordml/cex" xmlns:w16cid="http://schemas.microsoft.com/office/word/2016/wordml/cid" xmlns:w16="http://schemas.microsoft.com/office/word/2018/wordml" xmlns:w16du="http://schemas.microsoft.com/office/word/2023/wordml/word16du" xmlns:w16sdtdh="http://schemas.microsoft.com/office/word/2020/wordml/sdtdatahash" xmlns:w16sdtfl="http://schemas.microsoft.com/office/word/2024/wordml/sdtformatlock" xmlns:w16se="http://schemas.microsoft.com/office/word/2015/wordml/symex" w:type="paragraph" w:styleId="Heading3">
+  <w:name w:val="heading 3"/>
+  <w:aliases w:val="Level x.x.x UTHM"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="Heading3Char"/>
+  <w:uiPriority w:val="9"/>
+  <w:semiHidden/>
+  <w:qFormat/>
+  <w:rsid w:val="008F438D"/>
+  <w:pPr>
+    <w:keepNext/>
+    <w:keepLines/>
+    <w:numPr>
+      <w:ilvl w:val="2"/>
+      <w:numId w:val="3"/>
+    </w:numPr>
+    <w:tabs>
+      <w:tab w:val="left" w:pos="720"/>
+    </w:tabs>
+    <w:spacing w:afterLines="200" w:after="200"/>
+    <w:outlineLvl w:val="2"/>
+  </w:pPr>
+  <w:rPr>
+    <w:rFonts w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi"/>
+    <w:b/>
+    <w:szCs w:val="24"/>
+  </w:rPr>
+</w:style>
+
+
+===== Paragraph First and Last =====
+<w:style xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:w16cex="http://schemas.microsoft.com/office/word/2018/wordml/cex" xmlns:w16cid="http://schemas.microsoft.com/office/word/2016/wordml/cid" xmlns:w16="http://schemas.microsoft.com/office/word/2018/wordml" xmlns:w16du="http://schemas.microsoft.com/office/word/2023/wordml/word16du" xmlns:w16sdtdh="http://schemas.microsoft.com/office/word/2020/wordml/sdtdatahash" xmlns:w16sdtfl="http://schemas.microsoft.com/office/word/2024/wordml/sdtformatlock" xmlns:w16se="http://schemas.microsoft.com/office/word/2015/wordml/symex" w:type="paragraph" w:customStyle="1" w:styleId="ParagraphFirstandLast">
+  <w:name w:val="Paragraph First and Last"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:autoRedefine/>
+  <w:qFormat/>
+  <w:rsid w:val="00D30C4D"/>
+  <w:pPr>
+    <w:spacing w:after="50"/>
+    <w:ind w:firstLine="709"/>
+    <w:jc w:val="both"/>
+  </w:pPr>
+</w:style>
+
+
+===== Caption =====
+<w:style xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:w16cex="http://schemas.microsoft.com/office/word/2018/wordml/cex" xmlns:w16cid="http://schemas.microsoft.com/office/word/2016/wordml/cid" xmlns:w16="http://schemas.microsoft.com/office/word/2018/wordml" xmlns:w16du="http://schemas.microsoft.com/office/word/2023/wordml/word16du" xmlns:w16sdtdh="http://schemas.microsoft.com/office/word/2020/wordml/sdtdatahash" xmlns:w16sdtfl="http://schemas.microsoft.com/office/word/2024/wordml/sdtformatlock" xmlns:w16se="http://schemas.microsoft.com/office/word/2015/wordml/symex" w:type="paragraph" w:styleId="Caption">
+  <w:name w:val="caption"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:uiPriority w:val="35"/>
+  <w:unhideWhenUsed/>
+  <w:qFormat/>
+  <w:rsid w:val="006311D3"/>
+  <w:pPr>
+    <w:spacing w:line="240" w:lineRule="auto"/>
+  </w:pPr>
+  <w:rPr>
+    <w:b/>
+    <w:iCs/>
+    <w:color w:val="4F81BD" w:themeColor="accent1"/>
+    <w:szCs w:val="18"/>
+  </w:rPr>
+</w:style>
+
+

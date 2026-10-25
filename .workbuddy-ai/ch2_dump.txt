@@ -1,0 +1,51 @@
+=== PARAGRAPHS: 32 | TABLES: 1 | SECTIONS: 4
+=== BODY ORDER ===
+[P000] style='Normal' runs=5 bold=True :: CHAPTER 2
+
+LITERATURE REVIEW
+[P001] style='Normal' runs=1 bold=True :: Introduction
+[P002] style='Normal' runs=1 bold=False :: This chapter aims to comprehensively review the literature relate
+[P003] style='Normal' runs=0 bold=False :: 
+[P004] style='Normal' runs=1 bold=True :: Domain Background
+[P005] style='Normal' runs=3 bold=False :: The concept of optimization is deeply rooted in the Latin term “optimus”, which signifies “the best” or “most 
+[P006] style='Normal' runs=0 bold=False :: 
+[P007] style='Normal' runs=1 bold=True :: Problem Study of Existing Related Systems
+[P008] style='Normal' runs=1 bold=False :: Optimization algorithms are commonly designed as iterative processes that generate and evaluate 
+[P009] style='Normal' runs=0 bold=False :: 
+[P010] style='Normal' runs=1 bold=True :: System 1
+[P011] style='Normal' runs=1 bold=False :: Metaheuristics are optimization strategies inspired by natural processes, designed to efficiently navigate large search spaces. Their adaptability, exploration-exploitation balance, 
+[P012] style='Normal' runs=0 bold=False :: 
+[P013] style='Normal' runs=1 bold=True :: System 2
+[P014] style='Normal' runs=1 bold=False :: The past decade has witnessed a surge in research related to hybrid metaheuristic algorithms, particularly in solving complex optimization problems across various domains such as CT, structural engineering, global optimization, and biomedical applications. These 
+[P015] style='Normal' runs=0 bold=False :: 
+[P016] style='Normal' runs=1 bold=True :: System 3
+[P017] style='Normal' runs=1 bold=False :: The past decade has witnessed a surge in research related to hybrid metaheuristic algorithms, particularly in solving complex optimization problems across various domains such as CT, structural engineering, global optimization, and biomedical applications. These 
+[P018] style='Normal' runs=0 bold=False :: 
+[P019] style='Normal' runs=0 bold=False :: 
+[P020] style='Normal' runs=0 bold=False :: 
+[P021] style='Normal' runs=0 bold=False :: 
+[P022] style='Normal' runs=14 bold=True :: Table 2.1: comparison table
+[TABLE 0] rows=13 cols=8
+    r0: ['Year', 'Algorithm', 'Hybrid Components', 'Hybrid Level', 'Mechanism', 'Application Domain', 'Parameter Tuning Needed', 'Relay or Teamwork Hybrid']
+    r1: ['2016', 'ACO–PSO ', 'Ant Colony + Particle Swarm Optimization', 'High', 'Parallel archive cooperation', 'Test suite generation', 'Yes', 'Teamwork']
+    r2: ['2017', 'TLBO–BA ', 'TLBO + Bat Algorithm', 'High', 'Alternating teacher and echo search', 'Engineering design', 'Yes', 'Teamwork']
+    r3: ['2018', 'SCCSA ', 'Sine Cosine Algorithm + Crow Search', 'Low', 'Operator fusion hybrid', 'Global numerical optimization', 'No', 'None']
+    r4: ['2019', 'HS–GA ', 'Harmony Search + Genetic Algorithm', 'Low', 'Embedded crossover in HS structure', 'Power systems optimization', 'Yes', 'None']
+    r5: ['2021', 'HHGSO ', 'HGSO + JAYA + BOA + OSA + STOA', 'High', 'Dynamic cluster-to-algorithm mapping', 'Team formation, CT', 'Yes', 'Teamwork']
+    r6: ['2022', 'ILS–VNS ', 'Iterated Local Search + VNS', 'High', 'Classic heuristic hybrid', 'Routing & logistics', 'Yes', 'Teamwork']
+    r7: ['2022', 'BWO–HBA ', 'Beluga Whale + Honey Badger Algorithm', 'High', 'Bio-inspired cooperative hybrid', 'Multi-objective optimization', 'Yes', 'Teamwork']
+    r8: ['2023', 'EHO–SCA ', 'Elephant Herding + Sine Cosine Algorithm', 'High', 'Dual-population with memory integration', 'Feature selection', 'Yes', 'Teamwork']
+    r9: ['2023', 'h-PSOGNDO ', 'PSO + GNDO', 'High', 'Layered hybrid with sampling strategy', 'Biomedical prediction', 'Yes', 'Teamwork']
+    r10: ['2024', 'HWGBO ', 'Whale Optimization + Gradient Feedback', 'High', 'Adaptive transfer with learning decay', 'Real-time system optimization', 'Yes', 'Relay']
+    r11: ['', '', '', '', '', '', '', '']
+    r12: ['2024', 'FFO ', 'Firefighter-based strategy (multi-source)', 'High', 'Social-cooperation-based search', 'Global optimization', 'No', 'Teamwork']
+[P023] style='Normal' runs=0 bold=False :: 
+[P024] style='Normal' runs=0 bold=False :: 
+[P025] style='Normal' runs=0 bold=False :: 
+[P026] style='Normal' runs=0 bold=False :: 
+[P027] style='Normal' runs=0 bold=False :: 
+[P028] style='Normal' runs=1 bold=True :: Chapter Summary
+[P029] style='Normal' runs=1 bold=False :: In conclusion, the literature review presented in this chapter has provided a comprehensive overview of C
+[P030] style='Normal' runs=0 bold=False :: 
+[P031] style='Normal' runs=0 bold=False :: 
+[SECTPR]

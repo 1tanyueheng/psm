@@ -1,0 +1,26 @@
+paragraphs: 32 tables: 1
+images: 2
+words: 864
+
+HEADINGS:
+   '4.1\tIntroduction'
+   '4.2\tUse Case Specification'
+   '4.3\tSequence Diagram'
+   '4.4\tActivity Diagram'
+   '4.5\tChapter Summary'
+
+CAPTIONS / FIGURES:
+   Table 4.1: Use Case Specification for Login and Authentication
+   Figure 4.1: Sequence Diagram for Login and Authentication
+   Figure 4.2: Activity Diagram for Login and Authentication
+
+SPEC TABLE ROWS:
+   Use Case ID -> UC-01
+   Use Case Name -> Login and Authentication
+   Actor -> Student, Admin, Supervisor, Lecturer, Panel, Coordinator, Sy
+   Description -> The user signs in with an email address and password. The sy
+   Pre-condition -> The user has a registered account in the system, and the acc
+   Trigger -> The user opens the Login page and submits their email and pa
+   Main Flow -> 1. The user opens the Login page. | 2. The user enters an emai
+   Alternative Flow -> A1. Input invalid: at step 4, the system displays an input e
+   Post-condition -> On success, the user holds a valid access token and is signe

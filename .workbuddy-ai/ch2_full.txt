@@ -1,0 +1,225 @@
+########## P000 style=Normal
+   run0: b=True i=None size=None name=None :: 'CHAPTER 2'
+   run1: b=True i=None size=None name=None :: '\n'
+   run2: b=True i=None size=None name=None :: '\n'
+   run3: b=True i=None size=None name=None :: ''
+   run4: b=True i=None size=None name=None :: 'LITERATURE REVIEW'
+
+########## P001 style=Normal
+   run0: b=True i=None size=None name=None :: 'Introduction'
+
+########## P002 style=Normal
+   run0: b=None i=None size=None name=None :: 'This chapter aims to comprehensively review the literature relate'
+
+########## P003 style=Normal
+
+########## P004 style=Normal
+   run0: b=True i=None size=None name=None :: 'Domain Background'
+
+########## P005 style=Normal
+   run0: b=None i=None size=None name=None :: 'The concept of optimization is deeply rooted in the Latin term “'
+   run1: b=None i=None size=None name=None :: 'optimus'
+   run2: b=None i=None size=None name=None :: '”, which signifies “the best” or “most '
+
+########## P006 style=Normal
+
+########## P007 style=Normal
+   run0: b=True i=None size=None name=None :: 'Problem Study of Existing Related Systems'
+
+########## P008 style=Normal
+   run0: b=None i=None size=None name=None :: 'Optimization algorithms are commonly designed as iterative processes that generate and evaluate '
+
+########## P009 style=Normal
+
+########## P010 style=Normal
+   run0: b=True i=None size=None name=None :: 'System 1'
+
+########## P011 style=Normal
+   run0: b=None i=None size=None name=None :: 'Metaheuristics are optimization strategies inspired by natural processes, designed to efficiently navigate large search spaces. Their adaptability, exploration-exploitation balance, '
+
+########## P012 style=Normal
+
+########## P013 style=Normal
+   run0: b=True i=None size=None name=None :: 'System 2'
+
+########## P014 style=Normal
+   run0: b=None i=None size=None name=None :: 'The past decade has witnessed a surge in research related to hybrid metaheuristic algorithms, particularly in solving complex optimization problems across various domains such as CT, structural engineering, global optimization, and biomedical applications. These '
+
+########## P015 style=Normal
+
+########## P016 style=Normal
+   run0: b=True i=None size=None name=None :: 'System 3'
+
+########## P017 style=Normal
+   run0: b=None i=None size=None name=None :: 'The past decade has witnessed a surge in research related to hybrid metaheuristic algorithms, particularly in solving complex optimization problems across various domains such as CT, structural engineering, global optimization, and biomedical applications. These '
+
+########## P018 style=Normal
+
+########## P019 style=Normal
+
+########## P020 style=Normal
+
+########## P021 style=Normal
+
+########## P022 style=Normal
+   run0: b=True i=None size=None name=None :: 'Table '
+   run1: b=True i=None size=None name=None :: ''
+   run2: b=True i=None size=None name=None :: ''
+   run3: b=True i=None size=None name=None :: ''
+   run4: b=True i=None size=None name=None :: '2'
+   run5: b=True i=None size=None name=None :: ''
+   run6: b=True i=None size=None name=None :: '.'
+   run7: b=True i=None size=None name=None :: ''
+   run8: b=True i=None size=None name=None :: ''
+   run9: b=True i=None size=None name=None :: ''
+   run10: b=True i=None size=None name=None :: '1'
+   run11: b=True i=None size=None name=None :: ''
+   run12: b=True i=None size=None name=None :: ': '
+   run13: b=None i=None size=None name=None :: 'comparison table'
+
+########## P023 style=Normal
+
+########## P024 style=Normal
+
+########## P025 style=Normal
+
+########## P026 style=Normal
+
+########## P027 style=Normal
+
+########## P028 style=Normal
+   run0: b=True i=None size=None name=None :: 'Chapter Summary'
+
+########## P029 style=Normal
+   run0: b=None i=None size=None name=None :: 'In conclusion, the literature review presented in this chapter has provided a comprehensive overview of C'
+
+########## P030 style=Normal
+
+########## P031 style=Normal
+
+
+
+===== STYLES IN USE =====
+  PARAGRAPH (1) :: Normal
+  PARAGRAPH (1) :: Heading 1
+  PARAGRAPH (1) :: Heading 2
+  PARAGRAPH (1) :: Heading 3
+  PARAGRAPH (1) :: Heading 4
+  PARAGRAPH (1) :: Heading 5
+  PARAGRAPH (1) :: Heading 6
+  PARAGRAPH (1) :: Heading 7
+  PARAGRAPH (1) :: Heading 8
+  PARAGRAPH (1) :: Heading 9
+  CHARACTER (2) :: Default Paragraph Font
+  TABLE (3) :: Normal Table
+  LIST (4) :: No List
+  CHARACTER (2) :: Heading 1 Char
+  CHARACTER (2) :: Heading 2 Char
+  CHARACTER (2) :: Heading 3 Char
+  CHARACTER (2) :: Heading 4 Char
+  CHARACTER (2) :: Heading 5 Char
+  CHARACTER (2) :: Heading 6 Char
+  CHARACTER (2) :: Heading 7 Char
+  CHARACTER (2) :: Heading 8 Char
+  CHARACTER (2) :: Heading 9 Char
+  CHARACTER (2) :: Hyperlink
+  PARAGRAPH (1) :: toc 1
+  PARAGRAPH (1) :: toc 2
+  TABLE (3) :: Table Grid
+  PARAGRAPH (1) :: Title
+  CHARACTER (2) :: Title Char
+  PARAGRAPH (1) :: Header
+  CHARACTER (2) :: Header Char
+  PARAGRAPH (1) :: Footer
+  CHARACTER (2) :: Footer Char
+  PARAGRAPH (1) :: List Paragraph
+  PARAGRAPH (1) :: toc 3
+  PARAGRAPH (1) :: Paragraph First Cont'd
+  CHARACTER (2) :: Paragraph First Cont'd Char
+  PARAGRAPH (1) :: Paragraph Upward and Last
+  PARAGRAPH (1) :: toc 4
+  PARAGRAPH (1) :: toc 5
+  PARAGRAPH (1) :: Caption
+  PARAGRAPH (1) :: table of figures
+  CHARACTER (2) :: Placeholder Text
+  PARAGRAPH (1) :: Abstract
+  CHARACTER (2) :: Abstract Char
+  PARAGRAPH (1) :: All Caps
+  CHARACTER (2) :: All Caps Char
+  PARAGRAPH (1) :: LOTF
+  TABLE (3) :: Table Grid1
+  PARAGRAPH (1) :: ACK
+  PARAGRAPH (1) :: VITAE
+  PARAGRAPH (1) :: References
+  PARAGRAPH (1) :: toc 6
+  PARAGRAPH (1) :: toc 7
+  TABLE (3) :: Table Grid2
+  CHARACTER (2) :: annotation reference
+  PARAGRAPH (1) :: annotation text
+  CHARACTER (2) :: Comment Text Char
+  PARAGRAPH (1) :: annotation subject
+  CHARACTER (2) :: Comment Subject Char
+  PARAGRAPH (1) :: Balloon Text
+  CHARACTER (2) :: Balloon Text Char
+  PARAGRAPH (1) :: Revision
+  CHARACTER (2) :: DeclareFormThesisTitle
+  CHARACTER (2) :: DeclareFormNormalText
+  PARAGRAPH (1) :: Style1
+  PARAGRAPH (1) :: Figure Location
+  PARAGRAPH (1) :: Caption for Figure
+  PARAGRAPH (1) :: Caption for Table
+  PARAGRAPH (1) :: Body Text
+  CHARACTER (2) :: Body Text Char
+  PARAGRAPH (1) :: Table Paragraph
+  PARAGRAPH (1) :: Paragraph First and Last
+  PARAGRAPH (1) :: DeclarationFont
+  TABLE (3) :: Plain Table 2
+  PARAGRAPH (1) :: ThesisTitle
+  PARAGRAPH (1) :: Table Location
+  PARAGRAPH (1) :: Caption for Equation Center
+  PARAGRAPH (1) :: Caption for Equation Right
+  PARAGRAPH (1) :: Paragraph Second Cont'd
+  CHARACTER (2) :: ts-alignment-element
+  CHARACTER (2) :: Unresolved Mention
+  PARAGRAPH (1) :: toc 8
+  PARAGRAPH (1) :: toc 9
+  PARAGRAPH (1) :: footnote text
+  CHARACTER (2) :: Footnote Text Char
+  CHARACTER (2) :: footnote reference
+  CHARACTER (2) :: FollowedHyperlink
+  PARAGRAPH (1) :: Normal (Web)
+  PARAGRAPH (1) :: Style2
+  PARAGRAPH (1) :: Normal Indent
+  PARAGRAPH (1) :: References List
+  TABLE (3) :: Table Grid11
+  TABLE (3) :: Light Shading1
+  PARAGRAPH (1) :: APPENDIX
+  CHARACTER (2) :: List Paragraph Char
+  PARAGRAPH (1) :: table col head
+  PARAGRAPH (1) :: table col subhead
+  PARAGRAPH (1) :: table copy
+  PARAGRAPH (1) :: table head
+  CHARACTER (2) :: Strong
+  CHARACTER (2) :: Emphasis
+  PARAGRAPH (1) :: bullet list
+  PARAGRAPH (1) :: m-0
+  PARAGRAPH (1) :: Caption for Equation UMP
+  CHARACTER (2) :: mord
+  CHARACTER (2) :: mopen
+  CHARACTER (2) :: mclose
+  CHARACTER (2) :: mpunct
+  CHARACTER (2) :: mrel
+  CHARACTER (2) :: vlist-s
+  PARAGRAPH (1) :: No Spacing
+  CHARACTER (2) :: No Spacing Char
+  TABLE (3) :: Table Grid3
+  TABLE (3) :: ThesisTable
+  TABLE (3) :: Table Grid4
+  TABLE (3) :: ThesisTable1
+
+
+===== SECTIONS =====
+  section 0: w=7560310 h=10692130 ml=1440180 mr=900430 mt=900430 mb=900430 start=NEW_PAGE (2)
+  section 1: w=10692130 h=7560310 ml=900430 mr=900430 mt=900430 mb=1170305 start=NEW_PAGE (2)
+  section 2: w=7560310 h=10692130 ml=1440180 mr=900430 mt=900430 mb=900430 start=NEW_PAGE (2)
+  section 3: w=7560310 h=10692130 ml=1440180 mr=900430 mt=900430 mb=900430 start=NEW_PAGE (2)

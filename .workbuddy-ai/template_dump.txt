@@ -1,0 +1,223 @@
+paras 349 tables 9
+[P009] Normal :: I,  hereby acknowledge and agrees to allow this Thesis to be kept by Universiti Tun Hussein Onn Malaysia’s Library in accordance with the following terms:
+[P010] Normal :: ** Should this Thesis be classified as CONFIDENTIAL or RESTRICTED, a copy of the pertinent agreement and/or an official letter from the relevant authority or or
+[P017] Normal :: I,
+[P019] Normal :: thesis has been examined on date  and is sufficient in fulfilling the scope and quality for the purpose of awarding the Degree of
+[P024] Normal :: A  submitted in A project report submitted in partial fulfilment of the requirement for the award of the Bachelor of Computer Science (Software Engineering) wit
+[P027] Normal :: Universiti Tun Hussein Onn Malaysia
+[P028] Normal :: I hereby declare that the work in this  is my own except for quotations and summaries which have been duly acknowledged
+[P035] toc 3 :: TITLE	i
+[P036] toc 3 :: STUDENT DECLARATION	ii
+[P037] toc 3 :: DEDICATION	iii
+[P038] toc 3 :: ACKNOWLEDGEMENT	iv
+[P039] toc 3 :: ABSTRACT	v
+[P040] toc 3 :: ABSTRAK	vi
+[P041] toc 3 :: CONTENTS	vii
+[P042] toc 3 :: LIST OF TABLES	ix
+[P043] toc 3 :: LIST OF FIGURES	x
+[P044] toc 3 :: LIST OF SYMBOLS AND ABBREVIATIONS	xii
+[P045] toc 3 :: LIST OF APPENDICES	xiii
+[P046] toc 1 :: CHAPTER 1	INTRODUCTION	1
+[P047] toc 2 :: 1.1	Introduction	1
+[P048] toc 2 :: 1.2	Problem Statement	1
+[P049] toc 2 :: 1.3	Objectives	1
+[P050] toc 2 :: 1.4	Research Scope	2
+[P051] toc 2 :: 1.5	Project Significance	3
+[P052] toc 2 :: 1.6	Thesis Outline	3
+[P053] toc 1 :: CHAPTER 2	LITERATURE REVIEW	5
+[P054] toc 2 :: 2.1	Introduction	5
+[P055] toc 2 :: 2.2	Domain Background	5
+[P056] toc 2 :: 2.3	Problem Study of Existing Related Systems	5
+[P057] toc 3 :: 2.3.1	System 1	5
+[P058] toc 3 :: 2.3.2	System 2	6
+[P059] toc 3 :: 2.3.3	System 3	6
+[P060] toc 2 :: 2.4	Chapter Summary	8
+[P061] toc 1 :: CHAPTER 3	METHODOLOGY	9
+[P062] toc 2 :: 3.1	Introduction	9
+[P063] toc 2 :: 3.2	Waterfall Model	9
+[P064] toc 4 :: 3.2.1	Phase 1: Literature Review	10
+[P065] toc 4 :: 3.2.2	Phase 2: Research Initiation and Planning	10
+[P066] toc 4 :: 3.2.3	Phase 3: Design the Proposed HMA-CV	11
+[P067] toc 4 :: 3.2.4	Phase 4: Develop the Proposed HMA-CV	11
+[P068] toc 4 :: 3.2.5	Phase 5: Performance Benchmarking and Analysis	11
+[P069] toc 2 :: 3.3	Chapter Summary	12
+[P070] toc 1 :: CHAPTER 4	 ANALYSIS AND DESIGN	13
+[P071] toc 2 :: 4.1	System Requirement Analysis	13
+[P072] toc 4 :: 4.1.1	Functional Requirement	13
+[P073] toc 4 :: 4.1.2	Non-Functional Requirement	14
+[P074] toc 4 :: 4.1.3	User Requirement Analysis	14
+[P075] toc 4 :: 4.1.4	Use Case Diagram	14
+[P076] toc 4 :: 4.1.5	Use Case Specification	14
+[P077] toc 4 :: 4.1.6	Class Diagram	14
+[P078] toc 4 :: 4.1.7	Chapter Summary	14
+[P079] toc 1 :: CHAPTER 5	 IMPLEMENTATION AND TESTING.	15
+[P080] toc 2 :: 5.1	System Implementation	15
+[P081] toc 2 :: 5.2	Discuss every modul	15
+[P082] toc 2 :: 5.3	Testing	15
+[P083] toc 4 :: 5.3.1	User Acceptance Testing	15
+[P084] toc 2 :: 5.4	Chapter Summary	15
+[P085] toc 1 :: CHAPTER 6	 conclusion	16
+[P086] toc 2 :: 6.1	Achievements of the Overall Objectives	16
+[P087] toc 2 :: 6.2	Recommandation	16
+[P088] toc 2 :: 6.3	Chapter Summary	16
+[P089] toc 1 :: REFERENCES	19
+[P090] toc 1 :: APPENDICES		37
+[P091] toc 1 :: PUBLICATION	39
+[P095] table of figures :: Table 2.1: 	Summary of Recent Hybrid Metaheuristic Algorithms	45
+[P096] table of figures :: Table 2.2: 	Characteristics of SCA, JAYA and TLBO	46
+[P097] table of figures :: Table 3.1:	Mapping of Research Questions with Experiment Focus	53
+[P098] table of figures :: Table 3.2: 	Parameter Tuning for HMA-CV	72
+[P099] table of figures :: Table 4.1: 	HMA-CV experiment 1 result for CA (N, t,210)	83
+[P100] table of figures :: Table 4.2: 	HMA-CV experiment 1 result for CA (N, 4,k5)	84
+[P101] table of figures :: Table 4.3: 	HMA-CV experiment 2 result for CA (N, 4,210)	99
+[P102] table of figures :: Table 4.4: 	HMA-CV experiment 2 result for CA (N, t, 37)	100
+[P103] table of figures :: Table 4.5: 	HMA-CV experiment 2 result for CA (N, 4, 5k)	100
+[P104] table of figures :: Table 4.6:  	HMA-CV experiment 4 result for CA (N, 4, 5p)	111
+[P105] table of figures :: Table 4.7: 	HMA-CV experiment 4 result for CA (N, t, 37)	113
+[P106] table of figures :: Table 4.8: 	HMA-CV experiment 5 result for CA (N, t, 210)	117
+[P107] table of figures :: Table 4.9:	HMA-CV experiment 5 result for CA (N, t, 37)	119
+[P108] table of figures :: Table 4.10:	HMA-CV experiment 5 result for CA (N, 4, 5k)	123
+[P115] Title :: LIST OF FIGURES
+[P116] table of figures :: Figure 1.1:	Mapping of research objectives (RO) and research questions (RQ)	7
+[P117] table of figures :: Figure 1.2:	Research Contributions	10
+[P118] table of figures :: Figure 2.1: 	All possible combinations and interactions pairs for CA (N, 2, 25)	21
+[P119] table of figures :: Figure 2.2: 	Full Test Suite for CA(N, 2, 25)	21
+[P120] table of figures :: Figure 2.3: 	Category of Population-Based Metaheuristic Algorithms	26
+[P121] table of figures :: Figure 2.4: 	Classification of hybrid metaheuristics (E. G. Talbi, 2016)	37
+[P122] table of figures :: Figure 2.5: 	Cluster Voting Mechanism	40
+[P123] table of figures :: Figure 3.1 : 	Research Design	51
+[P124] table of figures :: Figure 3.2: 	Cluster Voting Mechanism of HMA-CV Algorithm	56
+[P125] table of figures :: Figure 3.3: 	Proposed Combinatorial Testing strategy in HMA-CV	60
+[P126] table of figures :: Figure 3.4: 	Data Structure of CPL and IL	68
+[P127] table of figures :: Figure 3.5: 	The impact of varying population sizes and iteration counts on the average Final Test Suite (FTS) size across optimization runs	74
+[P128] table of figures :: Figure 3.6:	Average FTS Size vs. Population Size at 100 Iterations	75
+[P129] table of figures :: Figure 3.7:	Average FTS Size vs. Population Size at 50 Iterations	76
+[P130] table of figures :: Figure 4.1: 	Relationship Between Research Objectives, Research Questions, and Corresponding Experiments	80
+[P131] table of figures :: Figure 4.2: 	Comparison of HMA-CV with Other Algorithms on CA (N; t, 210) Across Interaction Strengths (t = 2 to 10)	86
+[P132] table of figures :: Figure 4.3: 	Bar Chart of Test Suite Sizes by Algorithm for CA (N, t, 2¹⁰) with Varying Interaction Strengths (t = 2 to 8)	87
+[P133] table of figures :: Figure 4.4: 	Test Suite Size Comparison for CA (N, 5,210)	88
+[P134] table of figures :: Figure 4.5: 	Test Suite Size Comparison for CA (N, 6,210)	89
+[P135] table of figures :: Figure 4.6: 	Test Suite Size Comparison for CA (N, 7,210)	90
+[P136] table of figures :: Figure 4.7: 	Test Suite Size Comparison for CA (N, 8,210)	91
+[P137] table of figures :: Figure 4.8: 	Performance of HMA-CV against traditional algorithms	92
+[P138] table of figures :: Figure 4.9: 	Bar Chart of Test Suite Sizes by Algorithm for CA (N, 4, 5k) with Varying Parameter Number (k = 8 to 10)	93
+[P139] table of figures :: Figure 4.10: 	Test Suite Size Comparison for CA (N, 4,58)	93
+[P140] table of figures :: Figure 4.11: 	Test Suite Size Comparison for CA (N, 4,59)	94
+[P141] table of figures :: Figure 4.12: 	Test Suite Size Comparison for CA (N, 4,510)	95
+[P142] table of figures :: Figure 4.13: 	HMA-CV against constituent’s algorithms at CA (N, t, 210)	97
+[P143] table of figures :: Figure 4.14: 	Box plot CA (N, 7, 210)	98
+[P144] table of figures :: Figure 4.15: 	HMA-CV against constituent’s algorithms at CA (N, t, 37)	101
+[P145] table of figures :: Figure 4.16: 	Box plot CA (N, 5, 37)	102
+[P146] table of figures :: Figure 4.17: 	HMA-CV against constituent’s algorithms at CA (N; 4, 5k)	104
+[P147] table of figures :: Figure 4.18: 	Execution time analysis of HMA-CV against constituent’s algorithms at CA (N; t, 210)	106
+[P148] table of figures :: Figure 4.19: 	Execution time analysis of HMA-CV against constituent’s algorithms at CA (N; t, 37)	107
+[P149] table of figures :: Figure 4.20: 	Execution time analysis of HMA-CV against constituent’s algorithms at CA (N; 4, 5k)	109
+[P150] table of figures :: Figure 4.21: 	HMA-CV against BAPSO at CA (N, 4, 5p)	112
+[P151] table of figures :: Figure 4.22: 	HMA-CV against BAPSO at CA (N, t, 37)	114
+[P152] table of figures :: Figure 4.23:	Execution time analysis of HMA-CV and other combinations algorithms at CA (N, t, 210)	118
+[P153] table of figures :: Figure 4.24: 	HMA-CV and other combinations algorithms at CA (N, t, 37)	120
+[P154] table of figures :: Figure 4.25: 	Execution time analysis of HMA-CV and other combinations algorithms at CA (N, t, 37)	121
+[P155] table of figures :: Figure 4.26: 	HMA-CV and other combinations algorithms at CA (N, 4, 5k)	124
+[P156] table of figures :: Figure 4.27:	Execution time analysis of HMA-CV and other combinations algorithms at CA (N, 4, 5k)	125
+[P160] Title :: LIST OF SYMBOLS AND ABBREVIATIONS
+[P168] Heading 1 :: INTRODUCTION
+[P169] Heading 2 :: Introduction
+[P170] Normal :: Software and hardware are fundamental components that underpin the evolution of modern computer technologies.
+[P172] Heading 2 :: Problem Statement
+[P173] Normal :: Yskdfmlkksdmflksmdfklsmd
+[P175] Heading 2 :: Objectives
+[P176] Normal :: To resolve the problems outlined above, this project aims to achieve the following specific objectives:
+[P177] Normal :: To design the proposed FYP management system using the object oriented approach
+[P178] Normal :: To develop the proposed system using a web-based approach for Students, Supervisors, and Coordinators
+[P179] Normal :: To test the proposed system by using User Acceptance Testing (UAT).
+[P181] Heading 2 :: Research Scope
+[P182] Normal :: This project aims to develop a mobile-based bill-splitting called DPay designed for Malaysians who involve in frequent peer-to-peer expenses including universit
+[P183] Normal :: This main target users are general individuals such as students and young adults. DPay allows them to create group bill, add friends, record bills, split expens
+[P184] Normal :: DPay is structured into five main modules: authentication module, bill management module, trip management module, friend management module and administrator mod
+[P185] Normal :: Table 1.1: Modules of DPay
+[P187] Heading 2 :: Project Significance
+[P188] Normal :: The significance of this project for users is DPay makes managing shared expenses more organized and efficient. DPay saves users time by using automated calcula
+[P189] Heading 2 :: Thesis Outline
+[P190] Normal :: This thesis is organized into five chapters, each systematically addressing the core components of the research work.
+[P191] List Paragraph :: Chapter 1: Introduction
+[P192] Normal :: This chapter introduces the research topic by presenting the background, problem statement,.
+[P193] List Paragraph :: Chapter 2: Literature Review
+[P194] Normal :: This chapter offers a comprehensive review of the relevant literature, covering key topics such as test case design strategies,
+[P195] List Paragraph :: Chapter 3: Methodology
+[P196] Normal :: This chapter details the research methodology employed in the research, describing the overall research process,
+[P197] List Paragraph :: Chapter 4: Results and Discussion
+[P198] Normal :: This chapter presents the experimental setup and provides detailed descriptions of the conducted experiments. It chapter concludes with an in-depth discussion o
+[P200] List Paragraph :: Chapter 5: Conclusion
+[P201] Normal :: The final chapter revisits the research objectives and summarizes the key findings and contributions of the research.
+[P202] Heading 1 :: LITERATURE REVIEW
+[P203] Heading 2 :: Introduction
+[P204] Paragraph First and Last :: This chapter aims to comprehensively review the literature relate
+[P206] Heading 2 :: Domain Background
+[P207] Paragraph First and Last :: The concept of optimization is deeply rooted in the Latin term “optimus”, which signifies “the best” or “most
+[P209] Heading 2 :: Problem Study of Existing Related Systems
+[P210] Paragraph First and Last :: Optimization algorithms are commonly designed as iterative processes that generate and evaluate
+[P212] Heading 3 :: System 1
+[P213] Paragraph First and Last :: Metaheuristics are optimization strategies inspired by natural processes, designed to efficiently navigate large search spaces. Their adaptability, exploration-
+[P215] Heading 3 :: System 2
+[P216] Paragraph First and Last :: The past decade has witnessed a surge in research related to hybrid metaheuristic algorithms, particularly in solving complex optimization problems across vario
+[P218] Heading 3 :: System 3
+[P219] Paragraph First and Last :: The past decade has witnessed a surge in research related to hybrid metaheuristic algorithms, particularly in solving complex optimization problems across vario
+[P224] Caption :: Table 2.1: comparison table
+[P230] Heading 2 :: Chapter Summary
+[P231] Paragraph First and Last :: In conclusion, the literature review presented in this chapter has provided a comprehensive overview of C
+[P233] Heading 1 :: METHODOLOGY
+[P234] Heading 2 :: Introduction
+[P235] Paragraph First and Last :: This chapter outlines the methodology employed in the design, development, and evaluation of the.
+[P237] Heading 2 :: Waterfall Model
+[P238] Normal :: The Waterfall model is a software process model that follows a straight and sequential workflow where each phase is completed before starting another. This mode
+[P241] Caption :: Figure 3.1 : Waterfall model
+[P243] Heading 4 :: Phase 1: Literature Review
+[P244] Paragraph First and Last :: This phase focused on reviewing existing research on CT, metaheuristic algorithms, hybridization approaches, and dynamic search operator selection mechanisms. I
+[P246] Heading 4 :: Phase 2: Research Initiation and Planning
+[P247] Paragraph First and Last :: This phase involves identifying the research problem, formulating hypotheses, and designing the methodological framework. It ensures that the development proces
+[P249] Heading 4 :: Phase 3: Design the Proposed HMA-CV
+[P250] Normal :: In this phase, the proposed hybrid metaheuristic algorithm is designed structurally based on a high-level hybridization framework. The design incorporated key c
+[P252] Heading 4 :: Phase 4: Develop the Proposed HMA-CV
+[P253] Normal :: Following the design, this phase focused on the actual development of the HMA-CV algorithm as described in Section 3.4. The conceptual design is translated into
+[P255] Heading 4 :: Phase 5: Performance Benchmarking and Analysis
+[P256] Normal :: This phase focused on the empirical evaluation of the proposed HMA-CV algorithm through a comprehensive set of experiments detailed in Chapter 4. As part of ful
+[P258] Caption :: Table 3.1:	 Mapping of Research Questions with Experiment Focus
+[P260] Paragraph First and Last :: To ensure alignment between methodology and evaluation, each research question (RQ) is mapped to a specific experimental focus as Table 3.1.
+[P262] Heading 2 :: Chapter Summary
+[P263] Paragraph First and Last :: This chapter has presented a comprehensive methodology for the design and implementation of the propos
+[P267] Heading 1 :: ANALYSIS AND DESIGN
+[P268] Heading 2 :: System Requirement Analysis
+[P269] Normal :: System requirement analysis describes all of the requirements needed for DPay to function effectively. it covers the functional requirements for each
+[P271] Heading 4 :: Functional Requirement
+[P272] Normal :: Functional requirements are the functions and features that DPay must perform to meet user needs. These requirements describe the expected behavior
+[P273] Heading 4 :: Non-Functional Requirement
+[P274] Heading 4 :: User Requirement Analysis
+[P275] Heading 4 :: Use Case Diagram
+[P276] Heading 4 :: Use Case Specification
+[P277] Heading 4 :: Class Diagram
+[P278] Heading 4 :: Chapter Summary
+[P281] Heading 1 :: IMPLEMENTATION AND TESTING.
+[P283] Heading 2 :: System Implementation
+[P284] Paragraph First and Last :: The implementation of the of
+[P285] Heading 2 :: Discuss every modul
+[P286] Heading 2 :: Testing
+[P287] Paragraph First and Last :: The testing phase
+[P289] Heading 4 :: User Acceptance Testing
+[P290] Paragraph First and Last :: User Acceptance Testing (UAT) was conducted to evaluate the usability, functionality and user satisfaction
+[P292] Heading 2 :: Chapter Summary
+[P293] Normal :: In summary, this chapter discusses the implementation and testing phases of DPay. The chapter explained the implementation of the main system features from use 
+[P295] Heading 1 :: conclusion
+[P297] Heading 2 :: Achievements of the Overall Objectives
+[P298] Normal :: DPay has successfully achieved the overall objectives outlined in Chapter 1. DPay was analysed and designed using an object-oriented approach with UML diagrams 
+[P299] Heading 2 :: Recommandation
+[P300] Paragraph First and Last :: The testing phase
+[P302] Heading 2 :: Chapter Summary
+[P303] Normal :: In summary, this chapter discusses the implementation and testing phases of DPay. The chapter explained the implementation of the main system features from use 
+[P313] References :: REFERENCES
+[P316] APPENDIX :: APPENDIX A
+[P335] APPENDIX :: APPENDIX B
+[P339] References :: PUBLICATION
+[P340] References List :: AITCS
+[P343] VITAE :: VITAE
+[P344] Normal (Web) :: Combinatorial testing (CT) aims to cover interactions among input parameters, yet generating minimal t-way test suites is NP-hard and becomes challenging in lar
+[P346] Normal :: Ts. Masrulehsan bin Mamat was born in Malaysia. He pursued his Bachelor of Information Technology (Software Engineering) at Universiti Malaysia Terengganu (UMT)

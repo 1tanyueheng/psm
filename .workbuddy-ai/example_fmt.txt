@@ -1,0 +1,200 @@
+=== PARAGRAPH FORMAT (sample of each role) ===
+[P002] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=152400 bold=True italic=None | 'CHAPTER 2'
+
+[P005] style=Normal align=CENTER (1) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=152400 bold=True italic=None | 'LITERATURE REVIEW'
+
+[P007] style=Heading 2 align=JUSTIFY (3) first=None left=None sb=304800 sa=304800 line=None
+        run0: font=None size=None bold=None italic=None | '\tIntroduction'
+
+[P008] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=152400 bold=None italic=None | 'This chapter presents the literature review r'
+
+[P009] style=Heading 2 align=JUSTIFY (3) first=None left=None sb=304800 sa=304800 line=None
+        run0: font=None size=None bold=None italic=None | 'Domain Case Study: '
+
+[P010] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=152400 bold=None italic=None | 'In the digital environment, many organization'
+
+[P017] style=Heading 2 align=JUSTIFY (3) first=None left=None sb=304800 sa=304800 line=None
+        run0: font=None size=None bold=None italic=None | '\tStudy of Existing Related Systems'
+
+[P018] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=152400 bold=True italic=None | 'Nmap Scripting Engine (NSE)'
+
+[P019] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=152400 bold=None italic=None | 'Nmap Scripting Engine (NSE)'
+
+[P020] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=152400 bold=True italic=None | '< Nmap Scripting Engine (NSE) >'
+
+[P021] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=152400 bold=None italic=None | 'NSE can scan entire networks like servers, op'
+
+[P029] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=152400 bold=None italic=None | 'The main function of NSE is detecting network'
+
+[P031] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=152400 bold=True italic=None | 'Nikto'
+
+[P033] style=Heading 3 align=JUSTIFY (3) first=None left=None sb=304800 sa=304800 line=None
+        run0: font=None size=None bold=None italic=None | '<'
+
+[P034] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=152400 bold=None italic=None | 'Function of the '
+
+[P055] style=Heading 3 align=JUSTIFY (3) first=None left=None sb=304800 sa=304800 line=None
+        run0: font=None size=None bold=None italic=None | 'Your proposed system'
+
+[P059] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=152400 bold=None italic=None | '\t'
+
+[P060] style=Heading 3 align=JUSTIFY (3) first=None left=None sb=304800 sa=304800 line=None
+        run0: font=None size=None bold=None italic=None | 'Comparison'
+
+[P061] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=None bold=None italic=None | 'A comparison has been conducted between the e'
+
+[P062] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=None bold=True italic=None | 'Table 2.'
+
+[P064] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=None bold=None italic=None | 'Based on the Table 2 system comparison, it ca'
+
+[P066] style=Heading 2 align=JUSTIFY (3) first=None left=None sb=304800 sa=304800 line=None
+        run0: font=None size=None bold=None italic=None | '\tChapter Summary'
+
+[P067] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=152400 bold=None italic=None | 'This chapter discussed the literature review '
+
+[P072] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=177800 bold=True italic=None | 'References'
+
+[P073] style=Normal align=JUSTIFY (3) first=None left=None sb=None sa=None line=1.5
+        run0: font=Times New Roman size=152400 bold=None italic=True | 'i'
+
+=== Normal style ===
+font: None None | align: None first: None line: None sb: None sa: None
+
+=== Heading 2 / Heading 3 xml ===
+Heading 2 : <w:style w:type="paragraph" w:styleId="Heading2">
+  <w:name w:val="heading 2"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="Heading2Char"/>
+  <w:uiPriority w:val="9"/>
+  <w:unhideWhenUsed/>
+  <w:qFormat/>
+  <w:rsid w:val="00260147"/>
+  <w:pPr>
+    <w:keepNext/>
+    <w:keepLines/>
+    <w:numPr>
+      <w:ilvl w:val="1"/>
+      <w:numId w:val="2"/>
+    </w:numPr>
+    <w:spacing w:beforeLines="200" w:before="200" w:afterLines="200" w:after="200" w:line="360" w:lineRule="auto"/>
+    <w:outlineLvl w:val="1"/>
+  </w:pPr>
+  <w:rPr>
+    <w:rFonts w:ascii="Times New Roman" w:eastAsiaTheme="majorEastAsia" w:hAnsi="Times New Roman" w:cstheme="majorBidi"/>
+    <w:b/>
+    <w:sz w:val="24"/>
+    <w:szCs w:val="26"/>
+    <w:lang w:val="en-US"/>
+  </w:rPr>
+</w:style>
+
+
+Heading 3 : <w:style w:type="paragraph" w:styleId="Heading3">
+  <w:name w:val="heading 3"/>
+  <w:basedOn w:val="Normal"/>
+  <w:next w:val="Normal"/>
+  <w:link w:val="Heading3Char"/>
+  <w:uiPriority w:val="9"/>
+  <w:unhideWhenUsed/>
+  <w:qFormat/>
+  <w:rsid w:val="00260147"/>
+  <w:pPr>
+    <w:keepNext/>
+    <w:keepLines/>
+    <w:spacing w:beforeLines="200" w:before="200" w:afterLines="200" w:after="200" w:line="360" w:lineRule="auto"/>
+    <w:outlineLvl w:val="2"/>
+  </w:pPr>
+  <w:rPr>
+    <w:rFonts w:ascii="Times New Roman" w:eastAsiaTheme="majorEastAsia" w:hAnsi="Times New Roman" w:cstheme="majorBidi"/>
+    <w:b/>
+    <w:color w:val="000000" w:themeColor="text1"/>
+    <w:sz w:val="24"/>
+    <w:szCs w:val="24"/>
+    <w:lang w:val="en-US"/>
+  </w:rPr>
+</w:style>
+
+
+=== TABLE xml (first rows) ===
+<w:tbl>
+  <w:tblPr>
+    <w:tblStyle w:val="TableGrid"/>
+    <w:tblW w:w="9351" w:type="dxa"/>
+    <w:tblLook w:val="04A0" w:firstRow="1" w:lastRow="0" w:firstColumn="1" w:lastColumn="0" w:noHBand="0" w:noVBand="1"/>
+  </w:tblPr>
+  <w:tblGrid>
+    <w:gridCol w:w="1800"/>
+    <w:gridCol w:w="1585"/>
+    <w:gridCol w:w="1585"/>
+    <w:gridCol w:w="1585"/>
+    <w:gridCol w:w="2796"/>
+  </w:tblGrid>
+  <w:tr w:rsidR="00FF65F3" w:rsidRPr="005F3155" w14:paraId="46F5675C" w14:textId="77777777" w:rsidTr="005E7EBD">
+    <w:tc>
+      <w:tcPr>
+        <w:tcW w:w="1800" w:type="dxa"/>
+        <w:tcBorders>
+          <w:top w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+          <w:left w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+          <w:bottom w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+          <w:right w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+          <w:tl2br w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+        </w:tcBorders>
+        <w:shd w:val="clear" w:color="auto" w:fill="E7E6E6" w:themeFill="background2"/>
+        <w:hideMark/>
+      </w:tcPr>
+      <w:p w14:paraId="402DA28F" w14:textId="77777777" w:rsidR="00FF65F3" w:rsidRPr="005F3155" w:rsidRDefault="00FF65F3" w:rsidP="00C3219F">
+        <w:pPr>
+          <w:spacing w:line="360" w:lineRule="auto"/>
+          <w:jc w:val="both"/>
+          <w:rPr>
+            <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
+            <w:b/>
+            <w:sz w:val="24"/>
+            <w:szCs w:val="24"/>
+          </w:rPr>
+        </w:pPr>
+        <w:r w:rsidRPr="005F3155">
+          <w:rPr>
+            <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
+            <w:b/>
+            <w:sz w:val="24"/>
+            <w:szCs w:val="24"/>
+          </w:rPr>
+          <w:t>System</w:t>
+        </w:r>
+      </w:p>
+      <w:p w14:paraId="7E1025A4" w14:textId="77777777" w:rsidR="00C622EA" w:rsidRPr="005F3155" w:rsidRDefault="00C622EA" w:rsidP="00C3219F">
+        <w:pPr>
+          <w:spacing w:line="360" w:lineRule="auto"/>
+          <w:jc w:val="both"/>
+          <w:rPr>
+            <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
+            <w:b/>
+            <w:sz w:val="24"/>
+            <w:szCs w:val="24"/>
+          </w:rPr>
+        </w:pPr>
+      </w:p>
+      <w:p w14:paraId="5B48C2A4" w14:textId="4C80F558" w:rsidR="00C622EA" w:rsidRPr="005F3155" w:rsidRDefault="00C622EA" w:rsidP="00C3219F">
+        <w:pPr>
+          <w:spacing w:line="360" w:lineRule="auto"/>
+   

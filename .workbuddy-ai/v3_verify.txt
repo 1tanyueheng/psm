@@ -1,0 +1,64 @@
+paragraphs=51 tables=1 sections=1
+[000] Normal       bold=True  :: CHAPTER 2
+[003] Normal       bold=True  :: LITERATURE REVIEW
+[005] Heading 2    bold=True  :: 2.1	Introduction
+[006] Normal       bold=False :: This chapter presents the literature review related to the development of the PSM Management Sy
+[007] Heading 2    bold=True  :: 2.2	Domain Case Study: PSM Management System
+[008] Normal       bold=False :: Projek Sarjana Muda (PSM) is the final year project required of every undergraduate at the Facu
+[009] Normal       bold=False :: The academic content of PSM is well defined, but the administration around it is still carried 
+[010] Normal       bold=False :: Therefore, a new system is necessary to centralise the entire PSM lifecycle. This will improve 
+[011] Heading 2    bold=True  :: 2.3	Web Based System
+[012] Normal       bold=False :: The proposed system is developed as a web based application using modern technologies such as a
+[013] Normal       bold=False :: The web based approach is chosen because it allows students, supervisors and coordinators to ac
+[014] Heading 2    bold=True  :: 2.4	Study of Existing Related Systems
+[015] Normal       bold=False :: This section reviews three web based systems that address administrative problems closely relat
+[016] Normal       bold=True  :: FSKTM Faculty Room Reservation System (BookIT)
+[017] Normal       bold=False :: BookIT is a web based information system developed to replace the manual room booking process a
+[018] Normal       bold=True  :: < BookIT >
+[019] Normal       bold=False :: The function of BookIT is to allow students, lecturers and administrative staff to make room re
+[020] Normal       bold=False :: The main advantage of BookIT is that it refuses an invalid operation instead of warning about i
+[021] Normal       bold=True  :: Web-Based UTHM Event Management System (EMS)
+[022] Normal       bold=False :: The UTHM Event Management System was developed to replace the manual handling of event applicat
+[023] Normal       bold=True  :: < UTHM EMS >
+[024] Normal       bold=False :: The function of the EMS is to centralise all event data so that applications and event records 
+[025] Normal       bold=False :: The main advantage of the EMS is its central database, which reduces human error and makes even
+[026] Normal       bold=True  :: UTHM Student Representative Council Program Management System
+[027] Normal       bold=False :: This system was developed for the UTHM Student Representative Council (MPP), which relied on ma
+[028] Normal       bold=True  :: < MPP Program System >
+[029] Normal       bold=False :: The function of the system is to centralise activity planning, scheduling, execution tracking a
+[030] Normal       bold=False :: The main advantage of this system is that it models a complete process rather than a single obj
+[031] Heading 2    bold=True  :: 2.5	Your Proposed System
+[032] Normal       bold=False :: The proposed system is a web based PSM Management System designed to centralise the entire life
+[033] Normal       bold=False :: The system will manage title registration and approval, build and gate the milestone chain, han
+[034] Normal       bold=False :: BookIT is reused as a design reference because it enforces constraints that refuse invalid oper
+[035] Heading 2    bold=True  :: 2.6	Comparison with the Existing Systems
+[036] Normal       bold=False :: A comparison has been conducted between the existing systems, namely BookIT, the UTHM EMS and t
+[037] Normal       bold=True  :: Table 2.1 System's Comparison
+[039] Normal       bold=False :: Based on Table 2.1, the existing systems are effective for the single administrative concern ea
+[040] Normal       bold=False :: The proposed system addresses these limitations by integrating approval workflow, milestone gat
+[041] Heading 2    bold=True  :: 2.7	Chapter Summary
+[042] Normal       bold=False :: This chapter discussed the literature review and the analysis of existing systems related to PS
+[043] Normal       bold=False :: The existing systems are effective in the administrative concerns they were built for, but they
+[044] Normal       bold=False :: Chapter 3 will discuss the methodology used in the development of the system, including the sys
+[046] Normal       bold=True  :: References
+[047] Normal       bold=False :: i. Hery, M. I. H., & Sulaiman, R. A. (2026). UTHM Student Representative Council Program Manage
+[048] Normal       bold=False :: ii. Marzele, M. A. U., & Abdul Jalil, R. (2025). Web-Based UTHM Event Management System. Applie
+[049] Normal       bold=False :: iii. Mohd Najib, M. S. I., & Mohd Nawi, N. (2026). FSKTM Faculty Room Reservation System. Appli
+[050] Normal       bold=False :: iv. Universiti Tun Hussein Onn Malaysia. (2025). Applied Information Technology and Computer Sc
+
+TOTAL WORDS: 1300
+
+TABLE rows=13 cols=5 style=Table Grid
+    ['Features', 'BookIT', 'UTHM EMS', 'MPP Program System', 'PSM Management System']
+    ['Purpose', 'Room reservation', 'Event applications', 'Program planning', 'Full PSM lifecycle']
+    ['User Authentication', '✔', '✖', '✔', '✔']
+    ['Central Database', '✔', '✔', '✔', '✔']
+    ['Multi-stage Approval Workflow', '✖', '✖', '✖ but limit', '✔']
+    ['Capacity Enforcement', '✔ but limit', '✖', '✖', '✔']
+    ['Title Registration and Panel Decision', '✖', '✖', '✖', '✔']
+    ['Milestone Chain and Gating', '✖', '✖', '✔ but limit', '✔']
+    ['File Submission Management', '✖', '✖', '✖', '✔']
+    ['Automated Weighted Marking', '✖', '✖', '✖', '✔']
+    ['Notifications and Reminders', '✔', '✖', '✖', '✔']
+    ['Reporting and Analytics', '✔ but limit', '✔ but limit', '✔ but limit', '✔']
+    ['User Acceptance Testing', '✔', '✖', '✔', '✔']

@@ -1,0 +1,25 @@
+paragraphs: 31 tables: 1 images: 2
+words: 827
+
+HEADINGS:
+   '4.1\tIntroduction'
+   '4.2\tUse Case Specification'
+   '4.3\tSequence Diagram'
+   '4.4\tActivity Diagram'
+   '4.5\tChapter Summary'
+
+CAPTIONS:
+   Table 4.2: Use Case Specification for Manage Pairing
+   Figure 4.3: Sequence Diagram for Manage Pairing
+   Figure 4.4: Activity Diagram for Manage Pairing
+
+SPEC ROWS:
+   Use Case ID -> UC-02
+   Use Case Name -> Manage Pairing
+   Actor -> Coordinator (primary), Admin. Supervisors and Stud
+   Description -> The coordinator assigns a supervisor to a student 
+   Pre-condition -> The coordinator is signed in. The student and the 
+   Trigger -> The coordinator selects a student on the Pairing s
+   Main Flow -> 1. The coordinator opens the Pairing screen and se
+   Alternative Flow -> A1. Co-supervisor requested: at step 5, the system
+   Post-condition -> On success, a new supervision assignment exists wi

@@ -1,0 +1,40 @@
+In-text citation strings found: 21
+   ( 2022 )
+   ( 2023, August 15 )
+   ( 2025 )
+   ( 2026 )
+   ( CIO Wiki, 2023 )
+   ( Hery & Sulaiman, 2026 )
+   ( Marzele & Abdul Jalil, 2025 )
+   ( Mohd Najib & Mohd Nawi, 2026 )
+   ( Mohd Najib & Mohd Nawi, 2026; Marzele & Abdul Jalil, 2025; Hery & Sulaiman, 2026 )
+   ( NIST, 2022 )
+
+Author keys used in text: ['CIO Wiki', 'Hery & Sulaiman', 'Marzele & Abdul Jalil', 'Mohd Najib & Mohd Nawi', 'NIST']
+
+Reference list:
+    i. CIO Wiki. (2023, August 15). Web Application. CIO Wiki. https://cio-wiki.org/wiki/Web_A
+    ii. Hery, M. I. H., & Sulaiman, R. A. (2026). UTHM Student Representative Council Program 
+    iii. Marzele, M. A. U., & Abdul Jalil, R. (2025). Web-Based UTHM Event Management System. 
+    iv. Mohd Najib, M. S. I., & Mohd Nawi, N. (2026). FSKTM Faculty Room Reservation System. A
+    v. National Institute of Standards and Technology. (2022). Role-based access control (RBAC
+    vi. Universiti Tun Hussein Onn Malaysia. (2025). Applied Information Technology and Comput
+
+TOTAL WORDS: 1573
+
+=== headings ===
+    2.1	Introduction
+    2.2	Domain Case Study: PSM Assessment System
+    2.3	Web Based System
+    2.4	Study of Existing Related Systems
+    2.5	Your Proposed System
+    2.6	Comparison with the Existing Systems
+    2.7	Chapter Summary
+
+=== EMS section paragraph count ===
+EMS block paragraphs: 5
+   - Web-Based UTHM Event Management System (EMS)
+   - The UTHM Event Management System was developed to replace the manual h
+   - < UTHM EMS >
+   - The function of the EMS is to maintain a single database holding all e
+   - The main advantage of the EMS is its central database, which reduces h

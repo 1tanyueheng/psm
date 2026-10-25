@@ -1,0 +1,59 @@
+paragraphs: 41 tables: 1 sections: 3
+sections: [(21.00086111111111, 29.70036111111111), (29.70036111111111, 21.00086111111111), (21.00086111111111, 29.70036111111111)]
+
+H1 [000] LITERATURE REVIEW
+H2 [001] Introduction
+   [002] This chapter reviews the literature and the existing systems that provide the foundation for the PSM Managemen
+   [003] The existing systems reviewed in Section 2.3 are taken from Applied Information Technology and Computer Scienc
+H2 [004] Domain Background
+H3 [005] Final Year Project Administration at FSKTM
+   [006] Projek Sarjana Muda (PSM) is the final year project that every undergraduate student at FSKTM must complete in
+   [007] The process is administered by four groups of actors. Students submit titles, accept agreements, deliver miles
+   [008] Two properties of PSM make its administration harder than it first appears. The first is that PSM 1 and PSM 2 
+H3 [009] The Rules That Govern the Process
+   [010] PSM is a rules-governed process rather than a free-form workflow, and the rules are the reason a paper-based p
+   [011] Assessment is bound by equally specific rules. Five official Lampiran forms are used: E and I in PSM 1, and G,
+H3 [012] The Software Engineering Perspective
+   [013] From a software engineering standpoint, PSM administration is an instance of a wider class of problem: a proce
+   [014] This distinction directly explains the failures described in the problem statement of Chapter 1. When the rule
+   [015] A second theme in the literature is the separation of concerns in a web application. A decoupled architecture,
+H3 [016] Related Work and Recurring Themes
+   [017] Studies of similar administrative systems in Malaysian public universities report a consistent set of findings
+   [018] The third finding concerns adoption. Systems that are built for a single narrow task are adopted quickly but a
+H2 [019] Problem Study of Existing Related Systems
+   [020] This section examines three published systems that address administrative problems closely related to PSM. Eac
+H3 [021] System 1: Web-Based UTHM Event Management System
+   [022] Marzele and Abdul Jalil (2025) developed the Web-Based UTHM Event Management System (EMS) to replace the manua
+   [023] The system was developed using an object-oriented approach and the prototyping model, built in PHP over a cent
+   [024] The strengths of this system are its clear problem framing and its insistence on a central database. The limit
+H3 [025] System 2: FSKTM Faculty Room Reservation System (BookIT)
+   [026] Mohd Najib and Mohd Nawi (2026) addressed a different but structurally similar problem: room booking at FSKTM 
+   [027] BookIT was developed with the Agile methodology, iterating through requirements gathering, development, testin
+   [028] This system contributes two ideas that the proposed PSM system adopts. The first is conflict detection: an ope
+H3 [029] System 3: UTHM Student Representative Council Program Management System
+   [030] Hery and Sulaiman (2026) developed a web-based program management system for the UTHM Student Representative C
+   [031] The system was built with PHP, MySQL, HTML/CSS and JavaScript, and was validated more thoroughly than the two 
+   [032] This system is the closest of the three to the proposed project in two respects. It models a process rather th
+CAP [033] Table 2.1: Comparison of Existing Systems against the Proposed PSM Management System
+   [035] Table 2.1 makes the position of the proposed system clear. All four systems share the same starting point, whi
+   [036] The comparison also exposes two capabilities that are specific to PSM and that no existing system provides. Th
+H2 [037] Chapter Summary
+   [038] This chapter has reviewed the domain of final year project administration and three existing web-based systems
+   [039] The review of the EMS, BookIT and the MPP Program Management System identified three capabilities worth adopti
+   [040] The gap that this project addresses is therefore a system that treats the whole PSM process, across both parts
+
+BODY WORD COUNT: 2233
+
+TABLE 0: rows=12 cols=5 style=Table Grid
+    ['Aspect', 'EMS (Marzele & Abdul Jalil, 2025)', 'BookIT (Mohd Najib & Mohd Nawi, 20', 'MPP Program System (Hery & Sulaima', 'Proposed PSM Management System']
+    ['Purpose', 'Manage event applications for stud', 'Manage faculty room reservations', 'Manage student program planning an', 'Manage the full PSM 1 and PSM 2 li']
+    ['Development approach', 'Prototyping model, object-oriented', 'Agile', 'Systematic development with formal', 'Waterfall model, object-oriented']
+    ['Technology', 'PHP, MySQL', 'HTML, CSS, JavaScript, PHP, MySQL', 'PHP, MySQL, HTML/CSS, JavaScript', 'Decoupled API with relational data']
+    ['User roles', 'Event organisers and students', 'Students, lecturers, administrativ', 'MPP members, administrators, stude', 'Student, supervisor, examiner, coo']
+    ['Central database', 'Yes', 'Yes', 'Yes', 'Yes']
+    ['Multi-stage approval workflow', 'No', 'Partial - approval of a request', 'Partial', 'Yes - title registration, mileston']
+    ['Capacity or quota enforcement', 'No', 'Yes - time-slot conflicts', 'No', 'Yes - per-part supervision capacit']
+    ['Automated weighted marking', 'No', 'No', 'No', 'Yes - the five Lampiran rubrics']
+    ['Notifications and reminders', 'No', 'Yes', 'No (named as future work)', 'Yes - events and scheduled deadlin']
+    ['Reporting and analytics', 'Search and retrieval only', 'Booking reports', 'Reporting', 'Cohort analytics and workload repo']
+    ['User Acceptance Testing', 'Not reported', 'Reported', '13 respondents, 43 test cases', 'Planned with representative users']

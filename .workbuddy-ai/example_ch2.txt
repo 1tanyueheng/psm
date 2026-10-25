@@ -1,0 +1,119 @@
+paragraphs: 100 tables: 1 sections: 1
+sections: [(21.0, 29.7)]
+
+[P000] style='Normal' runs=0 bold=[] :: 
+[P001] style='Normal' runs=0 bold=[] :: 
+[P002] style='Normal' runs=1 bold=['CHAPTER 2'] :: CHAPTER 2
+[P003] style='Normal' runs=0 bold=[] :: 
+[P004] style='Normal' runs=0 bold=[] :: 
+[P005] style='Normal' runs=1 bold=['LITERATURE REVIEW'] :: LITERATURE REVIEW
+[P006] style='Normal' runs=0 bold=[] :: 
+[P007] style='Heading 2' runs=1 bold=[] :: Introduction
+[P008] style='Normal' runs=6 bold=[] :: This chapter presents the literature review related to the development of the Automated Vulnerability Assessment and Security Monitoring Dashboard. It discusses the Automated Vulnerability Assessment and Security Monitoring Dashboard, relevant technologies and existing systems like Web Based System. In addition, the comparison between existing systems and the proposed system is provided to justify the development of the new system.
+[P009] style='Heading 2' runs=4 bold=[] :: Domain Case Study: Automated Vulnerability Assessment and Security                                     Monitoring Dashboard
+[P010] style='Normal' runs=23 bold=[] :: In the digital environment, many organizations very heavily on web applications and network systems to perform daily operations. However, these systems are often exposed to various security threats such as unauthorized access, data breaches and system vulnerabilities.(ensigninfosecurity, n.d.) In the situation, many organizations perform vulnerability assessments manually such as Nmap Scripting Engine (NSE) or Nikto.( Nmap.org,2025) The two tools are generating reports separately making it difficult for users to analyze and monitor security status efficiently. There is also a lack of centralized systems to manage and visualize vulnerability data.
+[P011] style='Normal' runs=1 bold=[] :: Therefore, a new system is necessary to integrate vulnerability scanning tools into a centralized dashboard. This will improve efficiency and provide better visualization with support for continuous security monitoring.
+[P012] style='Normal' runs=0 bold=[] :: 
+[P013] style='Heading 2' runs=2 bold=[] :: Web Based System
+[P014] style='Heading 2' runs=4 bold=[] :: The proposed system is developed as a web-based application using modern technologies such as Python, Flask, HTML, CSS and MySQL. The system adopts an object-oriented approach to ensure modularity and maintainability.
+[P015] style='Normal' runs=11 bold=[] :: Not only that, vulnerability scanning tools such as Nmap Scripting Engine (NSE) and Nikto are integrated into the system. NSE is used for rapid network-level vulnerability scanning and Nikto is used for web application vulnerability detection.
+[P016] style='Normal' runs=10 bold=[] :: The web-based approach is chosen because it allows users to access the system anytime and anywhere. This is very easy for access by user. In addition, It also supports real-time monitoring and centralized data management. In the situation, it is suitable for security applications. (cybersaint, n.d.)
+[P017] style='Heading 2' runs=2 bold=[] :: Study of Existing Related Systems
+[P018] style='Normal' runs=1 bold=['Nmap Scripting Engine (NSE)'] :: Nmap Scripting Engine (NSE)
+[P019] style='Normal' runs=13 bold=[] :: Nmap Scripting Engine (NSE) is a powerful open-source tool designed to detect security vulnerabilities, misconfigurations and outdated software in network systems.（Nmap.org,2025） NSE is widely used by security professionals to assess the security posture of their networks because of its lightweight nature and fast execution speed. It provides detailed terminal outputs on vulnerabilities such as outdated software, open ports and configuration issues. Its capabilities include executing scripts against high-level and low-level internet protocols and matching services against the Common Vulnerabilities and Exposures (CVE) database. NSE also providing rapid assessments without consuming massive system resources.
+[P020] style='Normal' runs=1 bold=['< Nmap Scripting Engine (NSE) >'] :: < Nmap Scripting Engine (NSE) >
+[P021] style='Normal' runs=1 bold=[] :: NSE can scan entire networks like servers, operating systems and databases. NSE utilizes a vast library of scripts and the CVE database to detect vulnerabilities efficiently. It supports rapid unauthenticated scanning and provides terminal-based output generation. NSE is highly efficient and executes much faster than heavy vulnerability managers. The situation making it ideal for real-time dashboard integration.
+[P022] style='Normal' runs=1 bold=[] :: 
+[P023] style='Normal' runs=5 bold=[] :: Figure 1: Nmap Logo
+[P024] style='Normal' runs=1 bold=[] :: 
+[P025] style='Normal' runs=4 bold=[] :: Figure 2: Nmap Command Line Interface
+[P026] style='Normal' runs=1 bold=[] :: 
+[P027] style='Normal' runs=4 bold=[] :: Figure 3: Nmap Output Interface
+[P028] style='Normal' runs=0 bold=[] :: 
+[P029] style='Normal' runs=10 bold=[] :: The main function of NSE is detecting network weaknesses such as open port vulnerabilities, misconfigurations and generating raw scan data. The NSE provides network scanning as a core component for network assessment. Advantages of NSE is it is free open-source, highly resource-efficient, extremely fast and supports direct mapping to Common Vulnerabilities and Exposures (CVE). NSE provides a wide scanning scope for network protocols. The Nmap logo is shown in Figure 1 and Command Line Interface is shown in Figure 2. NSE is a command-line tool then it lacks a graphical user interface.
+[P030] style='Normal' runs=0 bold=[] :: 
+[P031] style='Normal' runs=1 bold=['Nikto'] :: Nikto
+[P032] style='Normal' runs=19 bold=[] :: Nikto is a free open-source command-line tool designed for rapidly scanning web servers to identify over 6700 potentially dangerous files, outdated server software and misconfigurations.（GeeksforGeeks,2025）It can also check for outdated version details of 1200 server and can detect problems with specific version details of over 200 servers. It operates via a command-line interface and is integrated into popular penetration testing distributions such as Kali Linux.（GeeksforGeeks,2025）
+[P033] style='Heading 3' runs=5 bold=[] :: < Nikto >
+[P034] style='Normal' runs=26 bold=[] :: Function of the Nikto is scanning web server vulnerabilities, check for outdated software and misconfiguration, detect SQL injection and automatic scan dangerous files. The Nikto is focused on find the vulnerabilities of web. The Nikto also will detect weakness system but less than OpenVas.  The dection weakness system include vulnerabilities scanning, misconfiguration detection, report generation and so on.
+[P035] style='Normal' runs=1 bold=[] :: 
+[P036] style='Normal' runs=7 bold=[] :: Figure 4 : Nikto Logo
+[P037] style='Normal' runs=1 bold=[] :: 
+[P038] style='Normal' runs=5 bold=[] :: Figure 5 : Nikto Function
+[P039] style='Normal' runs=0 bold=[] :: 
+[P040] style='Normal' runs=17 bold=[] :: The Nikto provide web vulnerability detection as a system for web module. The system will more user interface friendly. The system also can monitoring no only scan. Advantages of the Nikto is it is a free open source to use. This is because it no license cost. This is an advantage for your project because it reduces development cost while still providing powerful scanning capabilities. In addition, the system also can easy to integration with other tools. Functions be extended or modified to suit of the system is automatic assign vulnerabilities level like low, medium and high vulnerabilities.
+[P041] style='Normal' runs=3 bold=[] :: The figure 5 present the function of the Nikto to scanning.
+[P042] style='Normal' runs=0 bold=[] :: 
+[P043] style='Normal' runs=2 bold=['Kali '] :: Kali linux
+[P044] style='Normal' runs=11 bold=[] :: Kali Linux is an open-source, Debian-based Linux distribution specifically designed for digital forensics, penetration testing and security auditing.( GeeksforGeeks,2025) This distribution has several hundred tools, configurations, and scripts with industry-specific modifications that allow users to focus on tasks such as computer forensics, reverse engineering and vulnerability detection instead of dealing with unrelated activities.
+[P045] style='Heading 3' runs=5 bold=[] :: < Kali linux >
+[P046] style='Normal' runs=0 bold=[] :: 
+[P047] style='Normal' runs=14 bold=[] :: Function of the Kali linux is penetration testing tools like Nmap and Nikto. The Kali Linux can used to simulate attacks and find system weaknesses. The kali Linux also can confirm security auditing for evaluate system configuration. The relative function of kali Linux include vulnerability assessment tool like Nmap and Nikto for scanning. The kali Linux also can support security monitoring through network monitoring tools.
+[P048] style='Normal' runs=1 bold=[] :: 
+[P049] style='Normal' runs=6 bold=[] :: Figure 6: Kali Linux Logo
+[P050] style='Normal' runs=1 bold=[] :: 
+[P051] style='Normal' runs=3 bold=[] :: Figure 7 : Kali Linux
+[P052] style='Normal' runs=0 bold=[] :: 
+[P053] style='Normal' runs=27 bold=[] :: Kali Linux as a platform where tools run.( GeeksforGeeks,2025) Kali Linux is the operating environment that supports the vulnerability scanning tools used in the proposed system. The kali Linux can improve the project. This is because kali Linux will provide a ready-to-use security environment and reduce setup time. Advantages of the kali Linux is it is a free open source for do the test. Not only that, kali Linux is a security platform contains hundreds of cybersecurity tools. The kali Linux can easy for integration with NSE and Nikto. Kali Linux can be enhanced through build a web dashboard, automating tool execution and adding visualizations.( Kali Linux,2026) The figure 7 will present the page when the user login throught password.
+[P054] style='Normal' runs=0 bold=[] :: 
+[P055] style='Heading 3' runs=1 bold=[] :: Your proposed system
+[P056] style='Normal' runs=3 bold=[] :: The proposed system is a web-based Automated Vulnerability Assessment and Security Monitoring Dashboard designed to detect, analyze and visualize security weaknesses in web servers, network services and systems.
+[P057] style='Normal' runs=9 bold=[] :: The system will integration with NSE, Nikto and the Kali Linux environment for provide a comprehensive and automated solution for vulnerability detection and monitoring. The main goal of the system is assist users  identifying security risks and improving system security through an easy-to-use dashboard interface.
+[P058] style='Normal' runs=1 bold=[] :: The function of the system is user authentication, automatic scanning, security monitoring and report generation with visualizations.
+[P059] style='Normal' runs=18 bold=[] :: The reason to use NSE is because it provides rapid and efficient network vulnerability scanning. It can detect open ports, system misconfigurations and network security issues without the heavy resource consumption of traditional vulnerability suites. In addition, the reason use the Nikto because it focus on web server vulnerabilities. It can detect outdated software and dangerous files. The reason use kali Linux because it become a operating environment for run.
+[P060] style='Heading 3' runs=2 bold=[] :: Comparison with the Existing Systems
+[P061] style='Normal' runs=7 bold=[] :: A comparison has been conducted between the existing systems, namely NSE, Nikto and Kali Linux with the proposed system. The comparison focuses on the key features related to vulnerability assessment and security monitoring.
+[P062] style='Normal' runs=3 bold=['Table 2.'] :: Table 2.1 System’s Comparison
+
+[TABLE 0] rows=11 cols=5 style=Table Grid
+    r0: ['System /  / Features', 'NSE', 'Nikto', 'Kali Linux', 'Automated Vulnerability Assessment and Security Monitoring Dashboard / ']
+    r1: ['User Authentication', '✖', '✖', '✖', '✔']
+    r2: ['Vulnerability Scanning', '✔', '✔', '✔', '✔']
+    r3: ['Web Vulnerability Detection', '✔ but limit', '✔', '✔', '✔']
+    r4: ['Network Vulnerability Detection', '✔', '✖', '✔', '✔']
+    r5: ['Dashboard Visualization', '✖', '✖', '✖', '✔']
+    r6: ['Report Generation', '✔', '✔', '✔', '✔']
+    r7: ['Tool Integration', '✔', '✔', '✔ but low', '✔']
+    r8: ['Automation (Scheduled Scan)', '✖', '✖', '✖', '✔']
+    r9: ['User-Friendly Interface', '✖', '✔ low', '✔ low', '✔']
+    r10: ['Real-Time Monitoring', '✖', '✖', '✔ but limit', '✔']
+
+[P063] style='Normal' runs=0 bold=[] :: 
+[P064] style='Normal' runs=5 bold=[] :: Based on the Table 2 system comparison, it can observe existing systems such as NSE and Nikto are powerful scanning tools, but they lack integration and user-friendly interfaces. The kali Linux provide a complete environment but no provided a centralized dashboard.
+[P065] style='Normal' runs=1 bold=[] :: The system can address these tools limitations through integration multiple tools into a single web-based dashboard. It also can provide visualization and better user experience through supporting automation and monitoring features.
+[P066] style='Heading 2' runs=2 bold=[] :: Chapter Summary
+[P067] style='Normal' runs=13 bold=[] :: This chapter discussed the literature review and analysis of existing systems related to vulnerability assessment and security monitoring. It included three main system like NSE, Nikto and Kali Linux. Each system was analyzed in terms of its functions and advantages. A comparison was then conducted to evaluate their features against the Automatic Vulnerability Assessment and Security  Monitoring Dashboard system.
+[P068] style='Normal' runs=12 bold=[] :: The existing systems are effective in vulnerability detection but they lack integration, automation, and user-friendly interfaces. Therefore, the system will overcome these limitations through developing a web-based Automated Vulnerability Assessment and Security Monitoring Dashboard with integrates multiple tools and provides enhanced usability and visualization. This is because the visualization is very important.（cybersaint, n.d.）
+[P069] style='Normal' runs=1 bold=[] :: The Chapter 3 will discuss the methodology used in the development of the system, including the system design, tools, techniques and development approach.
+[P070] style='Normal' runs=0 bold=[] :: 
+[P071] style='Normal' runs=0 bold=[] :: 
+[P072] style='Normal' runs=1 bold=['References'] :: References
+[P073] style='Normal' runs=5 bold=[] :: i. Ensign InfoSecurity. (n.d.). What is VAPT? Understanding Its Importance, Processes, and Use Cases | Cybersecurity 101. Retrieved from https://www.ensigninfosecurity.com/cybersecurity-101/vulnerability-assessment-penetration-testing-vapt
+[P074] style='Normal' runs=8 bold=[] :: ii. GeeksforGeeks. (2025b, July 23). OpenVAS: Security Assessment. GeeksforGeeks. https://www.geeksforgeeks.org/computer-networks/security-assessment-openvas/
+[P075] style='Normal' runs=0 bold=[] :: 
+[P076] style='Normal' runs=3 bold=[] :: iii Nmap.org. (2025). Nmap Scripting Engine (NSE) Documentation. Retrieved from https://nmap.org/book/nse.html
+[P077] style='Normal' runs=0 bold=[] :: 
+[P078] style='Normal' runs=12 bold=[] :: iv. GeeksforGeeks. (2025a, July 12). What is Nikto and it’s usages? GeeksforGeeks. https://www.geeksforgeeks.org/ethical-hacking/what-is-nikto-and-its-usages/
+[P079] style='Normal' runs=5 bold=[] :: v. Andress, J. (2011). The basics of information security. ScienceDirect. Retrieved April 4, 2026, from https://www.sciencedirect.com/topics/computer-science/nikto
+[P080] style='Normal' runs=0 bold=[] :: 
+[P081] style='Normal' runs=3 bold=[] :: vi. Kali Linux. (2026, March 24). Kali Linux | Penetration Testing and Ethical Hacking Linux Distribution. https://www.kali.org/
+[P082] style='Normal' runs=0 bold=[] :: 
+[P083] style='Normal' runs=3 bold=[] :: vii. Kali Linux. (n.d.). What is Kali Linux? | Kali Linux Documentation. https://www.kali.org/docs/introduction/what-is-kali-linux/
+[P084] style='Normal' runs=0 bold=[] :: 
+[P085] style='Normal' runs=3 bold=[] :: viii. Pentera. (2026, March 12). What is Vulnerability Assessment and Penetration Testing (VAPT)? https://pentera.io/glossary/what-is-vapt-vulnerability-assessment-penetration-testing/
+[P086] style='Normal' runs=2 bold=[] :: ix. The Knowledge Academy. (n.d.). What Is Kali Linux? A Beginner’s Guide. https://www.theknowledgeacademy.com/blog/what-is-kali-linux/
+[P087] style='Normal' runs=0 bold=[] :: 
+[P088] style='Normal' runs=3 bold=[] :: x. CyberSaint. (n.d.). The importance of monitoring Cyber Security Dashboard metrics in Real-Time. Retrieved from https://www.cybersaint.io/blog/the-importance-of-monitoring-cyber-security-dashboard-metrics-in-real-time
+[P089] style='Normal' runs=0 bold=[] :: 
+[P090] style='Normal' runs=0 bold=[] :: 
+[P091] style='Normal' runs=0 bold=[] :: 
+[P092] style='Normal' runs=0 bold=[] :: 
+[P093] style='Normal' runs=0 bold=[] :: 
+[P094] style='Normal' runs=0 bold=[] :: 
+[P095] style='Normal' runs=0 bold=[] :: 
+[P096] style='Normal' runs=0 bold=[] :: 
+[P097] style='Normal' runs=0 bold=[] :: 
+[P098] style='Normal' runs=0 bold=[] :: 
+[P099] style='Normal' runs=0 bold=[] :: 
+
+TOTAL WORD COUNT (incl headings): 1638

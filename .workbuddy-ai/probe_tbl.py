@@ -1,0 +1,17 @@
+﻿import zipfile, re
+z = zipfile.ZipFile(r"C:\Users\yuehe\Desktop\study\fyp\AIProject\psm-system\thesis\Chapter2 - Literature Review.docx")
+doc = z.read("word/document.xml").decode("utf-8","ignore")
+m = re.search(r'<w:tbl>.*?</w:tbl>', doc, re.S)
+s = m.group(0)
+s = re.sub(r'\s+xmlns:[a-z0-9]+="[^"]*"','',s)
+# tblPr + tblGrid + first tr
+print("=== tblPr + tblGrid ===")
+pre = re.search(r'<w:tblPr>.*?</w:tblGrid>', s, re.S).group(0)
+print(pre)
+print()
+print("=== first row (truncated) ===")
+tr = re.search(r'<w:tr[ >].*?</w:tr>', s, re.S).group(0)
+print(tr[:1200])
+print()
+print("total tbl xml len:", len(s))
+print("gridCols:", re.findall(r'<w:gridCol w:w="(\d+)"', s))

@@ -1,0 +1,40 @@
+STYLE Normal: font=Times New Roman size=12.0 bold=None | align=None first_line=None left=None space_before=12700 space_after=76200 line=1.5
+STYLE Heading 1: font=None size=None bold=True | align=CENTER (1) first_line=None left=0 space_before=1082040 space_after=304800 line=2.0
+STYLE Heading 2: font=None size=None bold=True | align=None first_line=-450215 left=450215 space_before=None space_after=381000 line=None
+STYLE Heading 3: font=None size=None bold=True | align=None first_line=None left=None space_before=None space_after=127000 line=None
+STYLE Paragraph First and Last: font=None size=None bold=None | align=JUSTIFY (3) first_line=450215 left=None space_before=None space_after=31750 line=None
+STYLE Caption: font=None size=None bold=True | align=None first_line=None left=None space_before=None space_after=None line=1.0
+STYLE List Paragraph: font=None size=None bold=None | align=None first_line=None left=457200 space_before=None space_after=None line=None
+
+=== first 12 paragraphs with run detail ===
+[0] style=Heading 1 align=None first=None line=None :: '\n\nINTRODUCTION'
+      run: '\n' font=None size=None bold=None
+      run: '\nINTRODUCTION' font=None size=None bold=None
+[1] style=Heading 2 align=None first=None line=None :: 'Introduction'
+      run: 'Introduction' font=None size=None bold=None
+[2] style=Paragraph First and Last align=None first=0 line=None :: 'Universiti Tun Hussein Onn Malaysia requires a Final Year Project. The project i'
+      run: 'Universiti Tun Hussein Onn Malaysia requ' font=None size=None bold=None
+[3] style=Paragraph First and Last align=None first=None line=None :: 'The academic content of PSM is well defined. However, the administration around '
+      run: 'The academic content of PSM is well defi' font=None size=None bold=None
+[4] style=Paragraph First and Last align=None first=None line=None :: 'This project develops a web-based PSM Management System. It centralises the enti'
+      run: 'This project develops a web-based PSM Ma' font=None size=None bold=None
+[5] style=Heading 2 align=None first=None line=None :: 'Problem Statement'
+      run: 'Problem Statement' font=None size=None bold=None
+[6] style=Paragraph First and Last align=None first=0 line=None :: 'The administration of PSM at the faculty is currently carried out through a comb'
+      run: 'The administration of PSM at the faculty' font=None size=None bold=None
+[7] style=Paragraph First and Last align=None first=None line=None :: 'First, project progress is not visible in one place. Milestone deadlines are pub'
+      run: 'First, project progress is not visible i' font=None size=None bold=None
+[8] style=Paragraph First and Last align=None first=None line=None :: 'Second, assessment is fragmented. Each student is assessed by a supervisor and b'
+      run: 'Second, assessment is fragmented. Each s' font=None size=None bold=None
+[9] style=Paragraph First and Last align=None first=None line=None :: 'Third, the Lampiran forms are printed, distributed and totalled by hand. Five se'
+      run: 'Third, the Lampiran forms are printed, d' font=None size=None bold=None
+[10] style=Paragraph First and Last align=None first=None line=None :: 'Taken together, these problems mean that a significant proportion of the effort '
+      run: 'Taken together, these problems mean that' font=None size=None bold=None
+[11] style=Normal align=None first=None line=None :: ''
+[12] style=Normal align=None first=None line=None :: ''
+[13] style=Heading 2 align=None first=None line=None :: 'Objectives'
+      run: 'Objectives' font=None size=None bold=None
+
+=== table style ===
+table style: Plain Table 2 rows 8
+  hdr font: None bold: None

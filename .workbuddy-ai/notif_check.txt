@@ -1,0 +1,26 @@
+paragraphs: 32 tables: 1 images: 3
+words: 768
+
+HEADINGS:
+   '4.1\tIntroduction'
+   '4.2\tUse Case Specification'
+   '4.3\tSequence Diagram'
+   '4.4\tActivity Diagram'
+   '4.5\tChapter Summary'
+
+CAPTIONS:
+   Table 4.5: Use Case Specification for Manage Alert and Notification
+   Figure 4.9: Sequence Diagram for Manage Alert and Notification
+   Figure 4.10: Activity Diagram - Scheduled Reminders
+   Figure 4.11: Activity Diagram - Notification Centre
+
+SPEC:
+   Use Case ID -> UC-05
+   Use Case Name -> Manage Alert and Notification
+   Actor -> System (scheduler, primary for reminders
+   Description -> The system sends deadline reminders as a
+   Pre-condition -> Users have accounts. Milestones exist wi
+   Trigger -> The scheduled reminder command runs, or 
+   Main Flow -> 1. The scheduler runs the deadline remin
+   Alternative Flow -> A1. Nothing due: at step 3, when no mile
+   Post-condition -> On a successful wave, each eligible user

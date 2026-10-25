@@ -1,0 +1,27 @@
+paragraphs: 30 tables: 1 images: 2
+words: 781
+
+HEADINGS:
+   '4.1\tIntroduction'
+   '4.2\tUse Case Specification'
+   '4.3\tSequence Diagram'
+   '4.4\tActivity Diagram'
+   '4.5\tChapter Summary'
+
+CAPTIONS:
+   Table 4.4: Use Case Specification for Generate Report
+   Figure 4.7: Sequence Diagram for Generate Report
+   Figure 4.8: Activity Diagram for Generate Report
+
+SPEC ROWS:
+   Use Case ID -> UC-04
+   Use Case Name -> Generate Report
+   Actor -> Coordinator (primary), Admin.
+   Description -> The coordinator selects a batch, a PSM part 
+   Pre-condition -> The coordinator is signed in and holds the a
+   Trigger -> The coordinator opens the Reports screen, or
+   Main Flow -> 1. The coordinator opens the Reports screen.
+   Alternative Flow -> A1. Permission refused: the system returns 4
+   Post-condition -> On success, the coordinator sees the figures
+
+stale colour words: []

@@ -1,0 +1,24 @@
+=== occurrences of 'Assessment System' ===
+[P006] Normal: This chapter presents the literature review related to the development of the PSM Assessment System. It discusses the domain case study, the web based approach, existing related systems and the comparison between the existing systems and the proposed system to justify the need for the new system.
+[P007] Heading 2: 2.2	Domain Case Study: PSM Assessment System
+[P032] Normal: The proposed system is a web based PSM Assessment System designed to centralise the entire lifecycle of final year projects for both PSM 1 and PSM 2.
+[P042] Normal: This chapter discussed the literature review and the analysis of existing systems related to PSM administration. It covered the domain case study, the web based approach and three existing systems, namely BookIT, the UTHM EMS and the MPP Program Management System. Each system was analysed in terms of its function and advantages, and a comparison was conducted to evaluate their features against the PSM Assessment System.
+
+=== occurrences of 'Management System' (should ONLY be the MPP system) ===
+[P021] Web-Based UTHM Event Management System (EMS)
+[P022] The UTHM Event Management System was developed to replace the manual handling of event applications from the approximately sixty registered student cl
+[P026] UTHM Student Representative Council Program Management System
+[P036] A comparison has been conducted between the existing systems, namely BookIT, the UTHM EMS and the MPP Program Management System, with the proposed sys
+[P042] This chapter discussed the literature review and the analysis of existing systems related to PSM administration. It covered the domain case study, the
+[P047] i. Hery, M. I. H., & Sulaiman, R. A. (2026). UTHM Student Representative Council Program Management System. Applied Information Technology and Compute
+[P048] ii. Marzele, M. A. U., & Abdul Jalil, R. (2025). Web-Based UTHM Event Management System. Applied Information Technology and Computer Science, 6(1), 17
+[TABLE] 'PSM Assessment System'
+
+=== headings ===
+[H005] 2.1	Introduction
+[H007] 2.2	Domain Case Study: PSM Assessment System
+[H011] 2.3	Web Based System
+[H014] 2.4	Study of Existing Related Systems
+[H031] 2.5	Your Proposed System
+[H035] 2.6	Comparison with the Existing Systems
+[H041] 2.7	Chapter Summary

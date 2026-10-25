@@ -1,0 +1,30 @@
+[0] style=Heading 1 :: 
+
+INTRODUCTION
+
+[1] style=Heading 2 :: Introduction
+
+[2] style=Paragraph First and Last :: Universiti Tun Hussein Onn Malaysia requires a Final Year Project. The project is known as Projek Sarjana Muda (PSM). PSM runs across two consecutive academic terms. PSM 1 covers the title proposal and first half. PSM 2 completes the project, report and examination. Academic staff supervise and examine the students. A faculty coordinator administers the whole process.
+
+[3] style=Paragraph First and Last :: The academic content of PSM is well defined. However, the administration around it remains largely manual. Supervisors are matched to students through negotiation. Capacity is tracked by hand. Milestone deadlines are circulated as documents and messages. Marks are collected on paper forms. PSM 1 and PSM 2 run in the same semester. Both draw on the same pool of academic staff. Coordination effort is therefore considerable. Errors are easy to make.
+
+[4] style=Paragraph First and Last :: This project develops a web-based PSM Management System. It centralises the entire project lifecycle. It is built as a decoupled web application. The system handles supervision and panel allocation. It manages titles, milestones and file submissions. Rubric-based assessment covers supervisors and examiners. Marks are released automatically after all assessors submit. The system also provides reports, reminders and notifications. Completed projects are archived with a full audit trail. It replaces disconnected manual processes with one record.
+
+[5] style=Heading 2 :: Problem Statement
+
+[6] style=Paragraph First and Last :: The administration of PSM at the faculty is currently carried out through a combination of spreadsheets, shared documents, messaging groups and printed forms. This arrangement produces several specific problems.
+
+[7] style=Paragraph First and Last :: First, project progress is not visible in one place. Milestone deadlines are published as documents and submissions are collected by hand, so at any given moment neither the student nor the supervisor nor the coordinator has a reliable answer to the question of what has been submitted, what is outstanding and what is overdue. Students who are falling behind are identified late, and intervention happens after the deadline rather than before it.
+
+[8] style=Paragraph First and Last :: Second, assessment is fragmented. Each student is assessed by a supervisor and by a panel of examiners using different official forms, each with its own rubric and weighting. The coordinator must gather every assessor's result and reconcile them into one record. A single missing form therefore delays the whole cohort, and the delay withholds feedback that would otherwise help the student improve.
+
+[9] style=Paragraph First and Last :: Third, the Lampiran forms are printed, distributed and totalled by hand. Five separate forms are used, and each scores its items on a zero to five scale before converting every item into a weighted mark. A PSM 2 student requires forty-one weighted marks to be calculated, and a PSM 1 student requires twenty-four. The weights are not round numbers, so each figure must be worked out on a calculator. Every result is then copied onto a summary sheet, which is where totals are most often entered wrongly.
+
+[10] style=Paragraph First and Last :: Taken together, these problems mean that a significant proportion of the effort invested in PSM is spent on administration rather than on supervision and learning. The purpose of this project is to design and develop a system that removes that administrative burden by making the process explicit, enforceable and visible.
+
+[11] style=Normal :: 
+
+[12] style=Normal :: 
+
+[13] style=Heading 2 :: Objectives
+

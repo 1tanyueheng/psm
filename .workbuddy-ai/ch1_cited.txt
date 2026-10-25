@@ -1,0 +1,128 @@
+[000] Heading 1
+      
+
+INTRODUCTION
+
+[001] Heading 2
+      Introduction
+
+[002] Paragraph First and Last
+      Universiti Tun Hussein Onn Malaysia requires a Final Year Project. The project is known as Projek Sarjana Muda (PSM). PSM runs across two consecutive academic terms. PSM 1 covers the title proposal and first half, while PSM 2 completes the project, report and examination (Tam & Abdullah, 2025). Academic staff supervise and examine the students, and a faculty coordinator administers the whole process.
+
+[003] Paragraph First and Last
+      The academic content of PSM is well defined. However, the administration around it remains largely manual. Supervisors are matched to students through negotiation. Capacity is tracked by hand. Milestone deadlines are circulated as documents and messages. Marks are collected on paper forms. This reliance on manual administration is not unique to PSM: studies of assessment processes at the same faculty report that forms are printed and distributed to panels and supervisors, then returned for manual analysis (Nor Azim & Arbaiy, 2022). PSM 1 and PSM 2 run in the same semester. Both draw on the same pool of academic staff. Coordination effort is therefore considerable. Errors are easy to make.
+
+[004] Paragraph First and Last
+      This project develops a web-based PSM Management System. It centralises the entire project lifecycle. It is built as a decoupled web application, following the approach taken by other web-based academic systems at the faculty that replaced manual methods with a centralised electronic platform (Chong & Arbaiy, 2022). The system handles supervision and panel allocation. It manages titles, milestones and file submissions. Rubric-based assessment covers supervisors and examiners. Marks are released automatically after all assessors submit. The system also provides reports, reminders and notifications. Completed projects are archived with a full audit trail. It replaces disconnected manual processes with one record.
+
+[005] Heading 2
+      Problem Statement
+
+[006] Paragraph First and Last
+      The administration of PSM at the faculty is currently carried out through a combination of spreadsheets, shared documents, messaging groups and printed forms. This arrangement produces several specific problems.
+
+[007] Paragraph First and Last
+      First, project progress is not visible in one place. Milestone deadlines are published as documents and submissions are collected by hand, so at any given moment neither the student nor the supervisor nor the coordinator has a reliable answer to the question of what has been submitted, what is outstanding and what is overdue. Students who are falling behind are identified late, and intervention happens after the deadline rather than before it. The same difficulty has been recorded for final year project administration at the faculty, where manual task tracking and inefficient communication delayed the process (Arumugam & Abd Ishak, 2025).
+
+[008] Paragraph First and Last
+      Second, assessment is fragmented. Each student is assessed by a supervisor and by a panel of examiners using different official forms, each with its own rubric and weighting. The coordinator must gather every assessor's result and reconcile them into one record. A single missing form therefore delays the whole cohort, and the delay withholds feedback that would otherwise help the student improve. Consolidating marks that arrive on separate forms is the specific weakness that earlier faculty assessment systems were built to address (Nor Azim & Arbaiy, 2022).
+
+[009] Paragraph First and Last
+      Third, the Lampiran forms are printed, distributed and totalled by hand. Five separate forms are used, and each scores its items on a zero to five scale before converting every item into a weighted mark. A PSM 2 student requires forty-one weighted marks to be calculated, and a PSM 1 student requires twenty-four. The weights are not round numbers, so each figure must be worked out on a calculator. Every result is then copied onto a summary sheet, which is where totals are most often entered wrongly. Hand counting the overall score is a recognised risk in faculty assessment, because the manual calculation itself introduces errors independently of the marks awarded (Chong & Arbaiy, 2022).
+
+[010] Paragraph First and Last
+      Taken together, these problems mean that a significant proportion of the effort invested in PSM is spent on administration rather than on supervision and learning. The purpose of this project is to design and develop a system that removes that administrative burden by making the process explicit, enforceable and visible. A further benefit is that matching students to supervisors can be made on recorded expertise rather than on manual selection, which has been shown to produce mismatches between a student's research and a supervisor's expertise (Tam & Abdullah, 2025).
+
+[013] Heading 2
+      Objectives
+
+[014] Normal
+      To resolve the problems outlined above, this project aims to achieve the following specific objectives:
+
+[015] Normal
+      To design the proposed FYP management system using the object oriented approach
+
+[016] Normal
+      To develop the proposed system using a web-based approach for Students, Supervisors, and Coordinators
+
+[017] Normal
+      To test the proposed system by using User Acceptance Testing (UAT).
+
+[019] Heading 2
+      Research Scope
+
+[020] Paragraph First and Last
+      This project develops a web-based PSM Management System for the Faculty of Computer Science and Information Technology at Universiti Tun Hussein Onn Malaysia. The system manages the complete PSM lifecycle for both PSM 1 and PSM 2, which run concurrently within a single academic semester and share the same pool of academic staff.
+
+[021] Paragraph First and Last
+      The primary users of the system are students undertaking PSM, academic staff who supervise and examine, the faculty coordinator who administers the process, and the administrator who manages accounts. A public recognition page is accessible without authentication.
+
+[022] Paragraph First and Last
+      The system is organised into eight modules, as summarised in Table 1.1.
+
+[023] Normal
+      Table 1.1: Modules of the PSM Management System
+
+[027] Heading 2
+      Project Significance
+
+[028] Paragraph First and Last
+      The significance of this project for users is that the PSM Management System makes the administration of final year projects organised and transparent. Students can see which milestone is open and what remains, supervisors no longer collect submissions or chase deadlines by hand, and the coordinator can view the progress of both batches without requesting updates from individual staff. The system also replaces the five printed Lampiran marking forms with a digital flow that calculates every weighted mark automatically, which saves time and removes the arithmetic errors that manual totalling produces. In the UTHM context, the system supports the faculty's move towards digit al administration by providing one platform for PSM 1 and PSM 2, which run concurrently within the same semester and share the same pool of academic staff. From an academic perspective, the project demonstrates how a process that is governed by rules but administered manually can be expressed as enforceable constraints in software, offering a practical model for administrative systems in higher education.
+
+[030] Heading 2
+      Thesis Outline
+
+[031] Paragraph First and Last
+      This thesis is organised into six chapters, each addressing a distinct stage of the research and development process.
+
+[032] List Paragraph
+      Chapter 1: Introduction
+
+[033] Normal
+      This chapter presents the background of the study, the problem statement, the objectives, the research scope, the significance of the project and the structure of the thesis.
+
+[034] List Paragraph
+      Chapter 2: Literature Review
+
+[035] Normal
+      This chapter reviews the domain background of final year project management and examines existing related systems. It compares their features and identifies the gaps that motivate the proposed system.
+
+[036] List Paragraph
+      Chapter 3: Methodology
+
+[037] Normal
+      This chapter describes the research methodology and the software development model adopted, together with the phases, activities and deliverables of each phase.
+
+[038] List Paragraph
+      Chapter 4: Analysis and Design
+
+[039] Normal
+      This chapter presents the requirements analysis and the system design, including the functional and non-functional requirements, the use case model, the class structure and the database design.
+
+[040] List Paragraph
+      Chapter 5: Implementation and Testing
+
+[041] Normal
+      This chapter describes the implementation of each module, the technologies employed and the testing carried out, including User Acceptance Testing with representative users.
+
+[042] List Paragraph
+      Chapter 6: Conclusion
+
+[043] Normal
+      The final chapter revisits the research objectives, summarises the achievements and contributions of the project, discusses its limitations and recommends directions for future work.
+
+[045] Heading 2
+      References
+
+[046] Paragraph First and Last
+      Arumugam, S., & Abd Ishak, S. (2025). A Web-Based FSKTM FYP Management System. Applied Information Technology and Computer Science, 6(2), 338-355. https://periodical.uthm.edu.my/index.php/aitcs/article/view/20237
+
+[047] Paragraph First and Last
+      Chong, Z. Y., & Arbaiy, N. (2022). Pre-Viva Assessment System Development for FSKTM, UTHM. Applied Information Technology and Computer Science, 3(2), 1568-1587. https://periodical.uthm.edu.my/index.php/aitcs/article/view/7574
+
+[048] Paragraph First and Last
+      Nor Azim, N. A. A., & Arbaiy, N. (2022). A Development of Assessment System for FSKTM Postgraduate Students. Applied Information Technology and Computer Science, 3(1), 732-747. https://periodical.uthm.edu.my/index.php/aitcs/article/view/2433
+
+[049] Paragraph First and Last
+      Tam, J. H., & Abdullah, N. (2025). Development of Final Year Project Supervisor Selection System for FSKTM, UTHM. Applied Information Technology and Computer Science, 6(2), 356-375. https://periodical.uthm.edu.my/index.php/aitcs/article/view/20279
+
