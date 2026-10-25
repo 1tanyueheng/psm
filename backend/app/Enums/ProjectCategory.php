@@ -113,7 +113,7 @@ enum ProjectCategory: string
         ];
 
         /**
-         * PSM 2 — Chapters 5 to 7 and the consolidated report.
+         * PSM 2 — Chapters 5 to 7, the consolidated report, and Form K.
          *
          * PSM 1 and PSM 2 are one project run across two consecutive terms, on
          * one title: PSM 1 delivers the proposal and Chapters 1–4, PSM 2
@@ -131,12 +131,25 @@ enum ProjectCategory: string
          * The chain is shorter than PSM 1's, so the chapters carry more weight
          * each and the final report carries more still — by this point the
          * consolidated document is most of what is being examined.
+         *
+         * **`form_k` closes the programme.** The faculty's timetable puts it in
+         * week 19, after the final report: the student uploads the final report
+         * to the e-report system and submits Form K, and a late submission is
+         * recorded as *Withhold / Tidak Selesai* rather than a pass. It carries
+         * **zero weight** because it is a compliance gate, not an assessed
+         * deliverable — nothing is marked on it, but the part cannot be resolved
+         * without it. OSHE is the same shape one part earlier.
+         *
+         * The remaining weights keep their proportions — 30 : 20 : 20 : 30 of
+         * the 100 that Chapters 5-7 and the report share — so adding the gate
+         * did not quietly re-weight anybody's work.
          */
         $psm2 = [
             ['code' => 'chapter_5',    'title' => 'Chapter 5',    'weight' => 30.0, 'offset_days' => 21],
             ['code' => 'chapter_6',    'title' => 'Chapter 6',    'weight' => 20.0, 'offset_days' => 56],
             ['code' => 'chapter_7',    'title' => 'Chapter 7',    'weight' => 20.0, 'offset_days' => 91],
             ['code' => 'final_report', 'title' => 'Final Report', 'weight' => 30.0, 'offset_days' => 126],
+            ['code' => 'form_k',       'title' => 'Form K',       'weight' => 0.0,  'offset_days' => 133],
         ];
 
         return match ($psmPart) {

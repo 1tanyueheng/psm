@@ -47,6 +47,9 @@ class MilestoneTemplateSeeder extends Seeder
         // The demo is a session, not a document: a week to arrange and hold it.
         'demo'         => 7,
         'final_report' => 28,
+        // Form K is a signed compliance form returned in the same week as the
+        // final report, not a document written over a month.
+        'form_k'       => 7,
     ];
 
     /** File types a milestone will accept in the upload form. */
@@ -70,6 +73,13 @@ class MilestoneTemplateSeeder extends Seeder
      *      without a signed copy. Bumped so new projects get the chain, while
      *      the 26 projects already registered keep the version they were given.
      *
+     *   6  PSM 2 — adds `form_k` after the final report. Zero-weight for the
+     *      same reason as OSHE: the faculty's timetable puts Form K in week 19
+     *      and a late one is recorded as Withhold rather than a pass, but
+     *      nothing is marked on it. Bumped so the PSM 2 part has an end the
+     *      committee can resolve against, not so existing projects are
+     *      retrofitted — those keep the chain they were given.
+     *
      * Older versions are deliberately left in place: projects already in flight
      * keep the milestones, deadlines and weights they were given at
      * registration, while MilestoneTemplate::resolveFor() picks the highest
@@ -77,7 +87,7 @@ class MilestoneTemplateSeeder extends Seeder
      */
     protected const VERSIONS = [
         'PSM1' => 7,
-        'PSM2' => 4,
+        'PSM2' => 6,
     ];
 
     public function run(): void
@@ -200,6 +210,7 @@ class MilestoneTemplateSeeder extends Seeder
             'chapter_6'    => 'Submit Chapter 6 — Results and discussion: what the testing and user evaluation actually showed, interpreted against the objectives set out in Chapter 1.',
             'chapter_7'    => 'Submit Chapter 7 — Conclusion: what the project achieved, the limitations of what was built, and the work that remains.',
             'final_report' => 'Submit the complete final report for examination, with all chapters consolidated into the faculty template.',
+            'form_k'       => 'Upload the final report to the e-report system and submit Form K. A late Form K is recorded as Withhold (Tidak Selesai), whatever the report is worth.',
         ];
 
         $research = [
