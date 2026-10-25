@@ -8,6 +8,9 @@ use App\Http\Controllers\Api\EvaluationController;
 use App\Http\Controllers\Api\LeaderboardController;
 use App\Http\Controllers\Api\LecturerMarkController;
 use App\Http\Controllers\Api\MilestoneController;
+use App\Http\Controllers\Api\LampiranCController;
+use App\Http\Controllers\Api\MilestoneReviewController;
+use App\Http\Controllers\Api\OsheController;
 use App\Http\Controllers\Api\MilestoneScheduleController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProfileController;
@@ -251,9 +254,14 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
      * a colleague's roster.
      *
      * Admins and coordinators reach the same endpoints to correct a mark, which
-     * is why the role list is not `lecturer` alone.
+     * is why the role list is not `lecturer` alone. A supervisor is in the list
+     * for the same reason as the lecturer: the staff who teach a section usually
+     * supervise PSM projects as well, and `users.role` holds one value, so the
+     * seating rather than the role decides — `LecturerMarkPolicy` requires an
+     * appointment and refuses a supervisor who has none, so widening the
+     * middleware to `supervisor` opens nothing on its own.
      */
-    Route::middleware('role:admin,coordinator,lecturer')->group(function () {
+    Route::middleware('role:admin,coordinator,lecturer,supervisor')->group(function () {
         Route::get('lecturer/section', [LecturerMarkController::class, 'mySection'])
             ->name('lecturer.section');
         Route::get('lecturer/roster', [LecturerMarkController::class, 'roster'])
@@ -273,6 +281,35 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
         Route::put('students/{studentProfileId}/section', [LecturerMarkController::class, 'assignStudent'])
             ->name('students.section.assign');
     });
+
+    /**
+     * Appointing a section's lecturer, and placing students in bulk.
+     *
+     * The middleware list mirrors the policy rather than widening it: an admin
+     * appoints (`SectionPolicy::manage()`), and an admin or coordinator places
+     * (`assignStudents()`). Declared before the `sections/{section}` route below
+     * so that `sections/lecturers` is matched as the options list rather than as
+     * a section whose id happens to be the string "lecturers" — the same reason
+     * `sections/copy` and `sections/import` are declared above it too.
+     */
+    Route::get('sections/lecturers', [LecturerMarkController::class, 'lecturerOptions'])
+        ->middleware('role:admin')
+        ->name('sections.lecturer_options');
+
+    Route::post('sections/import', [LecturerMarkController::class, 'importStudents'])
+        ->middleware('role:admin,coordinator')
+        ->name('sections.import');
+
+    // Provisioning a term: one section by hand (`store`) or the previous term's
+    // set in one click (`copy`). Both are admin-only, like appointing, because
+    // they settle which sections exist — the same faculty decision.
+    Route::post('sections/copy', [LecturerMarkController::class, 'copy'])
+        ->middleware('role:admin')
+        ->name('sections.copy');
+
+    Route::post('sections', [LecturerMarkController::class, 'store'])
+        ->middleware('role:admin')
+        ->name('sections.store');
 
     // Appointing a section's lecturer is admin-only, per `SectionPolicy::manage()`.
     Route::put('sections/{section}', [LecturerMarkController::class, 'update'])
@@ -468,6 +505,58 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
         Route::post('{milestone}/deadline', [MilestoneController::class, 'changeDeadline'])
             ->middleware('role:admin,coordinator')
             ->name('deadline');
+
+        // --- Lampiran R1: the supervisor's response to a submission --------
+        // Not a milestone of its own and not a document the student files: the
+        // R1 *is* the review. Its two checkboxes ('received' / 'reviewed for
+        // improvement') decide whether the milestone settles or goes back, and
+        // its scores are evidence only — they never reach a grade.
+        //
+        // No date middleware and no window check on purpose: chapter milestones
+        // stay open, so a student may resubmit at any time and nothing closes at
+        // the deadline. The due date still drives the at-risk report.
+        //
+        // Reading the history is open to anyone who can see the milestone (a
+        // student needs to read why they were sent back); writing is narrowed by
+        // MilestonePolicy::reviewR1 to the supervisor, coordinator or admin.
+        Route::get('{milestone}/reviews', [MilestoneReviewController::class, 'index'])
+            ->name('reviews.index');
+
+        Route::post('{milestone}/reviews', [MilestoneReviewController::class, 'store'])
+            ->middleware('role:admin,coordinator,supervisor')
+            ->name('reviews.store');
+
+        Route::post('{milestone}/reviews/{review}/signature', [MilestoneReviewController::class, 'storeSignature'])
+            ->middleware('role:admin,coordinator,supervisor')
+            ->name('reviews.signature.store');
+
+        Route::get('{milestone}/reviews/{review}/signature', [MilestoneReviewController::class, 'showSignature'])
+            ->name('reviews.signature');
+
+        /**
+         * The OSHE form's supervisor signature.
+         *
+         * The one milestone the supervisor *completes* rather than reviews: the
+         * student files the filled form, the supervisor signs it and uploads the
+         * signed copy back, which settles the milestone. Restricted by
+         * MilestonePolicy::review() — the owning supervisor, a coordinator or an
+         * administrator.
+         */
+        Route::post('{milestone}/oshe/sign', [OsheController::class, 'sign'])
+            ->middleware('role:admin,coordinator,supervisor')
+            ->name('oshe.sign');
+
+        /**
+         * Lampiran C — the corrections a conditional approval obliges, as a
+         * two-party digital form: the student files it, the supervisor signs it.
+         */
+        Route::post('{milestone}/lampiran-c/form', [LampiranCController::class, 'file'])
+            ->middleware('role:student')
+            ->name('lampiran-c.file');
+
+        Route::post('{milestone}/lampiran-c/sign', [LampiranCController::class, 'sign'])
+            ->middleware('role:admin,coordinator,supervisor')
+            ->name('lampiran-c.sign');
     });
 
     /**

@@ -227,10 +227,87 @@
     </div>
 
     <div class="btn-container">
-      <button type="button" class="btn" onclick="window.print()">Cetak / Simpan PDF</button>
+      <button type="submit" class="btn">Hantar / Submit</button>
+      <button type="button" class="btn" style="background:#6b7280;margin-left:8px;" onclick="window.print()">Cetak / Simpan PDF</button>
+      <p id="status" style="margin-top:12px;font-size:0.9em;"></p>
     </div>
   </form>
 </div>
+
+<script>
+  /**
+   * Submit Lampiran C.
+   *
+   * Filed against the **proposal milestone** — C only exists on a conditional
+   * approval — so the page needs the milestone id, passed as `?milestone=123`
+   * from the milestone screen. Without it the form still prints, which is how it
+   * is used on paper, but it will not submit and says so.
+   *
+   * The body uses the names MilestoneController::fileLampiranC() validates:
+   * `corrections_title` (the new title) and `corrections_actions[]` carrying
+   * `{ comment, action }` per row — which is exactly the examiner-comment /
+   * correction-action table below.
+   */
+  const MILESTONE_ID = new URLSearchParams(window.location.search).get('milestone')
+
+  document.getElementById('formC').addEventListener('submit', async function (event) {
+    event.preventDefault()
+
+    const form = event.target
+    const status = document.getElementById('status')
+    const value = (name) => form.querySelector(`[name="${name}"]`)?.value?.trim() ?? ''
+
+    const setStatus = (message, ok) => {
+      status.textContent = message
+      status.style.color = ok ? '#15803d' : '#b91c1c'
+    }
+
+    if (!MILESTONE_ID) {
+      setStatus('Tiada No. Milestone — buka borang ini dari skrin milestone. (No milestone id — open this form from the milestone screen.)', false)
+      return
+    }
+
+    // One entry per comment row, skipping rows the student left blank.
+    const actions = []
+    for (let i = 1; i <= 4; i += 1) {
+      const comment = form.querySelector(`[name="comment${i}"]`)?.value?.trim() ?? ''
+      const action = form.querySelector(`[name="action${i}"]`)?.value?.trim() ?? ''
+      if (comment || action) actions.push({ comment, action })
+    }
+
+    const payload = {
+      corrections_title: value('newTitle'),
+      corrections_actions: actions,
+    }
+
+    const button = form.querySelector('button[type="submit"]')
+    const original = button.textContent
+    button.disabled = true
+    button.textContent = 'Menghantar... / Submitting...'
+
+    try {
+      const response = await fetch(`/api/milestones/${MILESTONE_ID}/lampiran-c`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...(localStorage.getItem('token')
+            ? { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            : {}),
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const body = await response.json().catch(() => ({}))
+      setStatus(body.message || (response.ok ? 'Lampiran C submitted.' : 'The form could not be submitted.'), response.ok)
+    } catch (err) {
+      setStatus('Could not reach the server: ' + err.message, false)
+    } finally {
+      button.disabled = false
+      button.textContent = original
+    }
+  })
+</script>
 
 </body>
 </html>
