@@ -64,6 +64,16 @@ const MENU = [
       // they already registered. Its own screen because it is a tick-list with
       // two gates in front of it, not a one-click action.
       { to: '/rollover', label: 'PSM 2 Rollover', roles: ['coordinator', 'admin'] },
+      /*
+       * The term's enrolment register.
+       *
+       * Sits beside Rollover because they are two halves of the same
+       * start-of-term question. Rollover moves a *batch* of finished PSM 1
+       * students into PSM 2; Enrolment places *individuals* into a part for a
+       * term — a late arrival, a student who deferred, and above all a repeat,
+       * which has no term of its own until somebody chooses one here.
+       */
+      { to: '/enrolments', label: 'Enrolment', roles: ['coordinator', 'admin'] },
       { to: '/projects', label: 'All Projects', roles: ['student', 'supervisor', 'coordinator', 'admin'] },
       { to: '/milestones', label: 'Milestones', roles: ['student', 'supervisor', 'coordinator'] },
       // The term's calendar: one set of deadlines per batch, set once and

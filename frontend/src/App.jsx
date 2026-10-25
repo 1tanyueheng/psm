@@ -29,6 +29,7 @@ const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 const UserListPage = lazy(() => import('./pages/admin/UserListPage'))
 const SemesterListPage = lazy(() => import('./pages/admin/SemesterListPage'))
 const RolloverPage = lazy(() => import('./pages/admin/RolloverPage'))
+const EnrolmentPage = lazy(() => import('./pages/admin/EnrolmentPage'))
 const SectionManagementPage = lazy(() => import('./pages/admin/SectionManagementPage'))
 
 const ProjectListPage = lazy(() => import('./pages/projects/ProjectListPage'))
@@ -324,6 +325,24 @@ export default function AppRoutes() {
             element={
               <RequireCapability capability="manageSemesters">
                 <RolloverPage />
+              </RequireCapability>
+            }
+          />
+
+          {/*
+            The term's enrolment register: who is doing PSM 1 or PSM 2 this
+            semester, and which term an opened repeat belongs to.
+
+            Companion to the rollover screen rather than a replacement. Rollover
+            moves a finished PSM 1 batch into PSM 2; this places *individual*
+            students — a late arrival, a repeat — into a part for a term, and it
+            is the only place a repeat acquires a semester.
+          */}
+          <Route
+            path="/enrolments"
+            element={
+              <RequireCapability capability="manageSemesters">
+                <EnrolmentPage />
               </RequireCapability>
             }
           />

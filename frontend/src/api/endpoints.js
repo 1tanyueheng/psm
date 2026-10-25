@@ -512,6 +512,52 @@ export const projectApi = {
   registerMeta: () => api.get('/projects/registration-meta').then(unwrap),
 }
 
+/**
+ * Enrollment — placing a student into a PSM part for a semester.
+ *
+ * The record the admin works with at the start of every term. It exists
+ * separately from projects because an enrolment comes *first*: the cohort is
+ * registered before anyone has proposed a title, so a student now has a term of
+ * their own rather than acquiring one from their project.
+ *
+ * This is also where a repeat is placed. `projectApi.repeat` only marks the
+ * attempt as repeatable — it opens an unplaced enrolment — and `place` is what
+ * gives it a term, chosen by a human rather than guessed.
+ */
+export const enrolmentApi = {
+  /** The cohort for one term. Pass `{ unplaced: true }` for repeats awaiting a term. */
+  list: (params) => api.get('/enrolments', { params }).then(unwrap),
+
+  /**
+   * Who could be enrolled into a term and part, with a `blocker` on everyone
+   * else. Everyone comes back, eligible or not — the same show-but-disable rule
+   * the verdict board follows, because a student missing from a picker is the
+   * one thing an admin cannot debug.
+   */
+  eligible: (semesterId, psmPart) =>
+    api
+      .get('/enrolments/eligible', { params: { semester_id: semesterId, psm_part: psmPart } })
+      .then(unwrap),
+
+  /**
+   * Enrol one student or a batch. Partial success is normal: the response
+   * carries `enrolled` and `skipped`, so one clash does not hide the other
+   * twenty-nine.
+   */
+  store: (payload) => api.post('/enrolments', payload).then(unwrap),
+
+  /** Put an opened repeat into a term. Refused if the term is not later. */
+  place: (id, semesterId) =>
+    api.post(`/enrolments/${id}/place`, { semester_id: semesterId }).then(unwrap),
+
+  /** A deferral or withdrawal — deliberately not a failure. */
+  withdraw: (id, reason) => api.post(`/enrolments/${id}/withdraw`, { reason }).then(unwrap),
+
+  /** One student's whole PSM history, every attempt at every part. */
+  forStudent: (studentProfileId) =>
+    api.get(`/students/${studentProfileId}/enrolments`).then(unwrap),
+}
+
 export const milestoneApi = {
   list: (params) => api.get('/milestones', { params }).then(unwrapPaged),
   show: (id) => api.get(`/milestones/${id}`).then(unwrap),

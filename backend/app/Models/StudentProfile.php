@@ -141,6 +141,29 @@ class StudentProfile extends Model
     }
 
     /**
+     * Every PSM attempt this student has been enrolled into, oldest first.
+     *
+     * This is the relation the project-centric model could not have. A student's
+     * term used to be reachable only through their project, so a student with no
+     * project yet — the normal state before registration — had no history to
+     * show. Enrolments exist first, so this is complete from the moment the
+     * admin registers them.
+     */
+    public function enrolments(): HasMany
+    {
+        return $this->hasMany(StudentEnrolment::class)->orderBy('psm_part')->orderBy('attempt_no');
+    }
+
+    /** The attempts currently in play — enrolling or active. */
+    public function liveEnrolments(): HasMany
+    {
+        return $this->hasMany(StudentEnrolment::class)
+            ->whereIn('status', ['enrolling', 'active'])
+            ->orderBy('psm_part')
+            ->orderBy('attempt_no');
+    }
+
+    /**
      * Restrict to students who hold a live project in one term and batch.
      *
      * This is a scope rather than a `currentProject` relation on purpose. A

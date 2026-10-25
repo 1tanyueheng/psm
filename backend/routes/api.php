@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AssessmentWindowController;
 use App\Http\Controllers\Api\AssignmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EvaluationController;
+use App\Http\Controllers\Api\EnrolmentController;
 use App\Http\Controllers\Api\LeaderboardController;
 use App\Http\Controllers\Api\LecturerMarkController;
 use App\Http\Controllers\Api\MilestoneController;
@@ -458,6 +459,32 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
 
         // Milestones live under their project for a natural URL shape
         Route::get('{project}/milestones', [MilestoneController::class, 'index'])->name('milestones.index');
+    });
+
+    /**
+     * Enrolments — the admin's start-of-term placement.
+     *
+     * A student's term used to live only on their project, so the cohort could
+     * not be set up before anyone had registered a title, and a repeat had to
+     * guess which term it belonged to. These routes are that missing verb: enrol
+     * a student into a PSM part for a semester, and place a repeat into a real
+     * term once one exists.
+     *
+     * Top level, **not** under `projects` — an enrolment exists before a project
+     * does, so nesting it there would say the opposite of what the model means.
+     *
+     * `eligible` is a literal segment and is registered before any `{enrolment}`
+     * wildcard, for the same reason `rollover` and `verdicts` are.
+     */
+    Route::prefix('enrolments')->name('enrolments.')->group(function () {
+        Route::get('/', [EnrolmentController::class, 'index'])->name('index');
+
+        Route::middleware('role:admin,coordinator')->group(function () {
+            Route::get('eligible', [EnrolmentController::class, 'eligible'])->name('eligible');
+            Route::post('/', [EnrolmentController::class, 'store'])->name('store');
+            Route::post('{enrolment}/place', [EnrolmentController::class, 'place'])->name('place');
+            Route::post('{enrolment}/withdraw', [EnrolmentController::class, 'withdraw'])->name('withdraw');
+        });
     });
 
     // -----------------------------------------------------------------
