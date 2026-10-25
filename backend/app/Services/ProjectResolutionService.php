@@ -295,7 +295,7 @@ class ProjectResolutionService
 
             if ($failedTerm !== null && ! $failedTerm->isClosed()) {
                 throw new InvalidArgumentException(
-                    "{$failedTerm->name} is still open. A repeat starts in a later term — "
+                    "{$failedTerm->name} is still running. A repeat starts in a later term — "
                     .'close this semester first.'
                 );
             }
@@ -358,7 +358,7 @@ class ProjectResolutionService
 
         if (! $failedTerm->isClosed()) {
             throw new InvalidArgumentException(
-                "{$failedTerm->name} is still open. A repeat starts in a later term — "
+                "{$failedTerm->name} is still running. A repeat starts in a later term — "
                 .'close this semester first.'
             );
         }

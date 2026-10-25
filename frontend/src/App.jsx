@@ -45,6 +45,7 @@ const EvaluationListPage = lazy(() => import('./pages/evaluations/EvaluationList
 const EvaluationFormPage = lazy(() => import('./pages/evaluations/EvaluationFormPage'))
 const MarkListPage = lazy(() => import('./pages/evaluations/MarkListPage'))
 const AssessmentWindowPage = lazy(() => import('./pages/coordinator/AssessmentWindowPage'))
+const VerdictPage = lazy(() => import('./pages/coordinator/VerdictPage'))
 const RubricListPage = lazy(() => import('./pages/evaluations/RubricListPage'))
 
 const AssignmentPage = lazy(() => import('./pages/assignments/AssignmentPage'))
@@ -268,6 +269,16 @@ export default function AppRoutes() {
             element={
               <RequireCapability capability="reviewMarks">
                 <AssessmentWindowPage />
+              </RequireCapability>
+            }
+          />
+          {/* Closing the term's verdicts. Same audience as marking: the
+              committee reads the locked marks and rules on each project. */}
+          <Route
+            path="/verdicts"
+            element={
+              <RequireCapability capability="reviewMarks">
+                <VerdictPage />
               </RequireCapability>
             }
           />

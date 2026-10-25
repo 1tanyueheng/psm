@@ -11,6 +11,7 @@ use App\Http\Resources\AcademicSemesterResource;
 use App\Http\Resources\ProjectResource;
 use App\Models\AcademicSemester;
 use App\Models\GradeScheme;
+use App\Models\MarkSubmission;
 use App\Models\Project;
 use App\Models\StudentProfile;
 use App\Models\SupervisorProfile;
@@ -638,6 +639,106 @@ class ProjectController extends ApiController
                 ? 'PSM 1 repeats from registration — the student must file Lampiran A again.'
                 : 'A new PSM 2 attempt has been created.'
         );
+    }
+
+    /**
+     * GET /api/projects/verdicts
+     *
+     * The committee's worklist: every project in a term with whether a verdict
+     * can be given yet, and what that verdict was if it already has one.
+     *
+     * Separate from `/projects/rollover` because it answers a different question.
+     * Rollover asks "who may move to PSM 2" — PSM 1 only, gated on the whole
+     * term. This asks "what is the outcome of each project" — **both parts**,
+     * gated per project on its own marks, because that is how a committee
+     * actually sits: it rules on the PSM 2 cohort in the same meeting as the
+     * PSM 1 one, and a single student's ruling does not wait on their neighbour.
+     *
+     * Every project is returned, decidable or not. The reason travels on the
+     * row, so a coordinator sees *why* a student cannot be ruled on rather than
+     * finding them missing from the list — the same principle the rollover
+     * screen already follows.
+     */
+    public function verdictCandidates(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', Project::class);
+
+        $semesterId = AcademicSemester::resolveFilterId($request->input('semester_id'));
+
+        if ($semesterId === null) {
+            return $this->ok([
+                'semester'   => null,
+                'candidates' => [],
+            ]);
+        }
+
+        $projects = Project::query()
+            ->where('academic_semester_id', $semesterId)
+            ->when($request->filled('psm_part'), fn ($q) => $q->where('psm_part', $request->input('psm_part')))
+            ->with([
+                'members.studentProfile.user',
+                'members.studentProfile.activeSupervisions.supervisorProfile.user',
+            ])
+            ->orderBy('code')
+            ->get();
+
+        $submissions = MarkSubmission::query()
+            ->whereIn('project_id', $projects->pluck('id'))
+            ->with('finalGrade')
+            ->get()
+            ->keyBy('project_id');
+
+        $candidates = $projects->map(function (Project $project) use ($submissions) {
+            $student = $project->leader();
+            $submission = $submissions->get($project->id);
+
+            /**
+             * Three possible reasons a verdict is not available, in the order a
+             * coordinator would hit them: no student, no window, marks not in.
+             */
+            $blocker = match (true) {
+                $student === null   => 'No student on this project.',
+                $submission === null => 'No assessment window has been opened for this project.',
+                $submission->status->value !== 'locked' => 'Marks are not locked yet ('
+                    .$submission->status->value.').',
+                default => null,
+            };
+
+            $metadata = $project->metadata ?? [];
+
+            return [
+                'project_id'   => $project->id,
+                'code'         => $project->code,
+                'title'        => $project->title,
+                'psm_part'     => $project->psm_part,
+                'batch'        => $project->batch,
+                'program'      => $project->program,
+                'student_id'   => $student?->student_id,
+                'student_name' => $student?->user?->name,
+                'supervisor'   => $student?->activeSupervisions
+                    ?->firstWhere('is_active', true)?->supervisorProfile?->user?->name,
+                'status'       => $project->status,
+                'finished'     => $project->isFinished(),
+                'passed'       => $project->isPassed(),
+                // Null means "a verdict may be given now"; a string says why not.
+                'blocker'      => $blocker,
+                'can_resolve'  => $blocker === null && ! $project->isFinished(),
+                // A failed project may be repeated — subject to the term having
+                // closed, which the service enforces and the screen restates.
+                'can_repeat'   => $project->status === 'failed',
+                'outcome_reason' => $metadata['outcome_reason'] ?? null,
+                'resolved_at'  => $metadata['resolved_at'] ?? null,
+                'resolved_by'  => $metadata['resolved_by_name'] ?? null,
+                'mark'         => $submission?->finalGrade?->final_mark,
+                'submission_status' => $submission?->status->value,
+            ];
+        })->values()->all();
+
+        return $this->ok([
+            'semester'   => AcademicSemester::find($semesterId)?->name,
+            'semester_id'=> $semesterId,
+            'candidates' => $candidates,
+        ]);
     }
 
     /**

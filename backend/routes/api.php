@@ -408,6 +408,16 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
                 ->name('rollover.index');
             Route::post('rollover', [ProjectController::class, 'rollover'])
                 ->name('rollover.store');
+
+            /**
+             * The verdict worklist.
+             *
+             * Also a literal segment, and also before the `{project}` wildcard
+             * for the same reason `rollover` is: "verdicts" would otherwise be
+             * read as a project id.
+             */
+            Route::get('verdicts', [ProjectController::class, 'verdictCandidates'])
+                ->name('verdicts.index');
         });
 
         Route::post('/', [ProjectController::class, 'store'])

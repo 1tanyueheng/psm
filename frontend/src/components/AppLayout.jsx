@@ -87,6 +87,15 @@ const MENU = [
       { to: '/evaluations', label: 'My Marking', roles: ['supervisor'] },
       { to: '/assessment', label: 'Assessment', roles: ['coordinator', 'admin'] },
       { to: '/marks', label: 'Marks & Release', roles: ['coordinator', 'admin'] },
+      /*
+       * Closing the term: pass or fail each project.
+       *
+       * Sits directly under Marks & Release because it is the next step in the
+       * same sequence — marks are locked there, then ruled on here. This is also
+       * where the retired Archive button's job now lives: a finished project is
+       * no longer hidden, it is given an outcome.
+       */
+      { to: '/verdicts', label: 'Verdicts', roles: ['coordinator', 'admin'] },
       { to: '/rubrics', label: 'Rubrics', roles: ['supervisor', 'coordinator', 'admin'] },
     ],
   },
