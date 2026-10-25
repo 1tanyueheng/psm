@@ -54,6 +54,16 @@ enum AuditAction: string
      */
     case ProjectResolved   = 'project.resolved';
 
+    /**
+     * A student placed into (or taken out of) a PSM part for a semester.
+     *
+     * Separate from the project events because an enrolment exists before a
+     * project does — the admin can register a cohort for a term that has not
+     * started, and that act has no project to hang an audit entry from.
+     */
+    case StudentEnrolled   = 'enrolment.created';
+    case StudentWithdrawn  = 'enrolment.withdrawn';
+
     // The panel's verdict on a Lampiran A proposal, and the student's response
     // to a rejection. Registration events rather than project ones: they decide
     // the title before any project exists.
@@ -174,6 +184,8 @@ enum AuditAction: string
             self::ProjectArchived       => 'Archived project',
             self::ProjectProgressed     => 'Progressed to PSM 2',
             self::ProjectResolved       => 'Resolved project (pass/fail)',
+            self::StudentEnrolled       => 'Enrolled student in a PSM session',
+            self::StudentWithdrawn      => 'Withdrew a student enrolment',
             self::ProposalReviewed      => 'Reviewed proposal',
             self::ProposalResubmitted   => 'Resubmitted proposal',
             self::MilestoneOpened       => 'Opened milestone',
