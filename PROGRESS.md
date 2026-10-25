@@ -407,7 +407,19 @@ docker exec -i psm-app rm -f /var/www/html/probe.php
 ```
 
 - Wrap destructive probes in `DB::beginTransaction()` / `DB::rollBack()`.
+- **`tinker probe.php` boots a different kernel to an HTTP request — say what
+  you mean.** A probe that writes inside a transaction is not visible to a
+  separate `curl` call. If a probe has to set state up *and* call the API, write
+  the setup for real and undo it afterwards, or you will test against the old
+  row and conclude the feature is broken. (This cost an hour on the verdict
+  work: the probe locked a mark, the API still reported `open`, and the "bug"
+  did not exist.)
+- **HTTP probes: log in with a real account and call with `curl`** — a 403 and a
+  422 are the fastest way to prove a gate works. `student@psm.test` for the
+  negative case, `coordinator@psm.test` for the positive one.
 - `php -l` every changed file; `npx eslint <files>`; `npm run build`.
+- Python checks: `backend/tools/check_seeders.py` and
+  `frontend/tools/check_frontend.py` (module-graph and unused-export checks).
 - **After adding any class or route: rebuild the autoloader**, or you get
   `Class ... does not exist` / `Target class ... does not exist`:
   ```
@@ -415,6 +427,9 @@ docker exec -i psm-app rm -f /var/www/html/probe.php
     -w /app composer:2 dump-autoload --no-dev --optimize --classmap-authoritative
   ```
   and `php artisan route:clear` for new routes.
+- **Check `route:list` on a new route, not just that it registered.** A route
+  added in the wrong `Route::prefix()` group registers happily and lands on the
+  wrong URL — `/api/projects/enrolments` instead of `/api/enrolments`.
 - **`config/psm.php` changes need `php artisan config:cache`** — the config is
   cached, and an edit without it silently does nothing.
 
@@ -538,15 +553,29 @@ write into ./thesis/ and tell the user to copy across.
 
 ## 7. Open issues / risks
 
-### Codebase (2026-10-25)
+### Codebase (2026-10-26)
 
 - [ ] **The exposed Supabase storage key has not been revoked.** Session
       `5e9874c3` contains it in plain text on disk. Revoke it at Supabase →
       Settings → Storage → S3 Access Keys. It is not the key `.env` uses, but it
       is still valid until revoked.
-- [ ] **There is no Archive button on the project page.** The API exists
-      (`POST /api/projects/{id}/archive`) but no UI calls it, so archiving is
-      unreachable from the browser. The module is otherwise hidden — see §3A.
+- [ ] **`/enrolments` has never been exercised end to end in the browser.** The
+      API is verified over HTTP (cohort list, `/eligible`, 403 for a student),
+      and the page builds and passes `check_frontend.py`, but no click-through
+      has happened. Verify before demonstrating it.
+- [ ] **Form K is a milestone, not a digital form.** `form_k` sits at the end of
+      the PSM 2 chain and accepts a document upload; it is **not** the signed
+      digital form that Lampiran C is (`LampiranCCard`, `SignaturePad`). The user
+      asked for it to work like the other Lampiran and keep the original format —
+      the PDF is at `form required/lampiran K/`. Not started.
+- [ ] **No progress evaluation milestones for PSM 2.** The faculty timetable puts
+      "Progress Evaluation 1 & 2" at weeks 5 and 11. The user said these are
+      marking activities, not deliverables, so they were not modelled. If a
+      marker needs a scheduled slot, they have to be added.
+- [ ] **An enrolment belongs to the project leader only.** If a project ever
+      gains a second member, that member has no enrolment row and does not count
+      against capacity. The backfill used `is_leader = true` deliberately. The
+      per-student-vs-per-project question for verdicts is also still unanswered.
 - [ ] **Section placement is seeded round-robin by matric order**, so the demo
       rosters are arbitrary — not a real allocation.
 - [ ] **`RUN_SEED=true` must be turned off before the cohort is real.**
@@ -557,6 +586,18 @@ write into ./thesis/ and tell the user to copy across.
 - [ ] **`sections` has no unique constraint on `lecturer_id`.** "One section per
       teacher per term" is enforced only in `LecturerMarkController::update()`.
       A direct DB write could break it.
+
+### Resolved since the last update (2026-10-26)
+
+- [x] **Archive is no longer offered anywhere in the UI.** Not an open issue any
+      more, it is a decision: sidebar entry commented out, admin dashboard card
+      gone, no project button. Routes, API and records stay dormant. See §3A.
+- [x] **A finished project no longer consumes a supervisor's capacity for ever.**
+      Capacity counts live enrolments now. See §3A.
+- [x] **Duplicate supervision rows.** Seeder key fixed; partial unique index on
+      `(student_profile_id, supervisor_profile_id) WHERE is_active`.
+- [x] **A repeat can no longer be written with a null term.** `repeat()` opens an
+      unplaced enrolment; the admin chooses the term. See §3A.
 
 ### Thesis
 
