@@ -302,13 +302,21 @@ class ProgressionService
         return ['progressed' => $progressed, 'failed' => $failed];
     }
 
-    /** The student's live PSM 2 project, if they already have one. */
+    /**
+     * The student's live PSM 2 project, if they already have one.
+     *
+     * `active()`, not `live()`: a project the student **failed** is not live
+     * work, it is a finished attempt that they may now repeat. Testing
+     * `archived_at` alone answered "has this been tidied away", which nothing
+     * writes any more, so a failed PSM 2 blocked the retake that exists to
+     * resolve it.
+     */
     public function livePsm2For(StudentProfile $student): ?Project
     {
         return Project::query()
             ->whereHas('members', fn ($q) => $q->where('student_profile_id', $student->id))
             ->where('psm_part', 'PSM2')
-            ->whereNull('archived_at')
+            ->active()
             ->orderByDesc('id')
             ->first();
     }

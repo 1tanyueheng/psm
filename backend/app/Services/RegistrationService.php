@@ -286,9 +286,21 @@ class RegistrationService
      */
     protected function assertStudentMayRegister(StudentProfile $student, AcademicSemester $semester): void
     {
+        /**
+         * Only a **running** project blocks re-registration.
+         *
+         * This is what makes a PSM 1 repeat possible. The check used
+         * `whereNull('archived_at')`, and nothing archives a failed project, so
+         * a student who failed PSM 1 was told "you already have a project
+         * registered" and could never file Lampiran A again — locked out of the
+         * very semester they were required to repeat.
+         *
+         * `active()` asks the question this guard actually means: is there a
+         * project here the student is still working on?
+         */
         $existingProject = $student->projects()
             ->where('academic_semester_id', $semester->id)
-            ->whereNull('archived_at')
+            ->active()
             ->orderByDesc('id')
             ->first();
 

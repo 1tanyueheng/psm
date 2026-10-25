@@ -205,6 +205,11 @@ class StudentProfile extends Model
      * `archived_at`, which no single unique index can express — a constraint
      * that could not also be dropped would trap a coordinator who archived a
      * duplicate by hand.
+     *
+     * **Active, not merely unarchived.** A project that has been resolved —
+     * passed or failed — is finished work, and a student who failed is entitled
+     * to a new one. Counting a finished project here would refuse the retake,
+     * which is the same mistake `livePsm2For()` made.
      */
     public function hasActiveProjectInSemester(
         int|AcademicSemester|null $semester,
@@ -218,7 +223,7 @@ class StudentProfile extends Model
 
         return $this->projects()
             ->where('academic_semester_id', $semesterId)
-            ->whereNull('archived_at')
+            ->active()
             ->when($psmPart !== null, fn ($q) => $q->where('psm_part', $psmPart))
             ->exists();
     }

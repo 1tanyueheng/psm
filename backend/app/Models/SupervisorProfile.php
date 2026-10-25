@@ -344,11 +344,12 @@ class SupervisorProfile extends Model
          * took. `SupervisorProfileResource` and the options list both eager-load
          * `activeSupervisions`, so the filter runs over rows already in hand.
          *
-         * The predicate is the same one the query expresses: a supervision counts
-         * against this term if the student's project for it is in the term and
-         * not archived. `forSemester` and `live` own those two conditions, and
-         * they are re-stated here rather than approximated — a looser filter
-         * would over-count and refuse an allocation the rule permits.
+         * The predicate counts a supervision against this term when the
+         * student's project for it is **running** in that term — `forSemester`
+         * supplies the term and `active()` supplies "not yet resolved". It used
+         * to test `archived_at`, which meant a project the student had already
+         * failed still consumed a slot against this supervisor for ever: the
+         * retake was refused for capacity the student was no longer using.
          */
         if ($this->relationLoaded('activeSupervisions')) {
             $inTerm = $this->activeSupervisions->filter(function (SupervisionAssignment $a) use ($semesterId) {
@@ -359,11 +360,11 @@ class SupervisorProfile extends Model
                 }
 
                 return $projects->contains(fn ($p) => $p->academic_semester_id === $semesterId
-                    && $p->archived_at === null);
+                    && ! $p->isFinished());
             });
         } else {
             $inTerm = $this->activeSupervisions()
-                ->whereHas('studentProfile.projects', fn ($p) => $p->forSemester($semesterId)->live())
+                ->whereHas('studentProfile.projects', fn ($p) => $p->forSemester($semesterId)->active())
                 ->get();
         }
 

@@ -225,10 +225,18 @@ class AssessmentWindowService
      */
     protected function projects(AssessmentWindow $window): Collection
     {
+        /**
+         * Opening a window allocates to projects still **running**.
+         *
+         * `active()`, not `whereNull('archived_at')`: a project already resolved
+         * by the committee needs no new forms. Allocating to one would create
+         * marks nobody reads and, worse, would resurrect a failed attempt's
+         * submissions as if it were live again.
+         */
         return Project::query()
             ->where('psm_part', $window->psm_part)
             ->where('academic_semester_id', $window->academic_semester_id)
-            ->whereNull('archived_at')
+            ->active()
             ->with(['students.user'])
             ->orderBy('code')
             ->get();

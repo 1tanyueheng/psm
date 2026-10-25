@@ -416,10 +416,50 @@ class Project extends Model
      * one alone is enough to retire it. Checking both keeps a project that was
      * archived by the coordinator but not by the deletion cascade out of every
      * live roster.
+     *
+     * **This is not "is it running".** An archived project is one somebody tidied
+     * away; a *finished* project — passed or failed — is still found by this
+     * scope, because nothing archives it. Use `active()` for the lifecycle
+     * question. See the note there.
      */
     public function scopeLive(Builder $query): Builder
     {
         return $query->whereNull('archived_at');
+    }
+
+    /** Statuses that mean the project is no longer running. */
+    public const FINISHED_STATUSES = ['completed', 'failed'];
+
+    /**
+     * Projects still being worked on: the student owes something on them.
+     *
+     * This is the scope the rest of the system should ask when the question is
+     * "does this student still have work here" — not `live()`. The two are not
+     * the same thing, and conflating them is what made a failed project
+     * un-repeatable: `live()` means "not tidied away", so a **failed** project
+     * still satisfied it, and every gate that used it treated a student who had
+     * already been resolved as a student still in progress.
+     *
+     * The distinction matters most after the archive module was retired: nothing
+     * writes `archived_at` any more, so any gate built on it alone silently
+     * stops distinguishing anything. Status is the lifecycle. `archived_at`
+     * remains the separate, human act of filing a record out of the way.
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereNotIn('status', self::FINISHED_STATUSES);
+    }
+
+    /** Is this project finished, whether passed or failed? */
+    public function isFinished(): bool
+    {
+        return in_array($this->status, self::FINISHED_STATUSES, true);
+    }
+
+    /** Did it finish successfully? */
+    public function isPassed(): bool
+    {
+        return $this->status === 'completed';
     }
 
     public function scopeOfCategory(Builder $query, ProjectCategory|string $category): Builder

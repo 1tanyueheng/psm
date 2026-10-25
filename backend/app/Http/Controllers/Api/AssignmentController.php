@@ -787,7 +787,7 @@ return $this->ok(null, 'Supervisor removed. The record has been retained for aud
     {
         return StudentProfile::query()
             ->inSemesterPart($semesterId, $filters['psm_part'] ?? null)
-            ->whereHas('projects', fn ($q) => $q->whereNull('archived_at'))
+            ->whereHas('projects', fn ($q) => $q->active())
             ->whereDoesntHave(
                 'projects.examinerAssignments',
                 fn ($q) => $q->where('is_active', true)

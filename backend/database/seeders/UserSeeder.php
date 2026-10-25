@@ -439,13 +439,28 @@ foreach ($supervisorData as [$title, $name, $staffNo, $capacity, $areas, $psm1Ca
 
             $supervisor = $pool[$turn % $pool->count()];
 
+            /**
+             * Keyed on the student and supervisor **only**.
+             *
+             * The key used to include `psm_part => 'BOTH'`, which broke as soon
+             * as a student progressed: `ProgressionService::progress()` rewrites
+             * the pairing from `PSM1` to `BOTH`, so on a first run no row matched
+             * the key and on later runs the row no longer carried `BOTH`. Either
+             * way the seeder inserted a *second* active pairing for the same two
+             * people — 22 duplicates across the demo cohort, each one
+             * double-counting a supervisor's load.
+             *
+             * One primary supervision exists per (student, supervisor); the
+             * columns that identify a pairing are those two, and `psm_part` is a
+             * property of it rather than part of its identity.
+             */
             SupervisionAssignment::updateOrCreate(
                 [
                     'student_profile_id'    => $student->id,
                     'supervisor_profile_id' => $supervisor->id,
-                    'psm_part'              => 'BOTH',
                 ],
                 [
+                    'psm_part'               => 'BOTH',
                     'role'                   => 'primary',
                     'responsibility_percent' => 100,
                     'is_active'              => true,

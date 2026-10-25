@@ -590,10 +590,20 @@ class ProjectController extends ApiController
             default => null,
         };
 
+        /**
+         * Rollover candidates are PSM 1 projects still **running**.
+         *
+         * `active()`, not `whereNull('archived_at')`: a PSM 1 project the
+         * committee already resolved — passed or failed — is not a candidate.
+         * A failed one in particular must drop off this list, because the
+         * student repeats from registration rather than being progressed, and
+         * offering it here would let a coordinator progress a student who has
+         * to redo PSM 1.
+         */
         $projects = Project::query()
             ->where('psm_part', 'PSM1')
             ->where('academic_semester_id', $semester->id)
-            ->whereNull('archived_at')
+            ->active()
             ->with([
                 'members.studentProfile.user',
                 'members.studentProfile.activeSupervisions.supervisorProfile.user',
