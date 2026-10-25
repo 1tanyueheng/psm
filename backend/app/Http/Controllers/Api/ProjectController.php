@@ -18,6 +18,7 @@ use App\Services\AuditLogger;
 use App\Services\ArchiveService;
 use App\Services\MilestoneService;
 use App\Services\ProgressionService;
+use App\Services\ProjectResolutionService;
 use App\Services\SemesterService;
 use InvalidArgumentException;
 use Illuminate\Http\JsonResponse;
@@ -36,6 +37,7 @@ class ProjectController extends ApiController
         protected AuditLogger $audit,
         protected SemesterService $semesters,
         protected ProgressionService $progression,
+        protected ProjectResolutionService $resolution,
     ) {
     }
 
@@ -540,6 +542,102 @@ class ProjectController extends ApiController
                 'title' => $milestone->title,
             ])->all(),
         ], 'Student progressed to PSM 2 — the PSM 1 project has been archived.');
+    }
+
+    /**
+     * POST /api/projects/{project}/resolve
+     *
+     * The committee's verdict: this project passed, or the student repeats.
+     *
+     * This is the step the lifecycle was missing. A project used to end only by
+     * an administrator archiving it, which said nothing about whether the work
+     * passed — so a failed student stayed `in_progress` for ever, kept their
+     * supervisor's capacity consumed, and had no route to repeat.
+     *
+     * Resolving closes the people attached to the project: the supervisor stops
+     * carrying the student (unless another part is still running), and the panel
+     * is released. A fail requires a reason.
+     */
+    public function resolveProject(Request $request, Project $project): JsonResponse
+    {
+        $this->authorize('resolve', $project);
+
+        $validated = $request->validate([
+            'outcome' => ['required', 'string', Rule::in([
+                ProjectResolutionService::OUTCOME_PASSED,
+                ProjectResolutionService::OUTCOME_FAILED,
+            ])],
+            'reason'  => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        try {
+            $resolved = $this->resolution->resolve(
+                $project,
+                $validated['outcome'],
+                $validated['reason'] ?? null,
+                $request->user(),
+            );
+        } catch (InvalidArgumentException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
+
+        return $this->ok([
+            'project_id' => $resolved->id,
+            'code'       => $resolved->code,
+            'psm_part'   => $resolved->psm_part,
+            'status'     => $resolved->status,
+            'outcome'    => $validated['outcome'],
+        ], $validated['outcome'] === ProjectResolutionService::OUTCOME_FAILED
+            ? 'Project recorded as failed. The student may now repeat this part.'
+            : 'Project recorded as completed.');
+    }
+
+    /**
+     * POST /api/projects/{project}/repeat
+     *
+     * Start a repeat of a failed part, for the same student.
+     *
+     * The two parts behave differently here, by the faculty's rule:
+     *
+     *  - **PSM 1** starts over **from registration**. A student who failed
+     *    PSM 1 files Lampiran A again — new supervisor pairing if they choose,
+     *    new title, and the whole chain (Lampiran B, proposal, OSHE, Chapters
+     *    1-4). This endpoint therefore does *not* create a project for PSM 1:
+     *    a project only exists once Lampiran B registers it, and creating one
+     *    here would skip the registration the faculty requires.
+     *  - **PSM 2** repeats **in place**. There is no second registration — the
+     *    student already has a title and a supervisor — so a new PSM 2 project
+     *    is created directly, with the same supervisor and panel, and the
+     *    Chapters 5-7 chain is instantiated fresh.
+     *
+     * `keep_title` is only meaningful for PSM 2: a PSM 1 repeat re-proposes
+     * through Lampiran A, so the old title is not carried automatically even if
+     * the student chooses to reuse it.
+     */
+    public function repeatProject(Request $request, Project $project): JsonResponse
+    {
+        $this->authorize('resolve', $project);
+
+        $validated = $request->validate([
+            'keep_title' => ['sometimes', 'boolean'],
+        ]);
+
+        try {
+            $result = $this->resolution->repeat(
+                $project,
+                $request->user(),
+                $request->boolean('keep_title', true),
+            );
+        } catch (InvalidArgumentException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
+
+        return $this->created(
+            $result,
+            $result['mode'] === 'registration'
+                ? 'PSM 1 repeats from registration — the student must file Lampiran A again.'
+                : 'A new PSM 2 attempt has been created.'
+        );
     }
 
     /**

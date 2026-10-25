@@ -429,6 +429,21 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
             // reached by progressing the student, not by a second Lampiran A.
             Route::post('{project}/progress-to-psm2', [ProjectController::class, 'progressToPsm2'])
                 ->name('progress-to-psm2');
+
+            /**
+             * The committee's verdict, and the repeat that follows a fail.
+             *
+             * `resolve` is the step the lifecycle was missing between "the marks
+             * are in" and "this part is over": it records pass or fail and closes
+             * the supervisor and panel attached to the project. `repeat` starts
+             * the next attempt — which for PSM 1 means handing the student back
+             * to registration rather than creating a project, because a PSM 1
+             * project only exists once Lampiran B registers the title.
+             */
+            Route::post('{project}/resolve', [ProjectController::class, 'resolveProject'])
+                ->name('resolve');
+            Route::post('{project}/repeat', [ProjectController::class, 'repeatProject'])
+                ->name('repeat');
         });
 
         // Milestones live under their project for a natural URL shape

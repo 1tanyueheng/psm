@@ -98,6 +98,24 @@ class ProjectPolicy
         return $this->approve($actor, $project);
     }
 
+    /**
+     * Recording the pass/fail verdict.
+     *
+     * The committee decides — a coordinator within their scope, or an admin.
+     * Not the supervisor: they assess the work, but whether a student passes the
+     * *programme part* is the committee's judgement, and letting the person who
+     * taught them also decide their fate is the conflict the panel exists to
+     * avoid.
+     *
+     * Same reach as `approve()` on purpose. A coordinator who may approve a
+     * registration may also resolve it; introducing a narrower scope here would
+     * mean the coordinator who ran the cohort could not close it.
+     */
+    public function resolve(User $actor, Project $project): bool
+    {
+        return $this->approve($actor, $project);
+    }
+
     /** Allocate examiners — coordinator territory. */
     public function assignExaminers(User $actor, Project $project): bool
     {

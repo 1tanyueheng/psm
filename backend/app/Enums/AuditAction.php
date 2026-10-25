@@ -43,6 +43,17 @@ enum AuditAction: string
     // and the trail needs to be able to answer "who progressed whom, and when".
     case ProjectProgressed = 'project.progressed';
 
+    /**
+     * The committee's pass/fail verdict on a project.
+     *
+     * Separate from approving and progressing because it is the one action that
+     * ends a student's part of the programme. A fail entitles them to repeat, so
+     * "who decided this, when, and on what grounds" is the first thing an appeal
+     * asks — which is why the reason travels with the audit record and not only
+     * on the project row.
+     */
+    case ProjectResolved   = 'project.resolved';
+
     // The panel's verdict on a Lampiran A proposal, and the student's response
     // to a rejection. Registration events rather than project ones: they decide
     // the title before any project exists.
@@ -162,6 +173,7 @@ enum AuditAction: string
             self::ProjectRejected       => 'Rejected project',
             self::ProjectArchived       => 'Archived project',
             self::ProjectProgressed     => 'Progressed to PSM 2',
+            self::ProjectResolved       => 'Resolved project (pass/fail)',
             self::ProposalReviewed      => 'Reviewed proposal',
             self::ProposalResubmitted   => 'Resubmitted proposal',
             self::MilestoneOpened       => 'Opened milestone',
