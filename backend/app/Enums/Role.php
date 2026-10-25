@@ -99,6 +99,42 @@ enum Role: string
         return $this !== self::Lecturer;
     }
 
+    /**
+     * Roles that may key coursework marks (Module 1/4).
+     *
+     * This is only the **static** half of the rule, and it is the half that the
+     * `lecturer` role exists for: a lecturer is a member of staff whose whole
+     * job is one section of a service course, so the role alone grants the
+     * screen. The other half is an *appointment* — being named as a section's
+     * lecturer, which `User::canKeyCoursework()` adds for anyone else who
+     * teaches a section.
+     *
+     * Both halves are needed because in practice the people who teach a section
+     * are usually already supervisors: the same academic supervises PSM
+     * projects and lectures a coursework section. `users.role` holds one value,
+     * so a supervisor cannot "become a lecturer" without losing their
+     * supervision — the appointment is a seating, exactly like a panel seat
+     * (see the note on `examiner` at the top of this enum).
+     */
+    public function canKeyCoursework(): bool
+    {
+        return in_array($this, [self::Lecturer, self::Coordinator, self::Admin], true);
+    }
+
+    /**
+     * May this role be named as the lecturer of a section?
+     *
+     * The `lecturer` role is the pure case; a supervisor is the common one.
+     * Coordinators and admins are excluded from the *picker* even though they
+     * can correct marks, because naming an administrator as a section's lecturer
+     * would make the administrative correction path write into a section of its
+     * own rather than the student's.
+     */
+    public function canLectureSection(): bool
+    {
+        return in_array($this, [self::Lecturer, self::Supervisor], true);
+    }
+
     /** Roles that see cohort-wide analytics (Module 5). */
     public function canViewCohortAnalytics(): bool
     {

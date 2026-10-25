@@ -293,12 +293,19 @@ export default function LecturerDashboard() {
   }
 
   /**
-   * No section: a normal state, not an error.
+   * No section in the selected term: a normal state, not an error.
    *
-   * The admin appoints a section's lecturer, so a lecturer who has just been
-   * created has none. Showing an empty roster table here would read as "your
-   * section has no students", which is a different and much more alarming fact
-   * than "you have not been appointed yet".
+   * The admin appoints a section's lecturer **per term**, so a lecturer who has
+   * just been created — or one whose class was last term's — has none here.
+   * Showing an empty roster table would read as "your section has no students",
+   * which is a different and much more alarming fact than "you have not been
+   * appointed yet".
+   *
+   * The term picker stays on screen in this branch, and that is the point: the
+   * appointment is per term, so "no section" is only ever true of *one* term.
+   * Without the picker here, a teacher whose class ended last term could not
+   * reach the marks they are still entitled to read — the screen would hide the
+   * only control that leads back to them.
    */
   if (!section) {
     return (
@@ -306,11 +313,31 @@ export default function LecturerDashboard() {
         <PageHeader
           title="Coursework marks"
           subtitle={`Signed in as ${user?.name ?? 'a lecturer'}`}
+          action={
+            semesters?.length > 1 ? (
+              <Select
+                value={selectedId ?? ''}
+                onChange={(e) => selectSemester(e.target.value || null)}
+                aria-label="Term the marks belong to"
+                className="w-48"
+              >
+                {semesters.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            ) : null
+          }
         />
         <Card>
           <EmptyState
-            title="No section assigned yet"
-            description="An administrator has not appointed you to a section. Once they do, this page will list your students and let you key their coursework marks."
+            title={
+              selected?.name
+                ? `No section in ${selected.name}`
+                : 'No section assigned yet'
+            }
+            description="An administrator has not appointed you to a section in this term. A section is a class for one term, so this page will list your students as soon as the appointment is made — and if you taught in an earlier term, choose that term above to read its marks."
           />
         </Card>
       </>

@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { milestoneApi } from '../../api/endpoints'
+import MilestoneReviewCard from '../../components/MilestoneReviewCard'
+import OsheSignCard from '../../components/OsheSignCard'
+import LampiranCCard from '../../components/LampiranCCard'
+import RegistrationDocumentCard from '../../components/RegistrationDocumentCard'
 import { useAuth } from '../../context/AuthContext'
 import {
   Card, CardHeader, PageHeader, Badge, EmptyState, Spinner, ErrorState,
@@ -13,7 +17,7 @@ import {
 } from '../../lib/format'
 
 /**
- * Milestone detail — the submission and review surface for Module 3.
+ * Milestone detail â€” the submission and review surface for Module 3.
  *
  * Two audiences share one page. A student sees the requirement, uploads files
  * and submits. A supervisor sees the same requirement plus whatever was
@@ -31,10 +35,21 @@ export default function MilestoneDetailPage() {
   const [actionError, setActionError] = useState(null)
 
   /**
+   * The Lampiran R1 rounds filed against this milestone, newest first.
+   *
+   * Loaded separately from the milestone because a worklist of many milestones
+   * must not pay for every one's history â€” the endpoint is per milestone, and
+   * only the detail page needs it. A failure here is swallowed: the review card
+   * still works without the history, and an empty list is a truthful rendering
+   * of "none recorded" for the common case.
+   */
+  const [rounds, setRounds] = useState([])
+
+  /**
    * Re-read the milestone.
    *
-   * `silent` skips the full-page spinner. Without it, every action — upload,
-   * approve, withdraw, add a comment — swapped the entire screen for a
+   * `silent` skips the full-page spinner. Without it, every action â€” upload,
+   * approve, withdraw, add a comment â€” swapped the entire screen for a
    * "Loading milestone" placeholder and then rebuilt it. On a hosted database
    * each of these round trips costs a few hundred milliseconds, so the page
    * flashed empty and came back: it read as a browser refresh, and it lost the
@@ -55,6 +70,13 @@ export default function MilestoneDetailPage() {
       setError(err)
     } finally {
       if (!silent) setLoading(false)
+    }
+
+    try {
+      const history = await milestoneApi.reviews(id)
+      setRounds(history ?? [])
+    } catch {
+      setRounds([])
     }
   }, [id])
 
@@ -140,7 +162,7 @@ export default function MilestoneDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          {/* The requirement — what is actually being asked for. */}
+          {/* The requirement â€” what is actually being asked for. */}
           <Card>
             <CardHeader title="What is required" />
             <div className="space-y-4">
@@ -177,7 +199,7 @@ export default function MilestoneDetailPage() {
             </div>
           </Card>
 
-          {/* Submission — visible to everyone, editable only by the owner. */}
+          {/* Submission â€” visible to everyone, editable only by the owner. */}
           <SubmissionCard
             milestone={milestone}
             canSubmit={isStudentOwner && milestone.accepts_submission}
@@ -191,7 +213,7 @@ export default function MilestoneDetailPage() {
             onChanged={() => load({ silent: true })}
           />
 
-          {/* Decision history — the audit trail of this specific milestone. */}
+          {/* Decision history â€” the audit trail of this specific milestone. */}
           <Card>
             <CardHeader
               title="History"
@@ -205,7 +227,7 @@ export default function MilestoneDetailPage() {
           {/* Reviewer actions. The **proposal milestone** is different: its
               verdict is the panel's and it settles the project title, so it gets
               its own card and the generic approve/revision controls are not
-              offered — the server refuses them for this milestone anyway. */}
+              offered â€” the server refuses them for this milestone anyway. */}
           {milestone.is_proposal ? (
             <>
               {milestone.can_decide_title && (
@@ -216,7 +238,18 @@ export default function MilestoneDetailPage() {
               )}
             </>
           ) : (
-            isReviewer && <ReviewCard milestone={milestone} busy={busy} onRun={run} />
+            /**
+             * The OSHE milestone is the one form the supervisor *signs* and
+             * returns rather than reviews, so it keeps its own narrow card.
+             *
+             * Lampiran R1 is deliberately NOT rendered here: the form is a whole
+             * page of the official document, and a one-third-width sidebar
+             * column is the wrong shape for it. It is rendered full-width below
+             * the grid instead â€” see <MilestoneReviewCard> after this block.
+             */
+            milestone.code === 'oshe' && isReviewer && (
+              <OsheSignCard milestone={milestone} onDone={() => load({ silent: true })} />
+            )
           )}
 
           {milestone.is_proposal && (
@@ -279,7 +312,7 @@ export default function MilestoneDetailPage() {
 
           {/*
             Moving a deadline is the coordinator's, and it is the administrative
-            action most likely to be challenged later — so the reason is
+            action most likely to be challenged later â€” so the reason is
             mandatory and the previous value is shown before it is changed. The
             API has always existed; nothing called it.
           */}
@@ -291,7 +324,7 @@ export default function MilestoneDetailPage() {
             <Card className="border-emerald-200 bg-emerald-50/50">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-xs text-white">
-                  ✓
+                  âœ“
                 </span>
                 <div>
                   <p className="font-medium text-emerald-900">Approved</p>
@@ -305,13 +338,118 @@ export default function MilestoneDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Lampiran A / B - the registration documents, read-only. */}
+      {milestone.is_registration_document && (
+        <div className="mt-6">
+          <RegistrationDocumentCard milestone={milestone} />
+        </div>
+      )}
+
+      {/*
+        Lampiran C â€” full width, below the grid.
+
+        A two-party digital form rather than a review: the student fills Bahagian
+        A-C (including their own signature), the supervisor signs Bahagian D. The
+        card shows each party only their own half.
+      */}
+      {milestone.code === 'lampiran_c' && (
+        <div className="mt-6">
+          <LampiranCCard
+            milestone={milestone}
+            isStudentOwner={isStudentOwner}
+            isReviewer={isReviewer}
+            onDone={() => load({ silent: true })}
+          />
+        </div>
+      )}
+
+      {/*
+        Lampiran R1 â€” full width, below the two-column grid.
+
+        **Only where the form applies.** `uses_r1` is the server's answer to
+        "does Lampiran R1 govern this milestone" â€” Chapters 1-4 of PSM 1 plus the
+        demo milestone. It is the *gate*, not a widening condition: an earlier
+        version read `isReviewer || ... || uses_r1`, which meant any supervisor
+        saw an R1 card on the final report and on Lampiran C, where the form does
+        not exist.
+
+        Anyone with rounds to read still gets the card, so a student keeps access
+        to history on a milestone the form no longer covers.
+      */}
+      {!milestone.is_proposal &&
+        milestone.uses_r1 &&
+        (isReviewer || rounds.length > 0) && (
+          <div className="mt-6">
+            <MilestoneReviewCard
+              milestone={milestone}
+              rounds={rounds}
+              isReviewer={isReviewer}
+              onDone={() => load({ silent: true })}
+            />
+          </div>
+        )}
+    </div>
+  )
+}
+
+/**
+ * PDF viewer.
+ *
+ * A plain `<iframe>` over a blob URL, which the browser's own PDF viewer renders
+ * â€” no pdf.js dependency, and the reader gets the same scroll/zoom/print
+ * controls they would get from the file on disk. A signed Lampiran has to be
+ * inspectable in place: "view the document that was signed" is the whole point
+ * of keeping the uploaded copy.
+ */
+function FilePreviewModal({ preview, onClose }) {
+  useEffect(() => {
+    function onKey(event) {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  if (!preview) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={preview.name}
+    >
+      <div
+        className="flex h-full max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-2.5">
+          <p className="truncate text-sm font-medium text-slate-800">{preview.name}</p>
+          <div className="flex items-center gap-2">
+            <a
+              href={preview.url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-medium text-brand-700 hover:underline"
+            >
+              Open in new tab
+            </a>
+            <Button size="sm" variant="ghost" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </div>
+        <iframe src={preview.url} title={preview.name} className="min-h-0 flex-1 border-0" />
+      </div>
     </div>
   )
 }
 
 /**
  * Upload + submit. Files are staged locally and only sent when the student
- * confirms, because a half-uploaded submission is worse than none — the
+ * confirms, because a half-uploaded submission is worse than none â€” the
  * student's work is only "submitted" once every file arrived.
  *
  * Every limit shown here comes from the server (`max_files`, `max_file_mb`,
@@ -328,6 +466,16 @@ function SubmissionCard({ milestone, canSubmit, canWithdraw, onChanged }) {
   const [errors, setErrors] = useState(null)
   const [error, setError] = useState(null)
   const [fileError, setFileError] = useState(null)
+
+  /** `{ url, name }` while a PDF is open in the viewer, else null. */
+  const [preview, setPreview] = useState(null)
+
+  // Release the blob URL when the viewer closes, or every opened file would
+  // stay in memory for the life of the tab.
+  useEffect(() => {
+    if (!preview?.url) return undefined
+    return () => URL.revokeObjectURL(preview.url)
+  }, [preview?.url])
 
   const existing = milestone.files ?? []
   const accepts = milestone.accepts_submission
@@ -396,7 +544,7 @@ function SubmissionCard({ milestone, canSubmit, canWithdraw, onChanged }) {
         /**
          * A timeout is not the same as a failure.
          *
-         * The request is abandoned client-side, but the server keeps working —
+         * The request is abandoned client-side, but the server keeps working â€”
          * so the submission may well have gone through. Telling the student it
          * failed invites them to submit again and create a duplicate revision,
          * which is exactly what happened before. Re-reading the milestone shows
@@ -404,7 +552,7 @@ function SubmissionCard({ milestone, canSubmit, canWithdraw, onChanged }) {
          */
         setError(
           'This is taking longer than expected, so the upload was stopped here. ' +
-            'It may still have completed on the server — the page has been ' +
+            'It may still have completed on the server â€” the page has been ' +
             'refreshed to show the current state. Please check before submitting again.'
         )
         await onChanged()
@@ -413,6 +561,38 @@ function SubmissionCard({ milestone, canSubmit, canWithdraw, onChanged }) {
       }
     } finally {
       setUploading(false)
+    }
+  }
+
+  /**
+   * Open a submission in the viewer.
+   *
+   * Fetched as a blob through the authenticated axios client, then handed to the
+   * modal as an object URL. `window.open` would not work: the download route sits
+   * behind Sanctum and a plain navigation carries no Authorization header, so it
+   * would either 401 or silently save the file instead of displaying it.
+   */
+  async function view(file) {
+    setFileError(null)
+
+    const name = file.original_name ?? file.name ?? ''
+    const isPdf = /\.pdf$/i.test(name) || file.mime_type === 'application/pdf'
+
+    if (!isPdf) {
+      // Word documents cannot be rendered by the browser. Downloading is the
+      // honest action; showing an empty frame would look like a failed upload.
+      setFileError(`${name} is not a PDF, so it cannot be shown here â€” use Download instead.`)
+      return
+    }
+
+    setBusyFileId(file.id)
+    try {
+      const url = await milestoneApi.preview(file.id)
+      setPreview({ url, name })
+    } catch (err) {
+      setFileError(err?.message ?? 'That file could not be opened.')
+    } finally {
+      setBusyFileId(null)
     }
   }
 
@@ -432,7 +612,6 @@ function SubmissionCard({ milestone, canSubmit, canWithdraw, onChanged }) {
   }
 
   async function withdraw(file) {
-    const name = file.original_name ?? file.name
     // Withdrawing from a submitted milestone invalidates the submission, so
     // say so before the student is surprised by the status change.
     const wasSubmitted = milestone.status === 'submitted'
@@ -471,7 +650,7 @@ function SubmissionCard({ milestone, canSubmit, canWithdraw, onChanged }) {
         subtitle={
           accepts
             ? 'Attach your deliverable, then submit for review'
-            : `This milestone is ${milestone.status.replace(/_/g, ' ')} — submissions are closed`
+            : `This milestone is ${milestone.status.replace(/_/g, ' ')} â€” submissions are closed`
         }
       />
 
@@ -489,18 +668,34 @@ function SubmissionCard({ milestone, canSubmit, canWithdraw, onChanged }) {
                 </p>
                 <p className="text-xs text-slate-400">
                   {formatBytes(file.size)}
-                  {file.uploaded_at && ` · uploaded ${relativeDays(file.uploaded_at)}`}
-                  {file.revision_no > 1 && ` · revision ${file.revision_no}`}
+                  {file.uploaded_at && ` Â· uploaded ${relativeDays(file.uploaded_at)}`}
+                  {file.revision_no > 1 && ` Â· revision ${file.revision_no}`}
                 </p>
               </div>
               <div className="flex items-center gap-1">
+                {/*
+                  View, not just Download. A supervisor reviewing a chapter wants
+                  to read it, not to accumulate files in their Downloads folder â€”
+                  and a Lampiran that has been signed and returned has to be
+                  checkable in place. PDFs open in a viewer modal; anything else
+                  falls back to download, because the browser cannot render a
+                  .docx and pretending otherwise shows a blank frame.
+                */}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={busyFileId === file.id}
+                  onClick={() => view(file)}
+                >
+                  View
+                </Button>
                 <Button
                   size="sm"
                   variant="ghost"
                   disabled={busyFileId === file.id}
                   onClick={() => download(file)}
                 >
-                  {busyFileId === file.id ? 'Working…' : 'Download'}
+                  {busyFileId === file.id ? 'Workingâ€¦' : 'Download'}
                 </Button>
                 {canWithdraw && (
                   <Button
@@ -549,8 +744,8 @@ function SubmissionCard({ milestone, canSubmit, canWithdraw, onChanged }) {
             </p>
             <p className="mt-1 text-xs text-slate-400">
               {acceptAttr ? `Accepted: ${acceptAttr}` : 'Any file type'}
-              {milestone.max_files ? ` · max ${maxFiles} files` : ''}
-              {` · ${maxMb} MB per file`}
+              {milestone.max_files ? ` Â· max ${maxFiles} files` : ''}
+              {` Â· ${maxMb} MB per file`}
             </p>
             <input
               ref={inputRef}
@@ -603,17 +798,21 @@ function SubmissionCard({ milestone, canSubmit, canWithdraw, onChanged }) {
               rows={3}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Anything your reviewer should know about this submission…"
+              placeholder="Anything your reviewer should know about this submissionâ€¦"
             />
           </Field>
 
           <div className="flex justify-end">
             <Button onClick={submit} disabled={uploading || files.length === 0}>
-              {uploading ? 'Uploading…' : 'Submit for review'}
+              {uploading ? 'Uploadingâ€¦' : 'Submit for review'}
             </Button>
           </div>
         </div>
       )}
+
+      {/* Rendered here, beside the View button whose state it uses. It was
+          previously rendered by the page, which does not own `preview`. */}
+      <FilePreviewModal preview={preview} onClose={() => setPreview(null)} />
     </Card>
   )
 }
@@ -623,13 +822,13 @@ function ReviewCard({ milestone, busy, onRun }) {
   const [comment, setComment] = useState('')
   const [error, setError] = useState(null)
 
-  // Feedback is mandatory for a revision request — otherwise the student is
+  // Feedback is mandatory for a revision request â€” otherwise the student is
   // told "no" with no way to find out why.
   const needsComment = decision === 'revision'
 
   async function confirm() {
     if (needsComment && comment.trim().length < 10) {
-      setError('Explain what needs changing — at least 10 characters.')
+      setError('Explain what needs changing â€” at least 10 characters.')
       return
     }
     setError(null)
@@ -704,14 +903,14 @@ function ReviewCard({ milestone, busy, onRun }) {
             onChange={(e) => setComment(e.target.value)}
             placeholder={
               needsComment
-                ? 'Be specific — the student needs to know exactly what to fix.'
-                : 'Feedback, or a note for the record…'
+                ? 'Be specific â€” the student needs to know exactly what to fix.'
+                : 'Feedback, or a note for the recordâ€¦'
             }
           />
         </Field>
 
         <Button className="w-full" disabled={busy || !decision} onClick={confirm}>
-          {busy ? 'Recording…' : decision === 'approved' ? 'Approve milestone' : 'Send back for revision'}
+          {busy ? 'Recordingâ€¦' : decision === 'approved' ? 'Approve milestone' : 'Send back for revision'}
         </Button>
       </div>
     </Card>
@@ -719,7 +918,7 @@ function ReviewCard({ milestone, busy, onRun }) {
 }
 
 /**
- * The panel's verdict on the proposal — the title decision.
+ * The panel's verdict on the proposal â€” the title decision.
  *
  * Three outcomes, and they are genuinely different: an approval opens the rest
  * of the chain, a conditional approval leaves the student owing Lampiran C, and
@@ -744,7 +943,7 @@ function ProposalDecisionCard({ milestone, busy, onRun }) {
     {
       value: 'conditional_approve',
       label: 'Conditional approval',
-      hint: 'The title stands subject to corrections — the student files Lampiran C',
+      hint: 'The title stands subject to corrections â€” the student files Lampiran C',
       active: 'border-amber-500 bg-amber-50 text-amber-800',
       idle: 'border-slate-200 text-slate-600 hover:border-slate-300',
     },
@@ -766,10 +965,10 @@ function ProposalDecisionCard({ milestone, busy, onRun }) {
           {milestone.status === 'approved'
             ? 'This title has been approved, and the remaining milestones are open.'
             : milestone.status === 'conditional_approve'
-              ? 'Approved conditionally — the student still owes the Lampiran C form.'
+              ? 'Approved conditionally â€” the student still owes the Lampiran C form.'
               : milestone.status === 'rejected'
                 ? 'This title was rejected. The student must change it before a fresh decision.'
-                : 'There is nothing to decide yet — the student has not submitted the proposal.'}
+                : 'There is nothing to decide yet â€” the student has not submitted the proposal.'}
         </p>
       </Card>
     )
@@ -802,7 +1001,7 @@ function ProposalDecisionCard({ milestone, busy, onRun }) {
           label={needsReason ? 'Reason for the decision' : 'Comment'}
           htmlFor="panel_reason"
           required={needsReason}
-          hint={needsReason ? 'Required — the student needs to know what to change' : 'Optional'}
+          hint={needsReason ? 'Required â€” the student needs to know what to change' : 'Optional'}
         >
           <Textarea
             id="panel_reason"
@@ -811,8 +1010,8 @@ function ProposalDecisionCard({ milestone, busy, onRun }) {
             onChange={(e) => setReason(e.target.value)}
             placeholder={
               needsReason
-                ? 'Be specific — the student has to act on this.'
-                : 'Feedback, or a note for the record…'
+                ? 'Be specific â€” the student has to act on this.'
+                : 'Feedback, or a note for the recordâ€¦'
             }
           />
         </Field>
@@ -829,7 +1028,7 @@ function ProposalDecisionCard({ milestone, busy, onRun }) {
             )
           }
         >
-          {busy ? 'Recording…' : 'Record the decision'}
+          {busy ? 'Recordingâ€¦' : 'Record the decision'}
         </Button>
       </div>
     </Card>
@@ -852,73 +1051,40 @@ function ProposalResponseCard({ milestone, busy, onRun }) {
   if (!conditional && !rejected) return null
 
   if (conditional) {
+    /*
+     * Conditional approval — read-only.
+     *
+     * The corrections are filed on the dedicated **Lampiran C milestone**, which
+     * the panel's verdict inserted into the chain. This card used to carry a
+     * duplicate form; two places to file the same document meant two records of
+     * the same corrections, and the one on the proposal had no signature.
+     *
+     * The status stays `conditional_approve` until the supervisor signs the C
+     * form, at which point both this milestone and the C milestone settle.
+     */
     return (
       <Card>
         <CardHeader
-          title="Lampiran C — Corrections"
-          subtitle="Record the corrected title and what was changed, then the chain opens"
+          title="Lampiran C — corrections required"
+          subtitle="Filed on the Lampiran C milestone in this project"
         />
-        <div className="space-y-5">
-          {milestone.review_comment && (
-            <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              {milestone.review_comment}
-            </p>
+        <div className="space-y-3">
+          {milestone.requires_lampiran_c && (
+            <div className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              <p className="font-medium">The panel asked for</p>
+              <p className="mt-0.5">{milestone.requires_lampiran_c}</p>
+            </div>
           )}
 
-          <Field
-            label="Corrected title (Tajuk Baharu)"
-            htmlFor="corrections_title"
-            required
-            hint="This becomes the project title"
-          >
-            <Input
-              id="corrections_title"
-              value={title || milestone.project?.title || ''}
-              onChange={(e) => setTitle(e.target.value)}
-              maxLength={255}
-            />
-          </Field>
+          <p className="text-sm text-slate-600">
+            Record the corrections on the <strong>Lampiran C</strong> milestone, where you fill in
+            the previous and new title, the corrections taken, and your signature. Your supervisor
+            signs it there — this proposal then becomes <strong>approved</strong>.
+          </p>
 
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-slate-700">Panel comment → action taken</p>
-            {rows.map((row, index) => (
-              <div key={index} className="grid gap-3 sm:grid-cols-2">
-                <Input
-                  placeholder="Panel comment"
-                  value={row.comment}
-                  onChange={(e) =>
-                    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, comment: e.target.value } : r)))
-                  }
-                />
-                <Input
-                  placeholder="Action taken"
-                  value={row.action}
-                  onChange={(e) =>
-                    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, action: e.target.value } : r)))
-                  }
-                />
-              </div>
-            ))}
-            <Button variant="secondary" onClick={() => setRows((prev) => [...prev, { comment: '', action: '' }])}>
-              Add row
-            </Button>
-          </div>
-
-          <div className="flex justify-end">
-            <Button
-              disabled={busy || !(title || milestone.project?.title || '').trim()}
-              onClick={() =>
-                onRun(() =>
-                  milestoneApi.fileLampiranC(milestone.id, {
-                    corrections_title: (title || milestone.project?.title || '').trim(),
-                    corrections_actions: rows.filter((r) => r.comment.trim() || r.action.trim()),
-                  }),
-                )
-              }
-            >
-              {busy ? 'Filing…' : 'File Lampiran C'}
-            </Button>
-          </div>
+          <p className="text-xs text-slate-500">
+            Find it in this project&apos;s milestone list, immediately after the proposal.
+          </p>
         </div>
       </Card>
     )
@@ -928,7 +1094,7 @@ function ProposalResponseCard({ milestone, busy, onRun }) {
     <Card>
       <CardHeader
         title="Change the title"
-        subtitle="The panel refused the title — propose a new one and the proposal reopens"
+        subtitle="The panel refused the title â€” propose a new one and the proposal reopens"
       />
       <div className="space-y-5">
         {milestone.review_comment && (
@@ -957,7 +1123,7 @@ function ProposalResponseCard({ milestone, busy, onRun }) {
             disabled={busy || !title.trim() || title.trim() === milestone.project?.title}
             onClick={() => onRun(() => milestoneApi.changeTitle(milestone.id, title.trim()))}
           >
-            {busy ? 'Saving…' : 'Change the title'}
+            {busy ? 'Savingâ€¦' : 'Change the title'}
           </Button>
         </div>
       </div>
@@ -990,7 +1156,7 @@ function DeadlineCard({ milestone, busy, onRun }) {
    * Today, as `YYYY-MM-DD`, for the input's `min`.
    *
    * Built from the local date parts rather than `toISOString()`, which converts
-   * to UTC first — for a user east of Greenwich that reports yesterday's date
+   * to UTC first â€” for a user east of Greenwich that reports yesterday's date
    * and would let them pick a day the server then rejects as not in the future.
    */
   const now = new Date()
@@ -1012,7 +1178,7 @@ function DeadlineCard({ milestone, busy, onRun }) {
     }
 
     if (reason.trim().length < 10) {
-      setError('Give the reason for the change — at least 10 characters. It is kept in the audit trail.')
+      setError('Give the reason for the change â€” at least 10 characters. It is kept in the audit trail.')
       return
     }
 
@@ -1074,7 +1240,7 @@ function DeadlineCard({ milestone, busy, onRun }) {
               label="Reason"
               htmlFor="deadline-reason"
               required
-              hint="Required — this is the action most likely to be challenged later"
+              hint="Required â€” this is the action most likely to be challenged later"
             >
               <Textarea
                 id="deadline-reason"
@@ -1087,7 +1253,7 @@ function DeadlineCard({ milestone, busy, onRun }) {
 
             <div className="flex justify-end">
               <Button onClick={submit} disabled={busy}>
-                {busy ? 'Saving…' : 'Move the deadline'}
+                {busy ? 'Savingâ€¦' : 'Move the deadline'}
               </Button>
             </div>
           </div>
@@ -1129,7 +1295,7 @@ function EventTimeline({ events }) {
             )}
             <p className="mt-1 text-xs text-slate-400">
               {formatDateTime(event.created_at)}
-              {event.created_at && ` · ${relativeDays(event.created_at)}`}
+              {event.created_at && ` Â· ${relativeDays(event.created_at)}`}
             </p>
           </div>
         </li>

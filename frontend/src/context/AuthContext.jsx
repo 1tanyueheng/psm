@@ -124,8 +124,21 @@ export function AuthProvider({ children }) {
       hasRole: (...roles) => (user ? roles.flat().includes(user.role) : false),
       /** Seniority check — e.g. isAtLeast('coordinator'). */
       isAtLeast: (role) => isAtLeast(user?.role, role),
-      /** Capability check, e.g. can('assess'). */
-      can: (capability) => can(user?.role, capability),
+      /**
+       * Capability check, e.g. can('assess').
+       *
+       * Two sources, unioned. `can(role, capability)` reads the static role
+       * map in `lib/permissions.js`, which covers every rule that follows from
+       * the role. A rule that follows from an *appointment* — a supervisor who
+       * has been named as a section's lecturer may key coursework marks — cannot
+       * be written there, because it depends on data rather than on the role, so
+       * the server sends the difference as `extra_capabilities` on the user and
+       * it is honoured here. The server still enforces both halves; this is only
+       * what the screen is allowed to show.
+       */
+      can: (capability) =>
+        can(user?.role, capability) ||
+        Boolean(user?.extra_capabilities?.includes(capability)),
     }),
     [user, loading, error, login, logout, refresh],
   )

@@ -112,6 +112,69 @@ class MilestonePolicy
     }
 
     /**
+     * Record a Lampiran R1 review round against a submission.
+     *
+     * The audience is the same as `review()` — the student's own supervisor, a
+     * coordinator, or an administrator — because filling in the R1 *is* the
+     * review: its checkboxes decide approve versus request-revision. Delegating
+     * rather than repeating the supervisor lookup means the two can never drift
+     * apart and let somebody review on one route but not the other.
+     *
+     * Two extra conditions beyond `review()`:
+     *
+     *   - the proposal milestone is excluded, because its verdict is the panel's
+     *     (see `decideTitle`);
+     *   - there must be a current submission to have reviewed. A verdict on a
+     *     document that was never filed is not evidence of anything.
+     */
+    public function reviewR1(User $actor, Milestone $milestone): bool
+    {
+        if ($milestone->isProposal()) {
+            return false;
+        }
+
+        // Lampiran R1 is the PSM 1 chapter-review form: Chapters 1-4, plus the
+        // system demo. A PSM 2 chapter, the OSHE form, Lampiran C and the final
+        // report are handled by other routes, so offering R1 here would record a
+        // review on a form the faculty does not use for that milestone.
+        if (! $milestone->usesR1()) {
+            return false;
+        }
+
+        if (! $this->review($actor, $milestone)) {
+            return false;
+        }
+
+        /**
+         * The demo has nothing to submit.
+         *
+         * Every other R1 milestone reviews a document the student uploaded, so
+         * "there is a current file" is the condition that stops a supervisor
+         * reviewing an empty milestone. The system demo is a face-to-face
+         * session — the student demonstrates, the supervisor fills the sheet —
+         * so that condition would make the form permanently unavailable.
+         */
+        if ($milestone->code === Milestone::CODE_DEMO) {
+            return true;
+        }
+
+        return $milestone->currentFiles()->count() > 0;
+    }
+
+    /**
+     * Read the R1 history of a milestone.
+     *
+     * Wider than `reviewR1`: the people who *wrote* it can obviously read it,
+     * and so can everybody who can already see the milestone — the student whose
+     * chapter it is, in particular, who needs to read the reason they were sent
+     * back. Reading the reviews is not authoring them.
+     */
+    public function viewReviews(User $actor, Milestone $milestone): bool
+    {
+        return $this->view($actor, $milestone);
+    }
+
+    /**
      * Record the panel's verdict on the proposal milestone — the title decision.
      *
      * The two examiners seated on the project's student, or a coordinator/admin
@@ -136,9 +199,26 @@ class MilestonePolicy
      * File Lampiran C — the corrections a conditional title approval required.
      * The owning student's own act.
      */
+    /**
+     * File Lampiran C.
+     *
+     * Two shapes, because the corrections step now has two homes:
+     *
+     *   - the **proposal** milestone, where a conditional approval used to be
+     *     cleared by filing C against the proposal itself (the original path,
+     *     kept so existing projects continue to work);
+     *   - the **lampiran_c** milestone, created when a panel conditionally
+     *     approves, which is where the digital form is filed now.
+     *
+     * In both cases it is the student who owns the project.
+     */
     public function fileLampiranC(User $actor, Milestone $milestone): bool
     {
-        return $milestone->isProposal() && $this->ownsMilestone($actor, $milestone);
+        if (! $milestone->isProposal() && ! $milestone->isLampiranC()) {
+            return false;
+        }
+
+        return $this->ownsMilestone($actor, $milestone);
     }
 
     /** Change the project title after the panel refused it. The student's act. */

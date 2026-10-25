@@ -102,9 +102,30 @@ class LecturerMarkService
         // could key marks for any student id they guessed, and the section on the
         // row would disagree with the student's own placement.
         if ((int) $student->section_id !== (int) $section->id) {
+            /**
+             * Both sections are named, and now that every term has its own `S1`
+             * the term has to travel with the code.
+             *
+             * A plain "is not in S1" is *literally* true of a student who is in
+             * another term's S1 and reads as a contradiction rather than as a
+             * refusal — the lecturer would be looking at a roster that says S1
+             * and be told the student is not in S1. Naming the term on both sides
+             * ("in S1 (2025/2026 Semester II), and the section you key is S1
+             * (2026/2027 Semester I)") makes the real mistake — the wrong term
+             * is selected on the marking screen — the obvious one to fix.
+             */
+            $there = $student->section;
+
+            $theirs = $there
+                ? $there->code.($there->academicSemester ? " ({$there->academicSemester->name})" : '')
+                : 'no section';
+
+            $mine = $section->code
+                .($section->academicSemester ? " ({$section->academicSemester->name})" : '');
+
             throw new InvalidArgumentException(
-                "{$student->student_id} is not in {$section->code}. Marks may only be keyed for "
-                .'students in your own section.'
+                "{$student->student_id} is in {$theirs}, and the section you key is {$mine}. "
+                .'Marks may only be keyed for students in your own section.'
             );
         }
 

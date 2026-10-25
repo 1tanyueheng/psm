@@ -86,8 +86,21 @@ class DatabaseSeeder extends Seeder
                 // a panel rather than a separate kind of staff.
                 ['Supervisor (panel)', 'examiner@psm.test', 'password'],
                 ['Student',     'student@psm.test',     'password'],
+                // The four dedicated lecturers behind this term's four sections.
+                // They exist so the coursework screen has an owner that is not
+                // also a supervisor; the ordinary case is tested by appointing
+                // one of the supervisors above to a section in the admin's
+                // Sections screen, which grants the coursework screen without
+                // taking away anything they already do.
+                ['Lecturer (S1)', 'lec-001@psm.test', 'password'],
+                ['Lecturer (S2)', 'lec-002@psm.test', 'password'],
+                ['Lecturer (S3)', 'lec-003@psm.test', 'password'],
+                ['Lecturer (S4)', 'lec-004@psm.test', 'password'],
             ]
         );
+        $this->command->newLine();
+        $this->command->comment('Sign-in: /login (students and staff) — /lecturer/login for the coursework entrance.');
+        $this->command->comment('Sections live under Admin → Sections, and are per term and PSM 1 only.');
         $this->command->newLine();
         $this->command->comment('Public leaderboard: /leaderboard  (no login required)');
     }

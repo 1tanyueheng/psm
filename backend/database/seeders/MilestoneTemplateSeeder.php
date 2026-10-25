@@ -41,6 +41,11 @@ class MilestoneTemplateSeeder extends Seeder
         'chapter_5'    => 21,
         'chapter_6'    => 21,
         'chapter_7'    => 21,
+        // OSHE is a signed form, not a written chapter: two weeks is enough to
+        // fill it in, get it signed and return the signed copy.
+        'oshe'         => 14,
+        // The demo is a session, not a document: a week to arrange and hold it.
+        'demo'         => 7,
         'final_report' => 28,
     ];
 
@@ -60,13 +65,18 @@ class MilestoneTemplateSeeder extends Seeder
      *      identical to PSM 1's and meant a student running PSM 1 → PSM 2 on one
      *      title was asked to submit the same chapter twice.
      *
+     *   5  PSM 1 — adds the `oshe` milestone after Chapter 4. Zero-weight: the
+     *      OSHE form is a compliance gate, and the student cannot enter a lab
+     *      without a signed copy. Bumped so new projects get the chain, while
+     *      the 26 projects already registered keep the version they were given.
+     *
      * Older versions are deliberately left in place: projects already in flight
      * keep the milestones, deadlines and weights they were given at
      * registration, while MilestoneTemplate::resolveFor() picks the highest
      * version for every new project.
      */
     protected const VERSIONS = [
-        'PSM1' => 3,
+        'PSM1' => 7,
         'PSM2' => 4,
     ];
 

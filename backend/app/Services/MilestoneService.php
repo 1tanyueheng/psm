@@ -75,6 +75,47 @@ class MilestoneService
         return DB::transaction(function () use ($project, $template, $start, $schedule) {
             $created = [];
 
+            /**
+             * Lampiran A and B are created **retroactively**, ahead of the chain.
+             *
+             * Both were filed before this project existed: A is the supervisor
+             * agreement, B is the title proposal that created the project and its
+             * milestone chain (see RegistrationService). They cannot be "tasks" —
+             * the student has already done them — so they are written as
+             * `approved` records at sequence 1 and 2, and every template item
+             * shifts down by two to make room.
+             *
+             * The point is the chain a reader sees: A -> B -> proposal -> ...,
+             * rather than a chain that begins at the proposal and leaves the two
+             * documents that justified it on a separate screen.
+             *
+             * The agreement is carried on each so the digital form can render what
+             * was actually filed — the proposed titles, the agreed title, the
+             * signature dates — instead of an empty shell.
+             *
+             * PSM 2 has no registration documents: a student reaches it by
+             * progression, not by a second Lampiran A, so the shift is zero.
+             */
+            $shift = $project->psm_part === 'PSM1' ? 2 : 0;
+
+            if ($shift > 0) {
+                $created[] = $this->recordRegistrationDocument(
+                    $project,
+                    Milestone::CODE_LAMPIRAN_A,
+                    'Lampiran A — Supervisor Agreement',
+                    'Filed at registration: the supervisor agreement and the three proposed titles.',
+                    1,
+                );
+
+                $created[] = $this->recordRegistrationDocument(
+                    $project,
+                    Milestone::CODE_LAMPIRAN_B,
+                    'Lampiran B — Title Proposal',
+                    'Filed at registration: the agreed title and the project details that opened this chain.',
+                    2,
+                );
+            }
+
             foreach ($template->items as $item) {
                 $scheduled = $schedule->get($item->code);
 
@@ -89,8 +130,13 @@ class MilestoneService
                     $dueAt = $opensAt->copy()->addDays($item->duration_days);
                 }
 
-                // The first milestone opens immediately; the rest open when
-                // their predecessor is approved (see activateNext()).
+                // The first *task* milestone opens immediately; the rest open
+                // when their predecessor is approved (see activateNext()).
+                //
+                // `$item->sequence` is the template's own numbering, which starts
+                // at 1 and is unaffected by the two registration records ahead of
+                // it — so this test still identifies the first real task, not
+                // Lampiran A.
                 $status = $item->sequence === 1
                     ? MilestoneStatus::Open
                     : MilestoneStatus::Pending;
@@ -115,7 +161,8 @@ class MilestoneService
                     'code'                          => $item->code,
                     'title'                         => $item->title,
                     'description'                   => $item->description,
-                    'sequence'                      => $item->sequence,
+                    // Shifted by the two registration records ahead of the chain.
+                    'sequence'                      => $item->sequence + $shift,
                     'weight_percent'                => $item->weight_percent,
                     'status'                        => $status,
                     'opens_at'                      => $opensAt,
@@ -459,6 +506,61 @@ class MilestoneService
                 .'panel. Record the panel\'s decision instead.'
             );
         }
+    }
+
+    /**
+     * Write one of the two registration documents as a completed milestone.
+     *
+     * Lampiran A and B are not tasks — they were filed before the project
+     * existed — so this writes them straight to `approved`, with the timestamps a
+     * reader expects to see: `submitted_at` and `approved_at` both taken from the
+     * agreement, because the document was filed and accepted in one act at
+     * registration.
+     *
+     * `agreement_id` is stamped into the milestone's metadata so the digital form
+     * can find and render the agreement it records.
+     */
+    protected function recordRegistrationDocument(
+        Project $project,
+        string $code,
+        string $title,
+        string $description,
+        int $sequence,
+    ): Milestone {
+        $agreement = $project->agreement;
+        $filedAt = $agreement?->supervisor_acknowledged_at
+            ?? $agreement?->student_signed_at
+            ?? $project->submitted_at
+            ?? now();
+
+        $milestone = Milestone::create([
+            'project_id'                   => $project->id,
+            'code'                         => $code,
+            'title'                        => $title,
+            'description'                  => $description,
+            'sequence'                     => $sequence,
+            // Neither document is assessed: the proposal milestone carries the
+            // title's weight.
+            'weight_percent'               => 0,
+            'status'                       => MilestoneStatus::Approved,
+            'opens_at'                     => $agreement?->student_signed_at ?? $filedAt,
+            'due_at'                       => $filedAt,
+            'submitted_at'                 => $filedAt,
+            'approved_at'                  => $filedAt,
+            'allowed_file_types'           => ['pdf'],
+            'max_files'                    => 3,
+            'requires_supervisor_approval' => false,
+        ]);
+
+        $this->recordEvent(
+            $milestone,
+            SubmissionEvent::EVENT_APPROVED,
+            null,
+            "Filed at registration under agreement #{$agreement?->id}",
+            actor: null,
+        );
+
+        return $milestone;
     }
 
     protected function recordEvent(

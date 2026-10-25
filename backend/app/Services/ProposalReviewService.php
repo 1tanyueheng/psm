@@ -83,9 +83,99 @@ class ProposalReviewService
             $reason !== '' ? $reason : null,
         );
 
+        /**
+         * A conditional approval creates a **Lampiran C milestone**.
+         *
+         * The panel accepted the title subject to corrections, so the student owes
+         * a document: previous title, new title, and the corrections taken against
+         * each examiner comment. Until now that obligation lived as four columns
+         * on the proposal and was invisible in the chain — a reader saw "Proposal
+         * — conditional" with no sign that anything was outstanding.
+         *
+         * The other two verdicts create nothing:
+         *   Approved  — no corrections, nothing owed.
+         *   Rejected  — the title itself is refused; the student changes it via
+         *               `changeTitle()` and the proposal reopens. There is no
+         *               corrections document for a title that was never accepted.
+         */
+        if ($decision === PanelDecision::ConditionalApprove) {
+            $milestone->forceFill(['requires_lampiran_c' => $reason])->save();
+            $this->openLampiranCMilestone($milestone->fresh(), $reason, $actor);
+        }
+
         $this->notifyStudent($milestone, $decision, $reason);
 
-        return $milestone;
+        return $milestone->fresh();
+    }
+
+    /**
+     * Create (or reopen) the Lampiran C milestone for a conditionally approved
+     * proposal.
+     *
+     * Inserted at `proposal.sequence + 1` and everything after it shifted down,
+     * so the chain reads: Proposal → Lampiran C → Chapters 1-4 → OSHE → Final
+     * Report. The corrections step belongs immediately after the decision that
+     * demanded it, not at the end of the term.
+     *
+     * Idempotent: if a C milestone already exists for this project it is reopened
+     * rather than duplicated, because a proposal can be sent back and
+     * conditionally approved again.
+     */
+    protected function openLampiranCMilestone(Milestone $proposal, string $reason, User $actor): Milestone
+    {
+        $project = $proposal->project;
+
+        $existing = $project->milestones()
+            ->where('code', Milestone::CODE_LAMPIRAN_C)
+            ->first();
+
+        if ($existing !== null) {
+            $existing->forceFill([
+                'status'     => MilestoneStatus::Open,
+                'requires_lampiran_c' => $reason,
+                'opens_at'   => now(),
+            ])->save();
+
+            return $existing;
+        }
+
+        return DB::transaction(function () use ($project, $proposal, $reason, $actor) {
+            $sequence = ((int) $proposal->sequence) + 1;
+
+            // Make room for the new step.
+            $project->milestones()
+                ->where('sequence', '>=', $sequence)
+                ->increment('sequence');
+
+            $milestone = Milestone::create([
+                'project_id'            => $project->id,
+                'code'                  => Milestone::CODE_LAMPIRAN_C,
+                'title'                 => 'Lampiran C',
+                'description'           => 'Corrections required by the panel\'s conditional approval. '
+                    .'Fill in the previous and new title, record the corrections taken, then '
+                    .'your supervisor signs it.',
+                'sequence'              => $sequence,
+                // A corrections form is not an assessed deliverable.
+                'weight_percent'        => 0,
+                'status'                => MilestoneStatus::Open,
+                'opens_at'              => now(),
+                'due_at'                => now()->addDays(14),
+                'allow_late_submission' => true,
+                'late_window_days'      => 7,
+                'allowed_file_types'    => ['pdf'],
+                'max_files'             => 3,
+                'requires_supervisor_approval' => true,
+                'requires_lampiran_c'   => $reason,
+            ]);
+
+            $this->audit->log(
+                action: AuditAction::MilestoneOpened,
+                description: "Lampiran C opened — conditional approval on {$project->code}",
+                subject: $milestone,
+            );
+
+            return $milestone;
+        });
     }
 
     /**

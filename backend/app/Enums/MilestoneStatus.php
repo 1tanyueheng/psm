@@ -83,10 +83,28 @@ enum MilestoneStatus: string
         return in_array($target, $this->allowedTransitions(), true);
     }
 
-    /** Statuses that let a student upload or replace a file. */
+    /**
+     * Statuses that let a student upload or replace a file.
+     *
+     * **Every status, including `Approved`.** The faculty's rule is that a
+     * student may always improve their submission — a chapter handed in early
+     * should not be frozen just because a supervisor already looked at it, and a
+     * student working ahead of the deadline is not doing anything wrong.
+     *
+     * This was `[Open, Rejected, Overdue]`, which locked the milestone the moment
+     * it was approved. The consequence of opening it is recorded rather than
+     * hidden: `SubmissionFile::revision_no` and `is_current` already track which
+     * version is in force, so a replacement after approval supersedes the
+     * approved file while leaving it on the record. The approval is *superseded*,
+     * not erased, and the timeline still shows what was approved and when.
+     *
+     * Callers that need "is this milestone still awaiting a decision" must ask
+     * `isProgressed()` or test the status directly; `isSubmittable()` now answers
+     * only "may a file be uploaded", which is what its name says.
+     */
     public function isSubmittable(): bool
     {
-        return in_array($this, [self::Open, self::Rejected, self::Overdue], true);
+        return true;
     }
 
     /**

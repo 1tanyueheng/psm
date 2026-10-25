@@ -111,6 +111,33 @@ enum AuditAction: string
     case RegistrationWindowSet  = 'semester.registration_window';
     case SemesterGradesReleased = 'semester.grades_released';
 
+    /**
+     * Human phrasing for one action: "Keyed coursework marks".
+     *
+     * The match is deliberately **exhaustive and has no `default` arm**. A case
+     * added without an arm is not a cosmetic gap — it is an `UnhandledMatchError`
+     * thrown the moment anything renders that action, and the two places that
+     * reach here are both read paths with no error handling of their own:
+     * `AuditLog::sentence()` and `AuditLogResource`, which between them feed the
+     * audit log, the admin overview's recent activity, and the filter panel.
+     *
+     * That is exactly what happened: `project.progressed`, `proposal.reviewed`,
+     * `proposal.resubmitted`, `lecturer_marks.recorded`, `section.changed` and
+     * `section.student_assigned` were added to this enum without arms, and the
+     * first audit row they wrote turned the admin overview into a 500. The
+     * filter panel was worse — `AuditAction::options()` labels *every* case, so
+     * it failed regardless of what the trail contained.
+     *
+     * A `default` would have hidden all of that behind 'Other'. Failing loudly
+     * here is the cheaper trade, because it points at the missing arm instead of
+     * quietly shipping a blank label to a screen an auditor reads. So: **add a
+     * case to this enum, add its arm here in the same commit.**
+     *
+     * Wording follows the enum's own convention — past tense, no actor and no
+     * subject ("Changed role", not "Admin changed the role"), because
+     * `sentence()` prefixes the actor and `description` supplies the specifics:
+     * "Dr. Farah binti Idris — Keyed coursework marks: AI240009 S1".
+     */
     public function label(): string
     {
         return match ($this) {
@@ -134,6 +161,9 @@ enum AuditAction: string
             self::ProjectApproved       => 'Approved project',
             self::ProjectRejected       => 'Rejected project',
             self::ProjectArchived       => 'Archived project',
+            self::ProjectProgressed     => 'Progressed to PSM 2',
+            self::ProposalReviewed      => 'Reviewed proposal',
+            self::ProposalResubmitted   => 'Resubmitted proposal',
             self::MilestoneOpened       => 'Opened milestone',
             self::MilestoneSubmitted    => 'Submitted milestone',
             self::MilestoneReviewed     => 'Reviewed milestone',
@@ -153,6 +183,13 @@ enum AuditAction: string
             self::MarkSubmissionLocked     => 'Locked mark submission',
             self::MarkSubmissionAutoLocked => 'Auto-locked mark submission',
             self::MarkSubmissionUnlocked   => 'Unlocked mark submission',
+            // "Changed a student's section" rather than "Assigned student",
+            // because the one audit case covers both directions — the same
+            // entry is written when a placement is undone, and the description
+            // says which ("removed from their section").
+            self::LecturerMarksRecorded    => 'Keyed coursework marks',
+            self::SectionChanged           => 'Changed section',
+            self::StudentSectionAssigned   => "Changed a student's section",
             self::ReportExported        => 'Exported report',
             self::ReportViewed          => 'Viewed report',
             self::LeaderboardPublished  => 'Published leaderboard',

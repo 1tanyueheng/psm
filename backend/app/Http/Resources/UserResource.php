@@ -68,6 +68,20 @@ class UserResource extends JsonResource
             ],
 
             /**
+             * Capabilities granted by an *appointment* rather than by the role.
+             *
+             * The SPA's role→capability map (`frontend/src/lib/permissions.js`)
+             * cannot express "a supervisor who has been named as a section's
+             * lecturer", because that depends on data rather than on the role.
+             * The client unions this list with the static map, so a supervisor
+             * who teaches a section sees the coursework screen and a supervisor
+             * who does not, does not. Adding a key here is cheaper than teaching
+             * JavaScript to read `sections`, and it keeps the decision on the
+             * server.
+             */
+            'extra_capabilities' => $this->extraCapabilities(),
+
+            /**
              * Where this role's dashboard lives.
              *
              * `home_route` — the same key the login response uses. It was `home`

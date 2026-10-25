@@ -22,6 +22,13 @@ use Illuminate\Support\Facades\Hash;
  * cohort across them, and keys marks so the demo shows the component in the
  * aggregate rather than an empty column.
  *
+ * **Sections are created in the active term only, and that is the point.** A
+ * section row *is* a term's appointment, so the next term starts with no sections
+ * at all and gets them by copying this term's — which is what the admin screen's
+ * "Copy last term's sections" button does, and what proves the codes repeat
+ * across terms (`sections.code` is unique only within a term). Seeding a second
+ * term's sections by hand would hide exactly the workflow worth demonstrating.
+ *
  * **Only PSM 1 students are placed.** Coursework is weighted into PSM 1 alone
  * (`config/psm.php`), so putting a PSM 2 student in a section would create a
  * roster the lecturer can key marks against while those marks could never count.
@@ -33,7 +40,15 @@ use Illuminate\Support\Facades\Hash;
  */
 class LecturerMarkSeeder extends Seeder
 {
-    /** One lecturer per section, permanently. */
+    /**
+     * The four sections the faculty teaches, and who teaches them this term.
+     *
+     * The staff accounts are created here rather than in `UserSeeder` because
+     * they are the demo's four dedicated lecturers; the *real* case is a
+     * supervisor who teaches a section, and any of the seeded supervisors can be
+     * appointed to one from the admin's Sections screen without losing their
+     * supervision.
+     */
     private const SECTIONS = [
         ['code' => 'S1', 'name' => 'Section 1', 'name_of' => 'Dr. Farah binti Idris',      'staff' => 'LEC-001'],
         ['code' => 'S2', 'name' => 'Section 2', 'name_of' => 'Mr. Ramesh a/l Subramaniam', 'staff' => 'LEC-002'],
@@ -67,6 +82,12 @@ class LecturerMarkSeeder extends Seeder
     /**
      * Create or update the four sections and their lecturer accounts.
      *
+     * Keyed on **the term and the code together**, because that pair is what a
+     * section is: re-running must refresh this term's rows rather than collide
+     * with them, and the same code in another term is a different section
+     * altogether. (`code` alone used to be the key, back when it was unique
+     * globally and a term could only ever have one `S1`.)
+     *
      * @return array<int, Section>
      */
     private function sections(AcademicSemester $term): array
@@ -87,11 +108,13 @@ class LecturerMarkSeeder extends Seeder
             );
 
             $sections[] = Section::updateOrCreate(
-                ['code' => $spec['code']],
                 [
-                    'name'                 => $spec['name'],
-                    'lecturer_id'          => $lecturer->id,
                     'academic_semester_id' => $term->id,
+                    'code'                 => $spec['code'],
+                ],
+                [
+                    'name'        => $spec['name'],
+                    'lecturer_id' => $lecturer->id,
                 ]
             );
         }

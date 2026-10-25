@@ -31,6 +31,19 @@ class EvaluationScoreResource extends JsonResource
             'max_marks'     => (float) $this->max_marks,
             'marks_awarded' => (float) $this->marks_awarded,
 
+            /**
+             * The 0-5 score the marker chose, and the five it was out of.
+             *
+             * `marks_awarded` is that score already weighted (`(item/5) x
+             * max_marks`), which is what the totals are built from. The UI needs
+             * both: the input shows `item_score`, the running total shows
+             * `marks_awarded`. Null on rows entered before the 0-5 screen, where
+             * the marker typed the weighted mark directly — the UI then shows
+             * the mark alone rather than inventing an item score.
+             */
+            'item_score'     => $this->itemScore(),
+            'item_score_max' => \App\Services\EvaluationService::MAX_ITEM_SCORE,
+
             // Derived, so the UI does not compute percentages itself
             'percent'    => $this->percent(),
             'descriptor' => $this->descriptor(),

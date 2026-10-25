@@ -83,6 +83,25 @@ export default function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
+        {/*
+          The second entrance, for the same accounts.
+
+          Being a section's lecturer is an appointment rather than a role, so
+          there is no separate "lecturer login" to write: this route renders the
+          one sign-in page with the coursework variant, which tells the person
+          where they are and points the screen at their section. It sits behind
+          the same guard as /login — an authenticated visitor is sent on to their
+          own home rather than being shown a sign-in form.
+        */}
+        <Route
+          path="/lecturer/login"
+          element={
+            <RedirectIfAuthenticated>
+              <LoginPage variant="lecturer" />
+            </RedirectIfAuthenticated>
+          }
+        />
+
         {/* Accessible while signed in — a user with a forced password change
             must be able to reach it, so it sits inside RequireAuth */}
         <Route

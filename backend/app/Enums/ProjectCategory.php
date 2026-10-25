@@ -62,10 +62,53 @@ enum ProjectCategory: string
          */
         $psm1 = [
             ['code' => 'proposal',     'title' => 'Proposal',     'weight' => 10.0, 'offset_days' => 21],
+
+            /**
+             * OSHE — the occupational safety, health and environment form.
+             *
+             * Sits **immediately after the proposal**, because it is the gate on
+             * *doing* the project work rather than on writing it: the faculty
+             * will not let a student into a lab or onto a site without a signed
+             * OSHE form, and the implementation starts with Chapter 1's
+             * requirements work. Moving it here from after Chapter 4 means the
+             * form is settled before the student needs access, rather than
+             * mid-implementation.
+             *
+             * **Carries no weight.** It is a compliance document, not an
+             * assessment: giving it marks would dilute every other milestone's
+             * percentage for a form nobody is graded on. Zero weight still lets
+             * it gate the chain, which is what it is for.
+             *
+             * Two-party: the student uploads the filled form, the supervisor
+             * signs it and uploads the signed copy back. See
+             * OsheController.
+             *
+             * On a project whose panel approved the title **conditionally**, the
+             * Lampiran C corrections milestone is inserted between this and the
+             * proposal (see ProposalReviewService::openLampiranCMilestone), so
+             * the effective order there is proposal -> lampiran_c -> oshe.
+             */
+            ['code' => 'oshe',         'title' => 'OSHE Form',    'weight' => 0.0,  'offset_days' => 28],
+
             ['code' => 'chapter_1',    'title' => 'Chapter 1',    'weight' => 15.0, 'offset_days' => 42],
             ['code' => 'chapter_2',    'title' => 'Chapter 2',    'weight' => 15.0, 'offset_days' => 63],
             ['code' => 'chapter_3',    'title' => 'Chapter 3',    'weight' => 15.0, 'offset_days' => 84],
             ['code' => 'chapter_4',    'title' => 'Chapter 4',    'weight' => 20.0, 'offset_days' => 112],
+
+            /**
+             * The system demo — a face-to-face session, marked on Lampiran R1.
+             *
+             * **The one R1 milestone with nothing to submit.** The student
+             * demonstrates a working system to the supervisor; there is no
+             * document to upload, so `weight` stays 0 (the demo is judged, not
+             * scored as a deliverable) and the R1 sheet is filled in during the
+             * session.
+             *
+             * Placed after Chapter 4 because that is where the implementation is
+             * signed off.
+             */
+            ['code' => 'demo',         'title' => 'System Demo',  'weight' => 0.0,  'offset_days' => 119],
+
             ['code' => 'final_report', 'title' => 'Final Report', 'weight' => 25.0, 'offset_days' => 140],
         ];
 

@@ -14,11 +14,16 @@ use Illuminate\Support\Facades\Schema;
  * supervisor. Conflating the two would say a lecturer supervises students they
  * have never supervised.
  *
- * **One lecturer per section, and it is permanent** — the faculty's decision.
- * There is no term column and no history table, because a section's lecturer is
- * not expected to rotate. If that changes, the change is a new `lecturer_id`
- * rather than a new row, and the marks already keyed stay attached to the
- * section they were keyed for, which is what an appeal would ask about.
+ * **One lecturer per section, per term.** The section carries its term, so the
+ * appointment is the row: a term's `S1` names the person who teaches S1 *that*
+ * term, which is why there is still no separate history table — last term's S1
+ * is last term's row, and it keeps the lecturer it was taught by, so the marks
+ * keyed against it stay explainable long after the seating rotates.
+ *
+ * This docblock originally said the appointment was permanent and that no term
+ * column was needed. That held only while the faculty taught one class for
+ * ever, and it stopped holding the moment the codes had to repeat every term —
+ * `2026_10_19_000001` makes the term required and the code unique within it.
  *
  * `lecturer_id` is nullable so a section can exist before its lecturer is
  * recorded; the marks screen treats "no lecturer" as "nobody may key marks yet"
@@ -31,7 +36,9 @@ return new class extends Migration
         Schema::create('sections', function (Blueprint $table) {
             $table->id();
 
-            // `S1`…`S4`, matching how the faculty refers to them.
+            // `S1`…`S4`, matching how the faculty refers to them. Unique only
+            // within a term — `2026_10_19_000001` replaces this index, because
+            // a global one forbids the next term from having an S1 at all.
             $table->string('code', 16)->unique();
             $table->string('name', 128);
 

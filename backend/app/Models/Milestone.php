@@ -56,6 +56,31 @@ class Milestone extends Model
         'lampiran_c_actions',
         'lampiran_c_at',
         'lampiran_c_by',
+
+        // Lampiran C as its own milestone — see the add_lampiran_c_milestone
+        // migration. `requires_lampiran_c` sits on the proposal and says what the
+        // panel asked for; the rest are read on the C milestone itself.
+        'requires_lampiran_c',
+        'lampiran_c_previous_title',
+        'lampiran_c_new_title',
+        'lampiran_c_filed_at',
+        'lampiran_c_filed_by',
+        'supervisor_signature_path',
+        'supervisor_signature_disk',
+        'supervisor_signature_type',
+        'supervisor_signed_at',
+        'supervisor_signed_by',
+
+        // Lampiran C — Bahagian A fields typed on the form (not held on the
+        // student profile), and the student's own signature from Bahagian C.
+        'lampiran_c_ic_number',
+        'lampiran_c_passport_number',
+        'lampiran_c_mobile_number',
+        'lampiran_c_defense_date',
+        'student_signature_path',
+        'student_signature_disk',
+        'student_signature_type',
+        'student_signed_at',
     ];
 
     protected function casts(): array
@@ -79,11 +104,113 @@ class Milestone extends Model
             'revision_count'            => 'integer',
             'lampiran_c_actions'        => 'array',
             'lampiran_c_at'             => 'datetime',
+            'lampiran_c_filed_at'       => 'datetime',
+            'supervisor_signed_at'      => 'datetime',
+            'lampiran_c_defense_date'   => 'date',
+            'student_signed_at'         => 'datetime',
         ];
     }
 
     /** The code the proposal milestone carries in every template. */
     public const CODE_PROPOSAL = 'proposal';
+
+    /**
+     * The OSHE form — the one milestone the supervisor completes rather than
+     * reviews. The student uploads the filled form, the supervisor signs it and
+     * uploads the signed copy back; see OsheController.
+     */
+    public const CODE_OSHE = 'oshe';
+
+    /**
+     * Lampiran C — the corrections form a conditional approval obliges.
+     *
+     * Not part of the default chain: it is created only when a panel
+     * conditionally approves a title, because only then is there anything to
+     * correct. See ProposalReviewService::recordDecision().
+     */
+    public const CODE_LAMPIRAN_C = 'lampiran_c';
+
+    /**
+     * The system demo — the R1 milestone with no student submission.
+     *
+     * A face-to-face demonstration, marked on the same Lampiran R1 sheet. See
+     * `R1_CODES` and `MilestonePolicy::reviewR1()`, which exempts it from the
+     * "must have a submission" rule.
+     */
+    public const CODE_DEMO = 'demo';
+
+    /**
+     * Lampiran A and B — the registration documents, shown as milestones.
+     *
+     * Both are filed *before* any project milestone can exist: A is the
+     * supervisor agreement, B is the title proposal that creates the project and
+     * its chain. They are therefore created **retroactively, already `approved`**,
+     * as records of what was filed rather than as work still owed.
+     *
+     * They carry the agreement id so their digital forms can render the document
+     * that was actually submitted — the proposed titles, the agreed title, the
+     * signatures — instead of an empty shell.
+     */
+    public const CODE_LAMPIRAN_A = 'lampiran_a';
+    public const CODE_LAMPIRAN_B = 'lampiran_b';
+
+    /** Is this one of the registration documents? */
+    public function isRegistrationDocument(): bool
+    {
+        return in_array($this->code, [self::CODE_LAMPIRAN_A, self::CODE_LAMPIRAN_B], true);
+    }
+
+    /** Is this the Lampiran C corrections milestone? */
+    public function isLampiranC(): bool
+    {
+        return $this->code === self::CODE_LAMPIRAN_C;
+    }
+
+    /** Has the supervisor signed this Lampiran C? */
+    public function hasSupervisorSignature(): bool
+    {
+        return filled($this->supervisor_signature_path);
+    }
+
+    /** Has the student signed their own declaration on Lampiran C? */
+    public function hasStudentSignature(): bool
+    {
+        return filled($this->student_signature_path);
+    }
+
+    /**
+     * The PSM 1 milestones that Lampiran R1 governs.
+     *
+     * The form is titled *"[PSM 1] Borang Penyerahan Semakan Bab"* and covers
+     * **Chapters 1-4 only** — the chapters written during PSM 1. PSM 2's
+     * Chapter 5 and 6 are examined differently (Lampiran G/J at the final
+     * seminar), so they are deliberately absent: offering R1 there would invent
+     * a supervision form the faculty does not use for that part.
+     */
+    public const R1_CODES = [
+        'chapter_1',
+        'chapter_2',
+        'chapter_3',
+        'chapter_4',
+
+        /**
+         * The system demo — the one R1 milestone with **no student submission**.
+         *
+         * The demo is a face-to-face session: the student shows a working system
+         * to the supervisor, who fills in the same Lampiran R1 sheet and marks it
+         * there and then. There is nothing to upload, so `usesR1()` is true but
+         * the "has a current submission" condition in
+         * `MilestonePolicy::reviewR1()` would block it — see the exemption
+         * there, which is keyed on this code.
+         */
+        'demo',
+    ];
+
+    /** Is this milestone reviewed on Lampiran R1? */
+    public function usesR1(): bool
+    {
+        return in_array($this->code, self::R1_CODES, true);
+    }
 
     // -----------------------------------------------------------------
     // Relations
@@ -137,6 +264,36 @@ class Milestone extends Model
     public function events(): HasMany
     {
         return $this->hasMany(SubmissionEvent::class)->orderBy('created_at');
+    }
+
+    /**
+     * Every Lampiran R1 round recorded against this milestone, newest first.
+     *
+     * One row per supervisor review. A chapter that was sent back twice has
+     * three rows: two asking for improvement and the one that settled it.
+     */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(MilestoneReview::class)
+            ->orderByDesc('round_no')
+            ->orderByDesc('id');
+    }
+
+    /** The R1 round that settled this milestone, if one did. */
+    public function latestReview(): ?MilestoneReview
+    {
+        return $this->reviews()->first();
+    }
+
+    /**
+     * The round number the *next* review will take.
+     *
+     * Derived from the existing rows rather than a counter column, so a row
+     * deleted by hand cannot leave a gap that a unique index then refuses.
+     */
+    public function nextReviewRound(): int
+    {
+        return ((int) $this->reviews()->max('round_no')) + 1;
     }
 
     // -----------------------------------------------------------------

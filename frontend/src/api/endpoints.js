@@ -122,16 +122,24 @@ export const profileApi = {
  * calls, so there is no id for a caller to change and reach a colleague's
  * roster. `section()` answers `null` for a lecturer the admin has not appointed
  * yet, which is a normal state rather than an error.
+ *
+ * **The term is a parameter, and it is not the same thing as the section.** A
+ * section row is one term's appointment, so the person who teaches S1 now may
+ * teach S2 next term and teaches nothing the term after that. `semester_id`
+ * therefore selects *among the sections this person already lectures* — it can
+ * never widen what they may reach, only choose which of their own terms to look
+ * at. Leave it out (`null`) and the server answers for the active term.
  */
 export const lecturerApi = {
   /**
-   * The signed-in lecturer's own section, or `null` if they have none.
+   * The signed-in lecturer's own section **in a term**, or `null` if they have
+   * none there.
    *
    * Also reachable by admin and coordinator, who see the section of the person
    * they are correcting rather than one of their own — which is why the screen
    * treats `null` as "not appointed" rather than as a failure.
    */
-  section: () => api.get('/lecturer/section').then(unwrap),
+  section: (params) => api.get('/lecturer/section', { params }).then(unwrap),
 
   /**
    * The roster: every student in the lecturer's section, each with their marks.
@@ -166,13 +174,16 @@ export const lecturerApi = {
 /**
  * Section administration — the other half of the coursework feature.
  *
- * An admin appoints each section's lecturer and places students into sections;
- * a lecturer can read the list (they need their own section's name) but the
- * server narrows what they see to the section they own.
+ * An admin provisions each term's sections and appoints their lecturers; an
+ * admin or coordinator places students into them; a lecturer can read the list
+ * (they need their own section's name) but the server narrows what they see to
+ * the section they own. Every call here is term-shaped, because a section is one
+ * term's class: the same `S1` exists in every term, so a call that does not say
+ * which term it means has no single answer.
  */
 export const sectionApi = {
   /**
-   * Every section, with its lecturer and roster size.
+   * Every section in a term, with its lecturer and roster size.
    *
    * Readable by admin, coordinator and lecturer alike — the policy narrows a
    * lecturer's view to their own row rather than the route refusing them, so
@@ -181,13 +192,51 @@ export const sectionApi = {
   list: (params) => api.get('/sections', { params }).then(unwrap),
 
   /**
+   * Candidates for a section's lecturer — lecturers *and* supervisors.
+   *
+   * `semester_id` is what makes the list honest rather than merely complete: the
+   * meta on each row names the section the person already teaches *in that
+   * term*, so the picker can mark them as taken instead of letting the admin
+   * choose somebody the one-section-per-term rule refuses a moment later. The
+   * same person reads as free in a term where they teach nothing.
+   *
+   * Note the id space: `value` is a **user** id, which is what a section stores.
+   * `assignmentApi.supervisors()` returns supervisor *profile* ids and is not a
+   * substitute for this.
+   */
+  lecturerOptions: (params) => api.get('/sections/lecturers', { params }).then(unwrap),
+
+  /**
+   * Add one section to a term.
+   *
+   * The name is optional: the server derives "Section 1" from the code `S1`,
+   * because a code is what the faculty actually decides and the long name is
+   * presentation. `lecturer_id` may be omitted — a section with nobody appointed
+   * is a real state, and while it is empty *nobody* may key its marks.
+   */
+  create: (payload) => api.post('/sections', payload).then(unwrap),
+
+  /**
    * Rename a section, appoint its lecturer, or move it to another term.
    *
-   * Admin only, and the server refuses a lecturer who already owns a section:
-   * `User::lecturerSection()` returns a single section, so two rows pointing at
-   * one person would make which roster they may key depend on row order.
+   * Admin only, and the server refuses a lecturer who already teaches another
+   * section **of the same term** — a teacher may hold one section per term. The
+   * same person teaching in a different term is expected, not refused.
    */
   update: (id, payload) => api.put(`/sections/${id}`, payload).then(unwrap),
+
+  /**
+   * Provision a term from the one before it.
+   *
+   * The next term starts with no sections at all — sections are created, not
+   * inherited — so this is the ordinary first step of a new term rather than a
+   * shortcut. Codes already present in the target term are skipped, and students
+   * are *never* copied: a class list is uploaded fresh. `include_lecturers`
+   * carries the teachers over too, except for anyone who already teaches another
+   * section of the target term (they are reported in `without_lecturer` rather
+   * than silently doubled up).
+   */
+  copy: (payload) => api.post('/sections/copy', payload).then(unwrap),
 
   /**
    * Place a student into a section, or remove them from one.
@@ -200,6 +249,43 @@ export const sectionApi = {
     api
       .put(`/students/${studentProfileId}/section`, { section_id: sectionId ?? null })
       .then(unwrap),
+
+  /**
+   * Place a whole class list in one request.
+   *
+   * Two columns — matric number and section code, in either order, with or
+   * without a header row; the server works out which is which. The response is a
+   * per-row report (`placed` / `unchanged` / `failed`), so a batch that half
+   * works says exactly which rows did not rather than rolling the whole upload
+   * back: the rows that *did* resolve are real placements either way.
+   *
+   * `timeout` is overridden for the reason `milestoneApi.submit` overrides it —
+   * the request carries a file and the 30s default aborts uploads that the
+   * server then completes, so the admin sees a failure for work that was done.
+   */
+  importPlacements: (source, semesterId) => {
+    const form = new FormData()
+
+    // A `File` goes up as a file, anything else as `csv` text — the two shapes
+    // the endpoint accepts (an uploaded sheet, or a list pasted from an email).
+    // Sending the pasted list as a synthesised `File` instead would work but lie
+    // about where it came from, and the endpoint validates the two separately.
+    if (source instanceof File) {
+      form.append('file', source)
+    } else if (source != null && String(source).trim() !== '') {
+      form.append('csv', String(source))
+    } else {
+      return Promise.reject(new Error('A class list file or its text is required.'))
+    }
+
+    if (semesterId !== undefined && semesterId !== null && semesterId !== '') {
+      form.append('semester_id', semesterId)
+    }
+
+    return api
+      .post('/sections/import', form, { timeout: UPLOAD_TIMEOUT_MS })
+      .then(unwrap)
+  },
 }
 
 export const assignmentApi = {
@@ -493,6 +579,19 @@ export const milestoneApi = {
       .then((res) => saveDownload(res, fallbackName || `submission-${fileId}`)),
 
   /**
+   * Fetch a submission as a blob URL for in-page viewing.
+   *
+   * The same authenticated route as `download`, asked for a blob instead of a
+   * save. Returned as an object URL so an `<iframe>` can render it; the caller
+   * must revoke it when done, or each opened document leaks its bytes for the
+   * lifetime of the tab.
+   */
+  preview: (fileId) =>
+    api
+      .get(`/submissions/${fileId}/download`, { responseType: 'blob' })
+      .then((res) => URL.createObjectURL(res.data)),
+
+  /**
    * Withdraw a submission file. The server keeps the row and the bytes — this
    * only clears `is_current`, so the file leaves the reviewer's view while the
    * audit trail keeps it.
@@ -505,11 +604,140 @@ export const milestoneApi = {
   /**
    * Record a review decision. The two outcomes are separate routes on the
    * server, so this dispatches rather than inventing a combined endpoint.
+   *
+   * Superseded by `reviewR1` for chapter milestones: the Lampiran R1 form's two
+   * checkboxes are now the verdict, and its round is recorded alongside the
+   * transition. Kept because the proposal branch and any milestone without a
+   * submission still go through the plain decision.
    */
   review: (id, { decision, comment }) =>
     decision === 'approved'
       ? api.post(`/milestones/${id}/approve`, { comment }).then(unwrap)
       : api.post(`/milestones/${id}/request-revision`, { comment }).then(unwrap),
+
+  // --- Lampiran R1 review rounds -----------------------------------------
+
+  /**
+   * Every R1 round recorded against a milestone, newest first.
+   *
+   * Readable by the student whose chapter it is as well as the supervisor who
+   * wrote it — the student needs the reason they were sent back.
+   */
+  reviews: (milestoneId) =>
+    api.get(`/milestones/${milestoneId}/reviews`).then(unwrap),
+
+  /**
+   * Record an R1 round. The two acknowledgement boxes are the verdict:
+   * `ack_received` alone settles the milestone, `ack_reviewed` sends it back
+   * for improvement (and then requires `comments`).
+   */
+  reviewR1: (milestoneId, payload) =>
+    api.post(`/milestones/${milestoneId}/reviews`, payload).then(unwrap),
+
+  /**
+   * Attach the supervisor's signature image to a round.
+   *
+   * Sent as multipart because the picture arrives either from a canvas blob or
+   * from a file input. Optional: the acknowledgement is the evidence, and a
+   * supervisor without a pointer must not be blocked from reviewing.
+   */
+  attachReviewSignature: (milestoneId, reviewId, file, type = 'uploaded') => {
+    const body = new FormData()
+    body.append('signature', file)
+    body.append('type', type)
+    return api
+      .post(`/milestones/${milestoneId}/reviews/${reviewId}/signature`, body, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then(unwrap)
+  },
+
+  /** Fetch a round's signature as a blob URL for display. */
+  reviewSignature: (milestoneId, reviewId) =>
+    api
+      .get(`/milestones/${milestoneId}/reviews/${reviewId}/signature`, {
+        responseType: 'blob',
+      })
+      .then((res) => URL.createObjectURL(res.data)),
+
+  // --- OSHE --------------------------------------------------------------
+
+  /**
+   * Upload the signed OSHE form. The only milestone the supervisor *completes*:
+   * the student files the filled form, the supervisor signs it and returns the
+   * signed copy, which settles the milestone.
+   *
+   * Multipart, and PDF-only on the server — a signed compliance form is a
+   * document, not an editable file.
+   */
+  signOshe: (milestoneId, files, comment) => {
+    const body = new FormData()
+    files.forEach((file) => body.append('files[]', file))
+    if (comment) body.append('comment', comment)
+    return api
+      .post(`/milestones/${milestoneId}/oshe/sign`, body, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then(unwrap)
+  },
+
+  // --- Lampiran C (corrections after a conditional approval) --------------
+
+  /**
+   * The student files Lampiran C.
+   *
+   * Multipart because the form carries the student's signature image alongside
+   * the text: previous title, new title, and one row per examiner comment with
+   * the correction taken against it.
+   */
+  fileLampiranCForm: (milestoneId, payload) => {
+    const body = new FormData()
+    body.append('previous_title', payload.previous_title)
+    body.append('new_title', payload.new_title)
+
+    ;(payload.actions ?? []).forEach((row, i) => {
+      body.append(`actions[${i}][comment]`, row.comment ?? '')
+      body.append(`actions[${i}][action]`, row.action ?? '')
+    })
+
+    if (payload.ic_number) body.append('ic_number', payload.ic_number)
+    if (payload.passport_number) body.append('passport_number', payload.passport_number)
+    if (payload.mobile_number) body.append('mobile_number', payload.mobile_number)
+    if (payload.defense_date) body.append('defense_date', payload.defense_date)
+    if (payload.signature) {
+      body.append('signature', payload.signature)
+      body.append('signature_type', payload.signature_type ?? 'uploaded')
+    }
+
+    return api
+      .post(`/milestones/${milestoneId}/lampiran-c/form`, body, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then(unwrap)
+  },
+
+  /**
+   * The supervisor's verdict on Lampiran C.
+   *
+   * `approve: true` stores the signature and settles the milestone (the corrected
+   * title then becomes the project's); `approve: false` requires a reason, stores
+   * no signature, and sends the form back.
+   */
+  signLampiranC: (milestoneId, payload) => {
+    const body = new FormData()
+    body.append('approve', payload.approve ? '1' : '0')
+    if (payload.comment) body.append('comment', payload.comment)
+    if (payload.signature) {
+      body.append('signature', payload.signature)
+      body.append('signature_type', payload.signature_type ?? 'uploaded')
+    }
+
+    return api
+      .post(`/milestones/${milestoneId}/lampiran-c/sign`, body, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then(unwrap)
+  },
 }
 
 // =====================================================================

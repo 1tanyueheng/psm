@@ -99,6 +99,165 @@ class MilestoneResource extends JsonResource
              */
             'can_change_deadline' => (bool) $request->user()?->can('changeDeadline', $this->resource),
 
+            /**
+             * Lampiran R1 — can the signed-in user respond to the submission?
+             *
+             * The same ability the endpoint authorises, so the "Respond (R1)"
+             * button cannot offer a review the API will refuse. False for the
+             * proposal, whose verdict is the panel's, and false while nothing
+             * has been submitted — there is nothing to respond to.
+             */
+            'can_review_r1' => (bool) $request->user()?->can('reviewR1', $this->resource),
+
+            /**
+             * Does Lampiran R1 govern this milestone?
+             *
+             * Chapters 1-4 of PSM 1 only, decided by the server so the SPA never
+             * re-implements the rule. Sent separately from `can_review_r1`
+             * because they answer different questions: "does this form apply
+             * here" versus "may *this user* fill it in right now". A coordinator
+             * looking at an already-approved chapter gets `uses_r1: true` and
+             * `can_review_r1: false`, which is the truthful pair.
+             */
+            'uses_r1' => $this->usesR1(),
+
+            /**
+             * Is this one of the two registration documents (Lampiran A / B)?
+             *
+             * The page uses it to render the read-only document card instead of a
+             * review or submission card — these milestones are records, not tasks.
+             */
+            'is_registration_document' => $this->isRegistrationDocument(),
+
+            /**
+             * The registration documents, rendered read-only.
+             *
+             * Lampiran A and B were filed before the project existed, so their
+             * milestones are records rather than tasks. The data lives on the
+             * agreement and the project — this block is what the digital form
+             * needs to draw the document that was actually submitted.
+             *
+             * Sent only on those two milestones: a chapter carrying the whole
+             * agreement would bloat every worklist row.
+             */
+            'registration_document' => $this->isRegistrationDocument() ? [
+                'kind' => $this->code,
+
+                /**
+                 * True when the project actually came through registration.
+                 *
+                 * Only four of the seeded projects have an agreement; the rest
+                 * were written straight into the database for demonstration. The
+                 * card uses this to say so plainly rather than render an empty
+                 * form and let a reader think the document was lost.
+                 */
+                'has_agreement' => $this->whenLoaded('project', fn () => $this->project?->agreement_id !== null),
+
+                'agreement' => $this->whenLoaded('project', function () {
+                    $a = $this->project?->agreement;
+                    $student = $this->project?->students?->first();
+
+                    // No agreement: fall back to what the project itself holds,
+                    // so the card still shows the student and the title that the
+                    // milestone stands for.
+                    if ($a === null) {
+                        return [
+                            'id'               => null,
+                            'session'          => $this->project?->academic_session,
+                            'psm_part'         => $this->project?->psm_part,
+                            'proposed_titles'  => [],
+                            'agreed_title'     => $this->project?->title,
+                            'english_report'   => false,
+                            'status'           => null,
+                            'student_signed_at'=> null,
+                            'acknowledged_at'  => null,
+                            'student_name'     => $student?->user?->name,
+                            'student_matric'   => $student?->student_id,
+                            'programme'        => $student?->program_code,
+                            'supervisor_name'  => $student?->activeSupervisions?->first()?->supervisorProfile?->user?->name,
+
+                            'project' => [
+                                'title'      => $this->project?->title,
+                                'abstract'   => $this->project?->abstract,
+                                'objectives' => $this->project?->objectives,
+                                'scope'      => $this->project?->scope,
+                                'category'   => $this->project?->category?->value,
+                                'batch'      => $this->project?->batch,
+                                'program'    => $this->project?->program,
+                            ],
+                        ];
+                    }
+
+                    return [
+                        'id'               => $a?->id,
+                        'session'          => $a?->session,
+                        'psm_part'         => $a?->psm_part,
+                        'proposed_titles'  => array_values(array_filter([
+                            $a?->proposed_title_1,
+                            $a?->proposed_title_2,
+                            $a?->proposed_title_3,
+                        ])),
+                        'agreed_title'     => $a?->agreed_title,
+                        'english_report'   => (bool) $a?->english_report,
+                        'status'           => $a?->status,
+                        'student_signed_at'=> $a?->student_signed_at?->toIso8601String(),
+                        'acknowledged_at'  => $a?->supervisor_acknowledged_at?->toIso8601String(),
+                        'student_name'     => $student?->user?->name,
+                        'student_matric'   => $student?->student_id,
+                        'programme'        => $student?->program_code,
+                        'supervisor_name'  => $a?->supervisorProfile?->user?->name,
+
+                        // Bahagian B of Lampiran B — the project details.
+                        'project' => [
+                            'title'      => $this->project?->title,
+                            'abstract'   => $this->project?->abstract,
+                            'objectives' => $this->project?->objectives,
+                            'scope'      => $this->project?->scope,
+                            'category'   => $this->project?->category?->value,
+                            'batch'      => $this->project?->batch,
+                            'program'    => $this->project?->program,
+                        ],
+                    ];
+                }),
+            ] : null,
+
+            /**
+             * The R1 rounds recorded so far, newest first.
+             *
+             * Loaded only when the caller asked for them, because the worklist
+             * shows many milestones per request and each one's history would be
+             * a query per row.
+             */
+            'reviews' => $this->whenLoaded(
+                'reviews',
+                fn () => \App\Http\Resources\MilestoneReviewResource::collection($this->reviews),
+            ),
+
+            /**
+             * Bahagian A of the R1 sheet, for the review form to prefill.
+             *
+             * Derived from the project and its student rather than stored on the
+             * milestone: the census fields (name, matric, programme, title) live
+             * on the project and student profile, and a copy on every milestone
+             * would go stale. The review itself still freezes a snapshot into
+             * `milestone_reviews.declaration`, so what a supervisor is recorded
+             * as having reviewed never changes afterwards.
+             */
+            'declaration' => $this->whenLoaded('project', function () {
+                $student = $this->project?->students?->first();
+
+                return [
+                    'session'       => $this->project?->academicSemester?->name,
+                    'academic_session' => $this->project?->academicSemester?->academic_session,
+                    'student_name'  => $student?->user?->name,
+                    'matric'        => $student?->student_id,
+                    'programme'     => $student?->program_code ?? $student?->program,
+                    'year_study'    => $student?->current_semester,
+                    'project_title' => $this->project?->title,
+                    'batch'         => $this->project?->batch,
+                ];
+            }),
+
             // The two examiners seated on the student — read from the
             // allocations, so the screen names the people the system appointed.
             'panel' => $this->when(
@@ -110,6 +269,35 @@ class MilestoneResource extends JsonResource
             'lampiran_c_title'   => $this->lampiran_c_title,
             'lampiran_c_actions' => $this->lampiran_c_actions,
             'lampiran_c_at'      => $this->lampiran_c_at?->toIso8601String(),
+
+            /**
+             * Lampiran C as its own milestone.
+             *
+             * `requires_lampiran_c` sits on the *proposal* and says what the panel
+             * asked for; the rest are read on the `lampiran_c` milestone itself.
+             * Both are sent unconditionally because the screen has to decide
+             * whether to show the step at all: a project whose proposal was
+             * approved outright has no C milestone and must not be offered one.
+             */
+            'requires_lampiran_c' => $this->requires_lampiran_c,
+            'lampiran_c' => [
+                'previous_title'   => $this->lampiran_c_previous_title,
+                'new_title'        => $this->lampiran_c_new_title,
+                'ic_number'        => $this->lampiran_c_ic_number,
+                'passport_number'  => $this->lampiran_c_passport_number,
+                'mobile_number'    => $this->lampiran_c_mobile_number,
+                'defense_date'     => $this->lampiran_c_defense_date?->toDateString(),
+                'actions'          => $this->lampiran_c_actions ?? [],
+                'filed_at'         => $this->lampiran_c_filed_at?->toIso8601String(),
+                'filed_by'         => $this->lampiran_c_filed_by,
+                'is_filed'         => $this->lampiran_c_filed_at !== null,
+                'is_signed'        => $this->hasSupervisorSignature(),
+                'signed_at'        => $this->supervisor_signed_at?->toIso8601String(),
+                'signed_by'        => $this->supervisor_signed_by,
+                'has_student_signature'    => $this->hasStudentSignature(),
+                'student_signed_at'        => $this->student_signed_at?->toIso8601String(),
+                'has_supervisor_signature' => $this->hasSupervisorSignature(),
+            ],
 
             /**
              * The owning project.
@@ -174,6 +362,18 @@ class MilestoneResource extends JsonResource
             // Files and history
             // -----------------------------------------------------------------
             'files' => SubmissionFileResource::collection($this->whenLoaded('currentFiles')),
+
+            /**
+             * The same list under the name the review cards read.
+             *
+             * The SPA's R1 card and OSHE card were written against
+             * `current_files` while the resource has always published `files`,
+             * so both silently saw "no submission" on a milestone that had one.
+             * Both names are sent rather than one being renamed: `files` is used
+             * by the existing submission card, and renaming it would break that
+             * instead.
+             */
+            'current_files' => SubmissionFileResource::collection($this->whenLoaded('currentFiles')),
 
             'file_count'   => $this->whenLoaded('currentFiles', fn () => $this->currentFiles->count()),
 

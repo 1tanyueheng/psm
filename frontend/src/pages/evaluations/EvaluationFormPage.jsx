@@ -3,9 +3,20 @@ import { Link, useParams } from 'react-router-dom'
 import { evaluationApi } from '../../api/endpoints'
 import {
   Card, CardHeader, PageHeader, Badge, EmptyState, Spinner, ErrorState,
-  Button, Field, Textarea, FieldErrors, Avatar, ProgressBar,
+  Button, Field, Textarea, FieldErrors, Avatar, ProgressBar, Select,
 } from '../../components/ui'
 import { formatDate, formatDateTime, formatMark, formatPercent, formLabel, relativeDays, EVALUATION_STATUS, statusMeta } from '../../lib/format'
+
+/**
+ * The top of the official Lampiran scale.
+ *
+ * Every marking form (E, G, H, I, J) prints the same six-point scale — 0 "Tiada
+ * Data", 1 "Sangat Kurang Memuaskan" through 5 "Sangat Baik" — and weights each
+ * item with `(score / 5) x weight`. It must match
+ * `EvaluationService::MAX_ITEM_SCORE` on the server, which performs the same
+ * conversion when the marks are saved.
+ */
+const ITEM_SCORE_MAX = 5
 
 /**
  * Rubric marking form — Module 4's core screen.
@@ -26,7 +37,6 @@ export default function EvaluationFormPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [marks, setMarks] = useState({})
-  const [comments, setComments] = useState({})
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState(null)
   const [saveError, setSaveError] = useState(null)
@@ -44,16 +54,23 @@ export default function EvaluationFormPage() {
       const data = await evaluationApi.get(id)
       setEvaluation(data)
 
-      // Seed local state from whatever was previously saved. The API returns
-      // `marks_awarded`, not `mark`.
+      // Seed local state from whatever was previously saved.
+      //
+      // The input is the official 0-5 item score, so seed from `item_score` —
+      // NOT `marks_awarded`, which is that score already weighted (a criterion
+      // worth 1.45 of Lampiran J's 40 would put "1.45" in a 0-5 box). Rows
+      // entered before the 0-5 screen have no `item_score`; they are left blank
+      // rather than guessed at, because a stored 1.00 could be any of several
+      // item scores on a 1.45 scale.
+      //
+      // Per-criterion comments are read straight from the response where they
+      // are displayed (see CriterionRow), not held in editable state: the form
+      // takes one overall comment, so there is no criterion comment to edit.
       const initialMarks = {}
-      const initialComments = {}
       for (const score of data.scores ?? []) {
-        initialMarks[score.criterion_code] = score.marks_awarded ?? ''
-        if (score.comment) initialComments[score.criterion_code] = score.comment
+        initialMarks[score.criterion_code] = score.item_score ?? ''
       }
       setMarks(initialMarks)
-      setComments(initialComments)
       dirtyRef.current = false
     } catch (err) {
       setError(err)
@@ -72,17 +89,25 @@ export default function EvaluationFormPage() {
 
   const payloadFor = useCallback(
     (overrides = {}) => ({
-      // `marks` and `comment` are the names the endpoint validates against.
+      // `marks` is the name the endpoint validates against.
+      //
+      // Only the empty placeholder is dropped. A selected `"0"` must be sent:
+      // on this scale 0 means "Tiada Data", which is a judgement the marker
+      // made, not an unanswered question — `value !== ''` is what keeps those
+      // two apart, since `0` is falsy.
+      //
+      // No per-criterion `comment` is sent: the form carries one overall
+      // comment (saved separately as `comment`), and sending none leaves any
+      // comment already on a criterion untouched rather than clearing it.
       marks: Object.entries(marks)
         .filter(([, value]) => value !== '' && value != null && !Number.isNaN(Number(value)))
         .map(([criterion_code, mark]) => ({
           criterion_code,
           marks: Number(mark),
-          comment: comments[criterion_code]?.trim() || undefined,
         })),
       ...overrides,
     }),
-    [marks, comments]
+    [marks]
   )
 
   const save = useCallback(
@@ -105,7 +130,7 @@ export default function EvaluationFormPage() {
     [id, payloadFor]
   )
 
-  // Debounced autosave — 1.5s after the assessor stops typing.
+  // Debounced autosave — 1.5s after the assessor stops changing a score.
   useEffect(() => {
     if (readOnly) return undefined
     if (!dirtyRef.current) return undefined
@@ -113,16 +138,11 @@ export default function EvaluationFormPage() {
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => save(true), 1500)
     return () => clearTimeout(timerRef.current)
-  }, [marks, comments, readOnly, save])
+  }, [marks, readOnly, save])
 
   function setMark(code, value) {
     dirtyRef.current = true
     setMarks((prev) => ({ ...prev, [code]: value }))
-  }
-
-  function setComment(code, value) {
-    dirtyRef.current = true
-    setComments((prev) => ({ ...prev, [code]: value }))
   }
 
   const totals = useMemo(() => computeTotals(evaluation, marks), [evaluation, marks])
@@ -255,10 +275,9 @@ export default function EvaluationFormPage() {
                     criterion={criterion}
                     component={component}
                     mark={marks[criterion.code] ?? ''}
-                    comment={comments[criterion.code] ?? ''}
+                    comment={(evaluation.scores ?? []).find((s) => s.criterion_code === criterion.code)?.comment ?? ''}
                     readOnly={readOnly}
                     onMark={(value) => setMark(criterion.code, value)}
-                    onComment={(value) => setComment(criterion.code, value)}
                   />
                 ))}
               </ul>
@@ -384,16 +403,42 @@ export default function EvaluationFormPage() {
 }
 
 /**
- * One rubric criterion: a mark input, a band guide, and a comment box.
+ * The official Lampiran scale, in the words the paper form prints.
  *
- * A number input is used rather than a slider because marks are frequently
- * entered from a paper marking sheet, so exact typed values matter more than
- * physical manipulation.
+ * A dropdown of bare digits makes the marker translate "3" into a judgement
+ * themselves; the printed form gives every stop a name, and so does this. The
+ * wording is the form's own (0 Tiada Data … 5 Sangat Baik), so what the marker
+ * picks is what the sheet would say.
  */
-function CriterionRow({ criterion, component, mark, comment, readOnly, onMark, onComment }) {
-  const max = criterion.max_marks ?? 100
-  const numeric = mark === '' ? null : Number(mark)
-  const invalid = numeric != null && (Number.isNaN(numeric) || numeric < 0 || numeric > max)
+const ITEM_SCORE_OPTIONS = [
+  { value: 0, label: '0 — Tiada Data (No Data)' },
+  { value: 1, label: '1 — Sangat Kurang Memuaskan (Very Unsatisfactory)' },
+  { value: 2, label: '2 — Kurang Memuaskan (Unsatisfactory)' },
+  { value: 3, label: '3 — Sederhana (Moderate)' },
+  { value: 4, label: '4 — Baik (Good)' },
+  { value: 5, label: '5 — Sangat Baik (Very Good)' },
+]
+
+/**
+ * One rubric criterion: the official 0-5 item score, its converted weight, and
+ * a comment box.
+ *
+ * The score is chosen from a **dropdown of the form's own six stops** (0 Tiada
+ * Data … 5 Sangat Baik), which is exactly what the printed Lampiran offers — a
+ * free-text box invited half marks and out-of-range values that the paper form
+ * cannot express. `max_marks` is not a score the marker picks: it is the
+ * criterion's share of the form's total (Lampiran J's A1 is 1.45 of 40), and the
+ * weighted value is `(score / 5) x max_marks`. The converted figure is shown
+ * beside the dropdown so the marker can see what their judgement is worth.
+ */
+function CriterionRow({ criterion, component, mark, comment, readOnly, onMark }) {
+  const ITEM_MAX = ITEM_SCORE_MAX
+  const weight = criterion.max_marks ?? 0
+  const numeric = mark === '' || mark == null ? null : Number(mark)
+
+  // What this judgement is worth on the form's own scale: (score / 5) x weight.
+  const converted =
+    numeric != null && !Number.isNaN(numeric) ? round2((numeric / ITEM_MAX) * weight) : null
 
   return (
     <li className="py-4">
@@ -404,7 +449,7 @@ function CriterionRow({ criterion, component, mark, comment, readOnly, onMark, o
             <span className="text-xs text-slate-400">
               {component.weight_percent != null &&
                 `${formatPercent(component.weight_percent, 0)} · `}
-              {max} marks
+              {round2(weight)} marks
             </span>
           </div>
           {criterion.description && (
@@ -422,49 +467,44 @@ function CriterionRow({ criterion, component, mark, comment, readOnly, onMark, o
           )}
         </div>
 
-        <div className="w-28 shrink-0">
+        <div className="w-64 shrink-0">
           <label className="sr-only" htmlFor={`mark-${criterion.code}`}>
-            Mark for {criterion.title}
+            Score for {criterion.title}
           </label>
-          <div className="relative">
-            <input
+          <div className="flex items-center gap-2">
+            <Select
               id={`mark-${criterion.code}`}
-              type="number"
-              inputMode="decimal"
-              min={0}
-              max={max}
-              step={0.5}
-              value={mark}
+              value={mark === '' || mark == null ? '' : String(mark)}
               disabled={readOnly}
               onChange={(e) => onMark(e.target.value)}
-              aria-invalid={invalid ? 'true' : undefined}
-              className={`w-full rounded-md border px-2.5 py-2 pr-12 text-right tabular-nums shadow-sm focus:outline-none focus:ring-2 ${
-                invalid
-                  ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-200'
-                  : 'border-slate-300 focus:border-brand-500 focus:ring-brand-200'
-              } disabled:bg-slate-50 disabled:text-slate-500`}
-            />
-            <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-xs text-slate-400">
-              / {max}
-            </span>
+              className="w-full py-2 text-sm"
+            >
+              <option value="">— Select / Pilih —</option>
+              {ITEM_SCORE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+            <div className="min-w-14 shrink-0 text-xs text-slate-500">
+              {converted != null ? (
+                <span className="tabular-nums">
+                  = <span className="font-medium text-slate-700">{converted.toFixed(2)}</span>
+                </span>
+              ) : (
+                <span className="text-slate-300">= 0.00</span>
+              )}
+            </div>
           </div>
-          {invalid && (
-            <p className="mt-1 text-xs text-rose-600">0–{max} only</p>
-          )}
         </div>
       </div>
 
-      {/* Only prompt for a comment on a weak mark — this is when feedback matters. */}
-      {!readOnly && (numeric != null && numeric < max * 0.7) && (
-        <Textarea
-          rows={2}
-          value={comment}
-          onChange={(e) => onComment(e.target.value)}
-          placeholder="Brief feedback for this criterion…"
-          className="mt-3"
-        />
-      )}
-      {readOnly && comment && (
+      {/* No per-criterion comment box: the Lampiran forms carry one overall
+          comment for the whole submission, and a box on every criterion turned
+          a 25-item form into a wall of textareas. Any comment already recorded
+          against this criterion is still shown, because it is part of the
+          assessment — it is simply no longer editable here. */}
+      {comment && (
         <p className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">{comment}</p>
       )}
     </li>
@@ -505,20 +545,23 @@ function ComponentScore({ component, marks }) {
 }
 
 /**
- * Sum one component's criteria.
+ * Sum one component's criteria from the entered 0-5 item scores.
  *
- * Each criterion's earned marks are scaled by the criterion's share of the
- * component and the component's share of the whole, matching the server's
- * algorithm in `EvaluationService` so the on-screen figure and the stored
- * figure never disagree.
+ * Each criterion's item score is converted the way the Lampiran forms do it —
+ * `(score / 5) x max_marks` — and the component's earned total is the sum of
+ * those converted values. The maximum is the sum of the criteria's `max_marks`,
+ * which is the component's share of the form's total (Lampiran J's A_paper is
+ * worth 10 of 40, B 25 of 40, C 5 of 40).
+ *
+ * This mirrors `EvaluationService::saveMarks()`, so the figure on screen and the
+ * figure stored after saving cannot disagree. It previously divided by
+ * `criterion.max_marks`, which was only correct while the input itself was on
+ * the weighted scale — the very thing the 0-5 entry screen replaces.
  */
 function scoreComponent(component, marks) {
   const criteria = component.criteria ?? []
   if (criteria.length === 0) return { score: 0, max: 0 }
 
-  // Criteria weights inside a component sum to 100.
-  const criterionWeightTotal =
-    criteria.reduce((sum, c) => sum + (c.weight_percent ?? 0), 0) || 100
   const componentMax = criteria.reduce((sum, c) => sum + (c.max_marks ?? 0), 0)
 
   let earned = 0
@@ -528,9 +571,7 @@ function scoreComponent(component, marks) {
     const value = Number(raw)
     if (Number.isNaN(value)) continue
 
-    const max = criterion.max_marks ?? 100
-    const criterionShare = (criterion.weight_percent ?? 0) / criterionWeightTotal
-    earned += (value / max) * criterionShare * componentMax
+    earned += (value / ITEM_SCORE_MAX) * (criterion.max_marks ?? 0)
   }
 
   return { score: round2(earned), max: round2(componentMax) }

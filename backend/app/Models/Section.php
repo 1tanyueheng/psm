@@ -11,12 +11,25 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * A teaching section for the service course that runs alongside PSM 1.
  *
- * Four exist, each with one lecturer who is appointed permanently. A section is
- * a *teaching* group and is independent of a student's PSM project: the same
- * student has one section and, separately, one project with a supervisor. The
- * two are different relationships and the system keeps them apart.
+ * A section is a *teaching* group and is independent of a student's PSM
+ * project: the same student has one section and, separately, one project with a
+ * supervisor. The two are different relationships and the system keeps them
+ * apart.
  *
- * See the create migration for why there is no term history here.
+ * **One row per section per term, and the row is the appointment.** `S1` is not
+ * a thing the faculty owns for ever — it is what this term's first class is
+ * called, and the next term has its own `S1` with its own students and its own
+ * teacher. So the row carries the term (`academic_semester_id`) and the teacher
+ * (`lecturer_id`), `code` is unique only *within* a term (`2026_10_19_000001`),
+ * and a person may teach `S1` this term and `S2` the next. That is also why
+ * there is no `section_lecturers` pivot or history table: the appointment *is*
+ * this row, and a term's appointments are its rows.
+ *
+ * A corollary worth stating: existing rows are never re-pointed at a new term.
+ * Provisioning a term means *creating* its sections — by hand or by copying the
+ * term before it — because a student's placement and a keyed mark both point at
+ * a particular term's row, and moving that row would silently move their
+ * grades.
  */
 class Section extends Model
 {
@@ -33,12 +46,21 @@ class Section extends Model
     // Relations
     // -----------------------------------------------------------------
 
-    /** The lecturer who owns this section. One person, permanently. */
+    /**
+     * The lecturer appointed to this section — for this term only.
+     *
+     * Nullable on purpose: a section with nobody appointed is a real state (the
+     * students are placed before the faculty decides), and while it is null
+     * *nobody* may key that section's marks. See `User::lecturerSection()` for
+     * the other side of the relationship, and note that the appointment usually
+     * belongs to a supervisor who teaches as well as supervises.
+     */
     public function lecturer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'lecturer_id');
     }
 
+    /** The term this section belongs to. */
     public function academicSemester(): BelongsTo
     {
         return $this->belongsTo(AcademicSemester::class);

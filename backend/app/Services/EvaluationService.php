@@ -37,6 +37,18 @@ use InvalidArgumentException;
  */
 class EvaluationService
 {
+    /**
+     * The top of the official Lampiran scale.
+     *
+     * Every marking form prints the same six-point scale — 0 "Tiada Data",
+     * 1 "Sangat Kurang Memuaskan" through 5 "Sangat Baik" — and weights each
+     * item with `(score / 5) x weight`. Named here rather than written as a
+     * literal `5` in the conversion, because a faculty that ever moves to a
+     * ten-point scale should have to change one number, and every place that
+     * divides by it should fail to compile its assumptions visibly.
+     */
+    public const MAX_ITEM_SCORE = 5.0;
+
     public function __construct(
         protected AuditLogger $audit,
         protected NotificationDispatcher $notifications,
@@ -280,6 +292,21 @@ class EvaluationService
     /**
      * Apply a batch of criterion marks to a draft evaluation.
      *
+     * **Marks arrive as the official 0-5 item score**, which is what the
+     * Lampiran forms print and what a marker reads off the sheet. This method
+     * converts each one to its weighted value before storing it:
+     *
+     *     weighted = (item_score / 5) x max_marks
+     *
+     * `max_marks` is the criterion's share of the form's total (Lampiran J's A1
+     * is 1.45 of 40), so a score of 4 on that item is worth 1.16. Doing the
+     * conversion here rather than in the browser means the API is the single
+     * place the rule lives: a stray client cannot post a weighted mark and
+     * bypass it, and every stored row has the same meaning.
+     *
+     * The raw 0-5 answer is kept in `item_score` so the sheet can be reprinted
+     * exactly as the marker filled it.
+     *
      * @param  array<int, array{criterion_code:string, marks:float, comment?:string}>  $marks
      */
     public function saveMarks(Evaluation $evaluation, array $marks, ?User $actor = null): Evaluation
@@ -329,18 +356,36 @@ class EvaluationService
                     continue;
                 }
 
-                $value = (float) $incoming['marks'];
-                $max   = (float) $score->max_marks;
+                $itemScore = (float) $incoming['marks'];
 
-                if ($value < 0 || $value > $max) {
+                /**
+                 * The marker's answer is a 0-5 item score; the column holds the
+                 * weighted mark. Validate the *item* score against the official
+                 * scale, then convert.
+                 *
+                 * Validating against `max_marks` here (as this did when markers
+                 * typed weighted marks directly) would have rejected every score
+                 * above 1.45 on Lampiran J — the whole scale, for most items.
+                 */
+                if ($itemScore < 0 || $itemScore > self::MAX_ITEM_SCORE) {
                     throw new InvalidArgumentException(
-                        "Mark for '{$score->criterion_code}' must be between 0 and {$max}."
+                        "Score for '{$score->criterion_code}' must be between 0 and "
+                        .self::MAX_ITEM_SCORE.'.'
                     );
                 }
 
-                $score->marks_awarded = $value;
-                $score->comment       = $incoming['comment'] ?? $score->comment;
-                $score->is_flagged    = $value <= ($max * 0.4);
+                $max = (float) $score->max_marks;
+
+                // (item / 5) x weight — the official form's own arithmetic.
+                $value = round(($itemScore / self::MAX_ITEM_SCORE) * $max, 4);
+
+                $score->item_score      = $itemScore;
+                $score->marks_awarded   = $value;
+                $score->comment         = $incoming['comment'] ?? $score->comment;
+
+                // "Weak" is a property of the item score, not of the weighted
+                // mark: 2 of 5 is the same judgement whatever the weight is.
+                $score->is_flagged = $itemScore <= (self::MAX_ITEM_SCORE * 0.4);
 
                 // Contribution to the rubric total, for transparent totalling
                 $weight = $criteriaWeights[$score->criterion_code] ?? ['component' => 0, 'criterion' => 0];

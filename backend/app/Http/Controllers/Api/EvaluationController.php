@@ -331,7 +331,14 @@ class EvaluationController extends ApiController
         $validated = $request->validate([
             'marks'                     => ['required', 'array', 'min:1'],
             'marks.*.criterion_code'    => ['required', 'string'],
-            'marks.*.marks'             => ['required', 'numeric', 'min:0'],
+            // The official 0-5 item scale. Bounded here as well as in
+            // EvaluationService so a bad request fails as a 422 naming the
+            // field, rather than as a service exception — the SPA can then
+            // mark the input that caused it.
+            'marks.*.marks'             => [
+                'required', 'numeric', 'min:0',
+                'max:'.\App\Services\EvaluationService::MAX_ITEM_SCORE,
+            ],
             'marks.*.comment'           => ['nullable', 'string', 'max:2000'],
             'comment'                   => ['nullable', 'string', 'max:5000'],
             'strengths'                 => ['nullable', 'string', 'max:3000'],

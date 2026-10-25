@@ -95,6 +95,18 @@ class AcademicSemester extends Model
         return $this->hasMany(MarkSubmission::class, 'academic_semester_id');
     }
 
+    /**
+     * The teaching sections provisioned for this term.
+     *
+     * Sections are per term, not once for ever: `S1` is the same *name* for a
+     * different group of students each term, and the person who teaches it is
+     * appointed for that term (see `Section`).
+     */
+    public function sections(): HasMany
+    {
+        return $this->hasMany(Section::class);
+    }
+
     // -----------------------------------------------------------------
     // Lifecycle
     // -----------------------------------------------------------------
@@ -200,6 +212,34 @@ class AcademicSemester extends Model
     public static function current(): ?self
     {
         return static::query()->active()->chronological()->first();
+    }
+
+    /**
+     * The term immediately before this one, if there is one.
+     *
+     * Used when a term's sections are provisioned: the faculty teaches the same
+     * four codes every term, so the term that just ended is the right one to
+     * copy the codes and — if asked — the teachers from.
+     *
+     * `chronological()` is newest-first, so the predecessor is the entry *after*
+     * the target in that list. Ordering by `starts_at` also puts undated terms
+     * last, which is the right place for them here: a term with no dates cannot
+     * be shown to precede a dated one on any evidence, so it may be a
+     * predecessor but never has one.
+     */
+    public static function previousOf(self $term): ?self
+    {
+        $ids = static::query()->chronological()->pluck('id')->all();
+
+        $position = array_search($term->id, $ids, true);
+
+        if ($position === false) {
+            return null;
+        }
+
+        $previousId = $ids[$position + 1] ?? null;
+
+        return $previousId === null ? null : static::find($previousId);
     }
 
     /** Resolve a caller-supplied id, tolerating an absent/blank/invalid value. */
