@@ -94,8 +94,18 @@ export default function RegistrationListPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} className="border-t border-slate-100">
+                {rows.map((row) => {
+                  /**
+                   * Whether this row is the signed-in supervisor's to act on.
+                   *
+                   * Both halves matter: the role says they *may* acknowledge, the
+                   * status says this one still needs it. A supervisor who is also
+                   * looking at agreements they already signed sees "View".
+                   */
+                  const awaitingMe = role === 'supervisor' && row.status === 'pending_supervisor'
+
+                  return (
+                    <tr key={row.id} className="border-t border-slate-100">
                     <td className="px-4 py-3">
                       <span className="font-medium text-slate-700">
                         {row.student?.name ?? '—'}
@@ -115,15 +125,36 @@ export default function RegistrationListPage() {
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Link
-                        to={`/registrations/${row.id}`}
-                        className="font-medium text-brand-600 hover:underline"
-                      >
-                        View
-                      </Link>
+                      {/*
+                        The action is named, not just "View".
+
+                        A supervisor's whole job on this screen is to acknowledge
+                        Part C, and the row used to offer only "View" — so the
+                        acknowledgement lived one undiscovered click away, behind
+                        a word that says nothing about acting. The agreement is
+                        not "sent for approval" in the student's mind and
+                        "awaiting you" in the supervisor's unless the screen
+                        says so.
+                      */}
+                      {awaitingMe ? (
+                        <Link
+                          to={`/registrations/${row.id}`}
+                          className="rounded-md bg-brand-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+                        >
+                          Acknowledge
+                        </Link>
+                      ) : (
+                        <Link
+                          to={`/registrations/${row.id}`}
+                          className="font-medium text-brand-600 hover:underline"
+                        >
+                          View
+                        </Link>
+                      )}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

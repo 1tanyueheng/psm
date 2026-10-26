@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\ApiController;
 use App\Http\Resources\SupervisorAgreementResource;
 use App\Models\SupervisorAgreement;
+use App\Rules\IsTitle;
 use App\Services\RegistrationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -97,16 +98,29 @@ class RegistrationController extends ApiController
              * only place a refused title can be replaced from — so an agreement
              * with one title (or three copies of it) leaves that path with
              * nothing to offer.
+             *
+             * `IsTitle` exists because "1", "2" and "3" are three distinct
+             * strings. Without it, a student can satisfy the rule that the
+             * titles differ while filing no title at all — which is not
+             * hypothetical: agreement #5 in the demo data is exactly that, and it
+             * sat un-acknowledged with a supervisor who had nothing to read.
+             *
+             * The length floor lives *inside* the rule rather than as a `min:`
+             * alongside it. Both would fire, and Laravel reports every failing
+             * rule, so one bad title produced two messages saying the same thing.
              */
-            'proposed_title_1'      => ['required', 'string', 'max:255'],
-            'proposed_title_2'      => ['required', 'string', 'max:255', 'different:proposed_title_1'],
+            'proposed_title_1'      => ['required', 'string', 'max:255', new IsTitle()],
+            'proposed_title_2'      => [
+                'required', 'string', 'max:255', 'different:proposed_title_1', new IsTitle(),
+            ],
             'proposed_title_3'      => [
                 'required', 'string', 'max:255',
-                'different:proposed_title_1', 'different:proposed_title_2',
+                'different:proposed_title_1', 'different:proposed_title_2', new IsTitle(),
             ],
 
             'english_report'        => ['boolean'],
         ], [
+            'proposed_title_1.required'  => 'Lampiran A requires three candidate titles — Title 1 is missing.',
             'proposed_title_2.required'  => 'Lampiran A requires three candidate titles — Title 2 is missing.',
             'proposed_title_3.required'  => 'Lampiran A requires three candidate titles — Title 3 is missing.',
             'proposed_title_2.different' => 'Title 2 must differ from Title 1.',

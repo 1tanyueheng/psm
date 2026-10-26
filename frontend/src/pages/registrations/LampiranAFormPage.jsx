@@ -14,6 +14,30 @@ import {
  * up to three titles. Submitting sends the form to that supervisor to
  * acknowledge; only after JKPSM approves is the pairing registered.
  */
+/**
+ * Why a draft title is not yet acceptable, or `null` when it is.
+ *
+ * Mirrors `App\Rules\IsTitle` so the student is told beside the field rather
+ * than after the round trip. Not a security boundary — the server validates
+ * independently — so it says the first thing that is wrong, not all of them.
+ *
+ * Returns `null` for an empty value: "required" is the field's own business and
+ * shouting at someone who has not typed yet is noise.
+ */
+function titleHint(value) {
+  const title = String(value ?? '').trim()
+
+  if (title === '') return null
+  if (title.length < 10) return 'Too short — write the full title.'
+
+  const words = title.split(/\s+/).filter(Boolean)
+  if (words.length < 3) return 'Add more detail — say what the system does and how.'
+
+  if (!/[A-Za-z]{3,}/.test(title)) return 'A title needs words, not just numbers or symbols.'
+
+  return null
+}
+
 export default function LampiranAFormPage() {
   const navigate = useNavigate()
 
@@ -64,9 +88,30 @@ export default function LampiranAFormPage() {
 
   async function handleSubmit(event) {
     event.preventDefault()
-    setSubmitting(true)
     setErrors(null)
     setFormError(null)
+
+    /**
+     * Stop a form that cannot succeed before it is sent.
+     *
+     * The same three checks the server makes, so an obviously bad title does not
+     * cost a round trip and come back as a field error the student has to
+     * re-read while the form scrolls back to the top.
+     */
+    const titleProblems = {}
+    ;[1, 2, 3].forEach((n) => {
+      const key = `proposed_title_${n}`
+      const problem = titleHint(form[key])
+      if (problem) titleProblems[key] = [problem]
+    })
+
+    if (Object.keys(titleProblems).length > 0) {
+      setErrors(titleProblems)
+      setFormError('Check the proposed titles below.')
+      return
+    }
+
+    setSubmitting(true)
 
     try {
       const res = await registrationApi.submitAgreement({
@@ -165,33 +210,45 @@ export default function LampiranAFormPage() {
             subtitle="Three candidate titles are required; your supervisor picks the agreed one"
           />
           <div className="space-y-5">
-            <Field label="Title 1" htmlFor="proposed_title_1" required error={errors?.proposed_title_1}>
-              <Input
-                id="proposed_title_1"
-                value={form.proposed_title_1}
-                onChange={update('proposed_title_1')}
-                required
-                maxLength={255}
-              />
-            </Field>
-            <Field label="Title 2" htmlFor="proposed_title_2" required error={errors?.proposed_title_2}>
-              <Input
-                id="proposed_title_2"
-                value={form.proposed_title_2}
-                onChange={update('proposed_title_2')}
-                required
-                maxLength={255}
-              />
-            </Field>
-            <Field label="Title 3" htmlFor="proposed_title_3" required error={errors?.proposed_title_3}>
-              <Input
-                id="proposed_title_3"
-                value={form.proposed_title_3}
-                onChange={update('proposed_title_3')}
-                required
-                maxLength={255}
-              />
-            </Field>
+            {/*
+              Each title is checked here as well as on the server.
+
+              The rule mirrors `App\Rules\IsTitle` — at least 10 characters, at
+              least three words, and something alphabetic — and its only purpose
+              is to say so beside the field while the student is typing. Without
+              it a student learns the requirement only after submitting, and the
+              cheapest way past a rejected form is to type "1", "2", "3", which
+              is how the demo data ended up with a Lampiran A that had no titles.
+            */}
+            {[1, 2, 3].map((n) => {
+              const key = `proposed_title_${n}`
+              const value = form[key]
+              const hint = titleHint(value)
+
+              return (
+                <Field
+                  key={key}
+                  label={`Title ${n}`}
+                  htmlFor={key}
+                  required
+                  error={errors?.[key]}
+                  hint={
+                    value && hint
+                      ? hint
+                      : 'A full title — what the system does and how. At least 10 characters, three words.'
+                  }
+                >
+                  <Input
+                    id={key}
+                    value={value}
+                    onChange={update(key)}
+                    required
+                    maxLength={255}
+                    placeholder="e.g. Automated Attendance Tracking Using Face Recognition"
+                  />
+                </Field>
+              )
+            })}
 
             <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
               <input

@@ -48,11 +48,35 @@ const ROLES = [
   },
 ]
 
+/**
+ * The cohort years offered for a student.
+ *
+ * Generated rather than typed, because a batch is a cohort identifier that is
+ * compared across the system: capacity counts it, reports group by it, and the
+ * programme rule reads it. "2026" and "26" and "2026/27" in a free-text box all
+ * mean the same intake and none of them match each other.
+ *
+ * A *window* rather than the list of batches in use: a new account is usually
+ * the next intake, so deriving the list from existing students would make the
+ * dropdown empty at exactly the moment it is first needed.
+ */
+const CURRENT_YEAR = new Date().getFullYear()
+const BATCH_YEARS = Array.from({ length: 8 }, (_, i) => String(CURRENT_YEAR - 3 + i))
+
+/**
+ * Faculties, offered as a choice rather than typed.
+ *
+ * The seed data contains both "FSKTM" and "Faculty of Computing" for the same
+ * faculty, which is what free text produces. The list starts with the value the
+ * system already uses everywhere else so a new account matches the cohort.
+ */
+const FACULTIES = ['FSKTM', 'Faculty of Computing', 'FSKTM UTHM']
+
 function blankForm() {
   return {
     role: 'student',
     name: '', email: '', phone: '', department: '',
-    student_id: '', program: '', program_code: '', batch: '', faculty: '',
+    student_id: '', program_code: '', batch: '', faculty: '',
     academic_semester_id: '',
     staff_no: '', academic_title: '', max_supervisees: '', programme: '',
   }
@@ -78,7 +102,14 @@ function payloadFor(form) {
     return {
       ...base,
       student_id: form.student_id.trim(),
-      program: form.program.trim(),
+      /**
+       * `program` is NOT sent.
+       *
+       * The API derives it from `program_code` — see `UserController::store()`,
+       * which writes `Programme::tryParse($program_code)?->label()`. Sending a
+       * second, typed value could only ever contradict the code, and the free-text
+       * field is gone from the form for the same reason.
+       */
       batch: form.batch.trim(),
       program_code: form.program_code.trim() || undefined,
       faculty: form.faculty.trim() || undefined,
@@ -636,56 +667,27 @@ function CreateUserPanel({
             <Field label="Matric number" htmlFor="new_student_id" required errors={errors} field="student_id">
               <Input id="new_student_id" value={form.student_id} onChange={set('student_id')} maxLength={32} />
             </Field>
-            <Field label="Programme" htmlFor="new_program" required errors={errors} field="program">
-              <Input id="new_program" value={form.program} onChange={set('program')} maxLength={128} />
-            </Field>
-            <Field
-              label="Batch"
-              htmlFor="new_batch"
-              required
-              errors={errors}
-              field="batch"
-              hint="The cohort year, e.g. 2026"
-            >
-              <Input id="new_batch" value={form.batch} onChange={set('batch')} maxLength={32} />
-            </Field>
 
             {/*
-              The enrolling term. Not decoration: it gates Lampiran A, it is what
-              the supervisor capacity check counts against, and it is how the
-              student appears in a term's cohort. Defaults to the active term,
-              and is overridable for a late or re-enrolling student.
-            */}
-            <Field
-              label="Enrolling semester"
-              htmlFor="new_semester"
-              errors={errors}
-              field="academic_semester_id"
-              hint={
-                semesters?.length
-                  ? 'The term this intake belongs to. Defaults to the active one.'
-                  : 'No semesters exist yet â€” create one before adding students.'
-              }
-            >
-              <Select
-                id="new_semester"
-                value={semesterValue}
-                onChange={set('academic_semester_id')}
-                disabled={!semesters?.length}
-              >
-                {!semesters?.length && <option value="">No semesters yet</option>}
-                {(semesters ?? []).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                    {s.is_active ? ' â€” active' : ''}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+              ONE programme field, and it is a dropdown.
 
+              There used to be two: this free-text box and a `<Select>` just
+              below it. Both wrote a programme, and they could disagree — the API
+              derives `student_profiles.program` from `program_code`
+              (`Programme::tryParse($program_code)?->label()`), falling back to
+              the typed string only when the code is missing, so a clerk who
+              typed "Software Engineering" while picking BIP produced a record
+              whose free-text name and code named different programmes.
+
+              The dropdown is the one that survives because the programme is not
+              a label, it is a rule: `Programme` decides which supervisors may
+              take this student, and FSKTM forbids cross-programme pairing. A
+              typo does not just look wrong, it disables the check.
+            */}
             <Field
               label="Programme"
               htmlFor="new_program_code"
+              required
               errors={errors}
               field="program_code"
               hint="Decides who may supervise this student"
@@ -703,8 +705,69 @@ function CreateUserPanel({
                 ))}
               </Select>
             </Field>
-            <Field label="Faculty" htmlFor="new_faculty" errors={errors} field="faculty">
-              <Input id="new_faculty" value={form.faculty} onChange={set('faculty')} maxLength={255} />
+
+            <Field
+              label="Batch"
+              htmlFor="new_batch"
+              required
+              errors={errors}
+              field="batch"
+              hint="The cohort year, e.g. 2026"
+            >
+              <Select id="new_batch" value={form.batch} onChange={set('batch')}>
+                <option value="">Choose a cohort…</option>
+                {BATCH_YEARS.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </Select>
+            </Field>
+
+            {/*
+              The enrolling term. Not decoration: it gates Lampiran A, it is what
+              the supervisor capacity check counts against, and it is how the
+              student appears in a term's cohort. Defaults to the active term,
+              and is overridable for a late or re-enrolling student.
+            */}
+            <Field
+              label="Enrolling semester"
+              htmlFor="new_semester"
+              errors={errors}
+              field="academic_semester_id"
+              hint={
+                semesters?.length
+                  ? 'The term this intake belongs to. Defaults to the active one.'
+                  : 'No semesters exist yet — create one before adding students.'
+              }
+            >
+              <Select
+                id="new_semester"
+                value={semesterValue}
+                onChange={set('academic_semester_id')}
+                disabled={!semesters?.length}
+              >
+                {!semesters?.length && <option value="">No semesters yet</option>}
+                {(semesters ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                    {s.is_active ? ' — active' : ''}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field
+              label="Faculty"
+              htmlFor="new_faculty"
+              errors={errors}
+              field="faculty"
+              hint="Defaults to FSKTM if left blank"
+            >
+              <Select id="new_faculty" value={form.faculty} onChange={set('faculty')}>
+                <option value="">FSKTM (default)</option>
+                {FACULTIES.map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </Select>
             </Field>
           </div>
         )}
