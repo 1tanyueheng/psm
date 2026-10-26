@@ -15,6 +15,7 @@ use App\Models\MarkSubmission;
 use App\Models\Project;
 use App\Models\StudentProfile;
 use App\Models\SupervisorProfile;
+use App\Models\SupervisorAgreement;
 use App\Services\AuditLogger;
 use App\Services\ArchiveService;
 use App\Services\MilestoneService;
@@ -177,6 +178,50 @@ class ProjectController extends ApiController
             'members'          => ['sometimes', 'array'],
             'members.*'        => ['integer', 'exists:student_profiles,id'],
         ]);
+
+        /**
+         * PSM 1 is registered through **Lampiran A**, and only through it.
+         *
+         * This endpoint creates a project directly, and that is correct for a
+         * PSM 2 attempt — PSM 2 has no registration step, because the student
+         * already has a title and a supervisor carried over from PSM 1.
+         *
+         * For PSM 1 it is a shortcut that skips the whole registration chain.
+         * The path requires the student to name a supervisor in Lampiran A, the
+         * supervisor to acknowledge it, and *that acknowledgement* to fix the
+         * agreed title — which is then what Lampiran B registers. Coming in
+         * through this door instead produced a project with:
+         *
+         *   - no supervisor pairings at all, so the supervisor named on the form
+         *     was never notified and never saw anything;
+         *   - no Lampiran A agreement, so there was no agreed title and no record
+         *     of who approved what;
+         *   - a title the student typed freely, bypassing the three-candidate
+         *     panel decision the faculty requires.
+         *
+         * Reproduced: a fresh student account with no agreement called
+         * `POST /api/projects` then `POST /api/projects/{id}/submit` and ended up
+         * with a PSM 1 project in `submitted` state that nobody was supervising.
+         *
+         * Refused rather than silently redirected, because a redirect would leave
+         * whatever the student typed unsubmitted-and-forgotten. The message names
+         * the step they skipped.
+         */
+        if ($validated['psm_part'] === 'PSM1') {
+            $acknowledged = SupervisorAgreement::query()
+                ->where('student_profile_id', $student->id)
+                ->where('status', SupervisorAgreement::STATUS_APPROVED)
+                ->exists();
+
+            if (! $acknowledged) {
+                return $this->fail(
+                    'A PSM 1 project is registered through Lampiran A, not directly: file Lampiran A '
+                    .'naming your supervisor, and once they acknowledge it the agreed title is '
+                    .'registered here. You have no acknowledged Lampiran A yet.',
+                    422,
+                );
+            }
+        }
 
         $semester = $request->filled('semester_id')
             ? AcademicSemester::resolve($validated['semester_id'])
@@ -970,6 +1015,21 @@ class ProjectController extends ApiController
                 'reason' => $gate['reason'],
                 'semester_id' => $gate['semester']?->id,
             ],
+
+            /**
+             * Whether this student may create a PSM 1 project from this form.
+             *
+             * Only true once a supervisor has acknowledged their Lampiran A —
+             * that acknowledgement is what fixes the agreed title, and the
+             * project is meant to register *that* title, not one the student
+             * typed here. The screen uses this to explain the sequence instead
+             * of presenting a form the server will refuse.
+             */
+            'has_acknowledged_agreement' => $request->user()->studentProfile?->id !== null
+                && SupervisorAgreement::query()
+                    ->where('student_profile_id', $request->user()->studentProfile->id)
+                    ->where('status', SupervisorAgreement::STATUS_APPROVED)
+                    ->exists(),
         ]);
     }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { projectApi } from '../../api/endpoints'
 import { unwrap } from '../../api/client'
 import {
@@ -108,6 +108,49 @@ export default function ProjectRegisterPage() {
     : Object.entries(CATEGORY_LABELS).map(([value, label]) => ({ value, label }))
 
   const supervisors = meta?.supervisors ?? []
+
+  /**
+   * PSM 1 is not registered from this page.
+   *
+   * The process starts at Lampiran A: the student names a supervisor, proposes
+   * three titles, and the supervisor's acknowledgement fixes the agreed title.
+   * This page creates a project directly, which for PSM 1 skips all of that —
+   * the student ends up with a project nobody supervises and a supervisor who
+   * was never notified. The API refuses it now; this screen explains why rather
+   * than letting the student fill in a form that cannot succeed.
+   *
+   * PSM 2 keeps using this page: it has no registration step, because the title
+   * and supervisor carry over from PSM 1.
+   */
+  if (!meta?.has_acknowledged_agreement && form.psm_part === 'PSM1') {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6">
+        <PageHeader title="Register your PSM project" back={{ to: '/projects', label: 'Back to projects' }} />
+
+        <Card>
+          <CardHeader title="Start with Lampiran A" />
+          <div className="space-y-3 text-sm text-slate-600">
+            <p>
+              A PSM 1 project cannot be created from this page. Registering it
+              directly would skip your supervisor entirely — they would never be
+              notified, and no title would have been agreed.
+            </p>
+            <p>The sequence is:</p>
+            <ol className="list-decimal space-y-1 pl-5">
+              <li>File <strong>Lampiran A</strong>, naming your supervisor and three candidate titles.</li>
+              <li>Your supervisor acknowledges it and picks the agreed title.</li>
+              <li>File <strong>Lampiran B</strong>, which registers the project on that title.</li>
+            </ol>
+            <div className="pt-2">
+              <Link to="/registrations/new">
+                <Button>Submit Lampiran A</Button>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

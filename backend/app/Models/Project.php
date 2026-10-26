@@ -427,8 +427,22 @@ class Project extends Model
         return $query->whereNull('archived_at');
     }
 
-    /** Statuses that mean the project is no longer running. */
-    public const FINISHED_STATUSES = ['completed', 'failed'];
+    /**
+     * Statuses that mean the project is no longer running.
+     *
+     * `submitted` is deliberately **not** here: a submitted project is waiting
+     * for approval and is still the student's live attempt. `rejected` **is**:
+     * a rejected registration is not work in progress — nobody supervises it and
+     * the student has to file again — so leaving it out of this list made it
+     * count as active forever.
+     *
+     * That was not theoretical. It is how a project withdrawn for bypassing
+     * Lampiran A still reported "has an active project this term", which would
+     * have blocked the very re-registration the withdrawal was meant to allow —
+     * and, before that, how a rejected registration kept occupying a supervisor
+     * slot and a place in the assessment window.
+     */
+    public const FINISHED_STATUSES = ['completed', 'failed', 'rejected'];
 
     /**
      * Projects still being worked on: the student owes something on them.

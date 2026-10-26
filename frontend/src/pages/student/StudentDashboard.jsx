@@ -120,16 +120,47 @@ export default function StudentDashboard() {
           title={`Welcome, ${user?.name?.split(' ')[0] ?? 'there'}`}
           subtitle="You do not have a PSM project registered yet."
         />
+        {/*
+          PSM 1 begins at Lampiran A, not at "register a project".
+
+          This card used to send the student straight to /projects/new, where
+          they could type a title and submit it. That path skips the whole
+          registration chain: no supervisor is named, so no supervisor is
+          notified and none is ever shown the request; no agreement exists, so
+          the title the panel is meant to choose between was never proposed.
+          A student followed it, submitted a project, and reported it as "the
+          registration was not passed to my supervisor" — which was exactly
+          right, because nothing ever was.
+
+          The button now goes where the process starts.
+        */}
         <Card>
           <EmptyState
-            title="Register your project"
-            description="Submit your proposed title, abstract and category. Your coordinator will assign a supervisor once it is approved."
+            title="Start with Lampiran A"
+            description="Name your supervisor and propose three titles. Your supervisor acknowledges the agreement, then the agreed title is registered as your project."
             action={
-              <Link to="/projects/new">
-                <Button>Register a project</Button>
+              <Link to="/registrations/new">
+                <Button>Submit Lampiran A</Button>
               </Link>
             }
           />
+        </Card>
+
+        <Card>
+          <div className="space-y-2 text-sm text-slate-600">
+            <p className="font-medium text-slate-700">After Lampiran A</p>
+            <ol className="list-decimal space-y-1 pl-5">
+              <li>Your supervisor acknowledges the agreement and picks the agreed title.</li>
+              <li>You file Lampiran B, which registers the project.</li>
+              <li>A panel reviews the proposal, and your milestones open.</li>
+            </ol>
+            <Link
+              to="/registrations"
+              className="inline-block pt-1 text-xs font-medium text-brand-600 hover:underline"
+            >
+              Already filed? Check its status →
+            </Link>
+          </div>
         </Card>
       </>
     )
