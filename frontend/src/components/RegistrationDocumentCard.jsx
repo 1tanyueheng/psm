@@ -1,11 +1,11 @@
-﻿import { Badge, Card, CardHeader } from './ui'
+import { Badge, Card, CardHeader } from './ui'
 import { formatDateTime } from '../lib/format'
 import uthmLogo from '../assets/uthm-logo.png'
 
 /**
- * Lampiran A and B as documents â€” the registration paperwork, read-only.
+ * Lampiran A and B as documents — the registration paperwork, read-only.
  *
- * Both were filed *before* this project existed: Lampiran A is the supervisor
+ * Both were filed *before* the project existed: Lampiran A is the supervisor
  * agreement, Lampiran B the title proposal that created the project and its
  * chain. Their milestones are therefore records, not tasks: the student has
  * nothing left to do here, and the card's job is to show what was filed.
@@ -14,48 +14,83 @@ import uthmLogo from '../assets/uthm-logo.png'
  * published forms do:
  *
  *   A  BORANG PERSETUJUAN PENYELIA PSM   (UTHM.FSKTM/UA-11/2017 Pin. 2)
- *      A student particulars Â· B three proposed titles + English-report tick
- *      C the supervisor's acceptance, with the agreed title Â· D for JKPSM
+ *      A student particulars · B three proposed titles + English-report tick
+ *      C the supervisor's acceptance, with the agreed title · D for JKPSM
  *
  *   B  BORANG CADANGAN TAJUK PSM          (UTHM.FSKTM/UA-12/2023 Pin. 1)
- *      A student particulars Â· B project details: supervisor, title, project
+ *      A student particulars · B project details: supervisor, title, project
  *      type, field-of-study declaration, requirements
  *
  * Rendered as a centred page with the crest, so the record looks like the
  * document it stands for rather than a form dump. Print hides the app chrome.
+ *
+ * **Two entry points, one renderer.**
+ *
+ * This used to take only a milestone, which meant the document existed only
+ * once the project did. Lampiran A is signed *before* that — it is the reason
+ * the project can exist at all — so a supervisor who had just acknowledged an
+ * agreement had nothing to print, and the faculty could not file the form it
+ * had just approved. The card now also accepts an agreement directly, which is
+ * what the registration detail page passes.
+ *
+ * Lampiran B genuinely has no existence before the project, so `kind` is only
+ * inferred from a milestone; called with an agreement the document is always A.
+ *
+ * **Part D is left blank on purpose.** It is the JKPSM's own box: the committee
+ * receives the form at registration and fills it in by hand if and when it
+ * wants to. There is no approval step behind it, and this card does not invent
+ * one — it prints the ruled space for the stamp.
  */
-export default function RegistrationDocumentCard({ milestone }) {
-  const doc = milestone.registration_document
-  const agreement = doc?.agreement
+export default function RegistrationDocumentCard({ milestone, agreement: agreementProp, kind }) {
+  const doc = milestone?.registration_document
+
+  /**
+   * Normalise both sources into the shape the layout below draws.
+   *
+   * From a milestone the data is nested under `registration_document`; from an
+   * agreement it is the API resource itself. Mapping here rather than teaching
+   * every row two shapes keeps the document one piece of code.
+   */
+  const agreement = agreementProp ? fromAgreement(agreementProp) : doc?.agreement
   const project = agreement?.project
 
-  if (!doc || !agreement) return null
+  const isA = kind === 'lampiran_a' || (kind == null && doc?.kind === 'lampiran_a') || agreementProp != null
 
-  const isA = doc.kind === 'lampiran_a'
+  if (!agreement) return null
+
   const title = isA ? 'BORANG PERSETUJUAN PENYELIA PSM' : 'BORANG CADANGAN TAJUK PSM'
-  const subtitle = isA
-    ? 'PSM Supervisor Agreement Form'
-    : 'PSM Title Proposal Form'
-  const docRef = isA
-    ? 'UTHM.FSKTM/UA-11/2017 Pin. 2'
-    : 'UTHM.FSKTM/UA-12/2023 Pin. 1'
+  const subtitle = isA ? 'PSM Supervisor Agreement Form' : 'PSM Title Proposal Form'
+  const docRef = isA ? 'UTHM.FSKTM/UA-11/2017 Pin. 2' : 'UTHM.FSKTM/UA-12/2023 Pin. 1'
   const formCode = isA ? 'LAMPIRAN A' : 'LAMPIRAN B'
+
+  /**
+   * The document's own state, not a fixed "Filed".
+   *
+   * The badge used to read "Filed · recorded as complete" unconditionally,
+   * because the card was only ever reachable after the fact. Now that it opens
+   * on an agreement that may still be awaiting a signature, it has to say which
+   * stage it is at — a form printed as "complete" before the supervisor has
+   * signed it is worse than no form at all.
+   */
+  const state = isA
+    ? agreementState(agreement.status, agreement)
+    : { label: 'Filed', tone: 'success', hint: 'recorded as complete' }
 
   return (
     <Card>
       <CardHeader
-        title={isA ? 'Lampiran A â€” Supervisor Agreement' : 'Lampiran B â€” Title Proposal'}
-        subtitle="Filed at registration Â· recorded as complete"
-        action={<Badge tone="success">Filed</Badge>}
+        title={isA ? 'Lampiran A — Supervisor Agreement' : 'Lampiran B — Title Proposal'}
+        subtitle={`Filed at registration · ${state.hint}`}
+        action={<Badge tone={state.tone}>{state.label}</Badge>}
       />
 
       {/*
         A seeded project has no agreement behind it, so the form's agreement
         fields are genuinely absent. Saying so is better than rendering an empty
-        document that looks like a data loss â€” the student and title are still
+        document that looks like a data loss — the student and title are still
         shown, because the project does hold those.
       */}
-      {!doc.has_agreement && (
+      {!agreement.has_agreement && (
         <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           <p className="font-medium">No registration agreement on file</p>
           <p className="mt-0.5 text-xs">
@@ -96,8 +131,7 @@ export default function RegistrationDocumentCard({ milestone }) {
         </header>
 
         <p className="mb-3">
-          Sesi/Semester (Session/Semester):{' '}
-          <Dotted>{agreement.session}</Dotted>
+          Sesi/Semester (Session/Semester): <Dotted>{agreement.session}</Dotted>
         </p>
 
         {/* ---------------- Bahagian A: student particulars ---------------- */}
@@ -113,6 +147,12 @@ export default function RegistrationDocumentCard({ milestone }) {
         {isA ? (
           <>
             <SectionHeading ms="BAHAGIAN B: TAJUK CADANGAN" en="PART B: PROPOSED TITLE" />
+
+            {agreement.proposed_titles.length === 0 && (
+              <p className="text-[11px] italic text-slate-500">
+                No candidate titles were recorded on this agreement.
+              </p>
+            )}
 
             {agreement.proposed_titles.map((t, i) => (
               <div key={i} className="mb-1">
@@ -136,12 +176,12 @@ export default function RegistrationDocumentCard({ milestone }) {
             <div className="mt-2 grid grid-cols-2 gap-4">
               <Row
                 label="Tarikh (Date)"
-                value={agreement.student_signed_at ? formatDateTime(agreement.student_signed_at).split(',')[0] : null}
+                value={agreement.signed_at ? dateOnly(agreement.signed_at) : null}
               />
               <div>
                 <p className="text-slate-600">Tandatangan Pelajar (Student&apos;s Signature)</p>
                 <p className="mt-1 border-b border-dotted border-slate-500 pb-3 text-[10.5px] text-slate-500">
-                  signed electronically at registration
+                  {agreement.signed_at ? 'signed electronically at submission' : 'not yet signed'}
                 </p>
               </div>
             </div>
@@ -156,26 +196,23 @@ export default function RegistrationDocumentCard({ milestone }) {
               </em>
             </p>
             <p className="mt-1 border-b border-dotted border-slate-500 pb-2 font-semibold">
-              {agreement.agreed_title}
+              {agreement.agreed_title || '\u00a0'}
             </p>
 
             <div className="mt-2 grid grid-cols-2 gap-4">
               <Row
                 label="Tarikh (Date)"
-                value={agreement.acknowledged_at ? formatDateTime(agreement.acknowledged_at).split(',')[0] : null}
+                value={agreement.acknowledged_at ? dateOnly(agreement.acknowledged_at) : null}
               />
               <div>
                 <p className="text-slate-600">Tandatangan &amp; Cop Rasmi Penyelia</p>
                 <p className="mt-1 border-b border-dotted border-slate-500 pb-3 text-[10.5px] text-slate-500">
-                  acknowledged electronically
+                  {agreement.acknowledged_at ? 'acknowledged electronically' : 'awaiting supervisor'}
                 </p>
               </div>
             </div>
 
-            <SectionHeading ms="BAHAGIAN D: UNTUK KEGUNAAN JKPSM" en="PART D: FOR JKPSM USE ONLY" />
-            <p className="text-[11px] text-slate-600">
-              Received by the PSM Committee at registration. No action required.
-            </p>
+            <PartD acknowledged={agreement.acknowledged_at != null} />
           </>
         ) : (
           <>
@@ -191,7 +228,7 @@ export default function RegistrationDocumentCard({ milestone }) {
                   ? 'Pembangunan (Development)'
                   : project?.category
                     ? 'Kajian (Research)'
-                    : 'â€”'}
+                    : '—'}
               </span>
             </div>
 
@@ -202,18 +239,133 @@ export default function RegistrationDocumentCard({ milestone }) {
             <Row label="Program" value={project?.program} />
 
             <div className="mt-3 rounded border border-slate-300 bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
-              Registered {agreement.acknowledged_at ? formatDateTime(agreement.acknowledged_at) : 'â€”'} Â·
+              Registered {agreement.acknowledged_at ? formatDateTime(agreement.acknowledged_at) : '—'} ·
               this document opened the project and its milestone chain.
             </div>
           </>
         )}
 
         <p className="mt-4 border-t border-slate-300 pt-1 text-[10px] text-slate-500">
-          Recorded from registration agreement #{agreement.id} Â· status {agreement.status}
+          Recorded from registration agreement #{agreement.id ?? '—'} · status{' '}
+          {agreement.status ?? 'not linked to an agreement'}
         </p>
       </article>
     </Card>
   )
+}
+
+/**
+ * Bahagian D — the committee's box, deliberately empty.
+ *
+ * JKPSM receives the form at registration and completes this part by hand if and
+ * when it wants to. There is no approval step in the system behind it, so the
+ * document does not fill it in: printing a pre-stamped "received" would claim a
+ * decision nobody made.
+ *
+ * It is drawn as the ruled space the paper form has, so the printout is usable
+ * as a filing copy.
+ */
+function PartD({ acknowledged }) {
+  return (
+    <>
+      <SectionHeading ms="BAHAGIAN D: UNTUK KEGUNAAN JKPSM" en="PART D: FOR JKPSM USE ONLY" />
+
+      <p className="text-[11px] text-slate-600">
+        Untuk diisi oleh Jawatankuasa PSM. <em>(To be completed by the PSM Committee.)</em>
+      </p>
+
+      <div className="mt-2 grid grid-cols-2 gap-4">
+        <div className="col-span-2 flex items-baseline gap-2">
+          <span className="w-56 shrink-0 text-slate-600">
+            Tarikh Diterima (Date Received)
+          </span>
+          <span className="flex-1 border-b border-dotted border-slate-500 px-1">{'\u00a0'}</span>
+        </div>
+        <div>
+          <p className="text-slate-600">Tandatangan &amp; Cop Rasmi JKPSM</p>
+          <div className="mt-1 h-14 border-b border-dotted border-slate-500" />
+        </div>
+        <div>
+          <p className="text-slate-600">Catatan (Remarks)</p>
+          <div className="mt-1 h-14 border-b border-dotted border-slate-500" />
+        </div>
+      </div>
+
+      {!acknowledged && (
+        <p className="mt-2 text-[10.5px] italic text-slate-500">
+          Part C is not yet signed, so this copy is not ready for filing.
+        </p>
+      )}
+    </>
+  )
+}
+
+/** A date without the time, as the paper form carries it. */
+function dateOnly(iso) {
+  return formatDateTime(iso).split(',')[0]
+}
+
+/**
+ * The document's own stage, worded for a filing clerk rather than a developer.
+ *
+ * `hint` is the card subtitle's second half — it says what the state means for
+ * the printout, because that is the only thing a reader does with this screen.
+ */
+function agreementState(status, agreement) {
+  switch (status) {
+    case 'approved':
+      return { label: 'Acknowledged', tone: 'success', hint: 'ready to print and file' }
+    case 'pending_supervisor':
+      return {
+        label: 'Awaiting supervisor',
+        tone: 'amber',
+        hint: agreement.acknowledged_at ? 'ready to print' : 'awaiting Part C, not yet fileable',
+      }
+    case 'rejected':
+      return { label: 'Rejected', tone: 'rose', hint: 'kept for the record' }
+    case 'cancelled':
+      return { label: 'Cancelled', tone: 'slate', hint: 'kept for the record' }
+    default:
+      return { label: 'Filed', tone: 'neutral', hint: 'recorded' }
+  }
+}
+
+/**
+ * Map the `SupervisorAgreementResource` onto the shape the document draws.
+ *
+ * The resource is flat (`student.name`, `supervisor.name`, `titles`); the
+ * document was written against the milestone's nested `registration_document`
+ * block (`student_name`, `supervisor_name`, `proposed_titles`). One of the two
+ * has to be translated, and doing it here means the layout never learns about
+ * the API's field names.
+ */
+function fromAgreement(a) {
+  return {
+    id: a.id,
+    session: a.session,
+    status: a.status,
+    has_agreement: true,
+    student_name: a.student?.name ?? null,
+    student_matric: a.student?.student_id ?? null,
+    programme: a.student?.program ?? null,
+    supervisor_name: a.supervisor?.name ?? null,
+    proposed_titles: a.titles ?? [],
+    agreed_title: a.agreed_title ?? null,
+    english_report: Boolean(a.english_report),
+    signed_at: a.signed_at ?? null,
+    acknowledged_at: a.acknowledged_at ?? null,
+    project: a.project
+      ? {
+          title: a.project.title,
+          category: a.project.category ?? null,
+          abstract: a.project.abstract ?? null,
+          objectives: a.project.objectives ?? null,
+          scope: a.project.scope ?? null,
+          batch: a.project.batch ?? null,
+          program: a.project.program ?? null,
+        }
+      : null,
+  }
 }
 
 function SectionHeading({ ms, en }) {
@@ -247,7 +399,7 @@ function Dotted({ children }) {
 function Tick({ on }) {
   return (
     <span className="mr-1 inline-block h-3.5 w-3.5 border border-slate-700 text-center align-middle text-[10px] font-bold leading-[13px]">
-      {on ? 'âœ“' : ''}
+      {on ? '\u2713' : ''}
     </span>
   )
 }

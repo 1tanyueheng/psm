@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { registrationApi } from '../../api/endpoints'
 import { unwrap } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
+import RegistrationDocumentCard from '../../components/RegistrationDocumentCard'
 import {
   Card, CardHeader, PageHeader, Field, Input, Textarea, Select, Button,
   Badge, Spinner, ErrorState,
@@ -320,6 +321,30 @@ export default function RegistrationDetailPage() {
             </div>
           </div>
         </Card>
+      )}
+
+      {/*
+        The signed form itself, printable at the moment it becomes meaningfully
+        signed.
+
+        This is the point of the whole flow — the faculty needs a paper copy for
+        its file — and there was nowhere to get one until Lampiran B created a
+        project and its milestones. A supervisor who had just acknowledged an
+        agreement had nothing to print, and the office had nothing to file.
+
+        Shown from the moment the supervisor signs, because that is when Part C
+        is complete and Part A/B were already filled in by the student. Before
+        that it stays hidden: a form with an unsigned Part C is a draft, and
+        printing a draft is how a half-signed agreement ends up on file.
+      */}
+      {agreement.acknowledged_at && (
+        <div className="space-y-3">
+          <p className="text-sm text-slate-600">
+            The completed form — Parts A, B and C filled in, Part D left for JKPSM
+            to complete when they receive it.
+          </p>
+          <RegistrationDocumentCard agreement={agreement} kind="lampiran_a" />
+        </div>
       )}
     </div>
   )

@@ -82,6 +82,26 @@ class SupervisorAgreementResource extends JsonResource
                 'code'   => $project->code,
                 'title'  => $project->title,
                 'status' => $project->status,
+
+                /**
+                 * What Lampiran B's Part B prints.
+                 *
+                 * The document is the title-proposal form, whose Part B
+                 * describes the project — supervisor, title, project type,
+                 * abstract, objectives, scope. Four of those live on the project
+                 * and were not sent, so a Lampiran B rendered from this payload
+                 * came out with those lines blank.
+                 *
+                 * A handful of short fields on a relation that is already
+                 * loaded; the alternative is a second request from the document
+                 * component, which would redraw the form as it filled in.
+                 */
+                'category'   => $project->category?->value,
+                'abstract'   => $project->abstract,
+                'objectives' => $project->objectives,
+                'scope'      => $project->scope,
+                'batch'      => $project->batch,
+                'program'    => $project->program,
             ] : null,
 
             // -----------------------------------------------------------------
