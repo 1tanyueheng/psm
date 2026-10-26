@@ -50,6 +50,14 @@ rb = dg.action(RX, rt, "Return 403\nForbidden", w=BOXR)
 dg.connect(CX + DIAW / 2, d1_mid, RX - BOXR / 2, d1_mid)
 dg.label(CX + DIAW / 2 + 10, d1_mid - 24, "No", anchor="la")
 
+# The refusal still has to reach the end.
+#
+# It used to be drawn as a bare box hanging off the "No" branch with no
+# outgoing arrow — a dead end in the drawing, which reads as "the process
+# stops here and nothing is returned". A 403 is a response like any other, so
+# the path continues to the end activity with the other two tails.
+forbidden_end = rb
+
 y = d1_bot + G
 t = y; y = dg.action(CX, t, "Validate filters\nand resolve the term", w=BOXC)
 dg.connect(CX, d1_bot, CX, t); prev = y
@@ -103,11 +111,25 @@ dg.connect(CX, prev, CX, t); prev = y
 onscreen_end = y
 
 # ---- converge + end
-join_y = max(onscreen_end, export_end) + 56
+#
+# The 403 path joins here too, so no branch is left dangling — but it cannot
+# run straight down column RX, because that is where the CSV export tail sits
+# (authorise -> audit -> filename -> stream -> download). A vertical through
+# those boxes would claim the refusal passes through the export machinery.
+# It leaves the refusal box's right edge and descends in its own lane, outside
+# the export column, before joining the bottom line.
+FORB_X = RX + BOXR / 2 + 46
+join_y = max(onscreen_end, export_end, forbidden_end + 40) + 56
+mid = (CX + RX) / 2
+
+dg.route([(RX + BOXR / 2, (rt + forbidden_end) / 2),
+          (FORB_X, (rt + forbidden_end) / 2),
+          (FORB_X, join_y),
+          (mid, join_y)])
+
 dg.seg(CX, onscreen_end, CX, join_y)
 dg.seg(RX, export_end, RX, join_y)
 dg.seg(CX, join_y, RX, join_y)
-mid = (CX + RX) / 2
 dg.connect(mid, join_y, mid, join_y + G - 6)
 y = dg.end(mid, join_y + G, r=16)
 dg.label(mid, y + 8, "end")

@@ -61,26 +61,56 @@ y += G
 t = y; y = dg.action(CX, t, "Supervisor opens\nsubmission", w=BOXC)
 dg.connect(CX, prev, CX, t); prev = y
 
-# ---- D2 reviewer decision
+# ---- D_guard: is this milestone reviewable by a supervisor? -----------------
+#
+# The guard used to be drawn *inside* the Approve path, which was wrong twice
+# over: a guard is a check made before the decision, not a consequence of it,
+# and as drawn it implied the proposal could be approved here and merely
+# "refused" afterwards. MilestoneService::assertReviewable() refuses the generic
+# review actions outright for `proposal` — its verdict is the seated panel's and
+# belongs to ProposalReviewService — so the branch has to be taken *before* the
+# reviewer reaches Approve/Request revision at all.
 y += G
+dg_top = y
+dg_bot = dg.decision(CX, dg_top, "Supervisor may\nreview it?", w=DIAW, h=DIAH)
+dg.connect(CX, prev, CX, dg_top)
+dg_mid = dg_top + DIAH / 2
+
+# proposal (right): refused, and it re-enters the flow at the panel, not at end
+gt = dg_mid - 40
+gbox = dg.action(RX, gt, "Refuse 422: proposal\nis the panel's to decide", w=BOXR)
+dg.connect(CX + DIAW / 2, dg_mid, RX - BOXR / 2, dg_mid)
+dg.label(CX + DIAW / 2 + 10, dg_mid - 24, "No", anchor="la")
+
+# panel decision, then the same tail an approval has
+gprev = gbox
+for txt in ("ProposalReviewService\npanel records its verdict", "Open transaction\nwrite status + timestamp",
+            "Record timeline event\nand audit entry", "activateNext()\nopen next milestone",
+            "Notify students"):
+    gy = gprev + G
+    gprev = dg.action(RX, gy, txt, w=BOXR)
+    dg.connect(RX, gy - G, RX, gy)
+panel_end = gprev
+
+# ---- D2 reviewer decision ---------------------------------------------------
+#
+# Fed from the guard's Yes side, so the spine below is the ordinary milestone
+# path: everything that is not the proposal.
+y = dg_bot + G
 d2_top = y
 d2_bot = dg.decision(CX, d2_top, "Reviewer\ndecision?", w=DIAW, h=DIAH)
-dg.connect(CX, prev, CX, d2_top)
+dg.connect(CX, dg_bot, CX, d2_top)
 d2_mid = d2_top + DIAH / 2
 
 # ---- APPROVE branch (right) ----
-dg.connect(CX + DIAW / 2, d2_mid, RX - BOXR / 2, d2_mid)
-dg.label(CX + DIAW / 2 + 10, d2_mid - 24, "Approve", anchor="la", bold=True)
-rt = d2_mid - 40
-rb = dg.action(RX, rt, "transitionTo(Approved)\ncheck legal transition", w=BOXR)
-rprev = rb
-for txt in ("Guard: proposal milestone\nis refused here", "Open transaction\nwrite status + timestamp",
-            "Record timeline event\nand audit entry", "activateNext()\nopen next milestone",
-            "Notify students"):
-    ry = rprev + G
-    rprev = dg.action(RX, ry, txt, w=BOXR)
-    dg.connect(RX, ry - G, RX, ry)
-approve_end = rprev
+d2_ht = d2_mid - 40
+d2_hb = d2_mid + 40
+dv = dg.action(CX, d2_ht, "transitionTo(Approved)\ncheck legal transition", w=BOXC)
+dg.connect(CX + DIAW / 2, d2_mid - 30, CX + DIAW / 2, d2_mid - 30)
+dg.connect(CX, d2_hb, CX, d2_ht + 52)
+dg.label(CX + DIAW / 2 + 10, d2_mid - 44, "Approve / Request revision -> see the branch below",
+         anchor="la", bold=True)
+approve_end = dv
 
 # ---- REQUEST REVISION branch (down the spine) ----
 y = d2_bot + G
