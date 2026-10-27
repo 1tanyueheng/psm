@@ -99,6 +99,12 @@ is no Figure 4.3/4.4 for it any more.
 | Report | `seq_report.py` | `act_report.py` |
 | Notification | `seq_notif.py` | `act_notif.py` (also splits itself into `_reminders` and `_centre`) |
 
+`seqkit.py` is the shared drawing library for the sequence figures — start there
+for a new one. The five older `make_*_seq.py` / `seq_*.py` figures were drawn
+before it existed and still use their own layout code, at 2.5–2.7:1 with 22–27
+messages. They are **legible but cramped**; simplifying them the same way is the
+next improvement if the chapter is to look consistent.
+
 > **The `build_ch4_*.py` scripts still carry the OLD numbers.** Only
 > `build_ch4_title_evaluation.py` uses the new table and figure numbers. The
 > login, milestone, report and notification documents say 4.2–4.10 and need
@@ -728,20 +734,23 @@ hold both at once. (A standalone `act_psm2_title.py` existed briefly on
 `build_ch4_title_evaluation.py` settles the pattern; copy it rather than
 rediscovering these four faults.
 
-1. **A tall figure cannot be tamed by its width alone.** A sequence diagram at
-   aspect 2.7:1 needs 14 cm to fit a landscape page *including its caption*;
-   at 19 cm it flowed onto the next page and the caption went with it. Fix the
-   figure (wrap labels, tighten gaps) rather than shrinking it to illegibility.
-   **Fit, don't split**: splitting a 38-message diagram in two made each half
-   still too tall.
-2. **A landscape section must be opened and closed by paragraph `sectPr`s, and
+1. **Fit, don't split.** A sequence diagram drawn at 2.7:1 has to be placed at
+   14 cm on a landscape page, and its labels shrink with it. Wrapping the labels
+   so the figure reaches about 4:3 lets it be placed at 17 cm instead — the
+   labels end up roughly twice the size. Splitting a tall figure in two does not
+   help: each half is still too tall and the caption still lands on its own page.
+2. **Draw one message per thing that changes hands**, not one per method call.
+   A request and its reply are one row; a controller delegating to a service is
+   the same row as the service answering. A use case needs 15–20 messages, not
+   35 — and a reader can hold 20.
+3. **A landscape section must be opened and closed by paragraph `sectPr`s, and
    the following section must write its own `pgSz`.** A `sectPr` carries only
    the page size of the section it *closes*, so restoring it without an explicit
    `pgSz` leaves the next section inheriting landscape.
-3. **The last paragraph of a section is the break.** Leave the closing break on
+4. **The last paragraph of a section is the break.** Leave the closing break on
    the last paragraph *of the content*, not on one of its own; a bare paragraph
    holding a `sectPr` renders as a blank page of its own.
-4. **`w:sectPr` must be the last child of `w:pPr`, after `w:spacing`.**
+5. **`w:sectPr` must be the last child of `w:pPr`, after `w:spacing`.**
    python-docx's `paragraph_format` setters insert in schema order, but a raw
    `pPr.append(sectPr)` then `paragraph_format.space_before = …` puts spacing
    *after* it and Word refuses the file.
