@@ -61,9 +61,20 @@ class LampiranBFormPolicy
      * The student's own supervisor. Read from `supervisor_profile_id` on the form
      * when it is set, because a re-filing carries the pairing forward from the
      * original; otherwise from the project's live supervision.
+     *
+     * **Only a submitted form may be signed.** A `draft` is still with the
+     * student and a `rejected` one has already had its verdict, so signing
+     * either would record a signature against a title nobody offered or against
+     * a title the panel refused. The controller refuses these anyway; answering
+     * `false` here means the button is not offered rather than failing when
+     * pressed.
      */
     public function sign(User $actor, LampiranBForm $form): bool
     {
+        if ($form->status !== LampiranBForm::STATUS_SUBMITTED) {
+            return false;
+        }
+
         if ($actor->hasRole('admin', 'coordinator')) {
             return true;
         }

@@ -573,6 +573,35 @@ export const enrolmentApi = {
     api.get(`/students/${studentProfileId}/enrolments`).then(unwrap),
 }
 
+/**
+ * Lampiran B — the title proposal, as a record you can have several of.
+ *
+ * A refused title does not overwrite the project's title: the student revises it
+ * on a **new** form, the supervisor signs that title, and only then does the
+ * re-presented proposal open. So these calls act on a filing, not on the project.
+ *
+ * The milestones themselves are reached through `milestoneApi`; this is only the
+ * paper.
+ */
+export const lampiranBApi = {
+  /** Every filing for a project, newest first, plus the accepted title. */
+  list: (projectId) => api.get(`/projects/${projectId}/lampiran-b`).then(unwrap),
+
+  /**
+   * Revise and submit the form. The title must differ from the refused one —
+   * the server compares them and quotes the panel's reason back if it does not.
+   */
+  file: (formId, payload) => api.post(`/lampiran-b/${formId}/file`, payload).then(unwrap),
+
+  /**
+   * Sign it, or send it back.
+   *
+   * `approve: true` records the signature and opens the proposal milestone.
+   * `approve: false` needs a `comment` and returns the form to the student.
+   */
+  sign: (formId, payload) => api.post(`/lampiran-b/${formId}/sign`, payload).then(unwrap),
+}
+
 export const milestoneApi = {
   list: (params) => api.get('/milestones', { params }).then(unwrapPaged),
   show: (id) => api.get(`/milestones/${id}`).then(unwrap),
