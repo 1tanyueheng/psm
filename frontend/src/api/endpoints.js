@@ -405,6 +405,20 @@ export const registrationApi = {
   /** Student submits Lampiran B against an acknowledged agreement. */
   submitTitleProposal: (id, payload) =>
     api.post(`/registrations/agreements/${id}/title-proposal`, payload).then(unwrap),
+
+  /**
+   * Take back a Lampiran A before it becomes a project.
+   *
+   * Permitted while the agreement is pending or acknowledged but no Lampiran B
+   * has registered from it. The row is kept and marked cancelled — nothing is
+   * deleted — so the student may file again straight away and the faculty's
+   * file still shows what was submitted and when.
+   *
+   * A supervisor cannot call this: declining to supervise is expressed by not
+   * acknowledging, not by cancelling the student's own request.
+   */
+  withdrawAgreement: (id, reason) =>
+    api.post(`/registrations/agreements/${id}/withdraw`, { reason }).then(unwrap),
 }
 
 // =====================================================================

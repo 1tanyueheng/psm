@@ -64,6 +64,16 @@ enum AuditAction: string
     case StudentEnrolled   = 'enrolment.created';
     case StudentWithdrawn  = 'enrolment.withdrawn';
 
+    /**
+     * A student took back their own Lampiran A before it became a project.
+     *
+     * Distinct from `ProjectRejected`, which is a coordinator declining a
+     * submission. This one is the student acting on their own request, and the
+     * faculty's file needs to tell the two apart — "the student changed their
+     * mind" and "we turned them down" are different facts about the same status.
+     */
+    case AgreementWithdrawn = 'registration.withdrawn';
+
     // The panel's verdict on a Lampiran A proposal, and the student's response
     // to a rejection. Registration events rather than project ones: they decide
     // the title before any project exists.
@@ -186,6 +196,7 @@ enum AuditAction: string
             self::ProjectResolved       => 'Resolved project (pass/fail)',
             self::StudentEnrolled       => 'Enrolled student in a PSM session',
             self::StudentWithdrawn      => 'Withdrew a student enrolment',
+            self::AgreementWithdrawn    => 'Withdrew a Lampiran A registration',
             self::ProposalReviewed      => 'Reviewed proposal',
             self::ProposalResubmitted   => 'Resubmitted proposal',
             self::MilestoneOpened       => 'Opened milestone',

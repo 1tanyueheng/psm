@@ -44,6 +44,8 @@ export default function RegistrationDetailPage() {
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState(null)
+  /** Why the student is withdrawing, if they care to say. */
+  const [withdrawReason, setWithdrawReason] = useState('')
 
   const [agreedTitle, setAgreedTitle] = useState('')
   const [proposal, setProposal] = useState({
@@ -134,6 +136,78 @@ export default function RegistrationDetailPage() {
       />
 
       {actionError && <ErrorState error={{ message: actionError }} />}
+
+      {/*
+        Withdraw — the student taking back their own Lampiran A.
+
+        Placed directly under the header because it is about the whole form, not
+        about any one section, and because a student who has just realised they
+        named the wrong supervisor should not have to hunt for the way out.
+
+        `can_withdraw` is the server's answer to *both* questions — may this
+        reader act on it (policy) and is there still anything to withdraw (no
+        project registered from it). When it is false but a reason is given, the
+        card explains instead of vanishing, so a refused action is legible
+        rather than an absent button.
+      */}
+      {agreement.can_withdraw && (
+        <Card>
+          <CardHeader
+            title="Withdraw this registration"
+            subtitle="Take back your Lampiran A and file a new one"
+          />
+          <div className="space-y-3 text-sm text-slate-600">
+            <p>
+              Withdrawing cancels this request. Nothing is deleted — your
+              proposed titles and your supervisor&apos;s acknowledgement (if they
+              have given one) stay on record — and you may file a new Lampiran A
+              immediately.
+            </p>
+
+            <Field
+              label="Why are you withdrawing?"
+              hint="Optional, but it helps your coordinator if you say why."
+            >
+              <Textarea
+                rows={2}
+                value={withdrawReason}
+                onChange={(e) => setWithdrawReason(e.target.value)}
+                placeholder="e.g. I named the wrong supervisor."
+              />
+            </Field>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="danger"
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    const res = await registrationApi.withdrawAgreement(
+                      id,
+                      withdrawReason.trim() || null
+                    )
+                    unwrap(res)
+                    // Stay on the page: it re-reads as cancelled and explains
+                    // that a new Lampiran A may be filed, which is more useful
+                    // than bouncing the student to a list.
+                    const fresh = await registrationApi.agreement(id)
+                    setAgreement(unwrap(fresh))
+                    setWithdrawReason('')
+                  })
+                }
+              >
+                {busy ? 'Withdrawing…' : 'Withdraw registration'}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {!agreement.can_withdraw && agreement.withdraw_blocked_reason && (
+        <Card className="border-slate-200 bg-slate-50/60">
+          <p className="text-sm text-slate-600">{agreement.withdraw_blocked_reason}</p>
+        </Card>
+      )}
 
       <Card>
         <CardHeader title="Agreement details" />

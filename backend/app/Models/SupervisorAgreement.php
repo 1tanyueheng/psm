@@ -122,6 +122,72 @@ class SupervisorAgreement extends Model
         return $this->status === self::STATUS_PENDING_SUPERVISOR;
     }
 
+    /** Is this agreement still live — neither registered nor withdrawn? */
+    public function isOpen(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_PENDING_SUPERVISOR,
+            self::STATUS_APPROVED,
+        ], true);
+    }
+
+    /**
+     * May the student withdraw this registration?
+     *
+     * A student may take back their own Lampiran A while it is still their own
+     * to take back — before a project exists. That covers both open states:
+     *
+     *   - **pending_supervisor**: the supervisor has not signed yet. Withdrawing
+     *     is simply retracting a request, and it is the case that matters most,
+     *     because otherwise a student who named the wrong supervisor has no way
+     *     out and their only recourse is to ask a coordinator to fix it by hand.
+     *   - **approved**: the supervisor signed, but Lampiran B has not yet been
+     *     filed. Nothing has been created from it, so retracting it is still
+     *     clean — the supervisor's record of having acknowledged is not deleted,
+     *     and the row keeps its timestamps.
+     *
+     * Once Lampiran B has registered a project the agreement is no longer the
+     * student's to reopen: a project exists, milestones are open, a supervisor
+     * is attached and assessment may have begun. Unwinding that is a
+     * coordinator's decision (withdrawal, then re-registration), not a button.
+     */
+    public function canBeWithdrawn(): bool
+    {
+        return $this->isOpen() && $this->project()->doesntExist();
+    }
+
+    /**
+     * Why withdrawal is refused, or null when it is allowed.
+     *
+     * Phrased for the student reading it, and specific about which of the two
+     * states they are in so the message is not just "not allowed".
+     */
+    public function withdrawalBlockedReason(): ?string
+    {
+        if ($this->canBeWithdrawn()) {
+            return null;
+        }
+
+        /**
+         * Status before project.
+         *
+         * A cancelled agreement cannot also have a project — but reporting
+         * "a project has been registered" for one that was withdrawn would be
+         * plainly wrong to a student looking at a form that never became
+         * anything. The terminal states are checked first for that reason.
+         */
+        return match ($this->status) {
+            self::STATUS_CANCELLED =>
+                'This registration has already been withdrawn.',
+            self::STATUS_REJECTED =>
+                'This registration was declined and does not need withdrawing.',
+            default => $this->project()->exists()
+                ? 'A project has already been registered from this agreement. '
+                    .'Contact your coordinator if the registration needs to change.'
+                : 'This registration can no longer be withdrawn.',
+        };
+    }
+
     /**
      * The title Lampiran B registers.
      *

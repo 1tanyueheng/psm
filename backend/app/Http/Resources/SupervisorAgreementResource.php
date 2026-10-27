@@ -111,6 +111,24 @@ class SupervisorAgreementResource extends JsonResource
             'can_submit_b'    => $this->canSubmitLampiranB(),
             'blocked_reason'  => $this->lampiranBBlockedReason(),
 
+            /**
+             * May the reader withdraw this registration?
+             *
+             * **Both halves must agree**, and the first version of this only
+             * checked the policy — so a withdrawn agreement still reported
+             * `can_withdraw: true` and the button to withdraw it a second time
+             * stayed on the page. The policy answers "is this your agreement to
+             * manage"; `canBeWithdrawn()` answers "is there anything left to
+             * withdraw". A button needs the conjunction.
+             *
+             * `withdraw_blocked_reason` explains a refusal rather than leaving
+             * the button merely absent, which is the difference between "you
+             * cannot do this" and "this page is broken".
+             */
+            'can_withdraw' => $this->canBeWithdrawn()
+                && ($request->user()?->can('withdraw', $this->resource) ?? false),
+            'withdraw_blocked_reason' => $this->withdrawalBlockedReason(),
+
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

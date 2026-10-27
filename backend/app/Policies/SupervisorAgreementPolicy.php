@@ -66,4 +66,34 @@ class SupervisorAgreementPolicy
 
         return $agreement->studentProfile?->user_id === $actor->id;
     }
+
+    /**
+     * Who may take back a Lampiran A.
+     *
+     * The student who filed it — it is their own request, and until Lampiran B
+     * registers a project nothing has been created from it. A coordinator or
+     * admin may also withdraw, because releasing a pairing is an administrative
+     * decision the faculty sometimes has to make on a student's behalf.
+     *
+     * The supervisor may **not**. A supervisor declining to supervise is a
+     * different act with a different record: they simply do not acknowledge, and
+     * the agreement stays pending until the student retracts it or a coordinator
+     * acts. Letting a supervisor cancel the student's registration would erase
+     * the student's own request from their view.
+     *
+     * This decides *who*; `SupervisorAgreement::canBeWithdrawn()` decides
+     * *when*, and the service enforces that half again.
+     */
+    public function withdraw(User $actor, SupervisorAgreement $agreement): bool
+    {
+        if ($actor->hasRole('admin', 'coordinator')) {
+            return true;
+        }
+
+        if (! $actor->isStudent()) {
+            return false;
+        }
+
+        return $agreement->studentProfile?->user_id === $actor->id;
+    }
 }

@@ -144,12 +144,38 @@ export default function RegistrationListPage() {
                           Acknowledge
                         </Link>
                       ) : (
-                        <Link
-                          to={`/registrations/${row.id}`}
-                          className="font-medium text-brand-600 hover:underline"
-                        >
-                          View
-                        </Link>
+                        <div className="flex items-center justify-end gap-3">
+                          {/*
+                            Withdraw, offered from the list as well as the detail
+                            page.
+
+                            A student who filed against the wrong supervisor
+                            should be able to fix it from the screen they landed
+                            on, without opening the form to find out whether the
+                            option exists. Shown only when the server says it is
+                            available — `can_withdraw` already combines "is it
+                            yours" with "has a project been registered from it",
+                            so this cannot offer an action that will be refused.
+
+                            Deleting is not offered and never will be: the record
+                            of what was submitted is the faculty's, not the
+                            student's to erase.
+                          */}
+                          {row.can_withdraw && (
+                            <Link
+                              to={`/registrations/${row.id}`}
+                              className="text-xs font-medium text-rose-600 hover:underline"
+                            >
+                              Withdraw
+                            </Link>
+                          )}
+                          <Link
+                            to={`/registrations/${row.id}`}
+                            className="font-medium text-brand-600 hover:underline"
+                          >
+                            View
+                          </Link>
+                        </div>
                       )}
                     </td>
                   </tr>

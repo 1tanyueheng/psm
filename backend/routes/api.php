@@ -343,6 +343,18 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
         Route::post('agreements/{agreement}/title-proposal', [RegistrationController::class, 'storeTitleProposal'])
             ->middleware('role:student')
             ->name('agreements.title-proposal');
+
+        /**
+         * Withdraw a Lampiran A before it becomes a project.
+         *
+         * Open to a student and to a coordinator/admin, but **not** to a
+         * supervisor — see `SupervisorAgreementPolicy::withdraw()`. The state
+         * half of the rule (no project registered yet) is enforced in
+         * `RegistrationService::withdrawAgreement()`.
+         */
+        Route::post('agreements/{agreement}/withdraw', [RegistrationController::class, 'withdraw'])
+            ->middleware('role:student,coordinator,admin')
+            ->name('agreements.withdraw');
     });
 
     // -----------------------------------------------------------------

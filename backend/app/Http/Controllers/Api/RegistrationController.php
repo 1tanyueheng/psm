@@ -200,6 +200,48 @@ class RegistrationController extends ApiController
         return $this->ok($agreement, 'Lampiran A acknowledged — Lampiran B may now be filed.');
     }
 
+    /**
+     * POST /api/registrations/agreements/{agreement}/withdraw
+     *
+     * The student takes back a Lampiran A they filed.
+     *
+     * Authorised by the `withdraw` ability, which is the student's own and is
+     * limited to an agreement no project has been registered from — see
+     * `SupervisorAgreement::canBeWithdrawn()`. A supervisor cannot retract a
+     * student's registration, and a coordinator uses the same endpoint only when
+     * the faculty has decided to release the pairing.
+     *
+     * The reason is optional: a student changing their mind owes no explanation,
+     * but if they give one it is kept, because a coordinator looking at a
+     * withdrawn form benefits from knowing whether it was a mistake or a change
+     * of plan.
+     */
+    public function withdraw(Request $request, SupervisorAgreement $agreement): JsonResponse
+    {
+        $this->authorize('withdraw', $agreement);
+
+        $data = $request->validate([
+            'reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        try {
+            $withdrawn = $this->registrations->withdrawAgreement(
+                $agreement,
+                $request->user(),
+                $data['reason'] ?? null,
+            );
+        } catch (InvalidArgumentException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
+
+        return $this->ok(
+            (new SupervisorAgreementResource(
+                $withdrawn->load('studentProfile.user', 'supervisorProfile.user')
+            ))->resolve($request),
+            'Registration withdrawn. You may file a new Lampiran A.',
+        );
+    }
+
     // -----------------------------------------------------------------
     // Lampiran B
     // -----------------------------------------------------------------

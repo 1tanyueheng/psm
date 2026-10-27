@@ -10,6 +10,7 @@ use App\Models\ExaminerAssignment;
 use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\StudentProfile;
+use App\Models\SupervisionAssignment;
 use App\Models\SupervisorAgreement;
 use App\Models\SupervisorProfile;
 use App\Models\User;
@@ -159,6 +160,109 @@ class RegistrationService
      * This used to route the proposal on to JKPSM, then to a coordinator-run
      * title defence, then to a panel review on this very row. All three are gone.
      */
+    /**
+     * Withdraw a Lampiran A the student filed and now wants back.
+     *
+     * The student's own act, and deliberately *not* a deletion. The row stays
+     * with its timestamps, its proposed titles and — if the supervisor already
+     * signed — the record of that acknowledgement, because the faculty's file
+     * has to show what was submitted and when, not only what survived.
+     *
+     * Withdrawal is narrow on purpose: see `SupervisorAgreement::canBeWithdrawn()`.
+     * It covers a request the supervisor has not answered and an acknowledged
+     * agreement no Lampiran B has registered from. Once a project exists, the
+     * agreement has done its job and unwinding it is a coordinator decision.
+     *
+     * Two side effects, both needed:
+     *
+     *   - any supervision pairing created by the acknowledgement is retired, so
+     *     the supervisor's slot is freed — otherwise a withdrawn agreement
+     *     quietly keeps consuming capacity for a student who is no longer
+     *     registering;
+     *   - the supervisor's pending prompt is cleared, because a notification
+     *     asking them to acknowledge a withdrawn form is worse than no
+     *     notification.
+     */
+    public function withdrawAgreement(
+        SupervisorAgreement $agreement,
+        User $actor,
+        ?string $reason = null,
+    ): SupervisorAgreement {
+        if ($refusal = $agreement->withdrawalBlockedReason()) {
+            throw new InvalidArgumentException($refusal);
+        }
+
+        $wasAcknowledged = $agreement->supervisor_acknowledged_at !== null;
+
+        return DB::transaction(function () use ($agreement, $actor, $reason, $wasAcknowledged) {
+            $previous = $agreement->status;
+
+            $agreement->forceFill([
+                'status' => SupervisorAgreement::STATUS_CANCELLED,
+                'metadata' => array_merge($agreement->metadata ?? [], [
+                    'withdrawn_at'     => now()->toIso8601String(),
+                    'withdrawn_by'     => $actor->id,
+                    'withdrawn_by_name' => $actor->name,
+                    'withdrawn_reason' => $reason,
+                    'status_before_withdrawal' => $previous,
+                ]),
+            ])->save();
+
+            /**
+             * Free the supervisor's slot.
+             *
+             * The pairing was created by the acknowledgement. Retiring it here
+             * mirrors what `ProjectResolutionService` does when a project ends —
+             * the row is closed, never deleted, so the history of who agreed to
+             * supervise survives the withdrawal.
+             */
+            if ($agreement->supervision_assignment_id !== null) {
+                SupervisionAssignment::query()
+                    ->whereKey($agreement->supervision_assignment_id)
+                    ->where('is_active', true)
+                    ->update([
+                        'is_active'  => false,
+                        'ended_at'   => now(),
+                        'end_reason' => 'Lampiran A withdrawn by the student',
+                    ]);
+            }
+
+            /**
+             * Clear the supervisor's outstanding prompt for this agreement.
+             *
+             * `notifications.data` is a **text** column holding a JSON string
+             * (Laravel's default for the database notification channel), not a
+             * jsonb column — so `->` on it raises "operator does not exist:
+             * text -> unknown" on PostgreSQL. The cast is explicit for that
+             * reason; matching on LIKE against the raw text would work too but
+             * would also match an id of 90 when looking for 9.
+             */
+            $supervisorUser = $agreement->supervisorProfile?->user;
+
+            if ($supervisorUser !== null) {
+                $supervisorUser->notifications()
+                    ->whereRaw(
+                        "data::jsonb -> 'subject' ->> 'type' = ? and data::jsonb -> 'subject' ->> 'id' = ?",
+                        ['SupervisorAgreement', (string) $agreement->id],
+                    )
+                    ->delete();
+            }
+
+            $this->audit->log(
+                action: AuditAction::AgreementWithdrawn,
+                description: "Lampiran A withdrawn — {$agreement->studentProfile?->student_id}"
+                    ." (was {$previous}"
+                    .($wasAcknowledged ? ', supervisor had acknowledged' : '')
+                    .')'
+                    .($reason ? " — {$reason}" : ''),
+                subject: $agreement,
+                actor: $actor,
+            );
+
+            return $agreement->fresh(['studentProfile.user', 'supervisorProfile.user']);
+        });
+    }
+
     public function acknowledgeBySupervisor(
         SupervisorAgreement $agreement,
         string $agreedTitle,
