@@ -658,6 +658,17 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
         ->name('lampiran-b.index');
 
     /**
+     * Change the title at the PSM 2 boundary.
+     *
+     * Optional, and only before Chapter 5 opens. It creates a new Lampiran B for
+     * the new title; signing that form installs the refiled PSM 1 steps in front
+     * of the PSM 2 chain. See `Psm2TitleChangeService`.
+     */
+    Route::post('projects/{project}/title-change', [LampiranBController::class, 'requestTitleChange'])
+        ->middleware('role:student')
+        ->name('title-change');
+
+    /**
      * The panel member's own proposals to decide.
      *
      * A panel is a *seating*, so the audience is the academic-staff role rather

@@ -11,6 +11,7 @@ use App\Models\Milestone;
 use App\Models\Project;
 use App\Services\AuditLogger;
 use App\Services\MilestoneService;
+use App\Services\Psm2TitleChangeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,7 @@ use Illuminate\Validation\Rule;
 use InvalidArgumentException;
 
 /**
- * Lampiran B — filing, signing, and the gate it opens.
+ * Lampiran B â€” filing, signing, and the gate it opens.
  *
  * A re-presented title runs through here: the student revises the pre-filled
  * form, the supervisor signs it, and only then does the re-presented proposal
@@ -29,7 +30,7 @@ use InvalidArgumentException;
  *   POST /api/lampiran-b/{form}/sign    supervisor signs, or sends it back
  *   GET  /api/projects/{project}/lampiran-b   every filing, newest first
  *
- * The first filing is not made here — it is created by `RegistrationService`
+ * The first filing is not made here â€” it is created by `RegistrationService`
  * when the project is registered, and its record is written by the migration's
  * backfill for projects that predate this table. This controller is for the
  * rounds after a refusal.
@@ -39,7 +40,37 @@ class LampiranBController extends ApiController
     public function __construct(
         protected MilestoneService $milestones,
         protected AuditLogger $audit,
+        protected Psm2TitleChangeService $titleChanges,
     ) {
+    }
+
+    /**
+     * POST /api/projects/{project}/title-change
+     *
+     * A student who passed PSM 1 chooses a different title for PSM 2.
+     *
+     * Only opens the form. The change itself happens when the supervisor signs
+     * it — the same gate a refused title goes through, because it is the same
+     * question: does the faculty agree to supervise work under this title?
+     */
+    public function requestTitleChange(Request $request, Project $project): JsonResponse
+    {
+        $this->authorize('view', $project);
+
+        if ($project->leader()?->user_id !== $request->user()->id) {
+            return $this->fail('Only the student on this project can change its title.', 403);
+        }
+
+        try {
+            $form = $this->titleChanges->request($project, $request->user());
+        } catch (InvalidArgumentException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
+
+        return $this->created(
+            (new LampiranBFormResource($form->load('supervisorProfile.user')))->resolve($request),
+            'Propose the new title, then submit it for your supervisor\'s signature.',
+        );
     }
 
     /** Every filing for a project, newest first, for the milestone page. */
@@ -64,7 +95,7 @@ class LampiranBController extends ApiController
     /**
      * The student fills in the revised form.
      *
-     * Only the fields the student owns. The supervisor is not among them — the
+     * Only the fields the student owns. The supervisor is not among them â€” the
      * pairing was fixed by Lampiran A, and a re-file is about the title, not
      * about who supervises.
      */
@@ -90,7 +121,7 @@ class LampiranBController extends ApiController
          * A re-file must actually differ from the title that was refused.
          *
          * Submitting the same title again wastes a panel sitting and tells the
-         * student nothing — the panel already said no to it. Compared
+         * student nothing â€” the panel already said no to it. Compared
          * case-insensitively with whitespace collapsed, so re-typing it with
          * different spacing or capitalisation is still the same title.
          */
@@ -103,7 +134,7 @@ class LampiranBController extends ApiController
 
             if ($normalise($validated['title']) === $normalise($previous->title)) {
                 return $this->fail(
-                    'That is the title the panel refused — it needs to be revised, not resubmitted. '
+                    'That is the title the panel refused â€” it needs to be revised, not resubmitted. '
                     .($previous->rejected_reason ? "The panel said: {$previous->rejected_reason}" : ''),
                     422,
                     ['title' => ['This title was already refused.']],
@@ -122,7 +153,7 @@ class LampiranBController extends ApiController
 
         $this->audit->log(
             action: AuditAction::ProjectUpdated,
-            description: "Lampiran B #{$form->revision_no} filed for {$form->project?->code} — "
+            description: "Lampiran B #{$form->revision_no} filed for {$form->project?->code} â€” "
                 ."\"{$form->title}\" awaiting the supervisor's signature",
             subject: $form,
             actor: $request->user(),
@@ -130,7 +161,7 @@ class LampiranBController extends ApiController
 
         return $this->ok(
             (new LampiranBFormResource($form->fresh()->load('supervisorProfile.user')))->resolve($request),
-            'Lampiran B submitted — awaiting your supervisor\'s signature.',
+            'Lampiran B submitted â€” awaiting your supervisor\'s signature.',
         );
     }
 
@@ -167,7 +198,7 @@ class LampiranBController extends ApiController
 
             if ($reason === '') {
                 return $this->fail(
-                    'Say what needs changing — the student cannot act on a refusal with no reason.',
+                    'Say what needs changing â€” the student cannot act on a refusal with no reason.',
                     422,
                 );
             }
@@ -208,9 +239,39 @@ class LampiranBController extends ApiController
 
             $opened = $this->openProposalFor($form);
 
+            /**
+             * A boundary title change installs its chain on signature.
+             *
+             * The form created by `Psm2TitleChangeService::request()` carries no
+             * milestone â€” there is nothing to open, because the chain it needs
+             * does not exist yet. Signing is the moment it comes into being: the
+             * new title becomes the project's title, and the refiled proposal and
+             * Chapters 1â€“4 are prepended to the PSM 2 chain.
+             *
+             * Distinguished from a re-filing by the project's flagged state and
+             * by the form having no milestone, so the two paths cannot collide.
+             */
+            $installed = null;
+
+            if ($opened === null && $form->milestone_id === null && $form->project !== null) {
+                $blocked = $this->titleChanges->blockedReason($form->project);
+
+                if ($blocked === null) {
+                    $installed = $this->titleChanges->install($form->project, $form, $request->user());
+
+                    $this->audit->log(
+                        action: AuditAction::ProjectUpdated,
+                        description: "PSM 2 title changed for {$form->project->code} â€” "
+                            ."\"{$form->title}\"; PSM 1 documents reinstated",
+                        subject: $form->project,
+                        actor: $request->user(),
+                    );
+                }
+            }
+
             $this->audit->log(
                 action: AuditAction::ProjectApproved,
-                description: "Lampiran B #{$form->revision_no} signed for {$form->project?->code} — "
+                description: "Lampiran B #{$form->revision_no} signed for {$form->project?->code} â€” "
                     ."\"{$form->title}\"",
                 subject: $form,
                 actor: $request->user(),
@@ -219,9 +280,14 @@ class LampiranBController extends ApiController
             return $this->ok([
                 ...(new LampiranBFormResource($form->fresh()->load('supervisorProfile.user')))->resolve($request),
                 'proposal_opened' => $opened?->id,
-            ], $opened !== null
-                ? 'Signed. The proposal for this title is now open.'
-                : 'Signed. The proposal was already open.');
+                'chain_reinstated' => $installed !== null ? count($installed) : 0,
+            ], match (true) {
+                $installed !== null =>
+                    'Signed. The project now carries the new title, and the PSM 1 documents '
+                    .'are reinstated in the PSM 2 chain to be done again.',
+                $opened !== null => 'Signed. The proposal for this title is now open.',
+                default => 'Signed.',
+            });
         });
     }
 
@@ -229,7 +295,7 @@ class LampiranBController extends ApiController
      * Open the proposal milestone this filing belongs to.
      *
      * The re-presented proposal is created as `pending` by the rejection and
-     * carries the form's `milestone_id`. Signing activates it — that is the
+     * carries the form's `milestone_id`. Signing activates it â€” that is the
      * whole gate. A form with no milestone (the first filing, made before the
      * project existed) opens nothing: its proposal is already part of the chain.
      */
@@ -256,7 +322,7 @@ class LampiranBController extends ApiController
             null,
             [],
             // `submission_events.event` is varchar(64) and holds a short event
-            // key, not a sentence — a full description here is rejected by
+            // key, not a sentence â€” a full description here is rejected by
             // PostgreSQL rather than truncated. The reader-facing wording lives
             // in the response message and the audit entry.
             'Proposal opened after Lampiran B signature',
