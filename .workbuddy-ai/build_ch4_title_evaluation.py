@@ -236,9 +236,9 @@ def build(spec):
     for para in spec["after_table"]:
         P(para)
 
-    # One landscape section per figure, holding the heading, the prose and the
-    # picture. The width in the spec is the largest that leaves room for the
-    # caption on the same page; see the note beside each `seq_width`.
+    # A landscape section per figure. Once the figures were simplified to about
+    # 4:3 they fit a landscape page comfortably, and landscape is what lets them
+    # be printed at a readable size.
     for heading, intro, figures, width, after in (
         ("Sequence Diagram", spec["seq_intro"], spec["seq_figures"], spec["seq_width"], spec["seq_after"]),
         ("Activity Diagram", spec["act_intro"], spec["act_figures"], spec["act_width"], spec["act_after"]),
@@ -363,38 +363,43 @@ TITLE = {
         ("sequence_title.png",
          "Figure 4.3: Sequence Diagram for Manage Title and Registration"),
     ],
-    # Fitted, not guessed. The figure is 2000x2757, the landscape page is
-    # 27.79 x 18.90 cm with 0.55 cm margins, and the caption takes ~0.6 cm, so
-    # 14.3 cm is the widest that keeps the whole picture and its caption on one
-    # page. At 19 cm the drawing flowed onto the next page.
-    "seq_width": 14.3,
+    # 2210x1888. A portrait page leaves 14.5 cm of drawing height once the
+    # caption has its line, so 15.5 cm is the widest that keeps picture, caption
+    # and the four bands on one page. The figure is deliberately close to 4:3
+    # for this reason: a taller drawing has to shrink to fit and its labels with
+    # it, which is why the first draft was unreadable in Word.
+    "seq_width": 15.5,
     "seq_intro": [
         "The sequence diagram in Figure 4.3 shows the whole chain across six lifelines: the "
         "student or supervisor, the registration interface, the registration controller, the "
         "registration service, the agreement and supervision data, and the Lampiran B and "
-        "milestone data. It is divided into four sections because four things happen in "
-        "sequence and each has its own rules.",
+        "milestone data. It is divided into four bands because four things happen, in "
+        "sequence, and each has its own rule.",
+        "The diagram is drawn at the level of one message per thing that changes hands. A "
+        "request and its reply are a single exchange, and the controller handing work to the "
+        "service is not drawn as a separate call. Table 4.2 states the individual checks; the "
+        "diagram carries the shape of the flow.",
     ],
     "seq_after": [
-        "The first section is the filing. Messages 4 to 7 show the two guards that run "
-        "before any record is written, and only then does message 7 insert the agreement. "
-        "The second section is the acknowledgement, and it is the busiest part of the "
-        "diagram: message 14 confirms the agreement is still waiting, message 15 confirms "
-        "the chosen title is one of the candidates, message 16 creates the supervision "
-        "assignment, and message 18 writes both the agreed title and the approved status in "
-        "one update.",
-        "The third section files Lampiran B. Message 24 applies the policy, which needs the "
-        "form to belong to the caller and to be a draft; message 25 applies the title rule. "
-        "Message 26 is worth noting: submitting Lampiran B clears any previous supervisor "
-        "signature, because a signature on one title does not cover another. The fourth "
-        "section is withdrawal, and message 33 is the guard that makes it narrow: the "
-        "filing can only be taken back while no project has been registered from it.",
+        "Message 2 files Lampiran A. Before the agreement is written, message 3 applies every "
+        "check the registration has to pass — an open term, no project and no agreement "
+        "already in flight, a usable title, and a supervisor who serves the student's "
+        "programme — and message 4 writes the record only if all of them hold. Message 5 "
+        "reports back and notifies the supervisor, which is how the second actor learns there "
+        "is something to acknowledge.",
+        "The acknowledgement in the second band is the step the faculty's process turns on. "
+        "Message 8 requires the agreement to still be waiting and the chosen title to be one "
+        "the student proposed, and message 9 does the two things that must happen together: "
+        "the supervision is created and the agreed title is recorded. The third band files "
+        "and signs Lampiran B; its signature is the last message that changes anything, "
+        "because signing is what opens the proposal. The fourth band is the only way back out "
+        "— a withdrawal, which is refused once a project has been registered from the filing.",
     ],
     "act_figures": [
         ("activity_title.png", "Figure 4.4: Activity Diagram for Manage Title and Registration"),
     ],
-    # 2200x2323, so the same fitted cap applies as for the sequence figure.
-    "act_width": 14.3,
+    # 2200x2323; 16.2 cm is the widest that still fits the portrait page.
+    "act_width": 16.2,
     "act_intro": [
         "The activity diagram in Figure 4.4 shows the same use case as a workflow. The "
         "filing route runs down the centre through four decisions, each of which corresponds "
@@ -509,34 +514,39 @@ EVALUATION = {
         ("sequence_evaluation.png",
          "Figure 4.7: Sequence Diagram for Manage Evaluation"),
     ],
-    # 2000x2684; the same fitted cap as Figure 4.3.
-    "seq_width": 14.3,
+    # 1950x1844, close to 4:3 on purpose; 17.7 cm fills the portrait page.
+    "seq_width": 17.7,
     "seq_intro": [
-        "The sequence diagram in Figure 4.7 shows the use case across six lifelines: the "
+        "The sequence diagram in Figure 4.7 shows the use case across five lifelines: the "
         "assessor, the evaluation interface, the evaluation controller, the evaluation "
-        "service, the rubric and score data, and the services that publish and record the "
-        "mark. It is divided into marking, saving and submitting.",
+        "service, and the data the mark is read from and published to. It is divided into "
+        "marking, saving and submitting.",
+        "As in Figure 4.3 the level is one message per thing that changes hands. The two "
+        "verbs of the use case — saving a mark and submitting the form — are the two bands "
+        "that end in a round trip, and each carries its gate on the message that enforces it.",
     ],
     "seq_after": [
-        "The marking section is a read: messages 4 to 7 load the rubric snapshot and the "
-        "student's score rows, and message 9 renders one select per criterion. The saving "
-        "section is where the arithmetic happens. Message 13 confirms the form is still "
-        "editable and message 14 confirms its own window is open; message 15 then converts "
-        "the 0 to 5 item score into the criterion's weight, and message 16 stores the "
-        "weighted mark with the item score kept beside it. Both are stored because they "
-        "answer different questions: the weight is what the mark is worth, the item score is "
-        "what the assessor actually said.",
-        "The submitting section is the one that must not grow a second signature. Message "
-        "24 refuses an incomplete form, message 25 recomputes the percentage, and messages "
-        "27 and 28 record the submission and publish the mark. Message 29 is the aggregate "
-        "coming back and message 30 tells the coordinator the batch moved. There is no "
-        "message to a moderator and no message to a release step, because neither exists.",
+        "Marking is a read. Messages 2 to 4 fetch the form with its rubric and the student's "
+        "existing scores, and message 5 returns them, which is what lets the interface draw "
+        "one select per criterion. Saving is where the arithmetic happens: message 9 confirms "
+        "that the form is still editable and that its own assessment window is open, and "
+        "message 11 writes two numbers. The weighted mark is what the criterion is worth; the "
+        "item score beside it is what the assessor actually answered. Both are kept because "
+        "they answer different questions, and because converting one to the other is the only "
+        "step in the system where a mark changes units.",
+        "Submitting is the band that must not grow a second signature. Message 16 refuses an "
+        "incomplete form, a form whose milestones are not approved, and a closed window; "
+        "message 17 then locks the form, recomputes the project's final mark and publishes it "
+        "in the same call, so the aggregate and the flag that exposes it can never disagree. "
+        "Message 18 tells the coordinator the batch has moved, and message 20 is the student "
+        "seeing the mark. There is no message to a moderator and none to a release step, "
+        "because neither exists.",
     ],
     "act_figures": [
         ("activity_evaluation.png", "Figure 4.8: Activity Diagram for Manage Evaluation"),
     ],
-    # 1960x1914; the same fitted cap.
-    "act_width": 14.3,
+    # 1960x1914; 16.2 cm fills the portrait page.
+    "act_width": 16.2,
     "act_intro": [
         "The activity diagram in Figure 4.8 shows the same use case as a workflow. The "
         "marking route runs down the centre through four decisions, each corresponding to an "
