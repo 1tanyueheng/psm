@@ -34,7 +34,7 @@ from uml_kit import Diagram, INK, GREY
 
 OUT = r"C:\Users\yuehe\Desktop\study\fyp\AIProject\psm-system\thesis\diagrams\activity_milestone.png"
 
-W = 1560
+W = 2000
 CX = 450          # spine
 RX = 1010         # guard refusal -> panel column
 APX = 1390        # approve column (right of the panel column, never over it)
@@ -44,7 +44,7 @@ APPW = 300        # approve column box width
 DIAW, DIAH = 240, 116
 G = 38
 
-dg = Diagram(W, 3000)
+dg = Diagram(W, 3600)
 
 y = 30
 y = dg.start(CX, y + 8, r=14)
@@ -75,7 +75,7 @@ d1_mid = d1_top + DIAH / 2
 rt = d1_mid - 44
 dg.connect(CX + DIAW / 2, d1_mid, RX - BOXR / 2, d1_mid)
 dg.label(CX + DIAW / 2 + 10, d1_mid - 24, "No", anchor="la")
-refuse_bot = dg.action(RX, rt, "Refuse 422: deadline\npassed, or the chain has\nnot opened it", w=BOXR)
+refuse_bot = dg.action(RX, rt, "Refuse 422: the chain has\nnot opened it yet\n(late work is accepted)", w=BOXR)
 
 RETRY_X = RX + BOXR / 2 + 44
 dg.route([(RETRY_X, d1_mid),  # from the refusal box's right edge
@@ -137,18 +137,52 @@ end_box = dg.action(RX, gy, "status = reviewed\n(chain NOT opened)", w=BOXR)
 dg.connect(RX, g_dec_bot, RX, gy)
 
 gy = end_box + G
-panel = dg.action(RX, gy, "Panel sits at the title\ndefence and decides", w=BOXR)
-dg.connect(RX, end_box, RX, gy)
+panel_dec_top = gy
+panel_dec_bot = dg.decision(RX, gy, "Panel's verdict?", w=DIAW - 30, h=DIAH)
+dg.connect(RX, end_box, RX, panel_dec_top)
 
-for txt in ("ProposalReviewService\nrecords one verdict",
-            "Open transaction\nwrite status + timestamp",
+# ---- Accepted: the title becomes the project's title ----------------------
+gy = panel_dec_bot + G
+accepted = dg.action(RX, gy, "status = approved\nprojects.title = this title", w=BOXR)
+dg.connect(RX, panel_dec_bot, RX, gy)
+dg.label(RX + (DIAW - 30) / 2 + 8, panel_dec_top + DIAH / 2 - 24, "accept", anchor="la", bold=True)
+
+for txt in ("Open transaction\nwrite status + timestamp",
             "Record timeline event\nand audit entry",
             "activateNext()\nopen next milestone",
             "Notify students"):
-    gy = panel + G
-    panel = dg.action(RX, gy, txt, w=BOXR)
+    gy = accepted + G
+    accepted = dg.action(RX, gy, txt, w=BOXR)
     dg.connect(RX, gy - G, RX, gy)
-panel_end = panel
+panel_end = accepted
+
+# ---- Refused: the title is re-presented (spec 3.2, R4) ---------------------
+#
+# This is the loop the whole design turns on. A refused title is not a failure:
+# the panel's reason is recorded against the form that earned it, a *new*
+# Lampiran B opens as a draft pre-filled from it, and a *new* proposal milestone
+# is inserted after the refused one. Nothing is overwritten, so the second
+# defence can show what changed. There is no cap — the count is visible instead.
+REF_X = RX + BOXR / 2 + 190
+REF_W = BOXR - 10
+ref_top = panel_dec_top + DIAH / 2 - 44
+dg.connect(RX + (DIAW - 30) / 2, panel_dec_top + DIAH / 2, REF_X - REF_W / 2, panel_dec_top + DIAH / 2)
+dg.label(RX + (DIAW - 30) / 2 + 8, panel_dec_top + DIAH / 2 - 24, "refuse", anchor="la", bold=True)
+
+ref = dg.action(REF_X, ref_top, "Mark the form rejected\nrecord the panel's reason", w=REF_W)
+LOOPX2 = REF_X + REF_W / 2 + 44
+
+for txt in ("Open Lampiran B #n+1\nas a draft, pre-filled",
+            "Insert a new proposal\nafter the refused one",
+            "notify: revise the title,\nsign, re-present"):
+    ry = ref + G
+    ref = dg.action(REF_X, ry, txt, w=REF_W)
+    dg.connect(REF_X, ry - G, REF_X, ry)
+
+# Back to the top: the student revises and the cycle repeats.
+dg.route([(REF_X, ref), (REF_X, ref + 30), (LOOPX2, ref + 30), (LOOPX2, g_top - 26),
+          (RX + BOXR / 2, g_top - 26), (RX + BOXR / 2, g_top)])
+dg.label(LOOPX2 + 10, g_top + 40, "re-presented\nuntil accepted\n(no cap)", anchor="la")
 
 # ---- D2: reviewer decision (only reached on the No side of the guard) ------
 y = g_bot + G
