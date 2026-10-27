@@ -92,18 +92,30 @@ is no Figure 4.3/4.4 for it any more.
 
 | Use case | Sequence | Activity |
 |---|---|---|
-| Login | `make_diagrams.py` | `act_login_v2.py` |
+| Login | `seq_login.py` | `act_login.py` |
 | Title and Registration | `seq_title.py` | `act_title.py` |
-| Milestone | `make_ms_seq.py` | `act_ms_v3.py` |
+| Milestone | `seq_milestone.py` | `act_milestone.py` |
 | Evaluation | `seq_evaluation.py` | `act_evaluation.py` |
 | Report | `seq_report.py` | `act_report.py` |
-| Notification | `seq_notif.py` | `act_notif.py` (also splits itself into `_reminders` and `_centre`) |
+| Notification | `seq_notification.py` | `act_notification.py` |
 
-`seqkit.py` is the shared drawing library for the sequence figures — start there
-for a new one. The five older `make_*_seq.py` / `seq_*.py` figures were drawn
-before it existed and still use their own layout code, at 2.5–2.7:1 with 22–27
-messages. They are **legible but cramped**; simplifying them the same way is the
-next improvement if the chapter is to look consistent.
+**All ten are redrawn (2026-10-27) through two shared kits** — `seqkit.py` for
+sequence, `actkit.py` for activity — so the type scale and the lifeline style are
+set in one place. Message counts are now 11–18 and shapes 9–14. `uml_kit.py`
+and the older `make_*.py` draughts are superseded; do not add a figure to them.
+
+**Style the user asked for, after showing a reference chapter:**
+
+- **Type about a quarter larger.** 22 px in activity boxes, 17 px in sequence
+  labels, 20 px on edges; every figure placed at **16.4 cm**, not 12.6–14.2.
+- **Lifelines are dotted**, not solid.
+- **Only the flow.** Per-condition self-calls collapse to one "Validate" or
+  "Check" message; a run of aggregations becomes one message with what it
+  returns; anything already a shape in the activity diagram is not repeated in
+  the sequence diagram.
+- **Keep the guards and the controller→service call.** They were almost cut and
+  should not be: they say where a rule lives. A guard is worth one labelled
+  message, not one message per condition.
 
 > **The `build_ch4_*.py` scripts still carry the OLD numbers.** Only
 > `build_ch4_title_evaluation.py` uses the new table and figure numbers. The
@@ -158,10 +170,6 @@ activity is inside UC-02 rather than beside it.
 
 ### Remaining thesis work
 
-- [ ] **Renumber the four old Chapter 4 documents** — login, milestone, report
-      and notification still say Table 4.2–4.6 and Figure 4.5–4.13 under the old
-      seven-case numbering. Regenerate them with `build_ch4_*.py` after fixing
-      the literals in those scripts.
 - [ ] **Fix the use case diagram** so pairing is not drawn as its own case.
 - [ ] Chapter 3 — Methodology (Waterfall per the template)
 - [ ] Chapter 5 — Implementation and Testing (incl. UAT)
