@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\EnrolmentController;
 use App\Http\Controllers\Api\LeaderboardController;
 use App\Http\Controllers\Api\LecturerMarkController;
 use App\Http\Controllers\Api\MilestoneController;
+use App\Http\Controllers\Api\LampiranBController;
 use App\Http\Controllers\Api\LampiranCController;
 use App\Http\Controllers\Api\MilestoneReviewController;
 use App\Http\Controllers\Api\OsheController;
@@ -633,6 +634,28 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
             ->middleware('role:admin,coordinator,supervisor')
             ->name('lampiran-c.sign');
     });
+
+    /**
+     * Lampiran B — the revised title, and the supervisor's signature on it.
+     *
+     * A refused title is re-presented by filing a new form, not by editing the
+     * project's title. The form carries the supervisor's signature for *that*
+     * title, and signing it is what opens the re-presented proposal milestone —
+     * so a student can never upload a proposal for a title nobody has agreed to
+     * supervise.
+     */
+    Route::prefix('lampiran-b/{form}')->name('lampiran-b.')->group(function () {
+        Route::post('file', [LampiranBController::class, 'file'])
+            ->middleware('role:student')
+            ->name('file');
+
+        Route::post('sign', [LampiranBController::class, 'sign'])
+            ->middleware('role:admin,coordinator,supervisor')
+            ->name('sign');
+    });
+
+    Route::get('projects/{project}/lampiran-b', [LampiranBController::class, 'index'])
+        ->name('lampiran-b.index');
 
     /**
      * The panel member's own proposals to decide.

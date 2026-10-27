@@ -10,6 +10,7 @@ use App\Models\Leaderboard;
 use App\Models\AssessmentWindow;
 use App\Models\MarkSubmission;
 use App\Models\LecturerMark;
+use App\Models\LampiranBForm;
 use App\Models\Section;
 use App\Models\Milestone;
 use App\Models\Project;
@@ -22,6 +23,7 @@ use App\Policies\LeaderboardPolicy;
 use App\Policies\AssessmentWindowPolicy;
 use App\Policies\MarkSubmissionPolicy;
 use App\Policies\LecturerMarkPolicy;
+use App\Policies\LampiranBFormPolicy;
 use App\Policies\SectionPolicy;
 use App\Policies\MilestonePolicy;
 use App\Policies\ProjectPolicy;
@@ -67,6 +69,18 @@ class AppServiceProvider extends ServiceProvider
         AssessmentWindow::class      => AssessmentWindowPolicy::class,
         LecturerMark::class          => LecturerMarkPolicy::class,
         Section::class               => SectionPolicy::class,
+
+        /**
+         * Lampiran B filings.
+         *
+         * Registered here rather than relying on discovery: `LampiranBFormPolicy`
+         * would need to sit at `App\Policies\LampiranBFormPolicy` for Laravel to
+         * guess it, and the model is `App\Models\LampiranBForm` — a match, but
+         * only by coincidence of naming, and this map is how every other policy
+         * in the system is wired. Registering it explicitly means the failure is
+         * a missing line, not a guess that stopped working.
+         */
+        LampiranBForm::class         => LampiranBFormPolicy::class,
     ];
 
     public function register(): void
