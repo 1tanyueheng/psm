@@ -1,6 +1,6 @@
 # PROGRESS — PSM Assessment System (thesis + code)
 
-**Last updated:** 2026-10-27
+**Last updated:** 2026-10-28
 **Owner:** yuehe
 **Purpose:** the single file another agent (or you, next month) reads first to
 know exactly where this project stands.
@@ -167,6 +167,39 @@ assignment, milestone, evaluation, report, alert, title/registration. It still
 shows **assignment (pairing) as a use case of its own** — that box has to go,
 since pairing is now a step inside Manage Title and Registration, and the
 activity is inside UC-02 rather than beside it.
+
+### Chapter 4 — Analysis and Design ✅ one document (2026-10-28)
+
+**`thesis\Chapter 4 - Analysis and Design.docx`** — 29 pages, in the format the
+user supplied as `chapter4part1/2/3.docx` in Downloads. The six per-use-case
+files are **superseded**; do not add to them.
+
+| Section | Content |
+|---|---|
+| 4.1 | System's Modules (Table 4.1), functional (4.2) and non-functional (4.3) requirements |
+| 4.2 | Use case diagram (Figure 4.1), then UC-01…UC-06. Each has a specification table with **History Log, Version, Actors, Description, Preconditions, Post conditions, Normal Flow, Alternative Flow, Exceptions** and its sequence and activity diagrams immediately beneath. |
+| 4.3 | 4.3.1 architecture · 4.3.2 database design: schema summary + **data dictionary for the 8 core tables** (Tables 4.11–4.18) · 4.3.3 interface design (three screen sketches) · 4.3.4 class diagram (Figure 4.14) |
+
+**No ER diagram** — the user asked for the class diagram and explicitly not the
+ERD.
+
+**The data dictionary is generated, not typed.** `.workbuddy-ai/dump_schema.php`
+dumps `information_schema` from the live database to
+`.workbuddy-ai/schema.json`; `build_chapter4.py` reads it. Re-run the probe after
+a migration or the tables will describe a database that no longer exists.
+
+| Script | Makes |
+|---|---|
+| `build_chapter4.py` | the whole chapter |
+| `usecase_diagram.py` | Figure 4.1 — replaces the old draw.io file, which still drew pairing as a use case |
+| `class_diagram.py` | Figure 4.14 — twelve classes, hand-placed corridors |
+| `dump_schema.php` | `schema.json`, for the data dictionary |
+
+**The class diagram was the hardest figure in the project.** Three attempts
+failed before one worked, all for the same reason: routing every connector to
+the midpoint of the gap it was given put eleven relations through one bundle.
+The working version gives each relation an explicit corridor and its own entry
+point on a shared edge. If it has to be redrawn, keep that property.
 
 ### Remaining thesis work
 
