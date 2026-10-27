@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\ApiController;
 use App\Http\Resources\SupervisorAgreementResource;
 use App\Models\SupervisorAgreement;
+use App\Models\SupervisorProfile;
 use App\Rules\IsTitle;
 use App\Services\RegistrationService;
 use Illuminate\Http\JsonResponse;
@@ -126,6 +127,33 @@ class RegistrationController extends ApiController
             'proposed_title_2.different' => 'Title 2 must differ from Title 1.',
             'proposed_title_3.different' => 'Title 3 must differ from the other candidate titles.',
         ]);
+
+        /**
+         * FSKTM pairs staff with students of their own programme.
+         *
+         * Enforced here as well as in the shortlist the form draws from, because
+         * a filtered dropdown is a convenience, not a rule: the id can be posted
+         * directly. The rule already existed for *coordinator* allocation
+         * (`AssignmentService` -> `programmeRefusal()`); registration was the
+         * one path that never asked, so a student could name a supervisor of
+         * another programme and the agreement was created as if it were valid.
+         *
+         * `canSuperviseProgramme()` fails open when either programme is
+         * unrecorded, so a legacy row is not locked out; where both are known,
+         * the pairing must match.
+         */
+        $supervisor = SupervisorProfile::with('user')->find($data['supervisor_profile_id']);
+
+        $programmeRefusal = $supervisor?->programmeRefusal(
+            $student->program_code,
+            $student->student_id,
+        );
+
+        if ($programmeRefusal !== null) {
+            return $this->fail($programmeRefusal, 422, [
+                'supervisor_profile_id' => [$programmeRefusal],
+            ]);
+        }
 
         $agreement = $this->registrations->submitAgreement($student, $data, $request->user());
 

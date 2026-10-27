@@ -975,6 +975,21 @@ class ProjectController extends ApiController
         $gate = $this->semesters->registrationGate();
         $semester = $gate['semester'];
 
+        /**
+         * The student's own programme, which decides who may be offered.
+         *
+         * Lampiran A is filed by a student naming a supervisor, and FSKTM pairs
+         * staff with students of their **own** programme only. This endpoint
+         * used to return every supervisor with room, of every programme, so a
+         * BIS student was offered eleven staff who could never supervise them
+         * and choosing one produced an agreement the faculty cannot act on.
+         *
+         * The rule was already enforced when a *coordinator* allocates — see
+         * `AssignmentService`, which calls `programmeRefusal()` — but not here,
+         * so the two paths disagreed about the same pairing.
+         */
+        $studentProgramme = $request->user()->studentProfile?->program_code;
+
         // Room is judged against the term being registered into, not across all
         // time. A supervisor carrying last term's finished cohort still has a
         // full cap this term; filtering them out here left the Lampiran A form
@@ -984,10 +999,22 @@ class ProjectController extends ApiController
             ->where('is_accepting_students', true)
             ->get()
             ->filter(fn (SupervisorProfile $sp) => ! $sp->isFullInSemester($semester?->id))
+            /**
+             * Only supervisors of the student's programme.
+             *
+             * `canSuperviseProgramme()` fails open when either side has no
+             * recorded programme — a legacy student row, or a supervisor whose
+             * programme was never set. Refusing on missing data would lock out
+             * every such account, and the faculty's answer to a blank field is
+             * "fill it in", not "this person can never pair". Where the
+             * programme *is* recorded, the rule applies.
+             */
+            ->filter(fn (SupervisorProfile $sp) => $sp->canSuperviseProgramme($studentProgramme))
             ->map(fn (SupervisorProfile $sp) => [
                 'id'                => $sp->id,
                 'name'              => $sp->label(),
                 'staff_no'          => $sp->staff_no,
+                'programme'         => $sp->programme?->value,
                 'max_supervisees'   => $sp->max_supervisees,
                 'current_load'      => $sp->currentLoad(),
                 'capacity_by_part'  => $sp->capacityByPart(),
@@ -1001,6 +1028,13 @@ class ProjectController extends ApiController
         return $this->ok([
             'supervisors'  => $supervisors->values(),
             'psm_parts'    => PsmPart::deliverableValues(),
+
+            /**
+             * The programme the shortlist was filtered to, so the form can say
+             * so — otherwise a student wonders why a supervisor they know is
+             * missing from the list.
+             */
+            'student_programme' => $studentProgramme,
 
             // Terms the student could actually register into. Only the active term
             // can have an open window, so this is normally a single option — which

@@ -42,6 +42,8 @@ export default function LampiranAFormPage() {
   const navigate = useNavigate()
 
   const [supervisors, setSupervisors] = useState([])
+  /** The programme the supervisor shortlist was filtered to, for the hint. */
+  const [studentProgramme, setStudentProgramme] = useState(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState(null)
@@ -67,7 +69,12 @@ export default function LampiranAFormPage() {
         const res = await projectApi.registerMeta()
         const data = unwrap(res) ?? {}
         const list = data.supervisors ?? []
-        if (!cancelled) setSupervisors(Array.isArray(list) ? list : [])
+        if (!cancelled) {
+          setSupervisors(Array.isArray(list) ? list : [])
+          // The programme the list was filtered to, so the field can explain
+          // why it is short rather than looking broken.
+          setStudentProgramme(data.student_programme ?? null)
+        }
       } catch {
         if (!cancelled) setSupervisors([])
       } finally {
@@ -187,6 +194,19 @@ export default function LampiranAFormPage() {
             htmlFor="supervisor_profile_id"
             required
             error={errors?.supervisor_profile_id}
+            /*
+             * Say who the list is limited to.
+             *
+             * The shortlist contains only supervisors of the student's own
+             * programme, because that is the faculty's pairing rule. Without a
+             * note, a student whose chosen supervisor is absent reads the
+             * dropdown as broken rather than as restricted.
+             */
+            hint={
+              studentProgramme
+                ? `Only supervisors of your programme (${studentProgramme}) are listed — FSKTM pairs staff with students of their own programme, and these have room this semester.`
+                : 'Supervisors with room this semester.'
+            }
           >
             <Select
               id="supervisor_profile_id"
