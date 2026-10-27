@@ -616,15 +616,28 @@ export const milestoneApi = {
   changeDeadline: (id, dueAt, reason) =>
     api.post(`/milestones/${id}/deadline`, { due_at: dueAt, reason }).then(unwrap),
 
-  // --- The proposal milestone: the title decision ------------------------
-  // The proposal is the one milestone whose verdict is the panel's, and it is
-  // what settles the title and opens the rest of the chain. `approve` and
-  // `requestRevision` are refused for it server-side, so these are the only
-  // routes that decide it.
+  // --- The proposal milestone: two signatures, two people -----------------
+  //
+  // The supervisor reads the proposal first and endorses it; the panel then
+  // sits for the title defence and settles the title. `approve` is refused for
+  // the proposal server-side, because approving opens the chain and would let a
+  // student skip the defence. `requestRevision` **is** allowed — sending the
+  // proposal back is how a supervisor declines to endorse.
+
+  /**
+   * The supervisor's endorsement: `submitted -> reviewed`.
+   *
+   * Not the same as approving. It says only "I have read this and it may go to
+   * the panel"; the next milestone does not open.
+   */
+  endorse: (id, comment) => api.post(`/milestones/${id}/endorse`, { comment }).then(unwrap),
 
   /**
    * Record the panel's verdict. `decision` is `approved`, `conditional_approve`
    * or `rejected`; a reason is required for the latter two.
+   *
+   * Refused unless the supervisor has endorsed the proposal — the panel does
+   * not see a document nobody has read.
    */
   titleDecision: (id, payload) =>
     api.post(`/milestones/${id}/title-decision`, payload).then(unwrap),
@@ -705,6 +718,20 @@ export const milestoneApi = {
   review: (id, { decision, comment }) =>
     decision === 'approved'
       ? api.post(`/milestones/${id}/approve`, { comment }).then(unwrap)
+      : api.post(`/milestones/${id}/request-revision`, { comment }).then(unwrap),
+
+  /**
+   * The supervisor's review of a **proposal**: endorse it, or send it back.
+   *
+   * A proposal cannot be *approved* by its supervisor — approving opens the next
+   * milestone and would let a student skip the title defence the proposal is
+   * there to precede — so the positive branch points at `endorse`. The negative
+   * branch is the ordinary `request-revision`, because sending work back means
+   * the same thing at every milestone.
+   */
+  reviewProposal: (id, { decision, comment }) =>
+    decision === 'approved'
+      ? api.post(`/milestones/${id}/endorse`, { comment }).then(unwrap)
       : api.post(`/milestones/${id}/request-revision`, { comment }).then(unwrap),
 
   // --- Lampiran R1 review rounds -----------------------------------------

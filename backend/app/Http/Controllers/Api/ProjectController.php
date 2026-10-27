@@ -162,7 +162,22 @@ class ProjectController extends ApiController
 
         $validated = $request->validate([
             'title'            => ['required', 'string', 'max:255'],
-            'abstract'         => ['required', 'string', 'min:50', 'max:5000'],
+
+            /**
+             * The abstract and scope are **not** collected here.
+             *
+             * They are not on any of the faculty's registration forms. Lampiran
+             * B's Part B asks for the supervisor, the title, the project type
+             * and the field of study, and then says in as many words: *"attach a
+             * proposal containing at least Introduction, Problem Statement,
+             * Objective, Scope."* The proposal is a document the student uploads
+             * at the proposal milestone, and those sections live inside it.
+             *
+             * Asking for them at registration made the form ask for content the
+             * student could not legitimately have yet — the title is still a
+             * proposal at this point — so the fields were filled with placeholders
+             * to get past them, and then nothing downstream ever read them.
+             */
             'objectives'       => ['nullable', 'string', 'max:3000'],
             'scope'            => ['nullable', 'string', 'max:3000'],
             'category'         => ['required', Rule::in(ProjectCategory::values())],
@@ -278,7 +293,8 @@ class ProjectController extends ApiController
                     $student->program_code
                 ),
                 'title'               => $validated['title'],
-                'abstract'            => $validated['abstract'],
+                // No abstract: it belongs to the uploaded proposal, not to the
+                // registration record. See the note on the validation rules.
                 'objectives'          => $validated['objectives'] ?? null,
                 'scope'               => $validated['scope'] ?? null,
                 'category'            => $validated['category'],

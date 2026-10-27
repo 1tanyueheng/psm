@@ -218,6 +218,21 @@ export default function RegistrationDocumentCard({ milestone, agreement: agreeme
           <>
             <SectionHeading ms="BAHAGIAN B: KETERANGAN PROJEK" en="PART B: PROJECT DETAILS" />
 
+            {/*
+              The four rows the published form actually has.
+
+              Abstract, objectives and scope used to be printed here. They are
+              **not on Lampiran B**: the form asks for the supervisor, the title,
+              the project type and the field of study, and then says "attach a
+              proposal containing at least Introduction, Problem Statement,
+              Objective, Scope". Printing those sections transcribed into the
+              form was wrong twice — it showed content the form does not have,
+              and it made the *attachment* look optional when it is the only
+              place that content is meant to live.
+
+              `field_study` and the three requirements were already collected by
+              Lampiran B and simply never displayed.
+            */}
             <Row label="Nama Penyelia (Supervisor Name)" value={agreement.supervisor_name} wide />
             <Row label="Tajuk Projek (Project Title)" value={project?.title ?? agreement.agreed_title} wide />
 
@@ -232,9 +247,39 @@ export default function RegistrationDocumentCard({ milestone, agreement: agreeme
               </span>
             </div>
 
-            <Row label="Abstrak (Abstract)" value={project?.abstract} wide />
-            <Row label="Objektif (Objectives)" value={project?.objectives} wide />
-            <Row label="Skop Kajian (Scope)" value={project?.scope} wide />
+            <Row
+              label="Bidang Pengajian (Field of Study)"
+              value={project?.field_study}
+              wide
+            />
+
+            <div className="mt-3">
+              <p className="mb-1 font-semibold">Keperluan Projek (Project Requirements)</p>
+              <Row label="Perisian (Software)" value={project?.req_software} wide />
+              <Row label="Perkakasan (Hardware)" value={project?.req_hardware} wide />
+              <Row
+                label="Teknologi / Teknik / Kaedah / Algoritma"
+                value={project?.req_tech}
+                wide
+              />
+            </div>
+
+            {/*
+              The attachment note, as the paper form carries it.
+
+              This is the line that makes the form honest: the proposal document
+              is what the supervisor reads and what the panel examines, and it
+              lives at the proposal milestone rather than inside the form.
+            */}
+            <div className="mt-3 border-t border-slate-300 pt-2 text-[11px]">
+              <span className="font-bold">**PENTING:</span> Lampiran kertas cadangan
+              (Introduction, Problem Statement, Objective, Scope) difailkan pada
+              mileston <em>Proposal</em>.
+              <span className="block italic text-slate-600">
+                (The proposal paper is filed at the Proposal milestone.)
+              </span>
+            </div>
+
             <Row label="Batch" value={project?.batch} />
             <Row label="Program" value={project?.program} />
 
@@ -358,11 +403,17 @@ function fromAgreement(a) {
       ? {
           title: a.project.title,
           category: a.project.category ?? null,
-          abstract: a.project.abstract ?? null,
-          objectives: a.project.objectives ?? null,
-          scope: a.project.scope ?? null,
           batch: a.project.batch ?? null,
           program: a.project.program ?? null,
+          /*
+           * The four Lampiran B fields the printed form has. Read from the
+           * agreement, which is where Lampiran B recorded them — the project
+           * itself never carried a field-of-study or a requirements list.
+           */
+          field_study: a.field_study ?? null,
+          req_software: a.req_software ?? null,
+          req_hardware: a.req_hardware ?? null,
+          req_tech: a.req_tech ?? null,
         }
       : null,
   }

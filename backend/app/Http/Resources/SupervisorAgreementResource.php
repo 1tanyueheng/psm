@@ -97,11 +97,23 @@ class SupervisorAgreementResource extends JsonResource
                  * component, which would redraw the form as it filled in.
                  */
                 'category'   => $project->category?->value,
-                'abstract'   => $project->abstract,
-                'objectives' => $project->objectives,
-                'scope'      => $project->scope,
                 'batch'      => $project->batch,
                 'program'    => $project->program,
+
+                /**
+                 * The four Lampiran B fields the printed form carries.
+                 *
+                 * Lampiran B records them in `projects.metadata` —
+                 * `field_study`, `origin` and a `requirements` block — because
+                 * they are form-specific rather than project-wide. The document
+                 * renderer needs them flat to draw Part B, so they are lifted
+                 * out of the JSON here rather than in the component.
+                 */
+                'field_study'  => $project->metadata['field_study'] ?? null,
+                'origin'       => $project->metadata['origin'] ?? null,
+                'req_software' => $project->metadata['requirements']['software'] ?? null,
+                'req_hardware' => $project->metadata['requirements']['hardware'] ?? null,
+                'req_tech'     => $project->metadata['requirements']['technology'] ?? null,
             ] : null,
 
             // -----------------------------------------------------------------

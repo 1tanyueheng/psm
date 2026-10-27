@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { milestoneApi } from '../../api/endpoints'
 import MilestoneReviewCard from '../../components/MilestoneReviewCard'
@@ -826,17 +826,30 @@ function ReviewCard({ milestone, busy, onRun }) {
   // told "no" with no way to find out why.
   const needsComment = decision === 'revision'
 
+  // The proposal has two signatures and the supervisor holds the first.
+  //
+  // "Approve" would be the wrong word here twice over: it opens the next
+  // milestone, which would let the student skip the title defence, and it
+  // implies settling the milestone when the supervisor is only saying the
+  // document is ready to be examined. `endorse` is that narrower act.
+  const isProposal = milestone.code === 'proposal'
+
   async function confirm() {
     if (needsComment && comment.trim().length < 10) {
-      setError('Explain what needs changing â€” at least 10 characters.')
+      setError('Explain what needs changing — at least 10 characters.')
       return
     }
     setError(null)
     await onRun(() =>
-      milestoneApi.review(milestone.id, {
-        decision,
-        comment: comment.trim() || undefined,
-      })
+      isProposal
+        ? milestoneApi.reviewProposal(milestone.id, {
+            decision,
+            comment: comment.trim() || undefined,
+          })
+        : milestoneApi.review(milestone.id, {
+            decision,
+            comment: comment.trim() || undefined,
+          })
     )
   }
 
@@ -859,7 +872,14 @@ function ReviewCard({ milestone, busy, onRun }) {
 
   return (
     <Card>
-      <CardHeader title="Review" subtitle="Approve, or send back with feedback" />
+      <CardHeader
+        title="Review"
+        subtitle={
+          isProposal
+            ? 'Endorse the proposal for the title defence, or send it back'
+            : 'Approve, or send back with feedback'
+        }
+      />
       <div className="space-y-4">
         {error && (
           <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
@@ -875,7 +895,7 @@ function ReviewCard({ milestone, busy, onRun }) {
                 : 'border-slate-200 text-slate-600 hover:border-slate-300'
             }`}
           >
-            Approve
+            {isProposal ? 'Endorse' : 'Approve'}
           </button>
           <button
             type="button"
@@ -910,7 +930,13 @@ function ReviewCard({ milestone, busy, onRun }) {
         </Field>
 
         <Button className="w-full" disabled={busy || !decision} onClick={confirm}>
-          {busy ? 'Recordingâ€¦' : decision === 'approved' ? 'Approve milestone' : 'Send back for revision'}
+          {busy
+            ? 'Recording…'
+            : decision === 'approved'
+              ? isProposal
+                ? 'Endorse — send to the panel'
+                : 'Approve milestone'
+              : 'Send back for revision'}
         </Button>
       </div>
     </Card>
