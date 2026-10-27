@@ -315,6 +315,65 @@ student cannot hold two waiting repeats of the same part.
 `/enrolments/eligible` return every student with a `blocker` string. A student
 absent from a picker is unpickable *and* undebuggable.
 
+### The proposal — two signatures, two people (2026-10-27)
+
+**Read this before touching anything about the proposal milestone or title
+decisions.**
+
+The faculty's sequence is: the student **uploads the proposal**, the
+**supervisor reads and endorses it**, and only then does the **panel** sit at the
+title defence and settle the title. The code used to let the panel decide a
+merely-submitted proposal, with no supervisor stage at all.
+
+```
+open ──upload──> submitted ──supervisor endorses──> reviewed ──panel──> approved / conditional / rejected
+              └──supervisor sends back──> rejected ──re-upload──> submitted
+```
+
+| Rule | Where |
+|---|---|
+| `Submitted → Reviewed` only — no direct panel verdict | `MilestoneStatus::allowedTransitions()` |
+| Supervisor endorses: `endorseProposal()`, `POST /milestones/{id}/endorse` | `MilestoneService`, `MilestoneController::endorse` |
+| Panel refuses unless `reviewed` | `ProposalReviewService::assertAwaitingDecision()` |
+| Supervisor sends back → `Rejected`, `revision_count + 1` | `requestRevision()` — **no longer refused for the proposal** |
+| Endorsement does **not** open the chain | `endorseProposal()` never calls `activateNext()` |
+| `approve()` still refused for the proposal | `assertNotProposal()` |
+
+**The proposal is a document, not text fields.** A file is required to submit any
+milestone (`MilestoneController::submit` — `files` is `required`), and
+`MilestoneStatus::isSubmittable()` returns true in **every** status, so a student
+may withdraw and re-upload freely, including after approval. `SubmissionFile`
+marks the old version superseded rather than deleting it.
+
+**Rejected-title loop (verified end to end):** panel rejects → `changeTitle()`
+rewrites the project title and reopens the milestone to `Open` → supervisor
+re-endorses → panel decides again, `revision_count` incremented. A rejection does
+**not** create Lampiran C — only `conditional_approve` does.
+
+### What registration collects — per the official forms (2026-10-27)
+
+Checked against `form required/lampiran A-B/`. **Lampiran A has no abstract,
+objectives or scope. Neither does Lampiran B.**
+
+| Form | Real fields |
+|---|---|
+| **Lampiran A** | Session · Name, Matric, **Year of study**, Programme, **IC**, **Passport**, **Mobile**, Email · Titles 1–3 · English tick · Supervisor · **agreed title** · Part D for JKPSM |
+| **Lampiran B** | Student particulars · Supervisor, Title, **Project type**, **Field of study** · **Requirements** (software / hardware / technology) · Origin (own idea / supervisor's) |
+
+Lampiran B then says, in as many words: *"attach a proposal containing at least
+Introduction, Problem Statement, Objective, Scope."* **That attached document is
+the proposal milestone.**
+
+- `projects.abstract` is **no longer collected at registration** and is now
+  **nullable** (migration `2026_10_27_000001`). It was required, so students wrote
+  one before the title was settled, and nothing downstream read it.
+- The real Lampiran B fields live in `projects.metadata` — `field_study`,
+  `origin`, `requirements.software/hardware/technology` — and are lifted flat in
+  `SupervisorAgreementResource`.
+- `RegistrationDocumentCard` prints **Bidang Pengajian** and the three
+  **Keperluan** rows plus the **PENTING** attachment note. It no longer prints
+  abstract/objectives/scope — those were never on the form.
+
 ### Recently fixed — do not regress these
 
 - **Panel re-seating works.** A retired seat (`is_active = false`) is
