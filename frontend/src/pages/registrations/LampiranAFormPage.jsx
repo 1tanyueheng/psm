@@ -44,6 +44,8 @@ export default function LampiranAFormPage() {
   const [supervisors, setSupervisors] = useState([])
   /** The programme the supervisor shortlist was filtered to, for the hint. */
   const [studentProgramme, setStudentProgramme] = useState(null)
+  /** The terms registration is open for — what the session dropdown offers. */
+  const [semesters, setSemesters] = useState([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState(null)
@@ -74,6 +76,24 @@ export default function LampiranAFormPage() {
           // The programme the list was filtered to, so the field can explain
           // why it is short rather than looking broken.
           setStudentProgramme(data.student_programme ?? null)
+
+          /**
+           * The terms registration is open for, and a default selection.
+           *
+           * The default is the term the server resolved for this call, which is
+           * the one it will stamp onto the agreement — so what the student sees
+           * selected is what will be recorded. Falling back to the first
+           * offered term keeps the box populated if that field is absent.
+           */
+          const terms = data.semesters ?? []
+          setSemesters(terms)
+
+          const defaultTerm = data.registration?.semester_id
+          const chosen = terms.find((s) => s.id === defaultTerm) ?? terms[0]
+
+          if (chosen) {
+            setForm((prev) => (prev.session ? prev : { ...prev, session: chosen.name }))
+          }
         }
       } catch {
         if (!cancelled) setSupervisors([])
@@ -156,14 +176,50 @@ export default function LampiranAFormPage() {
         <Card>
           <CardHeader title="Session & part" subtitle="Which semester and PSM part this covers" />
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Session / Semester" htmlFor="session" required error={errors?.session}>
-              <Input
+            {/*
+              The session is chosen, not typed.
+              
+              It used to be a free-text box with a placeholder — "e.g. 2025/2026
+              Semester I" — and the value was discarded anyway: the server
+              stamps the agreement with the *active* term and ignores whatever
+              the client sends, precisely so a student cannot file Lampiran A
+              against a term that does not exist. So the field accepted any
+              string, meant nothing, and invited a mistyped session that looked
+              authoritative on the printed form.
+
+              The dropdown is populated from the terms the server will actually
+              accept, so the value shown is the value recorded. Usually there is
+              exactly one, which is the honest picture: registration is open for
+              one term at a time.
+            */}
+            <Field
+              label="Session / Semester"
+              htmlFor="session"
+              required
+              errors={errors}
+              field="session"
+              hint={
+                semesters.length > 1
+                  ? 'The term this registration is for.'
+                  : 'Registration is open for this term.'
+              }
+            >
+              <Select
                 id="session"
                 value={form.session}
                 onChange={update('session')}
                 required
-                placeholder="e.g. 2025/2026 Semester I"
-              />
+                disabled={semesters.length === 0}
+              >
+                {semesters.length === 0 && (
+                  <option value="">No term accepts registration</option>
+                )}
+                {semesters.map((s) => (
+                  <option key={s.id} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
             </Field>
             {/*
               Fixed to PSM 1, shown rather than chosen.
