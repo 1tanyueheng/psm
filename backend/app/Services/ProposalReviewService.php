@@ -7,6 +7,7 @@ use App\Enums\MilestoneStatus;
 use App\Enums\NotificationType;
 use App\Enums\PanelDecision;
 use App\Models\ExaminerAssignment;
+use App\Models\LampiranBForm;
 use App\Models\Milestone;
 use App\Models\Project;
 use App\Models\User;
@@ -103,9 +104,145 @@ class ProposalReviewService
             $this->openLampiranCMilestone($milestone->fresh(), $reason, $actor);
         }
 
+        /**
+         * A rejected title is **re-presented**, not abandoned (spec §3.2).
+         *
+         * The faculty's rule is that a refused title goes back for a fresh
+         * Lampiran B and a fresh defence, in the same semester, as many times as
+         * it takes. So a rejection opens the next round here.
+         *
+         * **Nothing is overwritten.** This proposal milestone stays `rejected`
+         * with the panel's reason — it is the record of what was refused — and
+         * the refused Lampiran B stays `rejected` too. The student's next attempt
+         * is new rows alongside them, which is what lets the panel at the second
+         * defence see what changed.
+         */
+        if ($decision === PanelDecision::Rejected) {
+            $this->openRefileRound($milestone->fresh(), $reason, $actor);
+        }
+
         $this->notifyStudent($milestone, $decision, $reason);
 
         return $milestone->fresh();
+    }
+
+    /**
+     * Open the next re-presentation: a new Lampiran B and a new proposal.
+     *
+     * Called only from a panel rejection. The new Lampiran B is a **draft** —
+     * the student edits the title, the supervisor signs it, and only then does
+     * the new proposal milestone open. Approving it automatically here would
+     * defeat the point of requiring a signature on the new title.
+     *
+     * Inserted at `proposal.sequence + 1`, pushing everything after it down, so
+     * the chain reads as it happened:
+     *
+     *   Proposal #1 (rejected) → Lampiran B #2 → Proposal #2 → chapters…
+     */
+    protected function openRefileRound(Milestone $proposal, string $reason, User $actor): LampiranBForm
+    {
+        return DB::transaction(function () use ($proposal, $reason, $actor) {
+            $project = $proposal->project;
+
+            $previous = LampiranBForm::forProject($project->id)
+                ->orderByDesc('revision_no')
+                ->first();
+
+            /**
+             * Record the refusal on the form the panel was looking at.
+             *
+             * Found by project rather than by milestone: the first filing
+             * predates every milestone, so it carries no `milestone_id`. The most
+             * recent form is the one in play.
+             */
+            if ($previous !== null && ! $previous->isRejected()) {
+                $previous->forceFill([
+                    'status'          => LampiranBForm::STATUS_REJECTED,
+                    'rejected_reason' => $reason !== '' ? $reason : null,
+                    'rejected_at'     => now(),
+                    'rejected_by'     => $actor->id,
+                ])->save();
+            }
+
+            /**
+             * The next filing, pre-filled from the refused one.
+             *
+             * Everything but the title is carried over: the supervisor cannot
+             * change (Lampiran A fixed the pairing), and the project type, field
+             * of study and requirements rarely move with a retitle. Pre-filling
+             * means the student edits rather than retypes, and cannot drop a
+             * requirement by starting from a blank form.
+             */
+            $form = LampiranBForm::create([
+                'project_id'   => $project->id,
+                'revision_no'  => $previous === null ? 1 : $previous->revision_no + 1,
+                'title'        => $previous?->title ?? $project->title,
+                'project_type' => $previous?->project_type
+                    ?? ($project->category?->value === 'research' ? 'research' : 'system'),
+                'field_study'  => $previous?->field_study,
+                'req_software' => $previous?->req_software,
+                'req_hardware' => $previous?->req_hardware,
+                'req_technology' => $previous?->req_technology,
+                'origin'       => $previous?->origin,
+                'supervisor_profile_id' => $previous?->supervisor_profile_id,
+                'status'       => LampiranBForm::STATUS_DRAFT,
+                'supersedes_id' => $previous?->id,
+            ]);
+
+            if ($previous !== null) {
+                $previous->forceFill(['superseded_by_id' => $form->id])->save();
+            }
+
+            // A new proposal milestone, after the refused one.
+            $sequence = ((int) $proposal->sequence) + 1;
+
+            $project->milestones()
+                ->where('sequence', '>=', $sequence)
+                ->increment('sequence');
+
+            $next = Milestone::create([
+                'project_id'   => $project->id,
+                'code'         => Milestone::CODE_PROPOSAL,
+                /**
+                 * The next attempt at this step.
+                 *
+                 * `(project_id, code)` is unique per *attempt*, not per lifetime:
+                 * this is the second proposal this project has had, so it is
+                 * attempt 2. Taken from the highest attempt rather than counted,
+                 * so deleting a milestone cannot make two rows claim the same
+                 * number.
+                 */
+                'attempt'      => (int) $project->milestones()
+                    ->where('code', Milestone::CODE_PROPOSAL)
+                    ->max('attempt') + 1,
+                'title'        => 'Proposal (re-presented)',
+                'description'  => sprintf(
+                    'The previous title was refused. Revise it, have your supervisor sign the new '
+                    .'Lampiran B, then upload the proposal for this title. Refused because: %s',
+                    $reason !== '' ? $reason : 'no reason recorded',
+                ),
+                'sequence'     => $sequence,
+                'weight_percent' => $proposal->weight_percent,
+                // Held closed until the supervisor signs the new Lampiran B.
+                'status'       => MilestoneStatus::Pending,
+                'allow_late_submission' => true,
+                'allowed_file_types'    => $proposal->allowed_file_types,
+                'max_files'             => $proposal->max_files,
+                'requires_supervisor_approval' => true,
+            ]);
+
+            $form->forceFill(['milestone_id' => $next->id])->save();
+
+            $this->audit->log(
+                action: AuditAction::MilestoneOpened,
+                description: "Lampiran B #{$form->revision_no} opened for {$project->code} — "
+                    .'title refused by the panel',
+                subject: $next,
+                actor: $actor,
+            );
+
+            return $form->fresh();
+        });
     }
 
     /**
