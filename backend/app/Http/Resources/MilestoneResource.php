@@ -56,6 +56,18 @@ class MilestoneResource extends JsonResource
             'is_within_late_window' => $this->isWithinLateWindow(),
             'accepts_submission'    => $this->acceptsSubmission(),
 
+            /**
+             * How late this is, for the reviewer's screen.
+             *
+             * Lateness is **information, not a gate** — the deadline no longer
+             * blocks an upload (spec §4). `days` is what a supervisor reads to
+             * judge the work, and `is_late` saves every caller comparing dates.
+             */
+            'lateness' => ($late = $this->lateness()) !== null
+                ? ['days' => $late['days'], 'due_at' => $late['due_at']?->toIso8601String()]
+                : null,
+            'is_late'  => $this->lateness() !== null,
+
             'allow_late_submission'        => (bool) $this->allow_late_submission,
             'late_window_days'             => $this->late_window_days,
             'requires_supervisor_approval' => (bool) $this->requires_supervisor_approval,

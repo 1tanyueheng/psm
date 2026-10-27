@@ -179,23 +179,23 @@ class MilestoneController extends ApiController
              * `Approved` is deliberately **not** refused here.
              *
              * A student may always improve their work, so the milestone stays
-             * open to uploads after approval â€” see
+             * open to uploads after approval — see
              * MilestoneStatus::isSubmittable(). What the upload does is supersede
              * the approved file as the current revision (the old row and its
              * bytes stay), so the approval is superseded rather than erased and
              * the timeline still records what was approved and when.
              *
-             * The two cases left below are genuine refusals: a closed deadline
-             * with no late window, and a milestone the chain has not opened yet.
+             * **A passed deadline is not a refusal either.** The faculty's rule is
+             * that late work is accepted: `acceptsSubmission()` no longer consults
+             * the deadline at all. What can still refuse an upload is a milestone
+             * whose status does not accept work — `pending`, because the chain has
+             * not opened it yet.
              */
             return $this->fail(
-                match (true) {
-                    $milestone->isOverdue()
-                        => 'The deadline for this milestone has passed and late submission is not permitted. '
-                           .'Contact your coordinator to request an extension.',
-                    default => 'This milestone is not currently open for submission.',
-                },
-                422
+                $milestone->status->value === MilestoneStatus::Pending->value
+                    ? 'This milestone has not opened yet — the previous step has to be approved first.'
+                    : 'This milestone is not currently open for submission.',
+                422,
             );
         }
 

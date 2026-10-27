@@ -426,19 +426,51 @@ class Milestone extends Model
     }
 
     /** Can the student upload right now? */
+    /**
+     * Can the student upload right now?
+     *
+     * **The deadline does not decide this.** The faculty's rule is that a
+     * student may hand work in late — a milestone that has passed is late, not
+     * closed — so the only thing that stops an upload is the milestone not being
+     * open yet, or its status not accepting work at all.
+     *
+     * This used to return false once `due_at + late_window_days` had passed, and
+     * the controller refused with *"The deadline for this milestone has passed
+     * and late submission is not permitted."* That made a missed deadline a dead
+     * end rather than a late submission: the work could never be handed in, so
+     * the student could only lose the marks without ever producing the file. It
+     * also meant an assessor had nothing to mark, which collides with the rule
+     * that every enrolled student receives a mark at term close.
+     *
+     * Lateness is now information, not a gate: `isOverdue()` and the `overdue`
+     * status still say "this was due on the 6th", and the reviewer sees it, but
+     * nothing prevents the upload.
+     */
     public function acceptsSubmission(): bool
     {
-        if (! $this->status->isSubmittable()) {
-            return false;
-        }
+        return $this->status->isSubmittable();
+    }
 
-        if ($this->isWithinLateWindow()) {
-            return true;
-        }
-
+    /**
+     * Is this submission late, and by how much?
+     *
+     * The label the reviewer reads. Null when it is on time or has no deadline,
+     * so a caller can branch on "late" without comparing dates itself.
+     *
+     * @return array{days:int, due_at:?\Illuminate\Support\Carbon}|null
+     */
+    public function lateness(): ?array
+    {
         $due = $this->effectiveDueAt();
 
-        return $due === null || now()->isBefore($due);
+        if ($due === null || now()->isBefore($due)) {
+            return null;
+        }
+
+        return [
+            'days'   => (int) $due->startOfDay()->diffInDays(now()->startOfDay()),
+            'due_at' => $due,
+        ];
     }
 
     // -----------------------------------------------------------------
