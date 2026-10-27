@@ -1,0 +1,60 @@
+%%{init: {
+  'theme': 'base',
+  'sequence': {
+    'mirrorActors': false
+  },
+  'themeCSS': '.actor-line { stroke-dasharray: 4, 4; }',
+  'themeVariables': {
+    'fontFamily': 'Times New Roman, serif',
+    'fontSize': '15px',
+    'primaryColor': '#ffffff',
+    'primaryTextColor': '#1a1a1a',
+    'primaryBorderColor': '#1a1a1a',
+    'lineColor': '#333333',
+    'signalColor': '#333333',
+    'signalTextColor': '#1a1a1a',
+    'actorBkg': '#ffffff',
+    'actorBorder': '#1a1a1a',
+    'actorTextColor': '#1a1a1a',
+    'actorLineColor': '#8c8c8c',
+    'labelBoxBkgColor': '#f4f4f4',
+    'labelBoxBorderColor': '#1a1a1a',
+    'labelTextColor': '#1a1a1a',
+    'noteBkgColor': '#ffffff',
+    'noteBorderColor': '#8c8c8c',
+    'sequenceNumberColor': '#1a1a1a',
+    'actorPadding': 25,
+    'messageMargin': 35
+  }
+}}%%
+sequenceDiagram
+    autonumber
+    participant S as Student /<br/>Supervisor
+    participant UI as Registration UI<br/>(React SPA)
+    participant C as Registration<br/>Controller
+    participant SVC as Registration<br/>Service
+    participant A as Agreement +<br/>Supervision
+    participant B as Lampiran B +<br/>Milestone
+
+    S->>UI: Fill in Lampiran A and submit
+    UI->>C: POST /api/registrations/agreements
+    C->>SVC: submitAgreement(...)
+    SVC->>SVC: Validate term open, no project,<br/>title usable, supervisor serves<br/>the programme
+    SVC->>A: Save the agreement<br/>status = pending_supervisor
+    C-->>UI: 201 Created
+
+    S->>UI: Choose one proposed title<br/>and acknowledge
+    UI->>C: POST .../{agreement}/acknowledge
+    C->>SVC: acknowledgeBySupervisor(...)
+    SVC->>A: Create the supervision and<br/>save the agreed title
+    C-->>UI: Lampiran B may be filed
+
+    S->>UI: File Lampiran B, then sign it
+    UI->>SVC: PUT .../{form}/file<br/>POST .../{form}/sign
+    SVC->>B: Endorse the form and<br/>open the proposal milestone
+    UI-->>S: The proposal is open
+
+    S->>UI: Withdraw the filing
+    UI->>C: POST .../{agreement}/withdraw
+    C->>SVC: withdrawAgreement()
+    C-->>UI: 200 OK (cancelled, pairing retired)

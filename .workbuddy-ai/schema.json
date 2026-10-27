@@ -1,0 +1,2694 @@
+{
+    "columns": {
+        "users": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('users_id_seq'::regclass)"
+            },
+            {
+                "name": "name",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "email",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "email_verified_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "password",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "role",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": "'student'::character varying"
+            },
+            {
+                "name": "status",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": "'active'::character varying"
+            },
+            {
+                "name": "phone",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "avatar_path",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "staff_id",
+                "type": "CHARACTER VARYING",
+                "size": "64",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "department",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "must_change_password",
+                "type": "BOOLEAN",
+                "size": "",
+                "null": false,
+                "default": "false"
+            },
+            {
+                "name": "last_login_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "last_login_ip",
+                "type": "CHARACTER VARYING",
+                "size": "45",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "failed_login_attempts",
+                "type": "SMALLINT",
+                "size": "11",
+                "null": false,
+                "default": "'0'::smallint"
+            },
+            {
+                "name": "locked_until",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "notification_preferences",
+                "type": "JSON",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "digest_only",
+                "type": "BOOLEAN",
+                "size": "",
+                "null": false,
+                "default": "false"
+            },
+            {
+                "name": "remember_token",
+                "type": "CHARACTER VARYING",
+                "size": "100",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "deleted_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            }
+        ],
+        "student_profiles": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('student_profiles_id_seq'::regclass)"
+            },
+            {
+                "name": "user_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "student_id",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "program",
+                "type": "CHARACTER VARYING",
+                "size": "128",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "program_code",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "batch",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "faculty",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "current_semester",
+                "type": "SMALLINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "phone_emergency",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "thesis_title",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "thesis_abstract",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "max_supervisors",
+                "type": "SMALLINT",
+                "size": "11",
+                "null": false,
+                "default": "'2'::smallint"
+            },
+            {
+                "name": "is_active_cohort",
+                "type": "BOOLEAN",
+                "size": "",
+                "null": false,
+                "default": "true"
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "deleted_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "academic_semester_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "section_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            }
+        ],
+        "supervisor_profiles": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('supervisor_profiles_id_seq'::regclass)"
+            },
+            {
+                "name": "user_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "staff_no",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "academic_title",
+                "type": "CHARACTER VARYING",
+                "size": "64",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "office_location",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "max_supervisees",
+                "type": "SMALLINT",
+                "size": "11",
+                "null": false,
+                "default": "'8'::smallint"
+            },
+            {
+                "name": "is_accepting_students",
+                "type": "BOOLEAN",
+                "size": "",
+                "null": false,
+                "default": "true"
+            },
+            {
+                "name": "workload_release_percent",
+                "type": "NUMERIC",
+                "size": "",
+                "null": false,
+                "default": "'0'::numeric"
+            },
+            {
+                "name": "bio",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "deleted_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "max_supervisees_psm1",
+                "type": "SMALLINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "max_supervisees_psm2",
+                "type": "SMALLINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "programme",
+                "type": "CHARACTER VARYING",
+                "size": "8",
+                "null": true,
+                "default": null
+            }
+        ],
+        "projects": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('projects_id_seq'::regclass)"
+            },
+            {
+                "name": "code",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "title",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "abstract",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "objectives",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "scope",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "category",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "psm_part",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "academic_session",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "batch",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "program",
+                "type": "CHARACTER VARYING",
+                "size": "128",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "status",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": "'draft'::character varying"
+            },
+            {
+                "name": "created_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "approved_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "submitted_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "approved_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "rejection_reason",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "archived_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "leaderboard_opt_out",
+                "type": "BOOLEAN",
+                "size": "",
+                "null": false,
+                "default": "false"
+            },
+            {
+                "name": "metadata",
+                "type": "JSON",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "deleted_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "agreement_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "academic_semester_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            }
+        ],
+        "supervisor_agreements": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('supervisor_agreements_id_seq'::regclass)"
+            },
+            {
+                "name": "student_profile_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "supervisor_profile_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "session",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "psm_part",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": "'BOTH'::character varying"
+            },
+            {
+                "name": "proposed_title_1",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "proposed_title_2",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "proposed_title_3",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "agreed_title",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "english_report",
+                "type": "BOOLEAN",
+                "size": "",
+                "null": false,
+                "default": "false"
+            },
+            {
+                "name": "status",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": "'pending_supervisor'::character varying"
+            },
+            {
+                "name": "student_signed_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "supervisor_acknowledged_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "jkpsm_received_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "decided_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "decided_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "rejection_reason",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "supervision_assignment_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "metadata",
+                "type": "JSON",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "deleted_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "academic_semester_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            }
+        ],
+        "lampiran_b_forms": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('lampiran_b_forms_id_seq'::regclass)"
+            },
+            {
+                "name": "project_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "revision_no",
+                "type": "SMALLINT",
+                "size": "11",
+                "null": false,
+                "default": "'1'::smallint"
+            },
+            {
+                "name": "title",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "project_type",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "field_study",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "req_software",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "req_hardware",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "req_technology",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "origin",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "supervisor_signature_path",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "supervisor_signature_disk",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "supervisor_signed_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "supervisor_profile_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "signature_type",
+                "type": "CHARACTER VARYING",
+                "size": "16",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "status",
+                "type": "CHARACTER VARYING",
+                "size": "16",
+                "null": false,
+                "default": "'draft'::character varying"
+            },
+            {
+                "name": "rejected_reason",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "rejected_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "rejected_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "supersedes_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "superseded_by_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "milestone_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            }
+        ],
+        "milestones": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('milestones_id_seq'::regclass)"
+            },
+            {
+                "name": "project_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "milestone_template_item_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "code",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "title",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "description",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "sequence",
+                "type": "SMALLINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "weight_percent",
+                "type": "NUMERIC",
+                "size": "",
+                "null": false,
+                "default": "'0'::numeric"
+            },
+            {
+                "name": "status",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": "'pending'::character varying"
+            },
+            {
+                "name": "opens_at",
+                "type": "DATE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "due_at",
+                "type": "DATE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "allow_late_submission",
+                "type": "BOOLEAN",
+                "size": "",
+                "null": false,
+                "default": "true"
+            },
+            {
+                "name": "late_window_days",
+                "type": "SMALLINT",
+                "size": "11",
+                "null": false,
+                "default": "'7'::smallint"
+            },
+            {
+                "name": "extended_until",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "reviewed_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "submitted_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "reviewed_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "approved_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "review_comment",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "revision_count",
+                "type": "SMALLINT",
+                "size": "11",
+                "null": false,
+                "default": "'0'::smallint"
+            },
+            {
+                "name": "deadline_overridden_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "deadline_override_reason",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "allowed_file_types",
+                "type": "JSON",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "max_files",
+                "type": "SMALLINT",
+                "size": "11",
+                "null": false,
+                "default": "'3'::smallint"
+            },
+            {
+                "name": "requires_supervisor_approval",
+                "type": "BOOLEAN",
+                "size": "",
+                "null": false,
+                "default": "true"
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "deleted_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "lampiran_c_title",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "lampiran_c_actions",
+                "type": "JSON",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "lampiran_c_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "lampiran_c_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "deadline_is_fixed",
+                "type": "BOOLEAN",
+                "size": "",
+                "null": false,
+                "default": "false"
+            },
+            {
+                "name": "requires_lampiran_c",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "lampiran_c_previous_title",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "lampiran_c_new_title",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "lampiran_c_filed_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "lampiran_c_filed_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "supervisor_signature_path",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "supervisor_signature_disk",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "supervisor_signature_type",
+                "type": "CHARACTER VARYING",
+                "size": "16",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "supervisor_signed_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "supervisor_signed_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "lampiran_c_ic_number",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "lampiran_c_passport_number",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "lampiran_c_mobile_number",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "lampiran_c_defense_date",
+                "type": "DATE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "student_signature_path",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "student_signature_disk",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "student_signature_type",
+                "type": "CHARACTER VARYING",
+                "size": "16",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "student_signed_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "attempt",
+                "type": "SMALLINT",
+                "size": "11",
+                "null": false,
+                "default": "'1'::smallint"
+            }
+        ],
+        "submission_files": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('submission_files_id_seq'::regclass)"
+            },
+            {
+                "name": "milestone_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "uploaded_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "disk",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": false,
+                "default": "'local'::character varying"
+            },
+            {
+                "name": "path",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "original_name",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "mime_type",
+                "type": "CHARACTER VARYING",
+                "size": "128",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "size_bytes",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "'0'::bigint"
+            },
+            {
+                "name": "checksum_sha256",
+                "type": "CHARACTER VARYING",
+                "size": "64",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "revision_no",
+                "type": "SMALLINT",
+                "size": "11",
+                "null": false,
+                "default": "'1'::smallint"
+            },
+            {
+                "name": "is_current",
+                "type": "BOOLEAN",
+                "size": "",
+                "null": false,
+                "default": "true"
+            },
+            {
+                "name": "superseded_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "superseded_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            }
+        ],
+        "evaluations": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('evaluations_id_seq'::regclass)"
+            },
+            {
+                "name": "project_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "assessor_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "rubric_template_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "rubric_snapshot",
+                "type": "JSON",
+                "size": "",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "assessor_type",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "psm_part",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": "'PSM2'::character varying"
+            },
+            {
+                "name": "status",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": "'draft'::character varying"
+            },
+            {
+                "name": "raw_score",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "max_score",
+                "type": "NUMERIC",
+                "size": "",
+                "null": false,
+                "default": "'100'::numeric"
+            },
+            {
+                "name": "score_percent",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "final_score",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "moderation_delta",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "comment",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "strengths",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "improvements",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "is_late_assessment",
+                "type": "BOOLEAN",
+                "size": "",
+                "null": false,
+                "default": "false"
+            },
+            {
+                "name": "submitted_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "released_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "moderated_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "moderation_reason",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "moderated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "coi_declaration",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "form_instance",
+                "type": "CHARACTER VARYING",
+                "size": "16",
+                "null": false,
+                "default": "'default'::character varying"
+            }
+        ],
+        "evaluation_scores": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('evaluation_scores_id_seq'::regclass)"
+            },
+            {
+                "name": "evaluation_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "rubric_component_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "rubric_criterion_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "component_code",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "criterion_code",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "criterion_title",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "max_marks",
+                "type": "NUMERIC",
+                "size": "",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "marks_awarded",
+                "type": "NUMERIC",
+                "size": "",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "weighted_contribution",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "comment",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "is_flagged",
+                "type": "BOOLEAN",
+                "size": "",
+                "null": false,
+                "default": "false"
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "item_score",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            }
+        ],
+        "mark_submissions": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('mark_submissions_id_seq'::regclass)"
+            },
+            {
+                "name": "project_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "student_profile_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "psm_part",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": "'PSM2'::character varying"
+            },
+            {
+                "name": "academic_semester_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "status",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": "'open'::character varying"
+            },
+            {
+                "name": "expected_panel_size",
+                "type": "SMALLINT",
+                "size": "11",
+                "null": false,
+                "default": "'1'::smallint"
+            },
+            {
+                "name": "opened_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "opened_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "locked_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "locked_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "unlock_reason",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "final_grade_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "notes",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            }
+        ],
+        "final_grades": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('final_grades_id_seq'::regclass)"
+            },
+            {
+                "name": "project_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "student_profile_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "psm_part",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": "'PSM2'::character varying"
+            },
+            {
+                "name": "supervisor_score",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "examiner_score",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "coordinator_score",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "aggregate_percent",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "milestone_score",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "final_mark",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "assessor_count",
+                "type": "SMALLINT",
+                "size": "11",
+                "null": false,
+                "default": "'0'::smallint"
+            },
+            {
+                "name": "computation_breakdown",
+                "type": "JSON",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "status",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": "'provisional'::character varying"
+            },
+            {
+                "name": "computed_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "released_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "released_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "is_publishable",
+                "type": "BOOLEAN",
+                "size": "",
+                "null": false,
+                "default": "false"
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "locked_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "locked_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "examiner_panel_average",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            }
+        ],
+        "student_enrolments": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('student_enrolments_id_seq'::regclass)"
+            },
+            {
+                "name": "student_profile_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "academic_semester_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "psm_part",
+                "type": "CHARACTER VARYING",
+                "size": "8",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "attempt_no",
+                "type": "SMALLINT",
+                "size": "11",
+                "null": false,
+                "default": "'1'::smallint"
+            },
+            {
+                "name": "status",
+                "type": "CHARACTER VARYING",
+                "size": "16",
+                "null": false,
+                "default": "'enrolling'::character varying"
+            },
+            {
+                "name": "project_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "repeats_enrolment_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "enrolled_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "settled_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "note",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "enrolled_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            }
+        ],
+        "sections": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('sections_id_seq'::regclass)"
+            },
+            {
+                "name": "code",
+                "type": "CHARACTER VARYING",
+                "size": "16",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "name",
+                "type": "CHARACTER VARYING",
+                "size": "128",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "lecturer_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "academic_semester_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            }
+        ],
+        "lecturer_marks": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('lecturer_marks_id_seq'::regclass)"
+            },
+            {
+                "name": "student_profile_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "section_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "academic_semester_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "quiz",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "assignment_c",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "assignment_p",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "assignment_a",
+                "type": "NUMERIC",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "entered_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "entered_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            }
+        ],
+        "examiner_assignments": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('examiner_assignments_id_seq'::regclass)"
+            },
+            {
+                "name": "project_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "examiner_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "psm_part",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": "'PSM2'::character varying"
+            },
+            {
+                "name": "panel_role",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "is_active",
+                "type": "BOOLEAN",
+                "size": "",
+                "null": false,
+                "default": "true"
+            },
+            {
+                "name": "assigned_by",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "notified_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "examiner_pair_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "student_profile_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            }
+        ],
+        "notifications": [
+            {
+                "name": "id",
+                "type": "UUID",
+                "size": "",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "type",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "notifiable_type",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "notifiable_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "data",
+                "type": "TEXT",
+                "size": "",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "read_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "updated_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": true,
+                "default": null
+            }
+        ],
+        "audit_logs": [
+            {
+                "name": "id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": false,
+                "default": "nextval('audit_logs_id_seq'::regclass)"
+            },
+            {
+                "name": "user_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "actor_name",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "actor_role",
+                "type": "CHARACTER VARYING",
+                "size": "32",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "action",
+                "type": "CHARACTER VARYING",
+                "size": "64",
+                "null": false,
+                "default": null
+            },
+            {
+                "name": "category",
+                "type": "CHARACTER VARYING",
+                "size": "48",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "severity",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": false,
+                "default": "'info'::character varying"
+            },
+            {
+                "name": "auditable_type",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "auditable_id",
+                "type": "BIGINT",
+                "size": "11",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "description",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "before",
+                "type": "JSON",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "after",
+                "type": "JSON",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "changes",
+                "type": "JSON",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "ip_address",
+                "type": "CHARACTER VARYING",
+                "size": "45",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "user_agent",
+                "type": "TEXT",
+                "size": "",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "request_method",
+                "type": "CHARACTER VARYING",
+                "size": "8",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "request_url",
+                "type": "CHARACTER VARYING",
+                "size": "512",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "session_id",
+                "type": "CHARACTER VARYING",
+                "size": "255",
+                "null": true,
+                "default": null
+            },
+            {
+                "name": "is_suspicious",
+                "type": "BOOLEAN",
+                "size": "",
+                "null": false,
+                "default": "false"
+            },
+            {
+                "name": "created_at",
+                "type": "TIMESTAMP WITHOUT TIME ZONE",
+                "size": "",
+                "null": false,
+                "default": "CURRENT_TIMESTAMP"
+            }
+        ]
+    },
+    "primary": {
+        "users": [
+            "id"
+        ],
+        "student_profiles": [
+            "id"
+        ],
+        "supervisor_profiles": [
+            "id"
+        ],
+        "projects": [
+            "id"
+        ],
+        "supervisor_agreements": [
+            "id"
+        ],
+        "lampiran_b_forms": [
+            "id"
+        ],
+        "milestones": [
+            "id"
+        ],
+        "submission_files": [
+            "id"
+        ],
+        "evaluations": [
+            "id"
+        ],
+        "evaluation_scores": [
+            "id"
+        ],
+        "mark_submissions": [
+            "id"
+        ],
+        "final_grades": [
+            "id"
+        ],
+        "student_enrolments": [
+            "id"
+        ],
+        "sections": [
+            "id"
+        ],
+        "lecturer_marks": [
+            "id"
+        ],
+        "examiner_assignments": [
+            "id"
+        ],
+        "notifications": [
+            "id"
+        ],
+        "audit_logs": [
+            "id"
+        ]
+    },
+    "foreign": {
+        "milestone_template_items": {
+            "milestone_template_id": "milestone_templates"
+        },
+        "leaderboards": {
+            "published_by": "users",
+            "created_by": "users"
+        },
+        "leaderboard_entries": {
+            "leaderboard_id": "leaderboards",
+            "project_id": "projects",
+            "final_grade_id": "final_grades"
+        },
+        "leaderboard_settings": {
+            "updated_by": "users"
+        },
+        "reminder_dispatches": {
+            "milestone_id": "milestones",
+            "user_id": "users"
+        },
+        "examiner_assignments": {
+            "examiner_id": "users",
+            "assigned_by": "users",
+            "examiner_pair_id": "examiner_pairs",
+            "project_id": "projects",
+            "student_profile_id": "student_profiles"
+        },
+        "supervisor_agreements": {
+            "student_profile_id": "student_profiles",
+            "supervisor_profile_id": "supervisor_profiles",
+            "decided_by": "users",
+            "supervision_assignment_id": "supervision_assignments",
+            "academic_semester_id": "academic_semesters"
+        },
+        "projects": {
+            "agreement_id": "supervisor_agreements",
+            "academic_semester_id": "academic_semesters",
+            "created_by": "users",
+            "approved_by": "users"
+        },
+        "examiner_pairs": {
+            "examiner_1_id": "users",
+            "examiner_2_id": "users",
+            "created_by": "users",
+            "academic_semester_id": "academic_semesters"
+        },
+        "student_profiles": {
+            "academic_semester_id": "academic_semesters",
+            "section_id": "sections",
+            "user_id": "users"
+        },
+        "mark_submissions": {
+            "project_id": "projects",
+            "student_profile_id": "student_profiles",
+            "academic_semester_id": "academic_semesters",
+            "opened_by": "users",
+            "locked_by": "users",
+            "final_grade_id": "final_grades"
+        },
+        "final_grades": {
+            "locked_by": "users",
+            "project_id": "projects",
+            "student_profile_id": "student_profiles",
+            "released_by": "users"
+        },
+        "assessment_windows": {
+            "academic_semester_id": "academic_semesters",
+            "opened_by": "users",
+            "closed_by": "users",
+            "created_by": "users"
+        },
+        "milestones": {
+            "project_id": "projects",
+            "milestone_template_item_id": "milestone_template_items",
+            "reviewed_by": "users",
+            "deadline_overridden_by": "users",
+            "lampiran_c_by": "users",
+            "lampiran_c_filed_by": "users",
+            "supervisor_signed_by": "users"
+        },
+        "submission_files": {
+            "milestone_id": "milestones",
+            "uploaded_by": "users",
+            "superseded_by": "users"
+        },
+        "submission_events": {
+            "milestone_id": "milestones",
+            "actor_id": "users"
+        },
+        "rubric_templates": {
+            "created_by": "users"
+        },
+        "rubric_components": {
+            "rubric_template_id": "rubric_templates"
+        },
+        "rubric_criteria": {
+            "rubric_component_id": "rubric_components"
+        },
+        "grade_schemes": {
+            "project_id": "projects",
+            "created_by": "users"
+        },
+        "evaluations": {
+            "project_id": "projects",
+            "assessor_id": "users",
+            "rubric_template_id": "rubric_templates",
+            "moderated_by": "users"
+        },
+        "evaluation_scores": {
+            "evaluation_id": "evaluations",
+            "rubric_component_id": "rubric_components",
+            "rubric_criterion_id": "rubric_criteria"
+        },
+        "audit_logs": {
+            "user_id": "users"
+        },
+        "archived_projects": {
+            "project_id": "projects",
+            "archived_by": "users"
+        },
+        "milestone_schedules": {
+            "academic_semester_id": "academic_semesters",
+            "updated_by": "users"
+        },
+        "sections": {
+            "lecturer_id": "users",
+            "academic_semester_id": "academic_semesters"
+        },
+        "lecturer_marks": {
+            "student_profile_id": "student_profiles",
+            "section_id": "sections",
+            "academic_semester_id": "academic_semesters",
+            "entered_by": "users"
+        },
+        "student_enrolments": {
+            "student_profile_id": "student_profiles",
+            "academic_semester_id": "academic_semesters",
+            "project_id": "projects",
+            "repeats_enrolment_id": "student_enrolments",
+            "enrolled_by": "users"
+        },
+        "milestone_reviews": {
+            "milestone_id": "milestones",
+            "reviewer_id": "users"
+        },
+        "lampiran_b_forms": {
+            "project_id": "projects",
+            "supervisor_profile_id": "supervisor_profiles",
+            "rejected_by": "users",
+            "supersedes_id": "lampiran_b_forms",
+            "superseded_by_id": "lampiran_b_forms",
+            "milestone_id": "milestones"
+        },
+        "supervisor_profiles": {
+            "user_id": "users"
+        },
+        "supervisor_expertise": {
+            "supervisor_profile_id": "supervisor_profiles",
+            "expertise_area_id": "expertise_areas"
+        },
+        "coordinator_scopes": {
+            "user_id": "users"
+        },
+        "supervision_assignments": {
+            "student_profile_id": "student_profiles",
+            "supervisor_profile_id": "supervisor_profiles",
+            "assigned_by": "users"
+        },
+        "project_members": {
+            "project_id": "projects",
+            "student_profile_id": "student_profiles"
+        },
+        "milestone_templates": {
+            "created_by": "users"
+        }
+    }
+}
