@@ -479,25 +479,26 @@ export const projectApi = {
     api.post('/projects/rollover', { project_ids: projectIds }).then(unwrap),
 
   /**
-   * The committee's verdict worklist — both batches, per project.
+   * There is no `verdicts()` and no `resolve()`.
    *
-   * Distinct from `rolloverCandidates`, which is PSM 1 only and gated on the
-   * whole term. Here each row carries its own `blocker`, so a project whose
-   * marks are not locked yet arrives with the reason attached rather than
-   * missing. Rows already decided come back too, so the screen can show the
-   * outcome instead of the buttons.
+   * A project's outcome is its mark: `final_mark >= 40` passes, below that
+   * fails, and the term close applies it. Asking a person to rule on top of
+   * that was a step that could only agree with the arithmetic or contradict it.
+   *
+   * `repeat()` stays — it is not a verdict. It starts the next attempt for a
+   * student who failed.
    */
-  verdicts: (params) => api.get('/projects/verdicts', { params }).then(unwrap),
 
   /**
-   * Rule on one project: `outcome` is `passed` or `failed`.
+   * Start a repeat of a failed part.
    *
-   * A fail needs a `reason` — it is what the student is shown and what the
-   * repeat is later justified by. Refused until the term's mark is locked,
-   * because a verdict commits a grade.
+   * The two batches diverge and the server decides which happens: PSM 1 goes
+   * back to registration (`mode: 'registration'`, no project created), PSM 2
+   * gets a fresh project in the following term. `keepTitle` is PSM 2 only —
+   * a PSM 1 repeat re-proposes through Lampiran A regardless.
    */
-  resolve: (id, outcome, reason) =>
-    api.post(`/projects/${id}/resolve`, { outcome, reason }).then(unwrap),
+  repeat: (id, keepTitle = true) =>
+    api.post(`/projects/${id}/repeat`, { keep_title: keepTitle }).then(unwrap),
 
   /**
    * Start a repeat of a failed part.

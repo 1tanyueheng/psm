@@ -15,9 +15,9 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
- * Module 3 — the panel's review of the proposal, and the title it settles.
+ * Module 3 â€” the panel's review of the proposal, and the title it settles.
  *
- * The title is decided at the **proposal milestone** — the first milestone of
+ * The title is decided at the **proposal milestone** â€” the first milestone of
  * every chain. The student files Lampiran A, the supervisor acknowledges, and
  * Lampiran B creates the project; from there the panel's verdict on the proposal
  * milestone is what gates the rest of the chain:
@@ -31,7 +31,7 @@ use InvalidArgumentException;
  *                       milestone for a fresh decision
  *
  * There is no coordinator-run sitting and no separate defence event. This
- * replaced both — the defence asked the same two examiners to judge the same
+ * replaced both â€” the defence asked the same two examiners to judge the same
  * candidate titles, and the coordinator's step only relayed a decision that was
  * not the coordinator's to make.
  */
@@ -65,7 +65,7 @@ class ProposalReviewService
 
         if ($decision->requiresReason() && $reason === '') {
             throw new InvalidArgumentException(
-                "A reason is required for a '{$decision->label()}' decision — "
+                "A reason is required for a '{$decision->label()}' decision â€” "
                 .'the student needs to know what to change before resubmitting.'
             );
         }
@@ -89,12 +89,12 @@ class ProposalReviewService
          * The panel accepted the title subject to corrections, so the student owes
          * a document: previous title, new title, and the corrections taken against
          * each examiner comment. Until now that obligation lived as four columns
-         * on the proposal and was invisible in the chain — a reader saw "Proposal
-         * — conditional" with no sign that anything was outstanding.
+         * on the proposal and was invisible in the chain â€” a reader saw "Proposal
+         * â€” conditional" with no sign that anything was outstanding.
          *
          * The other two verdicts create nothing:
-         *   Approved  — no corrections, nothing owed.
-         *   Rejected  — the title itself is refused; the student changes it via
+         *   Approved  â€” no corrections, nothing owed.
+         *   Rejected  â€” the title itself is refused; the student changes it via
          *               `changeTitle()` and the proposal reopens. There is no
          *               corrections document for a title that was never accepted.
          */
@@ -113,7 +113,7 @@ class ProposalReviewService
      * proposal.
      *
      * Inserted at `proposal.sequence + 1` and everything after it shifted down,
-     * so the chain reads: Proposal → Lampiran C → Chapters 1-4 → OSHE → Final
+     * so the chain reads: Proposal â†’ Lampiran C â†’ Chapters 1-4 â†’ OSHE â†’ Final
      * Report. The corrections step belongs immediately after the decision that
      * demanded it, not at the end of the term.
      *
@@ -170,7 +170,7 @@ class ProposalReviewService
 
             $this->audit->log(
                 action: AuditAction::MilestoneOpened,
-                description: "Lampiran C opened — conditional approval on {$project->code}",
+                description: "Lampiran C opened â€” conditional approval on {$project->code}",
                 subject: $milestone,
             );
 
@@ -179,7 +179,7 @@ class ProposalReviewService
     }
 
     /**
-     * Accept Lampiran C — the corrections a conditional approval required.
+     * Accept Lampiran C â€” the corrections a conditional approval required.
      *
      * Filed by the student. Accepting it is what makes the conditional approval
      * final, and the corrected title is what the project then carries.
@@ -199,7 +199,7 @@ class ProposalReviewService
 
         if ($title === '') {
             throw new InvalidArgumentException(
-                'Lampiran C must state the corrected title — it is the title the project will carry.'
+                'Lampiran C must state the corrected title â€” it is the title the project will carry.'
             );
         }
 
@@ -223,7 +223,7 @@ class ProposalReviewService
                 $milestone,
                 MilestoneStatus::Approved,
                 $actor,
-                "Lampiran C accepted — title confirmed as \"{$title}\"",
+                "Lampiran C accepted â€” title confirmed as \"{$title}\"",
                 [
                     'lampiran_c_title'   => $title,
                     'lampiran_c_actions' => $actions ?: null,
@@ -235,65 +235,12 @@ class ProposalReviewService
     }
 
     /**
-     * Change the title after a rejection.
-     *
-     * The title is the *project's* — so the change is written to
-     * `projects.title`, not held on the milestone. The milestone then reopens so
-     * the student can refile the proposal under the new title and the panel
-     * decides again.
-     */
-    public function changeTitle(Milestone $milestone, string $title, User $actor): Milestone
-    {
-        $this->assertIsProposal($milestone);
-
-        if (! in_array($milestone->status, [MilestoneStatus::Rejected, MilestoneStatus::Conditional], true)) {
-            throw new InvalidArgumentException(
-                'The title may only be changed while the proposal is rejected or conditionally '
-                ."approved. This milestone is '{$milestone->status->value}'."
-            );
-        }
-
-        $title = trim($title);
-
-        if ($title === '') {
-            throw new InvalidArgumentException('Enter the new title.');
-        }
-
-        if ($title === trim((string) $milestone->project?->title)) {
-            throw new InvalidArgumentException(
-                'That is already the project title — enter the title the panel should consider instead.'
-            );
-        }
-
-        return DB::transaction(function () use ($milestone, $title, $actor) {
-            $this->applyTitle($milestone, $title, $actor, 'title change');
-
-            // Reopen on a rejection: the proposal document now carries a new
-            // title, so the student refiles it and the panel decides again.
-            if ($milestone->status === MilestoneStatus::Rejected) {
-                return $this->milestones->transitionTo(
-                    $milestone,
-                    MilestoneStatus::Open,
-                    $actor,
-                    "Title changed to \"{$title}\" — resubmit the proposal for a fresh decision.",
-                );
-            }
-
-            return $milestone->fresh();
-        });
-    }
-
-    // -----------------------------------------------------------------
-    // The panel
-    // -----------------------------------------------------------------
-
-    /**
      * The examiners seated on the project's student, with each member's role.
      *
      * Read from the allocations rather than typed in, so the screen names the
      * people the system actually appointed. The panel is anchored on the
-     * *student*, because it is seated from Lampiran A onward — before the project
-     * exists — and the project is stamped onto the allocation by Lampiran B.
+     * *student*, because it is seated from Lampiran A onward â€” before the project
+     * exists â€” and the project is stamped onto the allocation by Lampiran B.
      *
      * @return array<int, array{user_id:int, name:string, role:?string, role_label:?string}>
      */
@@ -303,7 +250,7 @@ class ProposalReviewService
          * Reuse the loaded allocations when the caller has them.
          *
          * The project list renders every milestone, and each proposal milestone
-         * asked for its panel — so a cohort of 26 projects issued 26 separate
+         * asked for its panel â€” so a cohort of 26 projects issued 26 separate
          * `examiner_assignments` queries, plus the `projects` lookup that
          * `leader()` used to do. Both are now read from relations the
          * controller already eager-loaded, which collapses them to nothing on
@@ -352,7 +299,7 @@ class ProposalReviewService
      * `examiner.supervisorProfile` is eager-loaded because
      * `User::displayName()` reads the academic title from it. Without that the
      * panel cost one query per examiner for a value that was already reachable
-     * — and on a hosted database each one is a network round trip, so a
+     * â€” and on a hosted database each one is a network round trip, so a
      * two-person panel paid two.
      *
      * @return \Illuminate\Support\Collection<int, ExaminerAssignment>
@@ -376,7 +323,7 @@ class ProposalReviewService
     /**
      * Write a title to the project.
      *
-     * The project title *is* the confirmed title — Lampiran B registers it, and a
+     * The project title *is* the confirmed title â€” Lampiran B registers it, and a
      * decision that settles a different one must not leave the two disagreeing.
      * The audit entry names the cause so the change is traceable to the decision
      * that produced it.
@@ -399,7 +346,7 @@ class ProposalReviewService
 
         $this->audit->log(
             action: AuditAction::ProjectUpdated,
-            description: "Project title changed by {$cause} — \"{$before}\" → \"{$title}\"",
+            description: "Project title changed by {$cause} â€” \"{$before}\" â†’ \"{$title}\"",
             subject: $project,
             before: ['title' => $before],
             after: ['title' => $title],
@@ -420,7 +367,7 @@ class ProposalReviewService
     /**
      * The panel may only rule on a proposal its supervisor has endorsed.
      *
-     * `Reviewed` is the supervisor's signature — the faculty's sequence is that
+     * `Reviewed` is the supervisor's signature â€” the faculty's sequence is that
      * the supervisor reads the proposal **before** the title defence, and only
      * then does the panel sit. Accepting `Submitted` as well used to let the
      * panel decide on a document nobody had read, and because the title decision
@@ -444,7 +391,7 @@ class ProposalReviewService
                     .'Your supervisor reads it before the title defence, and their endorsement '
                     .'is what opens it to the panel.',
                 default =>
-                    'There is nothing to decide yet — the proposal has not been submitted. '
+                    'There is nothing to decide yet â€” the proposal has not been submitted. '
                     ."This milestone is '{$milestone->status->value}'.",
             }
         );

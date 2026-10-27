@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
- * Module 3 — Project registration and lifecycle.
+ * Module 3 Ã¢â‚¬â€ Project registration and lifecycle.
  */
 class ProjectController extends ApiController
 {
@@ -50,7 +50,7 @@ class ProjectController extends ApiController
     {
         $this->authorize('viewAny', Project::class);
 
-        // Requirement §4.2: the project list accepts `semester_id` and defaults
+        // Requirement Ã‚Â§4.2: the project list accepts `semester_id` and defaults
         // to the active term. A list that silently merged every term is the worst
         // possible screen to be ambiguous on, because it is the one a
         // coordinator uses to decide who still needs a supervisor.
@@ -60,7 +60,7 @@ class ProjectController extends ApiController
             ->visibleTo($request->user())
             // `role` narrows the permission-scoped list to one *relationship*.
             // `visibleTo()` returns supervised **and** examined projects because
-            // being on a panel is a reason to read a project — but the
+            // being on a panel is a reason to read a project Ã¢â‚¬â€ but the
             // supervisor's roster is a list of supervisees, and returning the
             // examined ones there showed other people's students as this
             // supervisor's. Absent `role` keeps the old, wider behaviour.
@@ -72,14 +72,14 @@ class ProjectController extends ApiController
             )
             // `academicSemester` for the term column, `milestones` for the
             // progress bar and next-milestone date the list renders. Without
-            // the latter the list showed 0% and "—" on every row.
+            // the latter the list showed 0% and "Ã¢â‚¬â€" on every row.
             ->with([
                 'academicSemester',
                 'students.user',
                 'students.activeSupervisions.supervisorProfile.user',
                 /**
                  * `milestones` for the progress bar and next-milestone date the
-                 * list renders — without it the list showed 0% and "—" on every
+                 * list renders Ã¢â‚¬â€ without it the list showed 0% and "Ã¢â‚¬â€" on every
                  * row.
                  *
                  * The nested `project` matters as much as the milestones
@@ -87,7 +87,7 @@ class ProjectController extends ApiController
                  * row, and `MilestonePolicy::decideTitle()` reads
                  * `$milestone->project` while the list is being authorised.
                  * Loading only `milestones` left each row to lazy-load its own
-                 * project — 15 extra queries on a 26-project cohort, each one a
+                 * project Ã¢â‚¬â€ 15 extra queries on a 26-project cohort, each one a
                  * network round trip on a hosted database.
                  *
                  * `project.examinerAssignments` is here for the proposal row's
@@ -119,7 +119,7 @@ class ProjectController extends ApiController
             $paginator,
             fn (Project $p) => (new ProjectResource($p))->resolve($request),
             // Echoed back so the UI can tell "the active term has no projects"
-            // apart from "you filtered by a term that does not exist" — two very
+            // apart from "you filtered by a term that does not exist" Ã¢â‚¬â€ two very
             // different empty states that look identical otherwise.
             ['semester_id' => $semesterId]
         );
@@ -174,8 +174,8 @@ class ProjectController extends ApiController
              * at the proposal milestone, and those sections live inside it.
              *
              * Asking for them at registration made the form ask for content the
-             * student could not legitimately have yet — the title is still a
-             * proposal at this point — so the fields were filled with placeholders
+             * student could not legitimately have yet Ã¢â‚¬â€ the title is still a
+             * proposal at this point Ã¢â‚¬â€ so the fields were filled with placeholders
              * to get past them, and then nothing downstream ever read them.
              */
             'objectives'       => ['nullable', 'string', 'max:3000'],
@@ -183,7 +183,7 @@ class ProjectController extends ApiController
             'category'         => ['required', Rule::in(ProjectCategory::values())],
             'psm_part'         => ['required', Rule::in(['PSM1', 'PSM2'])],
 
-            // Requirement §3.2: a project belongs to a semester. Omitting it falls
+            // Requirement Ã‚Â§3.2: a project belongs to a semester. Omitting it falls
             // back to the active term, which is what a student registering through
             // Lampiran A means; sending it explicitly is what a coordinator
             // back-filling a cohort for a closed term needs.
@@ -198,13 +198,13 @@ class ProjectController extends ApiController
          * PSM 1 is registered through **Lampiran A**, and only through it.
          *
          * This endpoint creates a project directly, and that is correct for a
-         * PSM 2 attempt — PSM 2 has no registration step, because the student
+         * PSM 2 attempt Ã¢â‚¬â€ PSM 2 has no registration step, because the student
          * already has a title and a supervisor carried over from PSM 1.
          *
          * For PSM 1 it is a shortcut that skips the whole registration chain.
          * The path requires the student to name a supervisor in Lampiran A, the
          * supervisor to acknowledge it, and *that acknowledgement* to fix the
-         * agreed title — which is then what Lampiran B registers. Coming in
+         * agreed title Ã¢â‚¬â€ which is then what Lampiran B registers. Coming in
          * through this door instead produced a project with:
          *
          *   - no supervisor pairings at all, so the supervisor named on the form
@@ -253,14 +253,14 @@ class ProjectController extends ApiController
             ?? $validated['academic_session']
             ?? $student->academic_session;
 
-        // Requirement §6.2's integrity rule: one live project per student, per
+        // Requirement Ã‚Â§6.2's integrity rule: one live project per student, per
         // semester, per batch.
         //
         // Scoped to the semester rather than checked globally, which is what lets
         // a PSM 1 student re-register for PSM 2 next term (acceptance criterion
         // #9) without having to archive anything by hand. The PSM part stays in
-        // the predicate so a student holding PSM 1 and PSM 2 in the same term —
-        // the concurrent-batch case this requirement exists for — is allowed,
+        // the predicate so a student holding PSM 1 and PSM 2 in the same term Ã¢â‚¬â€
+        // the concurrent-batch case this requirement exists for Ã¢â‚¬â€ is allowed,
         // while a second PSM 1 project in one term is not.
         if ($semester !== null && $student->hasActiveProjectInSemester($semester, $validated['psm_part'])) {
             return $this->fail(
@@ -509,7 +509,7 @@ class ProjectController extends ApiController
     /**
      * POST /api/projects/{project}/leaderboard-consent
      *
-     * Module 8 — the student's opt-out. Recorded, because consent is a
+     * Module 8 Ã¢â‚¬â€ the student's opt-out. Recorded, because consent is a
      * decision the system must be able to evidence.
      */
     public function toggleLeaderboardConsent(Request $request, Project $project): JsonResponse
@@ -575,7 +575,7 @@ class ProjectController extends ApiController
      * Move the student from this PSM 1 project into PSM 2.
      *
      * PSM 1 and PSM 2 are one project across two continuous terms on one title,
-     * and only PSM 1 registers a title — so PSM 2 is reached by progressing, not
+     * and only PSM 1 registers a title Ã¢â‚¬â€ so PSM 2 is reached by progressing, not
      * by filing a second Lampiran A. The title, the supervisor and the examiner
      * pair all carry over, and PSM 1 is archived in the same step.
      *
@@ -603,55 +603,7 @@ class ProjectController extends ApiController
                 'code'  => $milestone->code,
                 'title' => $milestone->title,
             ])->all(),
-        ], 'Student progressed to PSM 2 — the PSM 1 project has been archived.');
-    }
-
-    /**
-     * POST /api/projects/{project}/resolve
-     *
-     * The committee's verdict: this project passed, or the student repeats.
-     *
-     * This is the step the lifecycle was missing. A project used to end only by
-     * an administrator archiving it, which said nothing about whether the work
-     * passed — so a failed student stayed `in_progress` for ever, kept their
-     * supervisor's capacity consumed, and had no route to repeat.
-     *
-     * Resolving closes the people attached to the project: the supervisor stops
-     * carrying the student (unless another part is still running), and the panel
-     * is released. A fail requires a reason.
-     */
-    public function resolveProject(Request $request, Project $project): JsonResponse
-    {
-        $this->authorize('resolve', $project);
-
-        $validated = $request->validate([
-            'outcome' => ['required', 'string', Rule::in([
-                ProjectResolutionService::OUTCOME_PASSED,
-                ProjectResolutionService::OUTCOME_FAILED,
-            ])],
-            'reason'  => ['nullable', 'string', 'max:2000'],
-        ]);
-
-        try {
-            $resolved = $this->resolution->resolve(
-                $project,
-                $validated['outcome'],
-                $validated['reason'] ?? null,
-                $request->user(),
-            );
-        } catch (InvalidArgumentException $e) {
-            return $this->fail($e->getMessage(), 422);
-        }
-
-        return $this->ok([
-            'project_id' => $resolved->id,
-            'code'       => $resolved->code,
-            'psm_part'   => $resolved->psm_part,
-            'status'     => $resolved->status,
-            'outcome'    => $validated['outcome'],
-        ], $validated['outcome'] === ProjectResolutionService::OUTCOME_FAILED
-            ? 'Project recorded as failed. The student may now repeat this part.'
-            : 'Project recorded as completed.');
+        ], 'Student progressed to PSM 2 Ã¢â‚¬â€ the PSM 1 project has been archived.');
     }
 
     /**
@@ -662,13 +614,13 @@ class ProjectController extends ApiController
      * The two parts behave differently here, by the faculty's rule:
      *
      *  - **PSM 1** starts over **from registration**. A student who failed
-     *    PSM 1 files Lampiran A again — new supervisor pairing if they choose,
+     *    PSM 1 files Lampiran A again â€” new supervisor pairing if they choose,
      *    new title, and the whole chain (Lampiran B, proposal, OSHE, Chapters
      *    1-4). This endpoint therefore does *not* create a project for PSM 1:
      *    a project only exists once Lampiran B registers it, and creating one
      *    here would skip the registration the faculty requires.
-     *  - **PSM 2** repeats **in place**. There is no second registration — the
-     *    student already has a title and a supervisor — so a new PSM 2 project
+     *  - **PSM 2** repeats **in place**. There is no second registration â€” the
+     *    student already has a title and a supervisor â€” so a new PSM 2 project
      *    is created directly, with the same supervisor and panel, and the
      *    Chapters 5-7 chain is instantiated fresh.
      *
@@ -697,109 +649,9 @@ class ProjectController extends ApiController
         return $this->created(
             $result,
             $result['mode'] === 'registration'
-                ? 'PSM 1 repeats from registration — the student must file Lampiran A again.'
+                ? 'PSM 1 repeats from registration â€” the student must file Lampiran A again.'
                 : 'A new PSM 2 attempt has been created.'
         );
-    }
-
-    /**
-     * GET /api/projects/verdicts
-     *
-     * The committee's worklist: every project in a term with whether a verdict
-     * can be given yet, and what that verdict was if it already has one.
-     *
-     * Separate from `/projects/rollover` because it answers a different question.
-     * Rollover asks "who may move to PSM 2" — PSM 1 only, gated on the whole
-     * term. This asks "what is the outcome of each project" — **both parts**,
-     * gated per project on its own marks, because that is how a committee
-     * actually sits: it rules on the PSM 2 cohort in the same meeting as the
-     * PSM 1 one, and a single student's ruling does not wait on their neighbour.
-     *
-     * Every project is returned, decidable or not. The reason travels on the
-     * row, so a coordinator sees *why* a student cannot be ruled on rather than
-     * finding them missing from the list — the same principle the rollover
-     * screen already follows.
-     */
-    public function verdictCandidates(Request $request): JsonResponse
-    {
-        $this->authorize('viewAny', Project::class);
-
-        $semesterId = AcademicSemester::resolveFilterId($request->input('semester_id'));
-
-        if ($semesterId === null) {
-            return $this->ok([
-                'semester'   => null,
-                'candidates' => [],
-            ]);
-        }
-
-        $projects = Project::query()
-            ->where('academic_semester_id', $semesterId)
-            ->when($request->filled('psm_part'), fn ($q) => $q->where('psm_part', $request->input('psm_part')))
-            ->with([
-                'members.studentProfile.user',
-                'members.studentProfile.activeSupervisions.supervisorProfile.user',
-            ])
-            ->orderBy('code')
-            ->get();
-
-        $submissions = MarkSubmission::query()
-            ->whereIn('project_id', $projects->pluck('id'))
-            ->with('finalGrade')
-            ->get()
-            ->keyBy('project_id');
-
-        $candidates = $projects->map(function (Project $project) use ($submissions) {
-            $student = $project->leader();
-            $submission = $submissions->get($project->id);
-
-            /**
-             * Three possible reasons a verdict is not available, in the order a
-             * coordinator would hit them: no student, no window, marks not in.
-             */
-            $blocker = match (true) {
-                $student === null   => 'No student on this project.',
-                $submission === null => 'No assessment window has been opened for this project.',
-                $submission->status->value !== 'locked' => 'Marks are not locked yet ('
-                    .$submission->status->value.').',
-                default => null,
-            };
-
-            $metadata = $project->metadata ?? [];
-
-            return [
-                'project_id'   => $project->id,
-                'code'         => $project->code,
-                'title'        => $project->title,
-                'psm_part'     => $project->psm_part,
-                'batch'        => $project->batch,
-                'program'      => $project->program,
-                'student_id'   => $student?->student_id,
-                'student_name' => $student?->user?->name,
-                'supervisor'   => $student?->activeSupervisions
-                    ?->firstWhere('is_active', true)?->supervisorProfile?->user?->name,
-                'status'       => $project->status,
-                'finished'     => $project->isFinished(),
-                'passed'       => $project->isPassed(),
-                // Null means "a verdict may be given now"; a string says why not.
-                'blocker'      => $blocker,
-                'can_resolve'  => $blocker === null && ! $project->isFinished(),
-                // A failed project may be repeated — subject to the term having
-                // closed, which the service enforces and the screen restates.
-                'can_repeat'   => $project->status === 'failed',
-                'outcome_reason' => $metadata['outcome_reason'] ?? null,
-                'resolved_at'  => $metadata['resolved_at'] ?? null,
-                'resolved_by'  => $metadata['resolved_by_name'] ?? null,
-                'mark'         => $submission?->finalGrade?->final_mark,
-                'submission_status' => $submission?->status->value,
-            ];
-        })->values()->all();
-
-        return $this->ok([
-            'semester'   => AcademicSemester::find($semesterId)?->name,
-            'semester_id'=> $semesterId,
-            'candidates' => $candidates,
-        ]);
     }
 
     /**
@@ -810,7 +662,7 @@ class ProjectController extends ApiController
      * Returns every live PSM 1 project in the term with the figures the screen
      * needs to show the choice honestly: the title that will carry over, the
      * supervisor who will keep the student, and whether this student can move
-     * yet. The list is *not* filtered to the eligible — a coordinator looking
+     * yet. The list is *not* filtered to the eligible Ã¢â‚¬â€ a coordinator looking
      * for a missing student needs to see them present and blocked, not absent.
      *
      * The term's own readiness is returned alongside so the screen can explain
@@ -854,7 +706,7 @@ class ProjectController extends ApiController
          * Rollover candidates are PSM 1 projects still **running**.
          *
          * `active()`, not `whereNull('archived_at')`: a PSM 1 project the
-         * committee already resolved — passed or failed — is not a candidate.
+         * committee already resolved Ã¢â‚¬â€ passed or failed Ã¢â‚¬â€ is not a candidate.
          * A failed one in particular must drop off this list, because the
          * student repeats from registration rather than being progressed, and
          * offering it here would let a coordinator progress a student who has
@@ -932,9 +784,9 @@ class ProjectController extends ApiController
 
         $message = match (true) {
             $moved === 0 && $failed === 0 => 'Nothing was selected, so nothing moved.',
-            $moved === 0 => "No students were progressed — see the reasons below.",
+            $moved === 0 => "No students were progressed Ã¢â‚¬â€ see the reasons below.",
             $failed === 0 => "{$moved} student(s) progressed to PSM 2. Their PSM 1 projects are archived.",
-            default => "{$moved} student(s) progressed to PSM 2. {$failed} could not be — see the reasons.",
+            default => "{$moved} student(s) progressed to PSM 2. {$failed} could not be Ã¢â‚¬â€ see the reasons.",
         };
 
         return $this->ok([
@@ -964,7 +816,7 @@ class ProjectController extends ApiController
 
         return $this->ok($projects->map(fn (Project $p) => [
             'value' => $p->id,
-            'label' => "{$p->code} — {$p->title}",
+            'label' => "{$p->code} Ã¢â‚¬â€ {$p->title}",
             'meta'  => [
                 'batch'               => $p->batch,
                 'status'              => $p->status,
@@ -980,7 +832,7 @@ class ProjectController extends ApiController
      * the two batches, and the terms registration is open for.
      *
      * The term list and the registration gate used to be absent, which left the
-     * form asking a student to type an academic session as free text — so the
+     * form asking a student to type an academic session as free text Ã¢â‚¬â€ so the
      * project it created had no term on it, and was invisible to every
      * semester-scoped screen afterwards.
      */
@@ -1000,8 +852,8 @@ class ProjectController extends ApiController
          * BIS student was offered eleven staff who could never supervise them
          * and choosing one produced an agreement the faculty cannot act on.
          *
-         * The rule was already enforced when a *coordinator* allocates — see
-         * `AssignmentService`, which calls `programmeRefusal()` — but not here,
+         * The rule was already enforced when a *coordinator* allocates Ã¢â‚¬â€ see
+         * `AssignmentService`, which calls `programmeRefusal()` Ã¢â‚¬â€ but not here,
          * so the two paths disagreed about the same pairing.
          */
         $studentProgramme = $request->user()->studentProfile?->program_code;
@@ -1019,7 +871,7 @@ class ProjectController extends ApiController
              * Only supervisors of the student's programme.
              *
              * `canSuperviseProgramme()` fails open when either side has no
-             * recorded programme — a legacy student row, or a supervisor whose
+             * recorded programme Ã¢â‚¬â€ a legacy student row, or a supervisor whose
              * programme was never set. Refusing on missing data would lock out
              * every such account, and the faculty's answer to a blank field is
              * "fill it in", not "this person can never pair". Where the
@@ -1047,13 +899,13 @@ class ProjectController extends ApiController
 
             /**
              * The programme the shortlist was filtered to, so the form can say
-             * so — otherwise a student wonders why a supervisor they know is
+             * so Ã¢â‚¬â€ otherwise a student wonders why a supervisor they know is
              * missing from the list.
              */
             'student_programme' => $studentProgramme,
 
             // Terms the student could actually register into. Only the active term
-            // can have an open window, so this is normally a single option — which
+            // can have an open window, so this is normally a single option Ã¢â‚¬â€ which
             // is the point: it removes the student's ability to invent a session
             // string that matches no term.
             'semesters'    => AcademicSemesterResource::collection(
@@ -1069,7 +921,7 @@ class ProjectController extends ApiController
             /**
              * Whether this student may create a PSM 1 project from this form.
              *
-             * Only true once a supervisor has acknowledged their Lampiran A —
+             * Only true once a supervisor has acknowledged their Lampiran A Ã¢â‚¬â€
              * that acknowledgement is what fixes the agreed title, and the
              * project is meant to register *that* title, not one the student
              * typed here. The screen uses this to explain the sequence instead

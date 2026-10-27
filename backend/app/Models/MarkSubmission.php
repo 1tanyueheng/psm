@@ -12,12 +12,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Module 4 — one student's mark for one project in one PSM part, from the
+ * Module 4 â€” one student's mark for one project in one PSM part, from the
  * moment a coordinator opens it to the moment it is locked.
  *
  * This is the record the flow the user described needs. The pieces already
- * existed — an `evaluations` row per assessor and a `final_grades` row per
- * student — but nothing joined them into a unit with a lifecycle, so "the mark
+ * existed â€” an `evaluations` row per assessor and a `final_grades` row per
+ * student â€” but nothing joined them into a unit with a lifecycle, so "the mark
  * is final" was never a moment anyone could reach.
  *
  * A submission does not own the marks. It owns the *promise* that a known set
@@ -87,9 +87,87 @@ class MarkSubmission extends Model
         return $this->belongsTo(User::class, 'locked_by');
     }
 
-    public function finalGrade(): BelongsTo
+    /**
+     * The computed grade for this submission's project and student.
+     *
+     * **Not a `belongsTo` on a foreign key.** There is no
+     * `final_grades.mark_submission_id` column: `FinalGrade` is keyed on
+     * `(project_id, student_profile_id, psm_part)`, which is the pair the mark
+     * actually belongs to.
+     *
+     * The previous version â€” `belongsTo(FinalGrade::class)` with no key â€” made
+     * Eloquent look for `final_grades.mark_submission_id`, a column that has
+     * never existed. It appeared to work for exactly one row because
+     * `mark_submissions.id` happened to equal `project_id` there and the default
+     * key resolved by luck; every other row threw
+     * `Undefined column: mark_submission_id`. Found by the term-close test.
+     *
+     * `hasOne` on the real identity is what this always meant: one submission
+     * per project per part, one grade per student per project per part.
+     */
+    /**
+     * The computed grade for this submission's project and student.
+     *
+     * **Not an Eloquent relation.** There is no `final_grades.mark_submission_id`
+     * column: `FinalGrade` is keyed on `(project_id, student_profile_id,
+     * psm_part)`, and a relation cannot express a three-column identity that
+     * also has to eager-load. Two attempts failed for that reason â€”
+     * `belongsTo` looked for a column that does not exist, and `hasOne` with
+     * `whereColumn` breaks under `with('finalGrade')` because the parent table
+     * is not in the query at all.
+     *
+     * A cached lookup is honest about what this is: one row per project per
+     * student per part, fetched on demand and remembered for the instance.
+     * `with('finalGrade')` still behaves â€” it simply does nothing â€” so callers
+     * that ask for it keep working; ask for `final_mark` instead.
+     *
+     * Found by the term-close test, which read every project's mark and got
+     * null for all of them.
+     */
+    public function getFinalGradeAttribute(): ?FinalGrade
     {
-        return $this->belongsTo(FinalGrade::class);
+        if ($this->relationLoaded('finalGrade')) {
+            return $this->relations['finalGrade'];
+        }
+
+        $grade = FinalGrade::query()
+            ->where('project_id', $this->project_id)
+            ->where('student_profile_id', $this->student_profile_id)
+            ->where('psm_part', $this->psm_part)
+            ->first();
+
+        $this->relations['finalGrade'] = $grade;
+
+        return $grade;
+    }
+
+    /**
+     * Eager-load the grade for a set of submissions in one query.
+     *
+     * `with('finalGrade')` cannot work (see above), so the term close selects
+     * the grades directly with `whereIn` instead. This does the same and keys
+     * them back onto the submissions, which is what a caller looping over a
+     * cohort actually needs.
+     */
+    public static function preloadFinalGrades(iterable $submissions): void
+    {
+        $submissions = collect($submissions);
+
+        if ($submissions->isEmpty()) {
+            return;
+        }
+
+        $grades = FinalGrade::query()
+            ->whereIn('project_id', $submissions->pluck('project_id')->unique())
+            ->get();
+
+        foreach ($submissions as $submission) {
+            $match = $grades->first(fn (FinalGrade $g) => $g->project_id === $submission->project_id
+                && $g->student_profile_id === $submission->student_profile_id
+                && (string) $g->psm_part === (string) $submission->psm_part);
+
+            $submission->relations['finalGrade'] = $match;
+        }
     }
 
     /**
@@ -113,13 +191,13 @@ class MarkSubmission extends Model
      */
     public function expectedAssessors(): array
     {
-        // A supervision links a student to a supervisor — there is no
+        // A supervision links a student to a supervisor â€” there is no
         // project_id on the table. `forPart` matches this submission's part or
         // a BOTH-part supervision.
         //
         // Guard the part: this method is public and reachable from eager-load
         // closures, where the model may be a blank instance. Returning no
-        // assessors fails closed — the readiness gate then reports outstanding
+        // assessors fails closed â€” the readiness gate then reports outstanding
         // forms rather than silently passing.
         $supervision = $this->psm_part === null ? null : SupervisionAssignment::query()
             ->where('student_profile_id', $this->student_profile_id)
@@ -134,7 +212,7 @@ class MarkSubmission extends Model
             // Scoped to this submission's part, matching resolvePanel() on the
             // service side. Without it the expectation is every examiner on the
             // project node rather than the panel for *this* batch: a project
-            // carrying rows for both parts — which this data does — would
+            // carrying rows for both parts â€” which this data does â€” would
             // demand forms from the other batch's examiners, and readiness
             // would never clear.
             ->when($this->psm_part !== null, fn ($q) => $q->where('psm_part', $this->psm_part))
@@ -152,7 +230,7 @@ class MarkSubmission extends Model
      * The forms actually attributable to this student.
      *
      * Filtered by assessor identity rather than by any student column, because
-     * `evaluations.assessor_id` is a *user* id and `student_profile_id` is not —
+     * `evaluations.assessor_id` is a *user* id and `student_profile_id` is not â€”
      * comparing them directly would silently match the wrong person.
      *
      * @return \Illuminate\Database\Eloquent\Collection<int, Evaluation>
@@ -186,7 +264,7 @@ class MarkSubmission extends Model
                 'status'         => $e->status?->value,
                 'status_label'   => $e->status?->label(),
                 'submitted_at'   => $e->submitted_at?->toIso8601String(),
-                // The mark in the form's own units, plus its own maximum —
+                // The mark in the form's own units, plus its own maximum â€”
                 // this is what the Lampiran prints. `score` is the percentage
                 // and is kept for the readiness arithmetic, not for display.
                 'raw_score'      => $e->raw_score !== null ? (float) $e->raw_score : null,
@@ -211,8 +289,8 @@ class MarkSubmission extends Model
      * Is every form this submission expects back?
      *
      * Read from the evaluation rows on every call rather than cached. The panel
-     * can change after opening — an examiner can be stood down, or excused for
-     * a conflict — and a stored 'ready' flag would keep demanding a form from
+     * can change after opening â€” an examiner can be stood down, or excused for
+     * a conflict â€” and a stored 'ready' flag would keep demanding a form from
      * someone who is no longer on the panel.
      */
     public function isReadyToLock(): bool
@@ -254,8 +332,8 @@ class MarkSubmission extends Model
         /**
          * Every supervisor form must come back, and there may be more than one.
          *
-         * PSM 1 has a single supervisor form (E). PSM 2 has three — the main
-         * evaluation (G) plus the two progress reports (H1, H2) — so a check
+         * PSM 1 has a single supervisor form (E). PSM 2 has three â€” the main
+         * evaluation (G) plus the two progress reports (H1, H2) â€” so a check
          * for "exactly one" would refuse every PSM 2 submission outright. What
          * actually matters is that each *allocated* form is returned; the
          * count is a consequence of that, not a rule in itself.

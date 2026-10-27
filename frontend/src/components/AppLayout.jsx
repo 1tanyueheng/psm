@@ -98,14 +98,15 @@ const MENU = [
       { to: '/assessment', label: 'Assessment', roles: ['coordinator', 'admin'] },
       { to: '/marks', label: 'Marks & Release', roles: ['coordinator', 'admin'] },
       /*
-       * Closing the term: pass or fail each project.
+       * There is no Verdicts entry.
        *
-       * Sits directly under Marks & Release because it is the next step in the
-       * same sequence — marks are locked there, then ruled on here. This is also
-       * where the retired Archive button's job now lives: a finished project is
-       * no longer hidden, it is given an outcome.
+       * A project's outcome is its mark: `final_mark >= 40` passes, below that
+       * fails, applied when the term closes. A screen asking a committee to
+       * confirm that could only agree with the arithmetic — a wasted step — or
+       * contradict it, which produces a grade nobody can adjudicate. What a
+       * coordinator actually needs at the end of term is on Marks & Release:
+       * the marks, and whether they are all in.
        */
-      { to: '/verdicts', label: 'Verdicts', roles: ['coordinator', 'admin'] },
       { to: '/rubrics', label: 'Rubrics', roles: ['supervisor', 'coordinator', 'admin'] },
     ],
   },

@@ -421,16 +421,6 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
                 ->name('rollover.index');
             Route::post('rollover', [ProjectController::class, 'rollover'])
                 ->name('rollover.store');
-
-            /**
-             * The verdict worklist.
-             *
-             * Also a literal segment, and also before the `{project}` wildcard
-             * for the same reason `rollover` is: "verdicts" would otherwise be
-             * read as a project id.
-             */
-            Route::get('verdicts', [ProjectController::class, 'verdictCandidates'])
-                ->name('verdicts.index');
         });
 
         Route::post('/', [ProjectController::class, 'store'])
@@ -454,17 +444,18 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
                 ->name('progress-to-psm2');
 
             /**
-             * The committee's verdict, and the repeat that follows a fail.
+             * The repeat that follows a failure.
              *
-             * `resolve` is the step the lifecycle was missing between "the marks
-             * are in" and "this part is over": it records pass or fail and closes
-             * the supervisor and panel attached to the project. `repeat` starts
-             * the next attempt — which for PSM 1 means handing the student back
-             * to registration rather than creating a project, because a PSM 1
-             * project only exists once Lampiran B registers the title.
+             * `resolve` used to sit here: a committee recording pass or fail by
+             * hand. It is gone — the mark decides the outcome, and the term close
+             * applies it (see `TermCloseService`). A second opinion could only
+             * agree with the mark or contradict it.
+             *
+             * `repeat` stays, and is not a verdict: it starts the next attempt,
+             * which for PSM 1 means handing the student back to registration
+             * rather than creating a project, because a PSM 1 project only
+             * exists once Lampiran B registers the title.
              */
-            Route::post('{project}/resolve', [ProjectController::class, 'resolveProject'])
-                ->name('resolve');
             Route::post('{project}/repeat', [ProjectController::class, 'repeatProject'])
                 ->name('repeat');
         });
@@ -486,7 +477,7 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
      * does, so nesting it there would say the opposite of what the model means.
      *
      * `eligible` is a literal segment and is registered before any `{enrolment}`
-     * wildcard, for the same reason `rollover` and `verdicts` are.
+     * wildcard, for the same reason `rollover` is.
      */
     Route::prefix('enrolments')->name('enrolments.')->group(function () {
         Route::get('/', [EnrolmentController::class, 'index'])->name('index');
@@ -575,10 +566,16 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
         Route::post('{milestone}/lampiran-c', [MilestoneController::class, 'fileLampiranC'])
             ->name('lampiran-c');
 
-        // Change the title after a rejection; the milestone reopens for a
-        // fresh decision.
-        Route::post('{milestone}/change-title', [MilestoneController::class, 'changeTitle'])
-            ->name('change-title');
+        /*
+         * There is no `change-title` route.
+         *
+         * A refused title is re-presented by **filing a new Lampiran B**, which
+         * carries the supervisor's signature. `changeTitle()` let the proposal
+         * owner rewrite `projects.title` with no supervisor involved and no
+         * record of the refused title — so the faculty's file showed a title
+         * that no panel had ever ruled on. See `thesis/PSM-LIFECYCLE-SPEC.md`
+         * §3.2.
+         */
 
         Route::post('{milestone}/deadline', [MilestoneController::class, 'changeDeadline'])
             ->middleware('role:admin,coordinator')

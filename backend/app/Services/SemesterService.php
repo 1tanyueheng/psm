@@ -35,6 +35,7 @@ class SemesterService
 {
     public function __construct(
         protected AuditLogger $audit,
+        protected TermCloseService $termClose,
     ) {
     }
 
@@ -239,6 +240,22 @@ class SemesterService
         }
 
         $this->assertMarkingIsComplete($semester);
+
+        /**
+         * Give every project its outcome, and release the people attached to it.
+         *
+         * This is where a project ends. Closing the term derives `passed` or
+         * `failed` from each project's final mark, closes the supervision and
+         * the panel, and settles the enrolments — all in one transaction, so the
+         * term cannot close with a student left `running` or a supervisor still
+         * carrying someone who has finished.
+         *
+         * `TermCloseService` re-checks readiness before writing, including the
+         * one case `assertMarkingIsComplete()` above cannot see: a student who is
+         * enrolled but has no project, and therefore has no submission to be
+         * outstanding.
+         */
+        $outcomes = $this->termClose->close($semester, $actor);
 
         $semester->update([
             'is_active'            => false,
