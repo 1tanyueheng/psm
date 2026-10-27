@@ -1,21 +1,20 @@
 """Sequence diagram - Manage Evaluation.
 
-Simplified for the page. **One message per thing that changes hands**, not one
-per method call: a request and its reply are a single row, and the controller
-handing work to the service is the same row as the service answering.
+The assessor does two things the system has to keep apart: **save** a mark
+(editable, repeatable) and **submit** the form (final, locked). Those two are the
+two bands that end in a round trip.
 
-The use case has one human who does two things - marks and submits:
+Guards are one labelled message each - "validate" before saving, "check complete"
+before submitting - rather than a self-call per condition. The controller-to-
+service call is kept, because it is where the rule about windows and editable
+status lives, and that is a fact about the design, not a detail.
 
-    1  the assessor opens a form            -> the rubric comes back
-    2  the assessor saves marks             -> weighted marks are stored
-    3  the assessor submits the form        -> the form locks, the mark publishes
-
-Nine numbered messages, five lifelines, three bands. The gates are written on
-the message that enforces them instead of being drawn as separate calls, because
-Table 4.4 and Figure 4.8 already spell them out.
+Twelve messages. The conditions themselves are in Table 4.4 and the branches are
+shapes in Figure 4.8.
 
 Grounded in `EvaluationController::saveMarks` / `submit`,
-`EvaluationService::saveMarks` / `submit` and `MarkVisibilityService`.
+`EvaluationService::saveMarks` / `submit` / `computeFinalGrade` and
+`MarkVisibilityService::syncProject`.
 """
 import os
 import sys
@@ -25,7 +24,7 @@ from seqkit import Sequence
 
 OUT = r"C:\Users\yuehe\Desktop\study\fyp\AIProject\psm-system\thesis\diagrams\sequence_evaluation.png"
 
-XS = [150, 500, 880, 1290, 1700]
+XS = [160, 520, 900, 1290, 1690]
 HEADS = [
     "Assessor",
     "Evaluation UI\n(React SPA)",
@@ -35,42 +34,39 @@ HEADS = [
 ]
 
 STEPS = [
-    {"kind": "section", "label": "1. Marking  ·  one 0-5 score per criterion"},
+    {"kind": "section", "label": "1. Open a form and mark it  ·  one 0-5 score per criterion"},
 
     {"a": 0, "b": 1, "kind": "call", "label": "1. Open the allocated form"},
     {"a": 1, "b": 2, "kind": "call", "label": "2. GET /api/evaluations/{id}"},
     {"a": 2, "b": 3, "kind": "call",
-     "label": "3. Load the form with its rubric and scores"},
+     "label": "3. Load the rubric and the existing scores"},
     {"a": 3, "b": 4, "kind": "call",
      "label": "4. SELECT evaluation_scores + weights"},
     {"a": 2, "b": 1, "kind": "return",
-     "label": "5. 200 OK: one 0-5 select per criterion"},
-    {"a": 1, "b": 0, "kind": "return", "label": "6. The form is shown"},
+     "label": "5. One 0-5 select per criterion"},
 
-    {"kind": "section", "label": "2. Saving  ·  the item score becomes the rubric's own weight"},
+    {"kind": "section", "label": "2. Save the marks  ·  the item score becomes the rubric's weight"},
 
-    {"a": 0, "b": 1, "kind": "call", "label": "7. Choose scores and a comment"},
-    {"a": 1, "b": 2, "kind": "call", "label": "8. PUT /api/evaluations/{id}/marks"},
-    {"a": 2, "b": 3, "kind": "call", "label": "9. saveMarks(evaluation, marks)"},
+    {"a": 0, "b": 1, "kind": "call", "label": "6. Choose scores and a comment"},
+    {"a": 1, "b": 2, "kind": "call", "label": "7. PUT /api/evaluations/{id}/marks"},
+    {"a": 2, "b": 3, "kind": "call", "label": "8. saveMarks(evaluation, marks)"},
     {"a": 3, "b": 3, "kind": "self",
-     "label": "10. Gate: the form is editable and\nthis form's window is open"},
+     "label": "9. Validate: the form is editable\nand its own window is open"},
     {"a": 3, "b": 4, "kind": "call",
-     "label": "11. UPDATE the weighted mark\n+ the item score as answered"},
-    {"a": 2, "b": 1, "kind": "return", "label": "12. 200 OK: marks saved"},
+     "label": "10. Save the weighted mark\nand the item score"},
+    {"a": 2, "b": 1, "kind": "return", "label": "11. Marks saved"},
 
-    {"kind": "section", "label": "3. Submitting  ·  the form locks and the mark is published in one step"},
+    {"kind": "section", "label": "3. Submit  ·  the form locks and the mark is published in one step"},
 
-    {"a": 0, "b": 1, "kind": "call", "label": "13. Submit"},
-    {"a": 1, "b": 2, "kind": "call", "label": "14. POST /api/evaluations/{id}/submit"},
-    {"a": 2, "b": 3, "kind": "call", "label": "15. submit(evaluation)"},
+    {"a": 0, "b": 1, "kind": "call", "label": "12. Submit the form"},
+    {"a": 1, "b": 2, "kind": "call", "label": "13. POST /api/evaluations/{id}/submit"},
+    {"a": 2, "b": 3, "kind": "call", "label": "14. submit(evaluation)"},
     {"a": 3, "b": 3, "kind": "self",
-     "label": "16. Gate: every criterion marked, the\nmilestones approved, the window open"},
+     "label": "15. Check complete: every criterion\nmarked, milestones approved"},
     {"a": 3, "b": 4, "kind": "call",
-     "label": "17. Lock the form, recompute the final\nmark, publish it to the student"},
-    {"a": 3, "b": 4, "kind": "call", "label": "18. Notify the coordinator"},
-    {"a": 2, "b": 1, "kind": "return", "label": "19. 200 OK: marks locked"},
-    {"a": 1, "b": 0, "kind": "return",
-     "label": "20. The student sees the mark"},
+     "label": "16. Lock the form, recompute and\npublish the final mark"},
+    {"a": 2, "b": 1, "kind": "return", "label": "17. Marks locked"},
+    {"a": 1, "b": 0, "kind": "return", "label": "18. The student sees the mark"},
 ]
 
 

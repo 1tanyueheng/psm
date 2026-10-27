@@ -1,18 +1,14 @@
 """Sequence diagram - Manage Title and Registration.
 
-Simplified for the page. The rule applied: **one message per thing that
-changes hands**, not one per method call. A request and its reply are one row;
-a controller delegating to a service and the service answering are one row.
+Drawn at the level the reader needs: who asks whom for what, in order. A
+request and its reply are one exchange (the arrow returns on the same row when
+the reply is the answer to the request), controller-to-service delegation is
+kept because it says where the rule lives, and each stage's guard is one
+labelled message rather than a self-call per check.
 
-So the four stages of the use case are four request/response exchanges:
-
-    1  the student files Lampiran A            -> the agreement waits
-    2  the supervisor acknowledges it           -> the supervisor and the title are fixed
-    3  the student files Lampiran B, signs it   -> the proposal opens
-    4  the student withdraws                    -> the filing is cancelled
-
-Ten numbered messages, six lifelines, four bands. The guard on each stage is
-written on the message that enforces it rather than drawn as a separate call.
+Fifteen messages. Everything that is not a step of the *flow* is elsewhere:
+the individual guards are listed in Table 4.2, and the branches are shapes in
+Figure 4.4.
 
 Grounded in `RegistrationService::submitAgreement` / `acknowledgeBySupervisor`
 / `withdrawAgreement` and `LampiranBController::file` / `sign`.
@@ -25,7 +21,7 @@ from seqkit import Sequence
 
 OUT = r"C:\Users\yuehe\Desktop\study\fyp\AIProject\psm-system\thesis\diagrams\sequence_title.png"
 
-XS = [150, 500, 860, 1220, 1600, 1960]
+XS = [150, 500, 860, 1220, 1600, 1970]
 HEADS = [
     "Student /\nSupervisor",
     "Registration UI\n(React SPA)",
@@ -36,49 +32,45 @@ HEADS = [
 ]
 
 STEPS = [
-    {"kind": "section", "label": "1. Filing Lampiran A  ·  the student proposes up to three titles"},
+    {"kind": "section", "label": "1. Filing Lampiran A"},
+
+    {"a": 0, "b": 1, "kind": "call", "label": "1. Fill in Lampiran A and submit"},
+    {"a": 1, "b": 2, "kind": "call",
+     "label": "2. POST /api/registrations/agreements"},
+    {"a": 2, "b": 3, "kind": "call", "label": "3. submitAgreement(...)"},
+    {"a": 3, "b": 3, "kind": "self",
+     "label": "4. Validate: open term, no project yet,\ntitle usable, supervisor serves\nthe programme"},
+    {"a": 3, "b": 4, "kind": "call",
+     "label": "5. Save the agreement\nstatus = pending_supervisor"},
+    {"a": 2, "b": 1, "kind": "return", "label": "6. 201 Created"},
+
+    {"kind": "section", "label": "2. Supervisor acknowledgement  ·  this is where the pairing is created"},
 
     {"a": 0, "b": 1, "kind": "call",
-     "label": "1. Complete Lampiran A and submit it"},
-    {"a": 1, "b": 3, "kind": "call",
-     "label": "2. POST /api/registrations/agreements\nsubmitAgreement()"},
-    {"a": 3, "b": 3, "kind": "self",
-     "label": "3. Gate: a term is open, no project or\nagreement in flight, the title is usable,\nthe supervisor serves the programme"},
+     "label": "7. Choose one of the proposed titles\nand acknowledge"},
+    {"a": 1, "b": 2, "kind": "call",
+     "label": "8. POST .../{agreement}/acknowledge"},
+    {"a": 2, "b": 3, "kind": "call", "label": "9. acknowledgeBySupervisor(...)"},
     {"a": 3, "b": 4, "kind": "call",
-     "label": "4. Create the agreement\nstatus = pending_supervisor"},
-    {"a": 1, "b": 0, "kind": "return",
-     "label": "5. 201 Created: the supervisor is notified"},
-
-    {"kind": "section", "label": "2. Supervisor acknowledgement  ·  the title and the pairing are fixed here"},
-
-    {"a": 0, "b": 1, "kind": "call",
-     "label": "6. Choose one proposed title and acknowledge"},
-    {"a": 1, "b": 3, "kind": "call",
-     "label": "7. POST .../{agreement}/acknowledge\nacknowledgeBySupervisor()"},
-    {"a": 3, "b": 3, "kind": "self",
-     "label": "8. Gate: still pending, and the title is\none the student proposed"},
-    {"a": 3, "b": 4, "kind": "call",
-     "label": "9. Assign the supervisor, record the\nagreed title, status = approved"},
-    {"a": 1, "b": 0, "kind": "return", "label": "10. Lampiran B may be filed"},
+     "label": "10. Create the supervision and\nsave the agreed title"},
+    {"a": 2, "b": 1, "kind": "return", "label": "11. Lampiran B may be filed"},
 
     {"kind": "section", "label": "3. Filing and signing Lampiran B  ·  the signature opens the proposal"},
 
-    {"a": 0, "b": 1, "kind": "call", "label": "11. File Lampiran B, then sign it"},
+    {"a": 0, "b": 1, "kind": "call", "label": "12. File Lampiran B, then sign it"},
     {"a": 1, "b": 3, "kind": "call",
-     "label": "12. PUT .../{form}/file\nPOST .../{form}/sign"},
-    {"a": 3, "b": 3, "kind": "self",
-     "label": "13. Gate: the form is the caller's, and the\ntitle differs from the one the panel refused"},
+     "label": "13. PUT .../{form}/file\nPOST .../{form}/sign"},
     {"a": 3, "b": 5, "kind": "call",
-     "label": "14. status = endorsed\nopen the proposal milestone"},
+     "label": "14. Endorse the form and\nopen the proposal milestone"},
     {"a": 1, "b": 0, "kind": "return", "label": "15. The proposal is open"},
 
-    {"kind": "section", "label": "4. Withdrawal  ·  only while no project has been registered from the filing"},
+    {"kind": "section", "label": "4. Withdrawal  ·  only while no project exists yet"},
 
-    {"a": 0, "b": 1, "kind": "call", "label": "16. Withdraw the filing, with a reason"},
-    {"a": 1, "b": 3, "kind": "call", "label": "17. POST .../{agreement}/withdraw"},
-    {"a": 3, "b": 4, "kind": "call",
-     "label": "18. Cancel the agreement, retire the supervision"},
-    {"a": 1, "b": 0, "kind": "return", "label": "19. 200 OK: the filing is kept"},
+    {"a": 0, "b": 1, "kind": "call", "label": "16. Withdraw the filing"},
+    {"a": 1, "b": 2, "kind": "call", "label": "17. POST .../{agreement}/withdraw"},
+    {"a": 2, "b": 3, "kind": "call", "label": "18. withdrawAgreement()"},
+    {"a": 2, "b": 1, "kind": "return",
+     "label": "19. 200 OK: cancelled, pairing retired"},
 ]
 
 

@@ -222,68 +222,59 @@ P("Two rules in Table 4.3 shape the rest of the system. First, the proposal mile
 
 # ---------------------------------------------------------------- 4.3
 H("Sequence Diagram")
-P("The sequence diagram in Figure 4.5 shows the approval path, which is the part of "
-  "the use case that changes the state of more than one milestone. Six lifelines take "
-  "part: the reviewer, the milestone interface, the milestone controller, the milestone "
-  "model with its database, the milestone service, and the notification component.")
+P("The sequence diagram in Figure 4.5 shows the review path, which is the part of the "
+  "use case that changes the state of more than one milestone. Six lifelines take part: "
+  "the reviewer, the milestone interface, the milestone controller, the milestone model "
+  "with its database, the milestone service, and the notification component. It is drawn "
+  "in three bands — open the work, decide, and what happens after approval.")
 
-figure(os.path.join(DIA, "sequence_milestone.png"), 12.8,
+figure(os.path.join(DIA, "sequence_milestone.png"), 16.4,
        "Figure 4.5: Sequence Diagram for Manage Milestone")
 
-P("Messages 1 and 2 carry the reviewer's decision to the controller. Message 3 checks "
-  "that the reviewer is the student's own supervisor, a coordinator or an administrator, "
-  "and message 4 checks that there is a submission to approve. If the milestone has no "
-  "submitted work the system refuses the request, because approving a document that was "
-  "never filed is not evidence of anything.")
-P("Message 5 is the guard that excludes the proposal milestone. Once it passes, message "
-  "7 hands the change to the milestone service, which owns the state machine. Message 8 "
-  "checks the requested transition against the allowed transition map, so an illegal "
-  "change such as pending to approved is refused rather than written. Messages 10 and 11 "
-  "update the status with its timestamps inside a transaction, and messages 12 and 13 "
-  "record the timeline event and the audit entry.")
-P("Messages 14 to 19 are the chain rule. Message 14 asks the service to open the next "
-  "milestone after this one, selecting the next pending, overdue or rejected milestone "
-  "in sequence order. Message 17 opens it and stamps its opening date, and when the "
-  "deadline is relative the service also moves the deadline so the milestone does not "
-  "open already overdue. If no milestone remains, message 19 marks the project "
-  "completed. Messages 21 to 23 notify the students and return the updated milestone.")
+P("Messages 2 to 5 fetch the milestone and its submitted files, which is all the reviewer "
+  "needs in order to decide. Message 7 carries the decision itself: approve, or request a "
+  "revision. Both are the same transition in the service, which is message 8, and message "
+  "9 is the guard that makes it safe — the actor must be allowed to review this milestone, "
+  "and the milestone's status must permit the move. An illegal change is refused rather "
+  "than written, so a milestone cannot be approved twice or approved from pending.")
+P("Message 10 writes the status with its timestamp, the reviewer and the comment. Message "
+  "11 is the rule the whole chain depends on: approving opens the next milestone, while a "
+  "request for revision reopens this one and does not advance anything. The proposal is "
+  "the single exception, because its verdict belongs to the panel rather than to a "
+  "supervisor. Message 12 notifies the student and message 14 returns the new state.")
 
 # ---------------------------------------------------------------- 4.4
 H("Activity Diagram")
-P("The activity diagram in Figure 4.6 shows the whole lifecycle, from the creation of "
-  "the chain to the end of the milestone. It is the clearer of the two diagrams for "
-  "explaining the status model, because it shows both outcomes of the review side by "
-  "side.")
+P("The activity diagram in Figure 4.6 shows the same use case as a workflow. It is the "
+  "clearer of the two for explaining the status model, because both outcomes of the "
+  "review are drawn side by side.")
 
-figure(os.path.join(DIA, "activity_milestone.png"), 14.2,
+figure(os.path.join(DIA, "activity_milestone.png"), 16.4,
        "Figure 4.6: Activity Diagram for Manage Milestone")
 
 P("The workflow begins when the coordinator registers a project, which generates the "
-  "milestone chain and opens the first milestone. The student then uploads work, and "
-  "the first decision asks whether the milestone accepts a submission. This corresponds "
-  "to alternative flows A1 and A2: a milestone that the chain has not opened yet, or one "
-  "whose deadline has passed without a late window, refuses the upload.")
-P("After a successful upload the milestone becomes submitted and the reviewer opens it. "
-  "The second decision is the reviewer's choice, and the two branches are the core of "
-  "the use case. On the Approve branch, which runs down the right of the diagram, the transition is checked, the "
-  "proposal milestone is excluded, the status and timestamps are written, the timeline "
-  "event and audit entry are recorded, and the next milestone is opened before the "
-  "students are notified. On the Request Revision branch, which continues down the centre, the comment is "
-  "required, the revision counter increases, the status becomes rejected and the students "
-  "are notified. That branch returns to the upload step, which is how the same milestone "
-  "can be submitted again without the chain advancing.")
-P("Both branches then converge and the workflow reaches the end node. The rule that only "
-  "approval opens the next milestone is visible in the diagram as the only route from the "
-  "review decision to the chain-activation activity.")
+  "milestone chain and opens the first milestone. The student uploads work, and the first "
+  "decision asks whether the milestone will accept it: a milestone the chain has not "
+  "opened yet refuses the upload, which is alternative flow A1.")
+P("After a successful upload the reviewer opens the work and makes the second decision. "
+  "The two branches are the core of the use case. On the approve branch the milestone "
+  "becomes approved and the next milestone in the chain is opened; if there is no next "
+  "milestone the part is complete. On the send-back branch the status becomes rejected "
+  "and the revision counter increases, and that branch returns to the upload step, which "
+  "is how the same milestone can be submitted again without the chain advancing.")
+P("Both branches converge on the end node. The rule that only approval opens the next "
+  "milestone is visible as the only route from the review decision to the chain-activation "
+  "activity. The note records the proposal's exception: its verdict is the panel's, and "
+  "approving it never opens the chain.")
 
 # ---------------------------------------------------------------- 4.5
 H("Chapter Summary")
 P("This document has specified the Manage Milestone use case and presented its sequence "
   "diagram and activity diagram. The specification defines the actors, a fourteen step "
   "main flow, eight alternative flows and the post-conditions for approval and for a "
-  "revision request. The sequence diagram shows the approval path with the chain rule, "
-  "and the activity diagram shows the complete lifecycle with both review outcomes and "
-  "the re-upload loop.")
+  "revision request. The sequence diagram shows the review path with the chain rule, and "
+  "the activity diagram shows the complete lifecycle with both review outcomes and the "
+  "re-upload loop.")
 
 body.remove(sectPr)
 body.append(FINAL)

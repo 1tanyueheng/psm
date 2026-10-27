@@ -227,72 +227,54 @@ P("Several design decisions in Table 4.1 follow good practice for authentication
 # ---------------------------------------------------------- 4.3
 H("Sequence Diagram")
 P("The sequence diagram in Figure 4.1 shows the same flow as an ordered exchange of "
-  "messages between the objects involved. Five lifelines are used: the actor, the Login "
-  "interface, the authentication controller, the user model with its database, and the "
-  "audit logger. The numbering of the messages follows the main flow and the "
-  "alternative flows in Table 4.1.")
+  "messages between the objects involved. Four lifelines are used: the actor, the Login "
+  "interface, the authentication controller, and the user model with its database. The "
+  "diagram is divided into the sign-in attempt and what happens once it is accepted.")
 
-figure(os.path.join(DIA, "sequence_login.png"), 12.6,
+figure(os.path.join(DIA, "sequence_login.png"), 16.4,
        "Figure 4.1: Sequence Diagram for Login and Authentication")
 
-P("The diagram may be read step by step as follows. Messages 1 and 2 carry the "
-  "credentials from the actor, through the Login interface, to the controller. Message "
-  "3 validates the input, which corresponds to step 4 of the main flow. Messages 4 and "
-  "5 retrieve the account record. Message 6 is the decision that produces alternative "
-  "flow A2: when no record is returned, message 7 records the failure and message 8 "
-  "returns the general failure message to the interface.")
-P("When a record is found, message 9 tests whether the account is locked, which is "
-  "alternative flow A3 and is answered by message 10. Messages 11 and 12 verify the "
-  "password hash; a mismatch is alternative flow A4, so message 13 increases the "
-  "failed attempt counter and applies the lockout rule, message 14 records the "
-  "failure, and message 15 returns the same general failure message used for A2. "
-  "Message 16 is the final decision, the account status check, which produces "
-  "alternative flow A5 through message 17.")
-P("Only when all decisions pass does the successful path run. Message 18 creates the "
-  "access token, which also resets the failed attempt counter and records the login "
-  "time and address, and message 19 returns the token. Message 20 writes the success "
-  "record to the audit log. Message 21 returns the response containing the token, the "
-  "user details and the landing route for the role, and message 22 redirects the user "
-  "to the correct dashboard.")
+P("Messages 1 and 2 carry the credentials from the actor, through the Login interface, "
+  "to the controller. Message 3 validates the input, which corresponds to step 4 of the "
+  "main flow, and message 4 looks the account up and verifies the password. Message 6 is "
+  "the single decision that produces every refusal the use case has: an unknown account, "
+  "a wrong password, a locked account or an inactive one are all alternative flows A2 to "
+  "A5, and all of them leave through message 7. They are drawn as one decision rather "
+  "than four because they are one answer to the reader — the credentials did not pass — "
+  "and Table 4.1 separates them.")
+P("Only when message 6 passes does the accepted half of the diagram run: message 8 "
+  "creates the access token, which also resets the failed attempt counter and records "
+  "the login time and address, and message 11 sends the user to the dashboard for their "
+  "role.")
 
 # ---------------------------------------------------------- 4.4
 H("Activity Diagram")
 P("The activity diagram in Figure 4.2 presents the same use case as a workflow. It is "
-  "useful because it shows clearly where each alternative flow leaves the main path and "
-  "where every failure re-enters it, which the sequence diagram expresses less "
-  "directly.")
+  "useful because it shows where the refusal leaves the main path and where it re-enters "
+  "it, which the sequence diagram expresses less directly.")
 
-figure(os.path.join(DIA, "activity_login.png"), 14.2,
+figure(os.path.join(DIA, "activity_login.png"), 16.4,
        "Figure 4.2: Activity Diagram for Login and Authentication")
 
-P("The workflow begins at the start node and moves through the three interface "
-  "activities: opening the Login page, entering the email address and password, and "
-  "clicking Login. The system then validates the input. The first decision, Valid?, "
-  "corresponds to alternative flow A1 and shows the input error message when the input "
-  "is rejected.")
-P("After the account lookup, the second decision, User found?, corresponds to "
-  "alternative flow A2 and records the failed attempt before returning the failure "
-  "message. The third decision, Account locked?, corresponds to alternative flow A3. "
-  "The fourth decision, Password correct?, corresponds to alternative flow A4; its "
-  "failure branch increases the failed attempt counter, applies the lockout rule and "
-  "records the failure. The fifth decision, Account active?, corresponds to "
-  "alternative flow A5.")
-P("When every decision passes, the workflow continues through the success activities: "
-  "creating the access token, recording the successful login, returning the response "
-  "and redirecting the user to the role dashboard, after which the flow reaches the end "
-  "node. The five failure branches are collected on the right hand side of the diagram "
-  "and return to the Login form, so that the user may try again.")
+P("The workflow passes through three interface activities — opening the Login page, "
+  "entering the email address and password, and submitting the form — and then reaches "
+  "the one decision the use case turns on: are the credentials valid?")
+P("The No branch shows the error and returns to the form, so the user may try again. It "
+  "names the four refusals in a single line rather than as four separate branches; the "
+  "alternative flows in Table 4.1 are where each one is specified. The Yes branch creates "
+  "the session token and redirects the user to the dashboard for their role, after which "
+  "the flow reaches the end node.")
 
 # ---------------------------------------------------------- 4.5
 H("Chapter Summary")
 P("This document has specified the Login and Authentication use case and presented its "
   "sequence diagram and activity diagram. The use case specification defines the actors, "
   "the main flow, the five alternative flows and the pre-conditions and post-conditions. "
-  "The sequence diagram shows the same flow as message exchanges between five objects, "
-  "and the activity diagram shows it as a workflow with five decision points. The "
-  "remaining use cases identified in the use case diagram, namely Manage Assignment, "
-  "Manage Milestone, Manage Evaluation, Generate Report, Manage Alert and Notification, "
-  "and Manage Title and Registration, follow the same documentation approach.")
+  "The sequence diagram shows the same flow as message exchanges between four objects, "
+  "and the activity diagram shows it as a workflow with one decision point. The "
+  "remaining use cases identified in the use case diagram — Manage Title and "
+  "Registration, Manage Milestone, Manage Evaluation, Generate Report, and Manage Alert "
+  "and Notification — follow the same documentation approach.")
 
 body.remove(sectPr)
 body.append(FINAL)

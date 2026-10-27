@@ -1,138 +1,89 @@
-"""Activity diagram - Generate Report (corrected style).
+"""Activity diagram - Generate Report.
 
-Two outputs from one entry: on-screen analytics (JSON) and a streamed CSV
-export. Connectors are derived from shape edges, drawn only in the gaps.
-Plain white shapes, single type scale.
+Nine shapes. The use case is one question with two answers at the end: show the
+figures, or write them to a file. The old figure ran a separate six-step
+aggregate down the spine; that work is one action here, because the steps are a
+detail of *how* the figures are computed, not of the flow.
+
+    start -> open the report screen -> choose the filters
+          -> may view analytics? --no--> 403
+          -> compute the figures -> view or export?
+                                     view   -> render the tables and charts
+                                     export -> write the CSV in pages, logged
+          -> both join -> end
+
+Conventions per AGENTS.md: white shapes, thin dark outline, no fills, arrows
+landing on edges, nothing crossing a box.
 """
 import os
 import sys
-sys.path.insert(0, r"C:\Users\yuehe\Desktop\study\fyp\AIProject\psm-system\.workbuddy-ai")
-from uml_kit import Diagram, INK, GREY
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from actkit import Diagram
 
 OUT = r"C:\Users\yuehe\Desktop\study\fyp\AIProject\psm-system\thesis\diagrams\activity_report.png"
 
-W = 1360
-CX = 460          # spine
-RX = 1030         # export branch / right column
-BOXC = 370
-BOXR = 300
-DIAW, DIAH = 236, 116
-G = 36
+CX = 640
+RX = 1400
+W = 1880
+BOXC = 540
+BOXR = 420
+DIAW, DIAH = 340, 146
+G = 48
 
-dg = Diagram(W, 1500)
+dg = Diagram(W, 1400)
 
 y = 30
-y = dg.start(CX, y + 8, r=14)
-dg.label(CX - 26, y - 4, "start", anchor="ra")
+y = dg.start(CX, y + 8)
+dg.label(CX - 34, y - 6, "start", anchor="ra")
 prev = y
 
-y += G
-t = y; y = dg.action(CX, t, "Coordinator opens the\nReports screen", w=BOXC)
-dg.connect(CX, prev, CX, t); prev = y
 
-y += G
-t = y; y = dg.action(CX, t, "Choose filters\nbatch, PSM part, semester", w=BOXC)
-dg.connect(CX, prev, CX, t); prev = y
+def step(prev, text, w=BOXC):
+    top = prev + G
+    bottom = dg.action(CX, top, text, w=w)
+    dg.connect(CX, prev, CX, top)
+    return bottom
 
-y += G
-t = y; y = dg.action(CX, t, "Request report", w=BOXC)
-dg.connect(CX, prev, CX, t); prev = y
 
-# ---- D1 authorised?
-y += G
-d1_top = y
-d1_bot = dg.decision(CX, d1_top, "Allowed to\nview analytics?", w=DIAW, h=DIAH)
-dg.connect(CX, prev, CX, d1_top)
-d1_mid = d1_top + DIAH / 2
+def decide(prev, text, w=DIAW, h=DIAH):
+    top = prev + G
+    bottom = dg.decision(CX, top, text, w=w, h=h)
+    dg.connect(CX, prev, CX, top)
+    return top, bottom, top + h / 2
 
-rt = d1_mid - 40
-rb = dg.action(RX, rt, "Return 403\nForbidden", w=BOXR)
-dg.connect(CX + DIAW / 2, d1_mid, RX - BOXR / 2, d1_mid)
-dg.label(CX + DIAW / 2 + 10, d1_mid - 24, "No", anchor="la")
 
-# The refusal still has to reach the end.
-#
-# It used to be drawn as a bare box hanging off the "No" branch with no
-# outgoing arrow — a dead end in the drawing, which reads as "the process
-# stops here and nothing is returned". A 403 is a response like any other, so
-# the path continues to the end activity with the other two tails.
-forbidden_end = rb
+def refuse(mid, text, label="No", w=BOXR):
+    dg.connect(CX + DIAW / 2, mid, RX - w / 2, mid)
+    dg.label(CX + DIAW / 2 + 12, mid - 26, label, anchor="la", bold=True)
+    return dg.action(RX, mid - 40, text, w=w)
 
-y = d1_bot + G
-t = y; y = dg.action(CX, t, "Validate filters\nand resolve the term", w=BOXC)
-dg.connect(CX, d1_bot, CX, t); prev = y
 
-# ---- D2 report type?
-y += G
-d2_top = y
-d2_bot = dg.decision(CX, d2_top, "Which\noutput?", w=DIAW, h=DIAH)
-dg.connect(CX, prev, CX, d2_top)
-d2_mid = d2_top + DIAH / 2
+prev = step(prev, "Coordinator opens the report screen\nand chooses the batch, part and term")
 
-# ============ EXPORT branch (right) ======================================
-dg.connect(CX + DIAW / 2, d2_mid, RX - BOXR / 2, d2_mid)
-dg.label(CX + DIAW / 2 + 10, d2_mid - 24, "Export CSV", anchor="la", bold=True)
+_, d1_bot, d1 = decide(prev, "May view\nanalytics?", h=150)
+refuse(d1, "403 Forbidden", label="No")
 
-rt = d2_mid - 42
-rb = dg.action(RX, rt, "Authorise export\n(admin or coordinator)", w=BOXR)
-dg.connect(RX, rb, RX, rb)     # placeholder removed below
-rprev = rb
-for txt in ("Write audit entry\nReportExported", "Build filename\nterm, part, timestamp",
-            "Stream rows in chunks\nof 200", "Return CSV download"):
-    ry = rprev + G
-    rprev = dg.action(RX, ry, txt, w=BOXR)
-    dg.connect(RX, ry - G, RX, ry)
-# remove the accidental self-connector drawn above
-export_end = rprev
+prev = step(d1_bot, "Computes the figures: progress,\nat-risk, workload and mark bands")
 
-# ============ ON-SCREEN branch (spine) ===================================
-y = d2_bot + G
-dg.label(CX + DIAW / 2 + 10, d2_mid + 12, "View report", anchor="la", bold=True)
+_, d2_bot, d2 = decide(prev, "View or\nexport?", w=DIAW + 40, h=150)
 
-t = y; y = dg.action(CX, t, "Run the aggregate query\nfor the chosen filters", w=BOXC)
-dg.connect(CX, d2_bot, CX, t); prev = y
+# Export -> its own column; both branches meet below.
+EX_X = CX + BOXC / 2 + 60 + 220
+exp = dg.action(EX_X, d2 - 40, "Writes the CSV in pages\nand logs the export", w=430)
+dg.connect(CX + (DIAW + 40) / 2, d2, EX_X - 215, d2)
+dg.label(CX + (DIAW + 40) / 2 + 12, d2 - 28, "export", anchor="la", bold=True)
+dg.label(CX - (DIAW + 40) / 2 - 12, d2 + 12, "view", anchor="ra", bold=True)
 
-y += G
-t = y; y = dg.action(CX, t,
-                    "Compute figures\ncohort progress, at-risk,\nworkload, marks", w=BOXC)
-dg.connect(CX, prev, CX, t); prev = y
+prev = step(d2_bot, "Renders the tables and charts")
 
-y += G
-t = y; y = dg.action(CX, t, "Build both batch rollups\nPSM 1 and PSM 2", w=BOXC)
-dg.connect(CX, prev, CX, t); prev = y
+join_y = max(prev, exp) + 64
+dg.seg(CX, prev, CX, join_y)
+dg.seg(EX_X, exp, EX_X, join_y)
+dg.seg(EX_X, join_y, CX, join_y)
+dg.connect(CX, join_y, CX, join_y + 14)
+y = dg.end(CX, join_y + 18, r=18)
+dg.label(CX, y + 10, "end")
 
-y += G
-t = y; y = dg.action(CX, t, "Return figures as JSON", w=BOXC)
-dg.connect(CX, prev, CX, t); prev = y
-
-y += G
-t = y; y = dg.action(CX, t, "Render tables and\ncharts on screen", w=BOXC)
-dg.connect(CX, prev, CX, t); prev = y
-onscreen_end = y
-
-# ---- converge + end
-#
-# The 403 path joins here too, so no branch is left dangling — but it cannot
-# run straight down column RX, because that is where the CSV export tail sits
-# (authorise -> audit -> filename -> stream -> download). A vertical through
-# those boxes would claim the refusal passes through the export machinery.
-# It leaves the refusal box's right edge and descends in its own lane, outside
-# the export column, before joining the bottom line.
-FORB_X = RX + BOXR / 2 + 46
-join_y = max(onscreen_end, export_end, forbidden_end + 40) + 56
-mid = (CX + RX) / 2
-
-dg.route([(RX + BOXR / 2, (rt + forbidden_end) / 2),
-          (FORB_X, (rt + forbidden_end) / 2),
-          (FORB_X, join_y),
-          (mid, join_y)])
-
-dg.seg(CX, onscreen_end, CX, join_y)
-dg.seg(RX, export_end, RX, join_y)
-dg.seg(CX, join_y, RX, join_y)
-dg.connect(mid, join_y, mid, join_y + G - 6)
-y = dg.end(mid, join_y + G, r=16)
-dg.label(mid, y + 8, "end")
-
-dg.save(OUT, crop_bottom=y + 50)
+dg.save(OUT, crop_bottom=y + 64)
 print("wrote", OUT)

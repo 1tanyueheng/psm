@@ -141,12 +141,12 @@ P()
 
 # ---------------------------------------------------------------- 4.1
 H("Introduction")
-P("This document presents the detailed design of the fifth use case of the PSM "
+P("This document presents the detailed design of the sixth use case of the PSM "
   "Assessment System, namely Manage Alert and Notification. The use case has two "
   "independent flows. The first is system driven: a scheduled command sends deadline "
   "reminders to students as a deadline approaches. The second is user driven: every "
   "user has a notification centre where alerts are read, dismissed and configured. It "
-  "is specified in Table 4.5, then expressed as a sequence diagram in Figure 4.9 and "
+  "is specified in Table 4.6, then expressed as a sequence diagram in Figure 4.13 and "
   "two activity diagrams in Figures 4.10 and 4.11.")
 
 # ---------------------------------------------------------------- 4.2
@@ -154,9 +154,9 @@ H("Use Case Specification")
 P("The system recognises eighteen notification types, grouped into milestones, "
   "reminders, grading, registration, accounts and recognition. Each type carries its "
   "own default channels. Three types are marked urgent and cannot be switched off, "
-  "because missing a deadline is not a preference. Table 4.5 summarises the use case.")
+  "because missing a deadline is not a preference. Table 4.6 summarises the use case.")
 
-caption("Table 4.5: Use Case Specification for Manage Alert and Notification")
+caption("Table 4.6: Use Case Specification for Manage Alert and Notification")
 spec_table([
     ("Use Case ID", "UC-05"),
     ("Use Case Name", "Manage Alert and Notification"),
@@ -218,61 +218,54 @@ P("The reminder ledger is the part of this use case worth noting. A scheduled co
 
 # ---------------------------------------------------------------- 4.3
 H("Sequence Diagram")
-P("The sequence diagram in Figure 4.9 shows the reminder dispatch path, which is the "
+P("The sequence diagram in Figure 4.13 shows the reminder dispatch path, which is the "
   "more involved of the two flows. Six lifelines take part: the scheduler, the reminder "
   "command, the notification dispatcher, the notification and mail transport, the user "
-  "model, and the reminder ledger.")
+  "model with its preferences, and the reminder ledger. It is divided into the scheduled "
+  "run and the reader.")
 
-figure(os.path.join(DIA, "sequence_notification.png"), 12.6,
-       "Figure 4.9: Sequence Diagram for Manage Alert and Notification")
+figure(os.path.join(DIA, "sequence_notification.png"), 16.4,
+       "Figure 4.13: Sequence Diagram for Manage Alert and Notification")
 
-P("Messages 1 to 6 select the work: the command reads the waves, finds the milestones "
-  "due in that many days, and loads the students and their supervisors. Messages 7 and "
-  "8 confirm there is something due and build the payload, which carries the milestone "
-  "title, the project code, the due date, a link and an urgent flag that is set on the "
-  "final wave.")
-P("Message 9 calls the dispatcher once per student, and messages 10 and 11 are the "
-  "de-duplication check against the ledger. If this wave was already sent, message 12 "
-  "skips the recipient and nothing else happens. Otherwise messages 13 to 16 confirm "
-  "the user is active and has not opted out, and resolve the channels for the type. "
-  "Message 17 sends, which writes the in-app row and the mail in message 18. Message 20 "
-  "then records the dispatch in the ledger, so a retried run will find it in message 10 "
-  "and skip. Message 23 repeats the process for supervisors, but only on the final "
-  "wave, so that supervisors stay informed without being reminded at every stage.")
+P("Messages 2 and 3 select the work: the command asks for the milestones due in seven, "
+  "three or one days and gets back the milestones and the students on them. Message 9 "
+  "calls the dispatcher once per recipient, and messages 5 and 6 are the de-duplication "
+  "check against the ledger. If the wave has already gone to this person, nothing is "
+  "sent and the run moves on. Otherwise message 7 writes the in-app record and the mail, "
+  "and message 8 records the dispatch, so a retried run finds it and skips it too.")
+P("Message 11 is the reader's side of the same use case: opening the notification "
+  "centre, dismissing an item, or changing which types arrive at all, and message 12 "
+  "returns the unread count and the latest five.")
 
 # ---------------------------------------------------------------- 4.4
 H("Activity Diagram")
-P("The use case has two independent flows, so it is drawn as two activity diagrams. "
-  "Figure 4.10 is the scheduled reminder run, which is driven by the system, and Figure "
-  "4.11 is the notification centre, which is driven by the user. They are kept separate "
-  "because they are triggered by different actors and never call each other.")
+P("The use case has two independent halves, so they are drawn side by side in Figure "
+  "4.12 within their own frames. The left frame is the scheduled reminder run, which the "
+  "system drives; the right frame is the notification centre, which the user drives. "
+  "They are kept separate because they are triggered by different actors at different "
+  "times and neither leads to the other.")
 
-figure(os.path.join(DIA, "activity_notification_reminders.png"), 10.0,
-       "Figure 4.10: Activity Diagram - Scheduled Reminders")
-figure(os.path.join(DIA, "activity_notification_centre.png"), 14.2,
-       "Figure 4.11: Activity Diagram - Notification Centre")
+figure(os.path.join(DIA, "activity_notification.png"), 16.4,
+       "Figure 4.12: Activity Diagram for Manage Alert and Notification")
 
-P("In Figure 4.10 the command iterates over the reminder waves. The first decision "
-  "is whether any milestone is due in that wave, which is alternative flow A1: when "
-  "nothing is due the flow skips straight to the next wave. The digest decision "
-  "corresponds to A6. The already-sent decision is A2, and a recipient who has already "
-  "received the wave skips the send and rejoins the flow at the end, which is what keeps "
-  "the command safe to retry. The final decision checks that the user is active and has "
-  "not opted out, covering A3 and A4.")
-P("In Figure 4.11 the user opens the notification centre, the system returns the "
-  "unread count and the latest five, and the user chooses between reading or dismissing "
-  "a notification and changing their preferences. The preference branch is where A7 "
-  "applies: an attempt to switch off an urgent type is ignored, so the toggle for those "
-  "three types has no effect.")
+P("In the reminder frame the command finds what is due, checks each user is active, has "
+  "not opted out and has not already been sent this wave, then sends and records the "
+  "dispatch. Both refusals lead to the same place, the next wave, which is what keeps "
+  "the command safe to retry: nothing is sent twice and nothing is re-sent after a "
+  "failure.")
+P("In the centre frame the user opens the notification centre and either deals with a "
+  "notification, which refreshes the unread badge, or changes which types they receive. "
+  "An attempt to switch off an urgent type has no effect, so the three types the faculty "
+  "treats as mandatory always arrive.")
 
 # ---------------------------------------------------------------- 4.5
 H("Chapter Summary")
 P("This document has specified the Manage Alert and Notification use case and presented "
-  "its sequence diagram and its two activity diagrams. The specification defines the actors, a "
-  "fourteen step main flow, eight alternative flows and the post-conditions for a "
+  "its sequence diagram and its activity diagram. The specification defines the actors, "
+  "a fourteen step main flow, eight alternative flows and the post-conditions for a "
   "reminder wave. The sequence diagram shows the reminder dispatch including the "
-  "de-duplication ledger, and the activity diagrams show the scheduled run and the "
-  "notification centre as two parallel flows.")
+  "de-duplication ledger, and the activity diagram shows the scheduled run and the "
+  "notification centre side by side as two independent flows.")
 
 body.remove(sectPr)
 body.append(FINAL)

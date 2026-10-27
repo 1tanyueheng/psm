@@ -141,12 +141,12 @@ P()
 
 # ---------------------------------------------------------------- 4.1
 H("Introduction")
-P("This document presents the detailed design of the fourth use case of the PSM "
+P("This document presents the detailed design of the fifth use case of the PSM "
   "Assessment System, namely Generate Report. The use case covers the coordinator's "
   "dashboard, which summarises the progress, risk and marks of a cohort, and the CSV "
   "exports that the coordinator downloads for the faculty. It is specified in Table "
-  "4.4, then expressed as a sequence diagram in Figure 4.7 and an activity diagram in "
-  "Figure 4.8.")
+  "4.4, then expressed as a sequence diagram in Figure 4.9 and an activity diagram in "
+  "Figure 4.10.")
 
 # ---------------------------------------------------------------- 4.2
 H("Use Case Specification")
@@ -154,9 +154,9 @@ P("Generate Report answers questions about a whole batch rather than about one p
   "so every report is built from the same three filters: the batch, the PSM part and "
   "the academic semester. The system produces two kinds of output from those filters. "
   "The on-screen report returns figures as JSON for the dashboard to render, and the "
-  "export produces a CSV file. Table 4.4 summarises the use case.")
+  "export produces a CSV file. Table 4.5 summarises the use case.")
 
-caption("Table 4.4: Use Case Specification for Generate Report")
+caption("Table 4.5: Use Case Specification for Generate Report")
 spec_table([
     ("Use Case ID", "UC-04"),
     ("Use Case Name", "Generate Report"),
@@ -204,7 +204,7 @@ spec_table([
 ])
 
 P()
-P("Two rules in Table 4.4 are worth noting because they are easy to get wrong. First, "
+P("Two rules in Table 4.5 are worth noting because they are easy to get wrong. First, "
   "the on-screen pass rate counts released results only (A4), because a withheld mark is "
   "not a published one, while the exported spreadsheet deliberately includes provisional "
   "rows so that the coordinator has a working extract. The export therefore carries a "
@@ -214,59 +214,54 @@ P("Two rules in Table 4.4 are worth noting because they are easy to get wrong. F
 
 # ---------------------------------------------------------------- 4.3
 H("Sequence Diagram")
-P("The sequence diagram in Figure 4.7 shows both outputs from the same screen. Six "
+P("The sequence diagram in Figure 4.9 shows both outputs from the same screen. Five "
   "lifelines take part: the coordinator, the reports interface, the report controller, "
-  "the reporting service, the grades and milestones data, and the audit log. The "
+  "the reporting service, and the grades and milestones the figures are read from. The "
   "diagram is divided into the on-screen report and the CSV export.")
 
-figure(os.path.join(DIA, "sequence_report.png"), 12.6,
-       "Figure 4.7: Sequence Diagram for Generate Report")
+figure(os.path.join(DIA, "sequence_report.png"), 16.4,
+       "Figure 4.9: Sequence Diagram for Generate Report")
 
 P("Messages 1 and 2 carry the filter selection to the controller, which checks the "
-  "analytics permission in message 3 and validates the filters in message 4. Message 5 "
-  "hands the work to the reporting service. The service then performs a series of "
-  "aggregations: message 6 counts projects by their milestone status, message 10 reads "
-  "the released grades and computes the mark bands together with the mean and median, "
-  "and messages 12 and 13 add the category breakdown and the per-part rollup. Message "
-  "14 returns the summary object and message 15 returns it to the interface, which "
-  "renders the tables and charts in message 16.")
-P("The lower half of the diagram is the export path. Message 17 starts the export and "
-  "message 19 applies the export permission, which is narrower than the analytics "
-  "permission. Messages 20 and 21 build the filename from the term, part and timestamp. "
-  "Message 22 writes the audit entry before any data leaves the system, so an export "
-  "cannot happen without a record of it. Message 23 reads the grades in pages rather "
-  "than all at once, because a full cohort export can run to thousands of rows, and "
-  "message 25 writes each row as it arrives.")
+  "analytics permission in message 3 and hands the work to the reporting service in "
+  "message 4. Message 5 is the service's own work — it aggregates progress, the students "
+  "at risk, supervisor load and the mark bands in one pass — and message 6 returns the "
+  "figures the interface renders. Splitting that work into one message per aggregation "
+  "would say more about the query and less about the flow.")
+P("The lower half is the export. Message 10 is the same filters written to a file, "
+  "message 11 applies the export permission, which is narrower than the analytics "
+  "permission, and message 12 logs the export before any row leaves the system. The "
+  "rows are read in pages rather than all at once, because a full cohort export runs to "
+  "thousands of lines and the whole set would not fit comfortably in memory.")
 
 # ---------------------------------------------------------------- 4.4
 H("Activity Diagram")
-P("The activity diagram in Figure 4.8 shows the same use case as a workflow. After the "
-  "permission check and the filter validation, a single decision splits the flow into "
-  "the on-screen report, which continues down the centre, and the export, which runs "
-  "down the right of the diagram. Both branches converge on one end node.")
+P("The activity diagram in Figure 4.10 shows the same use case as a workflow. After the "
+  "permission check, a single decision splits the flow into the on-screen report, which "
+  "continues down the centre, and the export, which runs to the right. Both converge on "
+  "one end node.")
 
-figure(os.path.join(DIA, "activity_report.png"), 14.2,
-       "Figure 4.8: Activity Diagram for Generate Report")
+figure(os.path.join(DIA, "activity_report.png"), 16.4,
+       "Figure 4.10: Activity Diagram for Generate Report")
 
 P("The first decision is the permission check, which corresponds to alternative flow "
   "A1: a user without the analytics permission receives 403 Forbidden and the workflow "
-  "stops. The filter validation that follows is alternative flow A2. The second "
-  "decision is the choice of output.")
-P("On the view branch, the system runs the aggregate query, computes the figures, "
-  "builds a rollup for both PSM parts and returns JSON for the interface to render. On "
-  "the export branch, the system applies the narrower export permission (A3), writes "
-  "the audit entry, builds the filename, streams the rows in chunks of two hundred and "
-  "returns the file. The streaming step is what keeps a large cohort export out of "
-  "memory.")
+  "stops. The action that follows computes every figure in one step, because the "
+  "individual aggregations are a detail of how the numbers are produced rather than "
+  "separate steps of the flow. The second decision is the choice of output.")
+P("On the view branch the system renders the tables and charts for the coordinator. On "
+  "the export branch it writes the CSV in pages and records the export in the audit log, "
+  "so an extract cannot leave the system without a record of who took it and with which "
+  "filters.")
 
 # ---------------------------------------------------------------- 4.5
 H("Chapter Summary")
 P("This document has specified the Generate Report use case and presented its sequence "
   "diagram and activity diagram. The specification defines the actors, a thirteen step "
   "main flow, five alternative flows and the post-conditions for both the on-screen "
-  "report and the export. The sequence diagram shows the two outputs from one screen "
-  "as message exchanges across six objects, and the activity diagram shows the flow as "
-  "a workflow with a permission check, a filter check and a choice of output.")
+  "report and the export. The sequence diagram shows the two outputs from one screen as "
+  "message exchanges across five objects, and the activity diagram shows the flow as a "
+  "workflow with a permission check and a choice of output.")
 
 body.remove(sectPr)
 body.append(FINAL)
