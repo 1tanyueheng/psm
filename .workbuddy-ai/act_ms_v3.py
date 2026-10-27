@@ -44,7 +44,7 @@ APPW = 300        # approve column box width
 DIAW, DIAH = 240, 116
 G = 38
 
-dg = Diagram(W, 2000)
+dg = Diagram(W, 3000)
 
 y = 30
 y = dg.start(CX, y + 8, r=14)
@@ -92,38 +92,70 @@ y += G
 t = y; y = dg.action(CX, t, "Supervisor opens\nsubmission", w=BOXC)
 dg.connect(CX, prev, CX, t); prev = y
 
-# ---- GUARD: may a supervisor review this milestone at all? ------------------
+# ---- GUARD: is this the proposal, or an ordinary milestone? -----------------
 #
-# Before the decision, not after it. `proposal` is refused by
-# MilestoneService::assertReviewable() because the seated panel decides it.
+# The earlier version of this figure had it backwards. It asked "may a
+# supervisor review it?" and sent the proposal off to a box reading "Refuse 422",
+# because the panel owned the proposal. That is no longer the rule: the faculty's
+# sequence is that the **supervisor reads the proposal first** and only then does
+# the panel sit for the title defence.
+#
+# So the branch is not a refusal, it is a *different route*. An ordinary
+# milestone takes the spine: approve or request revision, and approval unlocks
+# the next milestone. The proposal takes the right-hand column, where the
+# supervisor endorses and — separately, later, and by other people — the panel
+# decides the title.
 y += G
 g_top = y
-g_bot = dg.decision(CX, g_top, "Supervisor may\nreview it?", w=DIAW, h=DIAH)
+g_bot = dg.decision(CX, g_top, "Is this the\nproposal?", w=DIAW, h=DIAH)
 dg.connect(CX, prev, CX, g_top)
 g_mid = g_top + DIAH / 2
 
-# No (proposal) -> the panel's own decision, then the common tail.
+# Yes (proposal) -> supervisor endorses, then the panel decides the title.
 gt = g_mid - 44
 dg.connect(CX + DIAW / 2, g_mid, RX - BOXR / 2, g_mid)
-dg.label(CX + DIAW / 2 + 10, g_mid - 24, "No — proposal", anchor="la", bold=True)
-gprev = dg.action(RX, gt, "Refuse 422: the proposal\nis the panel's to decide", w=BOXR)
+dg.label(CX + DIAW / 2 + 10, g_mid - 24, "Yes — proposal", anchor="la", bold=True)
+gprev = dg.action(RX, gt, "Supervisor reviews the\nuploaded proposal", w=BOXR)
 
-for txt in ("ProposalReviewService\npanel records one verdict",
+# Endorse or send back: the two things a supervisor may do here.
+gy = gprev + G
+g_dec_top = gy
+g_dec_bot = dg.decision(RX, g_dec_top, "Endorse it?", w=DIAW - 30, h=DIAH)
+dg.connect(RX, gprev, RX, g_dec_top)
+
+# No -> back to the student for a re-upload.
+REJ_X = RX + BOXR / 2 + 170
+REJ_W = BOXR - 20
+rb_top = g_dec_top + DIAH / 2 - 40
+rb = dg.action(REJ_X, rb_top, "transitionTo(Rejected)\nrevision_count + 1", w=REJ_W)
+dg.connect(RX + (DIAW - 30) / 2, g_dec_top + DIAH / 2, REJ_X - REJ_W / 2, g_dec_top + DIAH / 2)
+dg.label(RX + (DIAW - 30) / 2 + 8, g_dec_top + DIAH / 2 - 22, "No", anchor="la")
+
+# Endorsed -> the panel's gate.
+gy = g_dec_bot + G
+end_box = dg.action(RX, gy, "status = reviewed\n(chain NOT opened)", w=BOXR)
+dg.connect(RX, g_dec_bot, RX, gy)
+
+gy = end_box + G
+panel = dg.action(RX, gy, "Panel sits at the title\ndefence and decides", w=BOXR)
+dg.connect(RX, end_box, RX, gy)
+
+for txt in ("ProposalReviewService\nrecords one verdict",
             "Open transaction\nwrite status + timestamp",
             "Record timeline event\nand audit entry",
             "activateNext()\nopen next milestone",
             "Notify students"):
-    gy = gprev + G
-    gprev = dg.action(RX, gy, txt, w=BOXR)
+    gy = panel + G
+    panel = dg.action(RX, gy, txt, w=BOXR)
     dg.connect(RX, gy - G, RX, gy)
-panel_end = gprev
+panel_end = panel
 
-# ---- D2: reviewer decision (only reached on the Yes side) ------------------
+# ---- D2: reviewer decision (only reached on the No side of the guard) ------
 y = g_bot + G
 d2_top = y
 d2_bot = dg.decision(CX, d2_top, "Reviewer\ndecision?", w=DIAW, h=DIAH)
 dg.connect(CX, g_bot, CX, d2_top)
-dg.label(CX - DIAW / 2 - 10, g_bot + 8, "Yes", anchor="ra", bold=True)
+dg.label(CX - DIAW / 2 - 10, g_bot + 8, "No — other", anchor="ra", bold=True)
 d2_mid = d2_top + DIAH / 2
 
 # ---- Request revision (down the spine) -------------------------------------
