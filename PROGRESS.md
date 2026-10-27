@@ -69,6 +69,42 @@ written into `psm-system\thesis\` and copied over by hand.
 
 ## 3. Thesis status
 
+### Use cases — the list is fixed at six (2026-10-27)
+
+The user's list, and it is now the only list:
+
+| # | Use case | Table | Figures | Deliverable |
+|---|---|---|---|---|
+| UC-01 | Login and Authentication | 4.1 | 4.1 seq, 4.2 act | `Chapter4 - Login …` |
+| UC-02 | **Manage Title and Registration** | 4.2 | 4.3 seq, 4.4 act | `Chapter4 - Manage Title and Registration …` |
+| UC-03 | Manage Milestone | 4.3 | 4.5 seq, 4.6 act | `Chapter4 - Manage Milestone …` |
+| UC-04 | **Manage Evaluation** | 4.4 | 4.7 seq, 4.8 act | `Chapter4 - Manage Evaluation …` |
+| UC-05 | Generate Report | 4.5 | 4.9 seq, 4.10 act | `Chapter4 - Generate Report …` |
+| UC-06 | Manage Alert and Notification | 4.6 | 4.11 seq, 4.12–4.13 act | `Chapter4 - Manage Alert and Notification …` |
+
+**Manage Pairing is no longer a use case.** Its pair of figures, its scripts and
+`Chapter4 - Manage Pairing …docx` were deleted on 2026-10-27 at the user's
+instruction. Pairing is still described *inside* UC-02, because acknowledgement
+is the step that creates the supervision — but it is not its own case and there
+is no Figure 4.3/4.4 for it any more.
+
+**Every figure is a generated PNG from a `.py` in `.workbuddy-ai/`:**
+
+| Use case | Sequence | Activity |
+|---|---|---|
+| Login | `make_diagrams.py` | `act_login_v2.py` |
+| Title and Registration | `seq_title.py` | `act_title.py` |
+| Milestone | `make_ms_seq.py` | `act_ms_v3.py` |
+| Evaluation | `seq_evaluation.py` | `act_evaluation.py` |
+| Report | `seq_report.py` | `act_report.py` |
+| Notification | `seq_notif.py` | `act_notif.py` (also splits itself into `_reminders` and `_centre`) |
+
+> **The `build_ch4_*.py` scripts still carry the OLD numbers.** Only
+> `build_ch4_title_evaluation.py` uses the new table and figure numbers. The
+> login, milestone, report and notification documents say 4.2–4.10 and need
+> renumbering to the table above before the chapter is assembled. The pairing
+> script is gone.
+
 ### Chapter 1 — Introduction ✅ DONE (cited)
 
 File: `thesis\Chapter1 - with citations.docx`
@@ -101,29 +137,26 @@ File: `thesis\Chapter2 - PSM Assessment System v2.docx` (current)
 - Table 2.1 compares 14 features; the three assessment rows are ✖ across all
   three existing systems → this is the evidence for the §1 contribution.
 
-### Chapter 4 — Analysis & Design (use cases) 🔶 IN PROGRESS
+### Chapter 4 — Analysis & Design (use cases) ✅ six written
 
 Each use case gets: use-case specification table + **sequence diagram** +
-**activity diagram**, as its own `.docx`.
-
-| # | Use case | Status | Figures |
-|---|---|---|---|
-| UC-01 | Login and Authentication | ✅ | Fig 4.1 seq, 4.2 act |
-| UC-02 | Manage Pairing | ✅ | Fig 4.3 seq, 4.4 act |
-| UC-03 | Manage Milestone | ✅ | Fig 4.5 seq, 4.6 act |
-| UC-04 | Generate Report | ✅ | Fig 4.7 seq, 4.8 act |
-| UC-05 | Manage Alert and Notification | ✅ | Fig 4.9 seq, 4.10 + 4.11 act |
-| UC-06 | **Manage Evaluation** | ⬜ NOT STARTED | — |
-| UC-07 | **Manage Title and Registration** | ⬜ NOT STARTED | — |
+**activity diagram**, as its own `.docx`. The numbering is in the table at the
+top of this section.
 
 The **use case diagram** (draw.io, `PSM.drawio.png`) shows: Student, Admin,
 Supervisor, Lecturer, Panel, Coordinator, System Controller against login,
-assignment, milestone, evaluation, report, alert, title/registration.
+assignment, milestone, evaluation, report, alert, title/registration. It still
+shows **assignment (pairing) as a use case of its own** — that box has to go,
+since pairing is now a step inside Manage Title and Registration, and the
+activity is inside UC-02 rather than beside it.
 
 ### Remaining thesis work
 
-- [ ] UC-06 Manage Evaluation (spec + sequence + activity)
-- [ ] UC-07 Manage Title and Registration
+- [ ] **Renumber the four old Chapter 4 documents** — login, milestone, report
+      and notification still say Table 4.2–4.6 and Figure 4.5–4.13 under the old
+      seven-case numbering. Regenerate them with `build_ch4_*.py` after fixing
+      the literals in those scripts.
+- [ ] **Fix the use case diagram** so pairing is not drawn as its own case.
 - [ ] Chapter 3 — Methodology (Waterfall per the template)
 - [ ] Chapter 5 — Implementation and Testing (incl. UAT)
 - [ ] Chapter 6 — Conclusion
@@ -656,7 +689,8 @@ script. The script produced no error for any of them.
 | Fault | How it looked | Cause |
 |---|---|---|
 | **`action()` returns the BOTTOM, not the top** | a box drawn on top of the one below it | `y = dg.action(...)` was then passed to the next `action()` as its `top` |
-| **A label lying flat on the line it labels** | "refuse" read as "refu▬se" | the label's y equalled the connector's y |
+| **A label lying flat on the line it labels** | "refuse" read as "refu▬se" | the label's y equalled the connector's y — and in a sequence diagram, a `LEAD` smaller than the line height puts the label's LAST line on the arrow |
+| **A sequence figure too tall for its page** | the caption on a page of its own, then a blank page | the figure's aspect was 2.7:1; the fix is at the source — wrap labels to make it wider, tighten the gaps — not in the .docx |
 | **A label inside the box below** | text struck through a box edge | the gap was `G` but the label needed two lines of air |
 | **A connector through a shape** | a line crossing a box | the route reused an x that the boxes occupied further down |
 | **Two opposite labels reading as one line** | "Yes — proposal No — other" | one label above the line, one below, both on the same side |
@@ -688,6 +722,32 @@ refused once the chain exists. There is deliberately **no separate PSM 2 title
 figure** — the branch rejoins the same chain, and two pictures made the reader
 hold both at once. (A standalone `act_psm2_title.py` existed briefly on
 2026-10-27 and was removed for that reason; do not recreate it.)
+
+### Putting a figure in Word — the part that fights back
+
+`build_ch4_title_evaluation.py` settles the pattern; copy it rather than
+rediscovering these four faults.
+
+1. **A tall figure cannot be tamed by its width alone.** A sequence diagram at
+   aspect 2.7:1 needs 14 cm to fit a landscape page *including its caption*;
+   at 19 cm it flowed onto the next page and the caption went with it. Fix the
+   figure (wrap labels, tighten gaps) rather than shrinking it to illegibility.
+   **Fit, don't split**: splitting a 38-message diagram in two made each half
+   still too tall.
+2. **A landscape section must be opened and closed by paragraph `sectPr`s, and
+   the following section must write its own `pgSz`.** A `sectPr` carries only
+   the page size of the section it *closes*, so restoring it without an explicit
+   `pgSz` leaves the next section inheriting landscape.
+3. **The last paragraph of a section is the break.** Leave the closing break on
+   the last paragraph *of the content*, not on one of its own; a bare paragraph
+   holding a `sectPr` renders as a blank page of its own.
+4. **`w:sectPr` must be the last child of `w:pPr`, after `w:spacing`.**
+   python-docx's `paragraph_format` setters insert in schema order, but a raw
+   `pPr.append(sectPr)` then `paragraph_format.space_before = …` puts spacing
+   *after* it and Word refuses the file.
+
+`diagnose_docx_pages.py` lists every body paragraph with its page size, spacing
+and whether it holds a drawing — use it instead of guessing.
 
 
 Every `build_ch4_*.py` follows the same pattern: load

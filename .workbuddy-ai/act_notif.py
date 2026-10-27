@@ -25,7 +25,7 @@ BOXR = 340
 DIAW, DIAH = 250, 120
 G = 34
 
-dg = Diagram(W, 1700)
+dg = Diagram(W, 1900)
 
 # ============================================================ LEFT: scheduler
 y = 30
@@ -216,7 +216,10 @@ l_img = crop(left_edge, left_right)
 import PIL.ImageChops as _IC2
 bb = _IC2.difference(l_img, _I.new("RGB", l_img.size, "white")).getbbox()
 if bb:
-    l_img = l_img.crop((0, 0, l_img.width, min(l_img.height, bb[3] + 40)))
+    # +40 used to cut the "end" caption in half: the bbox stops at the last
+    # dark pixel, which here is the label text itself, so the padding has to
+    # clear the descenders and nothing else.
+    l_img = l_img.crop((0, 0, l_img.width, min(l_img.height, bb[3] + 104)))
 l_img.save(OUT.replace("activity_notification.png", "activity_notification_reminders.png"))
 
 # right figure: from just left of the preferences branch to the canvas edge
