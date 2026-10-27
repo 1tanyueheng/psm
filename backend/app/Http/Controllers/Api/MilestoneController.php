@@ -570,6 +570,41 @@ class MilestoneController extends ApiController
     }
 
     /**
+     * POST /api/milestones/{milestone}/endorse
+     *
+     * The supervisor's endorsement of a proposal, before the title defence.
+     *
+     * Separate from `approve` because it means something different: approving
+     * settles a milestone and unlocks the chain, whereas endorsing a proposal
+     * only says "I have read this and it may go to the panel". Using `approve`
+     * here would activate the next milestone and let a student skip the very
+     * defence the endorsement exists to precede.
+     */
+    public function endorse(Request $request, Milestone $milestone): JsonResponse
+    {
+        $this->authorize('review', $milestone);
+
+        $validated = $request->validate([
+            'comment' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        try {
+            $updated = $this->milestones->endorseProposal(
+                $milestone,
+                $request->user(),
+                $validated['comment'] ?? null,
+            );
+        } catch (InvalidArgumentException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
+
+        return $this->ok(
+            new MilestoneResource($updated->load('currentFiles')),
+            'Proposal endorsed — the panel may now decide the title.',
+        );
+    }
+
+    /**
      * POST /api/milestones/{milestone}/lampiran-c
      *
      * Lampiran C — the corrections a conditional approval required. Filed by the

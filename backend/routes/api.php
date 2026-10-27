@@ -541,6 +541,20 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
             ->middleware('role:admin,coordinator,supervisor')
             ->name('request-revision');
 
+        /**
+         * The supervisor's endorsement of a proposal — the gate before the
+         * title defence.
+         *
+         * `Submitted -> Reviewed`, and nothing else. The supervisor reads the
+         * uploaded proposal and confirms it is ready to be examined; the panel
+         * then sits and settles the title. Until this endpoint existed there was
+         * no way to record that reading, so the panel could act on a document
+         * its supervisor had never opened.
+         */
+        Route::post('{milestone}/endorse', [MilestoneController::class, 'endorse'])
+            ->middleware('role:admin,coordinator,supervisor')
+            ->name('endorse');
+
         // --- The proposal milestone: the title decision -------------------
         // The panel's verdict on the proposal, which settles the title and
         // gates the rest of the chain. MilestoneService refuses the generic

@@ -68,11 +68,41 @@ enum MilestoneStatus: string
             self::Pending     => [self::Open, self::Overdue],
             self::Open        => [self::Submitted, self::Overdue],
             self::Overdue     => [self::Submitted, self::Open],
-            self::Submitted   => [self::Reviewed, self::Approved, self::Conditional, self::Rejected],
+
+            /**
+             * `Submitted` has **no direct path to a panel verdict.**
+             *
+             * The faculty's sequence for the proposal is: the student uploads
+             * the proposal, the **supervisor** reads it and endorses it, and only
+             * then does the panel sit for the title defence. `Reviewed` is that
+             * endorsement, and it is the panel's gate.
+             *
+             * `Submitted -> Approved|Conditional|Rejected` used to be allowed, so
+             * a panel could rule on a proposal its supervisor had never read —
+             * and since `ProposalReviewService` is the only writer of a title
+             * decision, nothing downstream could tell the two apart.
+             *
+             * `Rejected` stays reachable from `Submitted` because the
+             * **supervisor** uses it to send the work back. The panel's refusal
+             * is a different thing and travels via `Reviewed`.
+             */
+            self::Submitted   => [self::Reviewed, self::Rejected],
+
             self::Reviewed    => [self::Approved, self::Conditional, self::Rejected],
+
             // The conditional branch: Lampiran C clears it to Approved, or the
             // panel refuses the corrections and it falls back to Rejected.
             self::Conditional => [self::Approved, self::Rejected],
+
+            /**
+             * A rejected proposal goes back to the student for re-upload.
+             *
+             * The faculty treats a supervisor's rejection as a request for
+             * revision rather than a final refusal: the student revises and
+             * resubmits, and the supervisor reads it again. `revision_count`
+             * records how many rounds it took, so a proposal that needed four
+             * attempts shows four rather than appearing from nowhere.
+             */
             self::Rejected    => [self::Open, self::Submitted],
             self::Approved    => [],
         };

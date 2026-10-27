@@ -295,11 +295,21 @@ class MilestoneService
         return $this->transitionTo($milestone, MilestoneStatus::Approved, $actor, $comment);
     }
 
-    /** Request a revision — reopens the milestone for a re-upload. */
+    /**
+     * Request a revision — reopens the milestone for a re-upload.
+     *
+     * **Allowed on the proposal**, unlike `approve()`. The supervisor's job on a
+     * proposal is to read it before the title defence, and "this is not ready"
+     * is half of that judgement: sending it back for revision is how a
+     * supervisor refuses to endorse, and a chain where the supervisor may only
+     * ever say yes is not a review. The milestone returns to `Rejected`, from
+     * which the student re-uploads, and `revision_count` records the round.
+     *
+     * Approval stays refused for the proposal because it settles the title — see
+     * `assertNotProposal()`.
+     */
     public function requestRevision(Milestone $milestone, User $actor, string $comment): Milestone
     {
-        $this->assertNotProposal($milestone, 'sent back for revision');
-
         $milestone = $this->transitionTo($milestone, MilestoneStatus::Rejected, $actor, $comment);
 
         $this->notifications->notify(
@@ -491,12 +501,23 @@ class MilestoneService
     // -----------------------------------------------------------------
 
     /**
-     * Refuse the generic review actions on the proposal milestone.
+     * Refuse the *approval* actions on the proposal milestone.
      *
-     * Its verdict is the panel's, and it carries the title decision — so it is
-     * decided through ProposalReviewService, which knows about the conditional
-     * and rejected branches. Pointing the caller there is more useful than a
-     * generic "not allowed".
+     * The proposal has two signatures and they belong to different people:
+     *
+     *   1. **The supervisor endorses it** — `Submitted -> Reviewed`. This is the
+     *      gate the rest of the flow hangs from, and it is allowed here: the
+     *      supervisor is the person who reads the proposal before the title
+     *      defence, and asking a coordinator to record that on their behalf
+     *      would put the signature in the wrong hands.
+     *   2. **The panel decides the title** — `Reviewed -> Approved|Conditional|
+     *      Rejected`. That is `ProposalReviewService::recordDecision()`, which
+     *      knows the conditional and rejected branches. Approving from here would
+     *      fix the milestone without ever recording a title decision, which is
+     *      the state this design exists to prevent.
+     *
+     * So this still guards `approve`, and no longer guards the endorsement —
+     * which is why `endorseProposal()` exists rather than a special case here.
      */
     protected function assertNotProposal(Milestone $milestone, string $action): void
     {
@@ -506,6 +527,50 @@ class MilestoneService
                 .'panel. Record the panel\'s decision instead.'
             );
         }
+    }
+
+    /**
+     * The supervisor's endorsement of a proposal — the gate before the defence.
+     *
+     * `Submitted -> Reviewed`, and nothing else. Deliberately narrower than
+     * `approve()`: this records that the supervisor has read the document and
+     * considers it ready to be examined. It does **not** settle the title, and
+     * it does **not** open the next milestone — `activateNext()` fires on
+     * approval, so if endorsement unlocked the chain the student would skip the
+     * title defence entirely.
+     *
+     * Refused for any other milestone: a chapter is approved or sent back, it is
+     * not "endorsed", and offering the same verb for both would blur the one
+     * distinction the proposal exists to make.
+     */
+    public function endorseProposal(Milestone $milestone, User $actor, ?string $comment = null): Milestone
+    {
+        if (! $milestone->isProposal()) {
+            throw new InvalidArgumentException(
+                "{$milestone->title} is not the proposal milestone, so there is nothing to endorse. "
+                .'Use approve or request revision.'
+            );
+        }
+
+        if ($milestone->status !== MilestoneStatus::Submitted) {
+            throw new InvalidArgumentException(
+                'Only a submitted proposal can be endorsed — this one is '
+                ."{$milestone->status->value}."
+            );
+        }
+
+        return $this->transitionTo(
+            $milestone,
+            MilestoneStatus::Reviewed,
+            $actor,
+            $comment,
+            [],
+            // `submission_events.event` is varchar(64) and holds a short event
+            // *key*, not a sentence — the long prose lives in the comment and the
+            // notification. A full sentence here is silently truncated by
+            // PostgreSQL (or, as first written, rejected outright).
+            'Proposal endorsed by supervisor',
+        );
     }
 
     /**

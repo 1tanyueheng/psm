@@ -417,14 +417,37 @@ class ProposalReviewService
         }
     }
 
+    /**
+     * The panel may only rule on a proposal its supervisor has endorsed.
+     *
+     * `Reviewed` is the supervisor's signature — the faculty's sequence is that
+     * the supervisor reads the proposal **before** the title defence, and only
+     * then does the panel sit. Accepting `Submitted` as well used to let the
+     * panel decide on a document nobody had read, and because the title decision
+     * is written here and nowhere else, nothing downstream could tell which way
+     * it had happened.
+     *
+     * The panel remains the higher authority: its verdict on `Reviewed` is
+     * final as before, and it can still reject. What it can no longer do is act
+     * as a shortcut around the supervisor.
+     */
     protected function assertAwaitingDecision(Milestone $milestone): void
     {
-        if (! in_array($milestone->status, [MilestoneStatus::Submitted, MilestoneStatus::Reviewed], true)) {
-            throw new InvalidArgumentException(
-                'There is nothing to decide yet — the proposal has not been submitted. '
-                ."This milestone is '{$milestone->status->value}'."
-            );
+        if ($milestone->status === MilestoneStatus::Reviewed) {
+            return;
         }
+
+        throw new InvalidArgumentException(
+            match ($milestone->status) {
+                MilestoneStatus::Submitted =>
+                    'The proposal has been submitted but not yet endorsed by the supervisor. '
+                    .'Your supervisor reads it before the title defence, and their endorsement '
+                    .'is what opens it to the panel.',
+                default =>
+                    'There is nothing to decide yet — the proposal has not been submitted. '
+                    ."This milestone is '{$milestone->status->value}'.",
+            }
+        );
     }
 
     /** Tell the student what the panel decided, when it needs an action. */
