@@ -18,14 +18,14 @@ use Illuminate\Support\Facades\DB;
  * The faculty's rule is arithmetic, not committee. A project runs for its term,
  * and when that term closes its outcome is the mark: `final_mark >= 40` passed,
  * below that failed. There is no verdict to give, because the mark already is
- * the verdict Ã¢â‚¬â€ see the design spec at `thesis/PSM-LIFECYCLE-SPEC.md` Ã‚Â§1.
+ * the verdict — see the design spec at `thesis/PSM-LIFECYCLE-SPEC.md` §1.
  *
  * This class therefore does three things together, and they must happen
  * together or the system ends up with a student who is `failed` but still
  * occupying a supervisor's slot:
  *
  *   1. **derive** every project's outcome from its mark;
- *   2. **release** the people attached to it Ã¢â‚¬â€ the supervision and the panel;
+ *   2. **release** the people attached to it — the supervision and the panel;
  *   3. **refuse** the close when the term is not ready, naming what is missing.
  *
  * The refusal is the important half. "All marks submitted" is a rule the
@@ -48,7 +48,7 @@ class TermCloseService
          * Students enrolled with no project.
          *
          * A mark keys off a project, so a student with none can never be marked
-         * Ã¢â‚¬â€ and the term would block forever with no explanation. The faculty's
+         * — and the term would block forever with no explanation. The faculty's
          * position is that every student eventually gets an approved title, so
          * this list is normally empty; when it is not, the coordinator chases
          * the student or withdraws the enrolment.
@@ -73,14 +73,14 @@ class TermCloseService
                 $withoutProject->count(),
                 $term->name,
                 $names,
-                $withoutProject->count() > 5 ? ', Ã¢â‚¬Â¦' : '',
+                $withoutProject->count() > 5 ? ', Ã¢…' : '',
             );
         }
 
         /**
          * Projects with no submitted mark.
          *
-         * `submitted` and `locked` both count Ã¢â‚¬â€ the assessor has filed, whether
+         * `submitted` and `locked` both count — the assessor has filed, whether
          * or not the coordinator has since locked the form.
          */
         $projects = Project::query()
@@ -111,7 +111,7 @@ class TermCloseService
                 $unmarked->count(),
                 $term->name,
                 $codes,
-                $unmarked->count() > 5 ? ', Ã¢â‚¬Â¦' : '',
+                $unmarked->count() > 5 ? ', Ã¢…' : '',
             );
         }
 
@@ -140,9 +140,9 @@ class TermCloseService
             /**
              * Grades fetched once for the whole cohort.
              *
-             * `finalGrade` is a computed accessor, not a relation â€” a grade is
+             * `finalGrade` is a computed accessor, not a relation — a grade is
              * keyed on (project, student, part) and carries no foreign key back
-             * to the submission â€” so `with('finalGrade')` cannot eager-load it.
+             * to the submission — so `with('finalGrade')` cannot eager-load it.
              * Reading it inside the loop would cost one query per project.
              */
             $submissions = MarkSubmission::query()
@@ -162,8 +162,8 @@ class TermCloseService
 
                 /**
                  * A project with a submitted form but no computed mark cannot be
-                 * given an outcome. Refusing here would be wrong Ã¢â‚¬â€ the close has
-                 * already been checked Ã¢â‚¬â€ so it is recorded as failed, which is
+                 * given an outcome. Refusing here would be wrong — the close has
+                 * already been checked — so it is recorded as failed, which is
                  * what the faculty's "no mark means zero" rule says. The
                  * assessor was required to enter something; this is the
                  * consequence of not having done so.
@@ -209,7 +209,7 @@ class TermCloseService
      * with nobody. The pairing is narrowed to whatever part is still running,
      * and ended only when none is.
      *
-     * Reads `active()` Ã¢â‚¬â€ "not finished" Ã¢â‚¬â€ because at this point the project has
+     * Reads `active()` — "not finished" — because at this point the project has
      * just been given an outcome, so it is no longer running.
      */
     protected function closeSupervisions(Project $project, string $outcome): void
@@ -256,7 +256,7 @@ class TermCloseService
      * The panel exists to examine one part of one student's work. Once the term
      * closes there is nothing left to examine, and leaving the rows active would
      * keep examiners seated on a finished student for ever. Retired, never
-     * deleted Ã¢â‚¬â€ an appeal months later asks who examined this.
+     * deleted — an appeal months later asks who examined this.
      */
     protected function releasePanel(Project $project): void
     {
@@ -272,8 +272,8 @@ class TermCloseService
      *
      * The two records describe the same attempt from different angles, and
      * letting them disagree is how a finished student stays counted against
-     * supervisor capacity. If there is no enrolment Ã¢â‚¬â€ a seeded or imported
-     * project Ã¢â‚¬â€ there is nothing to settle.
+     * supervisor capacity. If there is no enrolment — a seeded or imported
+     * project — there is nothing to settle.
      */
     protected function settleEnrolments(Project $project, string $outcome, float $finalMark): void
     {

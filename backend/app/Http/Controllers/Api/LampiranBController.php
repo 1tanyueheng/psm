@@ -20,7 +20,7 @@ use Illuminate\Validation\Rule;
 use InvalidArgumentException;
 
 /**
- * Lampiran B â€” filing, signing, and the gate it opens.
+ * Lampiran B — filing, signing, and the gate it opens.
  *
  * A re-presented title runs through here: the student revises the pre-filled
  * form, the supervisor signs it, and only then does the re-presented proposal
@@ -30,7 +30,7 @@ use InvalidArgumentException;
  *   POST /api/lampiran-b/{form}/sign    supervisor signs, or sends it back
  *   GET  /api/projects/{project}/lampiran-b   every filing, newest first
  *
- * The first filing is not made here â€” it is created by `RegistrationService`
+ * The first filing is not made here — it is created by `RegistrationService`
  * when the project is registered, and its record is written by the migration's
  * backfill for projects that predate this table. This controller is for the
  * rounds after a refusal.
@@ -95,7 +95,7 @@ class LampiranBController extends ApiController
     /**
      * The student fills in the revised form.
      *
-     * Only the fields the student owns. The supervisor is not among them â€” the
+     * Only the fields the student owns. The supervisor is not among them — the
      * pairing was fixed by Lampiran A, and a re-file is about the title, not
      * about who supervises.
      */
@@ -121,7 +121,7 @@ class LampiranBController extends ApiController
          * A re-file must actually differ from the title that was refused.
          *
          * Submitting the same title again wastes a panel sitting and tells the
-         * student nothing â€” the panel already said no to it. Compared
+         * student nothing — the panel already said no to it. Compared
          * case-insensitively with whitespace collapsed, so re-typing it with
          * different spacing or capitalisation is still the same title.
          */
@@ -134,7 +134,7 @@ class LampiranBController extends ApiController
 
             if ($normalise($validated['title']) === $normalise($previous->title)) {
                 return $this->fail(
-                    'That is the title the panel refused â€” it needs to be revised, not resubmitted. '
+                    'That is the title the panel refused — it needs to be revised, not resubmitted. '
                     .($previous->rejected_reason ? "The panel said: {$previous->rejected_reason}" : ''),
                     422,
                     ['title' => ['This title was already refused.']],
@@ -153,7 +153,7 @@ class LampiranBController extends ApiController
 
         $this->audit->log(
             action: AuditAction::ProjectUpdated,
-            description: "Lampiran B #{$form->revision_no} filed for {$form->project?->code} â€” "
+            description: "Lampiran B #{$form->revision_no} filed for {$form->project?->code} — "
                 ."\"{$form->title}\" awaiting the supervisor's signature",
             subject: $form,
             actor: $request->user(),
@@ -161,7 +161,7 @@ class LampiranBController extends ApiController
 
         return $this->ok(
             (new LampiranBFormResource($form->fresh()->load('supervisorProfile.user')))->resolve($request),
-            'Lampiran B submitted â€” awaiting your supervisor\'s signature.',
+            'Lampiran B submitted — awaiting your supervisor\'s signature.',
         );
     }
 
@@ -198,7 +198,7 @@ class LampiranBController extends ApiController
 
             if ($reason === '') {
                 return $this->fail(
-                    'Say what needs changing â€” the student cannot act on a refusal with no reason.',
+                    'Say what needs changing — the student cannot act on a refusal with no reason.',
                     422,
                 );
             }
@@ -243,10 +243,10 @@ class LampiranBController extends ApiController
              * A boundary title change installs its chain on signature.
              *
              * The form created by `Psm2TitleChangeService::request()` carries no
-             * milestone â€” there is nothing to open, because the chain it needs
+             * milestone — there is nothing to open, because the chain it needs
              * does not exist yet. Signing is the moment it comes into being: the
              * new title becomes the project's title, and the refiled proposal and
-             * Chapters 1â€“4 are prepended to the PSM 2 chain.
+             * Chapters 1–4 are prepended to the PSM 2 chain.
              *
              * Distinguished from a re-filing by the project's flagged state and
              * by the form having no milestone, so the two paths cannot collide.
@@ -261,7 +261,7 @@ class LampiranBController extends ApiController
 
                     $this->audit->log(
                         action: AuditAction::ProjectUpdated,
-                        description: "PSM 2 title changed for {$form->project->code} â€” "
+                        description: "PSM 2 title changed for {$form->project->code} — "
                             ."\"{$form->title}\"; PSM 1 documents reinstated",
                         subject: $form->project,
                         actor: $request->user(),
@@ -271,7 +271,7 @@ class LampiranBController extends ApiController
 
             $this->audit->log(
                 action: AuditAction::ProjectApproved,
-                description: "Lampiran B #{$form->revision_no} signed for {$form->project?->code} â€” "
+                description: "Lampiran B #{$form->revision_no} signed for {$form->project?->code} — "
                     ."\"{$form->title}\"",
                 subject: $form,
                 actor: $request->user(),
@@ -295,7 +295,7 @@ class LampiranBController extends ApiController
      * Open the proposal milestone this filing belongs to.
      *
      * The re-presented proposal is created as `pending` by the rejection and
-     * carries the form's `milestone_id`. Signing activates it â€” that is the
+     * carries the form's `milestone_id`. Signing activates it — that is the
      * whole gate. A form with no milestone (the first filing, made before the
      * project existed) opens nothing: its proposal is already part of the chain.
      */
@@ -322,7 +322,7 @@ class LampiranBController extends ApiController
             null,
             [],
             // `submission_events.event` is varchar(64) and holds a short event
-            // key, not a sentence â€” a full description here is rejected by
+            // key, not a sentence — a full description here is rejected by
             // PostgreSQL rather than truncated. The reader-facing wording lives
             // in the response message and the audit entry.
             'Proposal opened after Lampiran B signature',

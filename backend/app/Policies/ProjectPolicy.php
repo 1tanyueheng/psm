@@ -6,7 +6,7 @@ use App\Models\Project;
 use App\Models\User;
 
 /**
- * Module 3 â€” Who may see and change a project.
+ * Module 3 — Who may see and change a project.
  *
  * The visibility rule mirrors Project::scopeVisibleTo() so a list query and a
  * single-record check can never disagree.
@@ -37,7 +37,7 @@ class ProjectPolicy
          * allocated to as a panel examiner.
          *
          * Both halves matter. Being on a panel is a seating, not a role, so a
-         * supervisor examining someone else's student must reach that project â€”
+         * supervisor examining someone else's student must reach that project —
          * otherwise they cannot read, or decide the proposal milestone of, the
          * work they were appointed to examine.
          */
@@ -99,7 +99,7 @@ class ProjectPolicy
     }
 
 
-    /** Allocate examiners â€” coordinator territory. */
+    /** Allocate examiners — coordinator territory. */
     public function assignExaminers(User $actor, Project $project): bool
     {
         return $this->approve($actor, $project);
@@ -148,14 +148,14 @@ class ProjectPolicy
     }
 
     /**
-     * Module 5 â€” export the project list as CSV.
+     * Module 5 — export the project list as CSV.
      *
      * A class-level ability: the decision is "may this actor export projects at
      * all", not "may they export *this* project". The export is a cohort-wide
      * file, so there is no single target to check.
      *
      * This exists because `ReportController::exportProjects()` authorised
-     * against `User::class`, and `UserPolicy` has no `export` method â€” Gate
+     * against `User::class`, and `UserPolicy` has no `export` method — Gate
      * found nothing, returned false, and the endpoint answered a bare 403 to
      * everyone including admins. The marks export worked because it authorises
      * against `FinalGrade`, which *does* define `export`; the asymmetry is what
@@ -200,7 +200,7 @@ class ProjectPolicy
     /**
      * Is this user seated as an examiner on the project?
      *
-     * Read from `examiner_assignments` â€” anchored on the student while the panel
+     * Read from `examiner_assignments` — anchored on the student while the panel
      * is allocated, and stamped with `project_id` once Lampiran B creates the
      * project. Role is deliberately not checked: the panel is drawn from
      * supervisors as well as examiners.

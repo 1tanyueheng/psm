@@ -20,14 +20,25 @@ Corrected a second time. What was wrong in the previous version:
 
 What the diagram now says:
   1. the chain is generated and the first milestone opened;
-  2. the student uploads; an unacceptable upload is refused and returns to the
+  2. a **PSM 2 boundary decision** comes *before* the first milestone opens: a
+     student who passed PSM 1 may change the title once, at the start of the
+     PSM 2 chain, and the cost is theirs - a new Lampiran B, a full defence and
+     Chapters 1-4 written again for the new title. Changing it **prepends** a
+     proposal and Chapters 1-4 (weight 0) to the chain, which is why the first
+     milestone then regenerates;
+  3. the student uploads; an unacceptable upload is refused and returns to the
      upload step;
-  3. an acceptable one is `submitted`;
-  4. a **guard** asks whether a supervisor may review this milestone at all -
+  4. an acceptable one is `submitted`;
+  5. a **guard** asks whether a supervisor may review this milestone at all -
      no for `proposal`, which branches right into the panel's own decision and
      then rejoins the common tail;
-  5. otherwise the reviewer approves or requests revision, and both paths
+  6. otherwise the reviewer approves or requests revision, and both paths
      converge on the end.
+
+The PSM 2 title change is a *branch of this one process*, not a process of its
+own, so it is drawn here rather than in a second figure: both routes end at the
+same milestone chain, and splitting them made the reader hold two pictures at
+once.
 """
 import os
 from uml_kit import Diagram, INK, GREY
@@ -38,6 +49,8 @@ W = 2000
 CX = 450          # spine
 RX = 1010         # guard refusal -> panel column
 APX = 1390        # approve column (right of the panel column, never over it)
+PX = 1690         # PSM 2 boundary column (right of the approve column)
+PKW = 380         # PSM 2 column box width
 BOXC = 360        # spine box width
 BOXR = 320        # panel column box width
 APPW = 300        # approve column box width
@@ -51,9 +64,108 @@ y = dg.start(CX, y + 8, r=14)
 dg.label(CX - 26, y - 4, "start", anchor="ra")
 prev = y
 
+# ---- PSM 2 boundary: the title may change once, at the start of the chain --
+#
+# This branch runs UP the right-hand column, backwards against the normal
+# reading direction. That is deliberate: its "No" edge has to return to the top
+# of the spine, and the top of the spine is the start. Drawn downwards it could
+# only have rejoined *after* "chain generated" — but a boundary change is
+# refused once the chain exists, so the picture would have been wrong.
+#
+# Nothing overlaps it either: the spine is two boxes deep at this point and the
+# panel/approve columns do not begin until the first upload.
+BD_TOP = 40
+pk_l = PX - PKW / 2
+
+chg_top = BD_TOP + 8
+chg_bot = dg.action(PX, chg_top, "Change the title?", w=PKW)
+chg_mid = chg_top + 36
+
+# No -> left, and down into the start of the spine: the title is inherited.
+dg.route([(pk_l, chg_mid), (CX, chg_mid)])
+dg.label(pk_l + 12, chg_mid - 24, "No", anchor="la", bold=True)
+
 y += G
-t = y; y = dg.action(CX, t, "Coordinator registers project\nmilestone chain generated", w=BOXC)
-dg.connect(CX, prev, CX, t); prev = y
+bd_top = y
+bd_bot = dg.decision(CX, bd_top, "Starting PSM 2?", w=DIAW + 20, h=DIAH)
+dg.connect(CX, bd_mid, CX, bd_top) if False else None
+dg.connect(CX, prev, CX, bd_top)
+bd_mid = bd_top + DIAH / 2
+
+# Yes -> right into the PSM 2 column, climbing to its first box.
+#
+# It joins from the RIGHT of that column and turns up — under the branch's own
+# boxes, never through one. The earlier draft ran this line up the column's LEFT
+# x, which at that height was already occupied by the PSM 2 boxes themselves.
+dg.route([(CX + (DIAW + 20) / 2, bd_mid), (pk_l + PKW + 48, bd_mid),
+          (pk_l + PKW + 48, chg_mid), (pk_l + PKW, chg_mid)])
+dg.label(CX + (DIAW + 20) / 2 + 10, bd_mid - 24, "Yes", anchor="la", bold=True)
+
+# ---- the spine: chain generated, first milestone opened when it is ---------
+#
+# A fixed step of 110px, not G. Two things have to fit in this gap and neither
+# did at 38px: the "No — PSM 1" label (two lines, above the connector) and the
+# re-upload loop, which returns at +22 with its own label above that. At G the
+# label landed inside the box below and the returning connector crossed it; the
+# first two renders of this figure both showed it.
+STEP = 110
+y = bd_bot + G
+chain_top = y
+chain_bot = dg.action(CX, chain_top, "Coordinator registers project\nmilestone chain generated", w=BOXC)
+dg.connect(CX, bd_bot, CX, chain_top)
+dg.label(CX - (DIAW + 20) / 2 - 10, bd_mid + 4, "No — PSM 1, or the\ntitle stands", anchor="ra")
+
+first_top = chain_bot + STEP
+first_bot = dg.action(CX, first_top, "First milestone opened\nstatus = open", w=BOXC)
+dg.connect(CX, chain_bot, CX, first_top)
+prev = first_bot
+
+# ---- Yes, change the title: the new form has to be signed ------------------
+# The whole branch is offset to clear the re-upload loop's return at +22.
+gy = chg_bot + 64
+new_b_top = gy
+new_b = dg.action(PX, gy, "New Lampiran B, pre-filled\nwith the new title", w=PKW)
+dg.connect(PX, chg_bot, PX, gy)
+
+gy = new_b + G
+signed = dg.action(PX, gy, "Supervisor signs the new title\n(a signature covers one title)", w=PKW)
+dg.connect(PX, new_b, PX, gy)
+
+# ---- install(): the title is replaced and the PSM 1 documents come back ----
+gy = signed + G
+inst_top = gy
+inst_bot = dg.action(PX, gy,
+                     "install():\n· projects.title = the new title\n"
+                     "· proposal and Chapters 1–4 prepended\n· those chapters weigh 0",
+                     w=PKW)
+dg.connect(PX, signed, PX, gy)
+
+# ---- the defence, and the refusal loop this figure already draws -----------
+gy = inst_bot + G
+def_top = gy
+defended = dg.action(PX, gy, "Student redoes the PSM 1 documents\npanel defends the new title", w=PKW)
+dg.connect(PX, inst_bot, PX, gy)
+
+gy = defended + G
+acc_top = gy
+acc_h = 96
+acc_bot = dg.decision(PX, gy, "Title accepted?", w=DIAW, h=acc_h)
+dg.connect(PX, defended, PX, acc_top)
+acc_mid = acc_top + acc_h / 2
+
+# No -> the same re-presentation loop as the panel's refusal above.
+REVP = pk_l - 80
+REVW = 200
+dg.connect(PX - DIAW / 2, acc_mid, REVP + REVW / 2, acc_mid)
+dg.label(PX - DIAW / 2 - 8, acc_mid - 24, "No", anchor="ra", bold=True)
+dg.action(REVP, acc_mid - 42, "Mark the form rejected\nre-present it\n(no cap)", w=REVW)
+
+# Yes -> Chapters 5-7, which the prepended chapters now sit in front of.
+gy = acc_bot + G
+ch57 = gy
+ch57_bot = dg.action(PX, gy, "Chapters 5–7, final report,\nForm K", w=PKW)
+dg.connect(PX, acc_bot, PX, gy)
+dg.label(PX + DIAW / 2 + 8, acc_mid - 24, "Yes", anchor="la", bold=True)
 
 y += G
 t = y; y = dg.action(CX, t, "First milestone opened\nstatus = open", w=BOXC)
@@ -111,10 +223,17 @@ g_bot = dg.decision(CX, g_top, "Is this the\nproposal?", w=DIAW, h=DIAH)
 dg.connect(CX, prev, CX, g_top)
 g_mid = g_top + DIAH / 2
 
+# The two arms of this diamond are labelled on the SAME side, one above the line
+# and one below, and both in bold. Labelling "Yes — proposal" above on the right
+# and "No — other" to the left of the downward stroke read, at print width, as a
+# single line: "Yes — proposal No — other", two opposite answers in a row. The
+# diamond is wide enough (240px) for both to sit clear of each other.
+g_arm_r = CX + DIAW / 2
+
 # Yes (proposal) -> supervisor endorses, then the panel decides the title.
 gt = g_mid - 44
-dg.connect(CX + DIAW / 2, g_mid, RX - BOXR / 2, g_mid)
-dg.label(CX + DIAW / 2 + 10, g_mid - 24, "Yes — proposal", anchor="la", bold=True)
+dg.connect(g_arm_r, g_mid, RX - BOXR / 2, g_mid)
+dg.label(g_arm_r + 10, g_mid - 24, "Yes — proposal", anchor="la", bold=True)
 gprev = dg.action(RX, gt, "Supervisor reviews the\nuploaded proposal", w=BOXR)
 
 # Endorse or send back: the two things a supervisor may do here.
@@ -163,11 +282,13 @@ panel_end = accepted
 # Lampiran B opens as a draft pre-filled from it, and a *new* proposal milestone
 # is inserted after the refused one. Nothing is overwritten, so the second
 # defence can show what changed. There is no cap — the count is visible instead.
+# 64px, not G: at 38 the "refuse" label lay flat across the leading horizontal
+# run and the two read as one word, "refuse" struck through by the line.
 REF_X = RX + BOXR / 2 + 190
 REF_W = BOXR - 10
-ref_top = panel_dec_top + DIAH / 2 - 44
+ref_top = panel_dec_top + DIAH / 2 + G + 26
 dg.connect(RX + (DIAW - 30) / 2, panel_dec_top + DIAH / 2, REF_X - REF_W / 2, panel_dec_top + DIAH / 2)
-dg.label(RX + (DIAW - 30) / 2 + 8, panel_dec_top + DIAH / 2 - 24, "refuse", anchor="la", bold=True)
+dg.label(RX + (DIAW - 30) / 2 + 8, panel_dec_top + DIAH / 2 + 8, "refuse", anchor="la", bold=True)
 
 ref = dg.action(REF_X, ref_top, "Mark the form rejected\nrecord the panel's reason", w=REF_W)
 LOOPX2 = REF_X + REF_W / 2 + 44
@@ -189,7 +310,7 @@ y = g_bot + G
 d2_top = y
 d2_bot = dg.decision(CX, d2_top, "Reviewer\ndecision?", w=DIAW, h=DIAH)
 dg.connect(CX, g_bot, CX, d2_top)
-dg.label(CX - DIAW / 2 - 10, g_bot + 8, "No — other", anchor="ra", bold=True)
+dg.label(g_arm_r + 10, g_bot + 6, "No — other", anchor="la", bold=True)
 d2_mid = d2_top + DIAH / 2
 
 # ---- Request revision (down the spine) -------------------------------------
@@ -252,11 +373,19 @@ for txt in ("Open transaction\nwrite status + timestamp",
 approve_end = aprev
 
 # ---- converge + end --------------------------------------------------------
-join_y = max(approve_end, panel_end, revision_end) + 64
+#
+# Every column that ends in a terminal state must physically reach the join, or
+# a reader takes an unconnected tail for a dead end. The PSM 2 column is the
+# tallest, so it is joined last and the join runs the full width. Note the PSM 2
+# join leaves from the BOTTOM of its last box (`ch57_bot`): `dg.action()` returns
+# the bottom, while `ch57` is the top the box was placed at, and drawing from the
+# latter started every column's join inside a shape.
+join_y = max(approve_end, ch57_bot, revision_end) + 64
 dg.seg(APX, approve_end, APX, join_y)
 dg.seg(RX, panel_end, RX, join_y)
 dg.seg(CX, revision_end, CX, join_y)
-dg.seg(CX, join_y, APX, join_y)
+dg.seg(PX, ch57_bot, PX, join_y)
+dg.seg(CX, join_y, PX, join_y)
 mid = (CX + APX) / 2
 dg.connect(mid, join_y, mid, join_y + G - 8)
 y = dg.end(mid, join_y + G, r=16)

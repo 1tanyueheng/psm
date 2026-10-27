@@ -8,7 +8,7 @@ use App\Models\Milestone;
 use App\Models\User;
 
 /**
- * Module 3 â€” Milestone visibility, submission and review rights.
+ * Module 3 — Milestone visibility, submission and review rights.
  */
 class MilestonePolicy
 {
@@ -31,15 +31,15 @@ class MilestonePolicy
      * Withdrawing an attached file.
      *
      * Deliberately wider than `submit`. It covers the same window (the
-     * milestone still accepts work) *and* the `submitted` window â€” handed in,
+     * milestone still accepts work) *and* the `submitted` window — handed in,
      * but not yet acted on by a reviewer.
      *
      * That second window is the common case: attaching the wrong file and
      * noticing immediately. Gating withdrawal behind `submit` alone meant a
      * student who had just submitted could not take the file back, and the
-     * only remedy was to ask a supervisor to request a revision â€” a
+     * only remedy was to ask a supervisor to request a revision — a
      * conversation to fix a slip the student can already see. The
-     * `Submitted â†’ Rejected` transition in `destroyFile()` was written for
+     * `Submitted → Rejected` transition in `destroyFile()` was written for
      * exactly this case, but was unreachable while the check was `submit`.
      *
      * Once the work is `reviewed` or `approved` the record is closed and a
@@ -80,7 +80,7 @@ class MilestonePolicy
 
     /**
      * Review (approve / request revision): the student's own supervisor, or a
-     * coordinator. An examiner does not approve milestones â€” they assess the
+     * coordinator. An examiner does not approve milestones — they assess the
      * finished work through Module 4.
      *
      * The **proposal milestone** is the exception, and it is not reviewed here:
@@ -114,8 +114,8 @@ class MilestonePolicy
     /**
      * Record a Lampiran R1 review round against a submission.
      *
-     * The audience is the same as `review()` â€” the student's own supervisor, a
-     * coordinator, or an administrator â€” because filling in the R1 *is* the
+     * The audience is the same as `review()` — the student's own supervisor, a
+     * coordinator, or an administrator — because filling in the R1 *is* the
      * review: its checkboxes decide approve versus request-revision. Delegating
      * rather than repeating the supervisor lookup means the two can never drift
      * apart and let somebody review on one route but not the other.
@@ -151,7 +151,7 @@ class MilestonePolicy
          * Every other R1 milestone reviews a document the student uploaded, so
          * "there is a current file" is the condition that stops a supervisor
          * reviewing an empty milestone. The system demo is a face-to-face
-         * session â€” the student demonstrates, the supervisor fills the sheet â€”
+         * session — the student demonstrates, the supervisor fills the sheet —
          * so that condition would make the form permanently unavailable.
          */
         if ($milestone->code === Milestone::CODE_DEMO) {
@@ -165,7 +165,7 @@ class MilestonePolicy
      * Read the R1 history of a milestone.
      *
      * Wider than `reviewR1`: the people who *wrote* it can obviously read it,
-     * and so can everybody who can already see the milestone â€” the student whose
+     * and so can everybody who can already see the milestone — the student whose
      * chapter it is, in particular, who needs to read the reason they were sent
      * back. Reading the reviews is not authoring them.
      */
@@ -175,7 +175,7 @@ class MilestonePolicy
     }
 
     /**
-     * Record the panel's verdict on the proposal milestone â€” the title decision.
+     * Record the panel's verdict on the proposal milestone — the title decision.
      *
      * The two examiners seated on the project's student, or a coordinator/admin
      * recording it on the panel's behalf. The supervisor is deliberately absent:
@@ -196,7 +196,7 @@ class MilestonePolicy
     }
 
     /**
-     * File Lampiran C â€” the corrections a conditional title approval required.
+     * File Lampiran C — the corrections a conditional title approval required.
      * The owning student's own act.
      */
     /**
@@ -225,7 +225,7 @@ class MilestonePolicy
     /**
      * Is this user one of the examiners seated on the project's student?
      *
-     * Read from `examiner_assignments`, which is anchored on the student â€” the
+     * Read from `examiner_assignments`, which is anchored on the student — the
      * panel is seated from Lampiran A onward, and Lampiran B stamps the project
      * onto those allocations.
      *

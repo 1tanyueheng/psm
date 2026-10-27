@@ -1,6 +1,6 @@
 # PROGRESS — PSM Assessment System (thesis + code)
 
-**Last updated:** 2026-10-26
+**Last updated:** 2026-10-27
 **Owner:** yuehe
 **Purpose:** the single file another agent (or you, next month) reads first to
 know exactly where this project stands.
@@ -249,73 +249,67 @@ local disk. `FILESYSTEM_DISK=s3`.
   only what the save would accept. Earlier the picker offered everyone and the
   save refused afterwards — a trap the coordinator could not avoid.
 
-### End of a project — verdicts, repeats, enrolments (2026-10-26)
+### End of a project — the mark decides, and closing the term applies it (2026-10-27)
 
-**This is the newest part of the model and the part most likely to be
-misunderstood. Read it before touching anything about "finishing" a project.**
+**Read this before touching anything about "finishing" a project.** It replaces
+the 2026-10-26 design, in which a committee gave each project a verdict from a
+`/verdicts` board. That whole layer is now **deleted on purpose** — see §3A
+"Removed / retired". The rule today, in one line:
 
-A project used to have no way of *ending*. `archived_at` was the closest thing,
-but archiving only hid a project — it never said whether the student passed, so
-nothing downstream could act on the result. `resolve()` supplies the missing
-step, and `student_enrolments` supplies the missing record.
+> A project runs for a semester. When that semester closes, `final_mark >= 40`
+> means passed, below it means failed. Nobody votes.
 
-**A project has three end states.** `in_progress` / `submitted` = running;
-`completed` = passed; `failed` = repeat required. `archived_at` is **not** a
-lifecycle marker — it is not used for anything.
+The written specification is `thesis/PSM-LIFECYCLE-SPEC.md` (signed off, §8
+ticked) and the code follows it. Its five rules:
+
+| # | Rule |
+|---|---|
+| R1 | A project is **running** until its semester closes. There is no status a human sets. |
+| R2 | The **mark** decides: `final_mark >= pass_mark` (40). No committee verdict. |
+| R3 | A title becomes the project's title **only when a panel accepts it** — a proposed title never overwrites an accepted one. |
+| R4 | A refused title is **re-presented until approved** — same semester, **no cap**. A rejection is not a failure. |
+| R5 | Only a **mark below 40** costs a semester. |
 
 | Piece | Where | What it does |
 |---|---|---|
-| `ProjectResolutionService::resolve()` | `backend/app/Services/` | Records pass/fail on one project, stores who/when/why in `metadata`, closes the supervision (if no other part is running) and frees the panel seats. **Refuses until the term's `MarkSubmission` is `locked`.** |
-| `ProjectResolutionService::repeat()` | same | Marks a failed attempt repeatable. Creates **nothing** and **guesses no term** — it opens an unplaced `enrolling` enrolment. |
-| `EnrolmentService` | `backend/app/Services/` | `enrol()` places a student into a part for a term; `openRepeat()` opens an attempt with no term; `placeRepeat()` gives it one; `withdraw()` is a deferral, **not** a failure. |
-| `student_enrolments` | migration `2026_10_26_000001` | One row per student × PSM part × semester, with `attempt_no`. |
-| `GET /api/projects/verdicts` | `ProjectController` | The committee's worklist — **both** parts, per project, with a `blocker` on every row that cannot be ruled on yet. |
-| `VerdictPage` (`/verdicts`) | `frontend/src/pages/coordinator/` | Filters (batch / outcome / free text), row actions **Pass** · **Fail…** (reason required) · **Start repeat**. |
-| `GET/POST /api/enrolments` | `EnrolmentController` | Cohort register; `/eligible` lists every student with a blocker; batch enrol; `/{id}/place`; `/{id}/withdraw`. |
+| `TermCloseService::close()` | `backend/app/Services/` | Derives every project's `completed`/`failed` from its mark, narrows the supervision (both parts), releases the panel seats, and settles the enrolments — **in one pass**, because a student left `failed` while still occupying a supervisor's slot is the bug this exists to prevent. Called by `SemesterService::close()`. |
+| `TermCloseService::closeBlockedReason()` | same | Refuses the close with a **named list** when an enrolled student has no project, or a project has no submitted mark. |
+| `ProjectResolutionService::repeat()` | same | **The only survivor** of that class. `resolve()` is deleted. Marks a failed attempt repeatable and opens an unplaced `enrolling` enrolment. |
+| `StudentEnrolment` + `/api/enrolments` | migration `2026_10_26_000001`, `EnrolmentController` | One row per student × part × semester with `attempt_no`. This is where a student's term lives. |
+| `GET/POST /api/enrolments` | `EnrolmentController` | Cohort register; `/eligible`; batch enrol; `/place`; `/withdraw`. |
 | `EnrolmentPage` (`/enrolments`) | `frontend/src/pages/admin/` | **Cohort** tab + **Awaiting a term** tab (unplaced repeats). |
+
+**Non-attendance is a typed zero, never an assumption.** The assessor enters
+`0`; the system never invents one, because "assessed and failed" and "never
+assessed" are different facts and only the first is a fail.
 
 **Why enrolments exist — the bug that forced them.** A student's term used to
 live *only* on their project (`projects.academic_semester_id`); `student_profiles`
-had no term at all. Three consequences:
-
-1. **A repeat had to guess its term.** PSM 2 repeat created the new project in
-   `AcademicSemester::current()` or the next term by start date. When neither
-   resolved, the project was written with a **null** `academic_semester_id` — a
-   repeat recorded with no term behind it. *Observed, not theoretical.*
-2. **Attempts could not be counted.** Only repeats carried
-   `metadata.repeat_number`; the first attempt carried nothing.
-3. **Registration had nothing to attach to.** "May this student register?" was
-   answered by the *absence* of an active project — which is why removing the
-   archive module forced seven queries off `archived_at IS NULL` onto
-   `->active()`.
-
-Now the committee's decision opens an enrolment with **no term**, and the admin
-chooses the term on `/enrolments`. There is no code path that can invent one.
+had no term at all. A repeat therefore had to *guess* a term and once wrote a
+`null` one — observed, not theoretical — and attempts could not be counted.
 
 **Enrolment states:** `enrolling` → `active` → `completed` | `failed` |
 `withdrawn`. `withdrawn` is **not** `failed` — a deferral is not an academic
-failure and must not read as one in a transcript or the analytics.
+failure and must not read as one in a transcript or in the analytics.
 
 **Two partial unique indexes, not `$table->unique()`:** placed rows are unique on
-(student, term, part); unplaced repeats are unique on (student, part), so a
-student cannot hold two waiting repeats of the same part.
+(student, term, part); unplaced repeats are unique on (student, part).
 
 **Rules, all enforced server-side:**
 
-- A verdict is refused until marks are `locked` (a verdict commits a grade).
+- A verdict is gone; **only closing the term** writes an outcome.
 - A repeat is refused until the failed term **is closed** (`isClosed()` =
-  `closed_at` set, or `is_active` false — **not** `ends_at`).
-- A repeat goes into a **later** term than the one failed.
+  `closed_at` set, or `is_active` false — **not** `ends_at`), and goes into a
+  **later** term.
 - A part already **completed** cannot be repeated.
-- Resolving twice is refused; a verdict is not overwritten silently.
 - PSM 1 repeat **creates no project** — the student re-files Lampiran A.
 - Nothing is deleted: a failed attempt keeps its marks and its enrolment row.
 
-**Worklists show blocked rows, never omit them.** Both `/verdicts` and
-`/enrolments/eligible` return every student with a `blocker` string. A student
-absent from a picker is unpickable *and* undebuggable.
+**Worklists show blocked rows, never omit them.** `/enrolments/eligible` returns
+every student with a `blocker` string. A student absent from a picker is
+unpickable *and* undebuggable.
 
-### The proposal — two signatures, two people (2026-10-27)
+### The proposal — two signatures, two people, and a refused title re-presented (2026-10-27)
 
 **Read this before touching anything about the proposal milestone or title
 decisions.**
@@ -345,12 +339,105 @@ milestone (`MilestoneController::submit` — `files` is `required`), and
 may withdraw and re-upload freely, including after approval. `SubmissionFile`
 marks the old version superseded rather than deleting it.
 
-**Rejected-title loop (verified end to end):** panel rejects → `changeTitle()`
-rewrites the project title and reopens the milestone to `Open` → supervisor
-re-endorses → panel decides again, `revision_count` incremented. A rejection does
-**not** create Lampiran C — only `conditional_approve` does.
+### Lampiran B is a record now, not a field (2026-10-27)
 
-### What registration collects — per the official forms (2026-10-27)
+Before this, a title existed only as `projects.title` plus a milestone, so a
+refused title had **nowhere to live** and the rejected title vanished when it
+changed. `lampiran_b_forms` gives each filing a row.
+
+| Column | Meaning |
+|---|---|
+| `project_id` | the same project, never restarted |
+| `revision_no` | which filing this is — 1, 2, 3… |
+| `title` | the title proposed **on this form** |
+| `status` | `draft` \| `submitted` \| `endorsed` \| `accepted` \| `rejected` |
+| `rejected_reason`, `rejected_at`, `rejected_by` | the panel's objection, kept forever |
+| `superseded_by_id` | the next filing |
+| `milestone_id` | the proposal milestone that carries it |
+| `project_type`, `field_study`, `requirements`, `origin` | the real Lampiran B fields, lifted out of `projects.metadata` |
+
+**`projects.title` is the last title a panel ACCEPTED** (R3). A proposed title
+never overwrites it — through `LampiranBController::file()` or anywhere else.
+
+**The refused-title loop (spec §3.2, R4), verified end to end:**
+
+```
+panel refuses  →  the form is marked `rejected` with the reason
+              →  Lampiran B #n+1 opens as a `draft`, pre-filled, supervisor locked
+              →  supervisor signs again (a signature on one title does not cover another)
+              →  a NEW proposal milestone is inserted after the refused one
+              →  supervisor endorses, panel sits again
+              →  repeat as needed — no cap, the attempt count is shown
+```
+
+**Nothing is overwritten.** The refused proposal stays `rejected`, the refused
+form stays `rejected` with its reason, and the new attempt is a new row. Each
+attempt adds **two** milestones (a Lampiran B, a proposal), so a coordinator
+sees a student on their fourth attempt in the chain itself rather than reading a
+counter that someone has to cap.
+
+| Piece | Where |
+|---|---|
+| `LampiranBForm` model (`scopeCurrent()`, `isSeededSignature()`, `nextRevisionFor()`) | `backend/app/Models/` |
+| `LampiranBController` — `index`, `file`, `sign`, `requestTitleChange`, `openProposalFor` | `backend/app/Http/Controllers/Api/` |
+| `LampiranBFormPolicy` — `file()` requires owner + draft/submitted; `sign()` requires `submitted` first, then supervisor/admin/coordinator | `backend/app/Policies/` |
+| `ProposalReviewService::openRefileRound()` | creates the new B draft **and** the new proposal at `attempt = max+1` |
+| `LampiranBCard` | on the proposal milestone: refused titles with reasons, revise form, sign / send back, filing history |
+| `milestones.attempt` + migration `2026_10_27_000003` | milestone codes repeat per attempt, so the unique key is `(project_id, code, attempt)` |
+
+**`changeTitle()` is deleted.** It let any student retitle their project with no
+supervisor involved; a retitle is now a new Lampiran B, which carries a
+signature. Verified: `file()` refuses the exact title the panel refused.
+
+**Demo signatures.** Eight supervisor signatures exist at
+`backend/storage/app/private/signatures/lampiran-b/*.png`, generated by
+`.workbuddy-ai/make_demo_signatures.py`. Each carries a red **DEMO** watermark, is
+stored with `signature_type = 'seeded'`, and `isSeededSignature()` is the third
+marker. **They live in the Docker `psm-system_storage-data` volume, not on the
+host** — the volume is mounted over `backend/storage`, so committing the PNGs
+does not put them in the container. Copy them in after a volume reset (§6).
+
+### Deadlines are labels, not locks (2026-10-27)
+
+| Rule | |
+|---|---|
+| Every student shares the **same** deadline per milestone | no per-student dates |
+| Late submission is **never blocked** | `Milestone::acceptsSubmission()` no longer reads the deadline |
+| Lateness is **flagged, not prevented** | `Milestone::lateness()` → `['days' => int, 'due_at' => Carbon]`, shown to the reviewer as "6 days late" |
+| A re-filed Lampiran B / proposal **inherits the shared deadline** | no reset on rejection |
+
+The old refusal — *"The deadline for this milestone has passed and late
+submission is not permitted"* — is gone. The title defence is early in the
+semester, so a re-presentation has room; that is why the user accepted no
+extension.
+
+### Changing title at the PSM 2 boundary (2026-10-27)
+
+A student who passed PSM 1 may take a **different title** in PSM 2. The cost is
+theirs and it is large, which is why it is optional and one-way.
+
+```
+PSM 2 starts
+   ├── title unchanged → chapters 5–7, final report, Form K
+   └── title changed   → Lampiran B (new title) → supervisor signs
+                         → install(): projects.title = the new title,
+                           proposal + Chapters 1–4 PREPENDED at weight 0
+                         → full defence (the panel must see a different project)
+                         → THEN chapters 5–7, final report, Form K
+```
+
+| Rule | Where |
+|---|---|
+| `POST /api/projects/{project}/title-change` | `Psm2TitleChangeService::request()` |
+| Four guards, each named in the 422: it is a PSM 2 project; the title has not changed before; **Chapter 5 has not opened**; nothing submitted yet | `Psm2TitleChangeService::blockedReason()` |
+| Refiled Chapters 1–4 carry **weight 0** — the PSM 1 mark was awarded and cannot be re-awarded, and PSM 2 must still total 100.00 | `install()` |
+| `projects.title` moves here **only because** a panel then sits on a proposal *about* that title | the one exception to R3 |
+
+The decision must be made **before Chapter 5 opens**. A student who changes their
+mind in week 8 cannot take this path — late submission is unblocked, but the
+boundary is not a deadline to extend.
+
+### Registration on the fields the forms actually have (2026-10-27)
 
 Checked against `form required/lampiran A-B/`. **Lampiran A has no abstract,
 objectives or scope. Neither does Lampiran B.**
@@ -367,12 +454,13 @@ the proposal milestone.**
 - `projects.abstract` is **no longer collected at registration** and is now
   **nullable** (migration `2026_10_27_000001`). It was required, so students wrote
   one before the title was settled, and nothing downstream read it.
-- The real Lampiran B fields live in `projects.metadata` — `field_study`,
-  `origin`, `requirements.software/hardware/technology` — and are lifted flat in
-  `SupervisorAgreementResource`.
-- `RegistrationDocumentCard` prints **Bidang Pengajian** and the three
-  **Keperluan** rows plus the **PENTING** attachment note. It no longer prints
-  abstract/objectives/scope — those were never on the form.
+- The session on Lampiran A is a **dropdown** of the term list, not a free-text
+  box, and `IsTitle` refuses a placeholder title (min 10 chars, ≥3 words, at
+  least one real word).
+- A student may **withdraw** a submitted registration
+  (`RegistrationService::withdrawAgreement()`) — it cancels the agreement,
+  retires the supervision, and clears the notification.
+
 
 ### Recently fixed — do not regress these
 
@@ -410,6 +498,26 @@ the proposal milestone.**
   their PSM 1. Nothing in the system deletes a student's project.
 - **No Archive button on the project page** — there never was one; the API
   exists but no UI calls it. Archiving is currently unreachable from the browser.
+- **The verdict board is deleted** (2026-10-27), not hidden:
+  `frontend/src/pages/coordinator/VerdictPage.jsx` is gone, `GET
+  /api/projects/verdicts` is gone, and `ProjectResolutionService::resolve()` is
+  gone. **Do not reintroduce it.** A committee could only agree with the
+  arithmetic or contradict it; either way the mark was the answer. The panel and
+  supervision release that `resolve()` performed now live in
+  `TermCloseService::close()`.
+- **`ProposalReviewService::changeTitle()` is deleted** (2026-10-27). It let a
+  student retitle a project with no supervisor signature. A retitle is a new
+  Lampiran B.
+- **The four-value project status is no longer set by a human.** `projects.status`
+  still exists as a column and still holds `in_progress`/`completed`
+  (`finished()`/`active()` read it), but its value is **derived at term close**.
+  `draft`, `submitted`, `approved` and `rejected` are legacy values; a project
+  row can still be written with `status = 'rejected'` by
+  `ProjectController::reject()` / `POST /api/projects/{project}/reject`, which is
+  **retained as a coordinator's registration refusal** (it returns a registration
+  to the student before a project starts). It is not a lifecycle outcome and
+  writes no verdict. **No frontend page calls approve or reject** — both are
+  API-only today.
 
 ### Session history — how this got built
 
@@ -429,6 +537,7 @@ design read the sections above.
 | `0ac8f6d1` | 10-19 → 23 | Digital Lampiran **A/B/C**; **Lampiran R1**; **0–5 mark entry**; **OSHE** placement; milestone-chain restructure |
 | *(this session)* | 10-25 | Lecturer role + coursework (PSM 1 → 100); programme rule actually enforced; performance fixes; pass rate; PROGRESS.md |
 | *(this session)* | 10-26 | Archive **removed** from the UI; duplicate supervision fixed; **verdict + repeat** lifecycle; **Form K** milestone; **student enrolments** (a student finally has a term of their own) |
+| *(this session)* | 10-27 | **PSM lifecycle rewritten to a signed-off spec** (`thesis/PSM-LIFECYCLE-SPEC.md`): verdict board, `changeTitle()` and the four-value status **deleted**; `TermCloseService` derives pass/fail from the mark at term close; **Lampiran B becomes a table** with `revision_no` and `rejected_reason`; refused titles **re-presented, no cap**; only a mark below 40 repeats; deadlines become labels (`lateness()`), not locks; **PSM 2 title change** at the chain start with Chapters 1–4 refiled at weight 0; milestone `attempt` column; two diagrams redrawn |
 
 The transcripts are zstd-compressed and unreadable to a new agent. They are not
 a substitute for this file — read `git log --oneline` instead.
@@ -453,6 +562,15 @@ a substitute for this file — read `git log --oneline` instead.
 
 All passwords are `password`. Student matric numbers are `AI240001` upward.
 Other students are `<name>@student.psm.test`.
+
+**Accounts that are useful for the new flows specifically:**
+
+| Account | Why |
+|---|---|
+| `rd.student1@psm.test` / `rd.supervisor@psm.test` | Haziq bin Ramli — own project `PSM1-2025-BIP-012` (id 23), the one used for re-file testing |
+| `sup-002@psm.test` | Dr. Tan Wei Ming, BIS, 5 free PSM 1 slots — the positive case for allocation |
+| `test.student@psm.test` | Nur Aina binti Test, `AI240199`, BIS — a clean student for registration |
+| `coordinator@psm.test` | Everything a coordinator can do, including closing a term |
 
 ### Verification (there is still no test suite)
 
@@ -491,6 +609,23 @@ docker exec -i psm-app rm -f /var/www/html/probe.php
   wrong URL — `/api/projects/enrolments` instead of `/api/enrolments`.
 - **`config/psm.php` changes need `php artisan config:cache`** — the config is
   cached, and an edit without it silently does nothing.
+- **`backend/storage` is masked by a Docker volume.** The container mounts
+  `backend/` at `/var/www/html` **and** the named volume `psm-system_storage-data`
+  at `/var/www/html/storage`. Anything written to `backend/storage/...` on the
+  host is **invisible inside the container**. This silently broke the demo
+  signatures. Check with
+  `docker exec psm-app ls /var/www/html/storage/app/private/...` and copy the
+  file in with `docker cp` when it is missing.
+- **Never round-trip a file through PowerShell's `Get-Content -Raw` +
+  `Set-Content`.** It reads UTF-8 as CP1252 and re-encodes it, so every em dash,
+  section sign and ellipsis in the file becomes mojibake — in an earlier session
+  this mangled nine backend files. It does not fail, it does not warn, and
+  `php -l` still passes. Use the `edit` tool, or a Python script that reads and
+  writes with explicit `encoding="utf-8"`. If it has already happened,
+  `.workbuddy-ai/fix_mojibake.py [--write]` repairs the comments and lists
+  anything it will not touch.
+- **A one-liner passed through `& python -c "..."` is itself mangled** the same
+  way. Put the script in a file with the `write` tool, then run the file.
 
 ---
 
@@ -509,19 +644,51 @@ All diagrams are **generated PNGs**, drawn by Python + Pillow, in
 3. **Type must be legible at print width.** Base 17pt at source, 14pt for edge
    labels. Figures sit at **14.2 cm** wide (full text width) where possible.
 4. One figure per idea. If a flow has two independent halves, split it into two
-   figures (that is why UC-05 has 4.10 and 4.11).
+   figures (that is why UC-05 has 4.10 and 4.11). **The converse matters too** —
+   if the two halves are the same process, keep them in one figure. The PSM 2
+   title change is a branch of the milestone chain, not a process of its own.
+
+### Faults that have actually happened (check every figure for these)
+
+Each of these was found by *looking at the rendered PNG*, never by reading the
+script. The script produced no error for any of them.
+
+| Fault | How it looked | Cause |
+|---|---|---|
+| **`action()` returns the BOTTOM, not the top** | a box drawn on top of the one below it | `y = dg.action(...)` was then passed to the next `action()` as its `top` |
+| **A label lying flat on the line it labels** | "refuse" read as "refu▬se" | the label's y equalled the connector's y |
+| **A label inside the box below** | text struck through a box edge | the gap was `G` but the label needed two lines of air |
+| **A connector through a shape** | a line crossing a box | the route reused an x that the boxes occupied further down |
+| **Two opposite labels reading as one line** | "Yes — proposal No — other" | one label above the line, one below, both on the same side |
+| **A stale word in a box** | "the chain has not opened it yet *(late work is accepted)*" beside a "Refuse" label | the box was written before deadlines stopped blocking |
+| **Content cropped** | the end circle missing | canvas height fixed at `3600` while the drawing ran past it — always pass `crop_bottom=` |
+
+**Read the rendered PNG at full size, crop by crop.** A 40 % zoom-down view hides
+exactly the overlaps this table lists.
 
 ### Scripts
 
 | Script | Makes |
 |---|---|
 | `uml_kit.py` | **Shared drawing library** — shapes, arrows, `connect()`, `route()`, `label()`. Start here. |
-| `act_login_v2.py`, `act_pairing_v2.py`, `act_ms_v2.py`, `act_report.py`, `act_notif.py` | Activity diagrams |
+| `act_login_v2.py`, `act_pairing_v2.py`, `act_ms_v3.py`, `act_report.py`, `act_notif.py` | Activity diagrams |
 | `seq_report.py`, `seq_notif.py` | Sequence diagrams (later ones) |
 | `make_*_seq.py`, `make_*_act.py` | Earlier sequence/activity diagrams |
 | `build_ch4_*.py` | Build the `.docx` for each use case |
 | `build_xlsx.py` | The HIRARC form (unrelated side task) |
 | `cite_ch1.py` | Added the Chapter 1 citations |
+| `build_ch1_cited.py` | Builds `Chapter1 - Introduction (cited).docx` from the Chapter 2 style template |
+| `make_demo_signatures.py` | The eight watermarked demo supervisor signatures |
+| `fix_mojibake.py`, `fix_mojibake_strings.py`, `fix_mojibake_last.py` | One-off repairs for text a PowerShell round-trip double-encoded — see §6 |
+
+**`act_ms_v3.py` carries the PSM 2 title change as a branch**, not as a second
+figure. It is drawn up the right-hand column *before* the chain exists, because a
+boundary change **prepends** a proposal and Chapters 1–4 to the chain and is
+refused once the chain exists. There is deliberately **no separate PSM 2 title
+figure** — the branch rejoins the same chain, and two pictures made the reader
+hold both at once. (A standalone `act_psm2_title.py` existed briefly on
+2026-10-27 and was removed for that reason; do not recreate it.)
+
 
 Every `build_ch4_*.py` follows the same pattern: load
 `thesis\c2\Chapter2.docx` as the style template, clear the body, write the
@@ -612,16 +779,32 @@ write into ./thesis/ and tell the user to copy across.
 
 ## 7. Open issues / risks
 
-### Codebase (2026-10-26)
+### Codebase (2026-10-27)
 
+- [ ] **Nothing in the new lifecycle has been clicked through in a browser.**
+      `/enrolments`, the withdraw button, the Lampiran B card on the proposal
+      milestone, the term close, and the PSM 2 title change are all verified over
+      the API and all build — but **no human has seen any of them**. This is the
+      single biggest gap before a demo. Walk them in this order: register →
+      supervisor acknowledges → file Lampiran B → sign → upload proposal →
+      endorse → panel refuses → re-file → panel accepts → close the term.
+- [ ] **The PSM 2 title change has an API but no screen.**
+      `POST /api/projects/{project}/title-change` works and is verified; nothing
+      in `frontend/` calls it, so a student cannot take the path from the UI.
+- [ ] **The close guard names one real student today.** `AI240001` is enrolled in
+      term 2 with no project, so closing term 2 is refused until they are given
+      one or withdrawn. That is the guard working, not a bug — but it will stop a
+      demo that ends with "close the term".
+- [ ] **The demo signatures are not in the repository's reach.** They are PNGs
+      under `backend/storage/app/private/signatures/lampiran-b/`, but
+      `backend/storage` is masked by the `psm-system_storage-data` volume, so the
+      container cannot see files committed there. They were copied in manually on
+      2026-10-27. **After any `docker compose down -v`, copy them again** —
+      otherwise every seeded signature is a broken image.
 - [ ] **The exposed Supabase storage key has not been revoked.** Session
       `5e9874c3` contains it in plain text on disk. Revoke it at Supabase →
       Settings → Storage → S3 Access Keys. It is not the key `.env` uses, but it
       is still valid until revoked.
-- [ ] **`/enrolments` has never been exercised end to end in the browser.** The
-      API is verified over HTTP (cohort list, `/eligible`, 403 for a student),
-      and the page builds and passes `check_frontend.py`, but no click-through
-      has happened. Verify before demonstrating it.
 - [ ] **Form K is a milestone, not a digital form.** `form_k` sits at the end of
       the PSM 2 chain and accepts a document upload; it is **not** the signed
       digital form that Lampiran C is (`LampiranCCard`, `SignaturePad`). The user
@@ -633,8 +816,13 @@ write into ./thesis/ and tell the user to copy across.
       marker needs a scheduled slot, they have to be added.
 - [ ] **An enrolment belongs to the project leader only.** If a project ever
       gains a second member, that member has no enrolment row and does not count
-      against capacity. The backfill used `is_leader = true` deliberately. The
-      per-student-vs-per-project question for verdicts is also still unanswered.
+      against capacity. The backfill used `is_leader = true` deliberately.
+- [ ] **Some Indonesian/Malay prose in comments is unrecoverable.** A PowerShell
+      round-trip double-encoded UTF-8 in nine backend files in an earlier session.
+      Everything in a **comment** was repaired on 2026-10-27 by
+      `.workbuddy-ai/fix_mojibake*.py` (141 sequences; the em dashes, section
+      signs and ellipses all read correctly now). No mangled text remains in any
+      user-facing string.
 - [ ] **Section placement is seeded round-robin by matric order**, so the demo
       rosters are arbitrary — not a real allocation.
 - [ ] **`RUN_SEED=true` must be turned off before the cohort is real.**
@@ -646,26 +834,40 @@ write into ./thesis/ and tell the user to copy across.
       teacher per term" is enforced only in `LecturerMarkController::update()`.
       A direct DB write could break it.
 
-### Resolved since the last update (2026-10-26)
+### Resolved since the last update (2026-10-27)
+
+- [x] **A project can no longer end without a decision.** It used to have no way
+      of ending at all; the verdict board was the first answer and is now
+      deleted. Closing the term derives pass/fail from the mark in one pass. See
+      §3A.
+- [x] **A refused title no longer disappears.** `lampiran_b_forms` keeps every
+      filing with its reason. See §3A.
+- [x] **A student can no longer retitle their own project.** `changeTitle()` is
+      deleted; a retitle needs a supervisor's signature on a new Lampiran B.
+- [x] **A passed deadline no longer blocks an upload.** Late work is accepted and
+      flagged. See §3A.
+- [x] **`Milestone` codes could not repeat.** The unique key is now
+      `(project_id, code, attempt)`, which the re-file round needs. See §3A.
+
+### Resolved earlier (2026-10-26)
 
 - [x] **Archive is no longer offered anywhere in the UI.** Not an open issue any
       more, it is a decision: sidebar entry commented out, admin dashboard card
       gone, no project button. Routes, API and records stay dormant. See §3A.
 - [x] **A finished project no longer consumes a supervisor's capacity for ever.**
-      Capacity counts live enrolments now. See §3A.
+      Capacity counts live enrolments.
 - [x] **Duplicate supervision rows.** Seeder key fixed; partial unique index on
       `(student_profile_id, supervisor_profile_id) WHERE is_active`.
 - [x] **A repeat can no longer be written with a null term.** `repeat()` opens an
-      unplaced enrolment; the admin chooses the term. See §3A.
+      unplaced enrolment; the admin chooses the term.
 
 ### Thesis
 
-- [ ] `thesis/` and `.workbuddy-ai/` are **untracked in git**. The deliverables
-      exist only on disk. Either commit them or back them up.
 - [ ] The old `Chapter2 - Literature Review*.docx` files (4 stale copies) are
       still in `thesis\`. Only `Chapter2 - PSM Assessment System v2.docx` is
-      current. Same for the earlier `Chapter1` — only
-      `Chapter1 - with citations.docx` is current.
+      current. For Chapter 1, **`Chapter1 - Introduction (cited).docx`** is the
+      current one (ten verified citations, built by `build_ch1_cited.py`);
+      `Chapter1 - with citations.docx` is the earlier seven-citation version.
 - [ ] Citation style is **author-date**. If the faculty requires IEEE numbered,
       all chapters must be converted together.
 - [ ] Chapter 2 compares only 3 systems (template expects 3). Two more PSM

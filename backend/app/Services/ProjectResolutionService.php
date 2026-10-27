@@ -17,27 +17,27 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
- * Resolving a project Ã¢â‚¬â€ the committee's pass/fail verdict at the end of a part.
+ * Resolving a project — the committee's pass/fail verdict at the end of a part.
  *
  * A project used to end in only one way: it stayed `in_progress` for ever, or an
  * administrator archived it. Neither is a verdict. This service is the missing
  * step between "the marks are in" and "this student's PSM 1 / PSM 2 is over".
  *
  * **Two outcomes, both final.** `completed` means passed; `failed` means the
- * student must repeat. There is no third. A withheld result Ã¢â‚¬â€ the faculty's
- * "Tidak Selesai" Ã¢â‚¬â€ is a decision about *release*, not about whether the work
+ * student must repeat. There is no third. A withheld result — the faculty's
+ * "Tidak Selesai" — is a decision about *release*, not about whether the work
  * passed, so it is not modelled here; the coordinator withholds a mark on the
  * grade, and resolves the project once the outcome is known.
  *
  * **Resolving ends the people attached to it.** This is the part that was
  * missing and the part with visible consequences: a resolved project's
  * supervisor stops carrying the student, and its panel examiners are released.
- * Without that, a supervisor's load grew for ever Ã¢â‚¬â€ every student they had ever
+ * Without that, a supervisor's load grew for ever — every student they had ever
  * taught stayed `active`, so capacity checks eventually refused every new
  * allocation against a list of finished work.
  *
- * It writes **no archive record**. Archiving is a separate act Ã¢â‚¬â€ filing a record
- * away Ã¢â‚¬â€ and the two were conflated until the archive module was retired. A
+ * It writes **no archive record**. Archiving is a separate act — filing a record
+ * away — and the two were conflated until the archive module was retired. A
  * resolved project remains a normal project row, visible to its student, with a
  * final status.
  */
@@ -60,7 +60,7 @@ class ProjectResolutionService
      * that difference:**
      *
      *  - **PSM 1 repeats from registration.** The student files Lampiran A
-     *    again and goes through the chain â€” new pairing if they choose, new
+     *    again and goes through the chain — new pairing if they choose, new
      *    title, then Lampiran B, proposal, OSHE and Chapters 1-4.
      *  - **PSM 2 repeats in place.** There is no second registration, because
      *    the student already has a title and a supervisor. The new attempt
@@ -68,20 +68,20 @@ class ProjectResolutionService
      *    the Chapters 5-7 chain starts fresh.
      *
      * What is common to both: **nothing is created here, and no term is
-     * guessed.** This method only marks the attempt as repeatable â€” it opens a
+     * guessed.** This method only marks the attempt as repeatable — it opens a
      * fresh `enrolling` enrolment for the part, and the admin places that
      * enrolment into a real semester when the next term's cohort is registered.
      *
      * That is a deliberate change from the first cut of this method, which
      * created the PSM 2 project immediately in `AcademicSemester::current()` or
-     * the next term by start date. When neither resolved â€” no active term, no
-     * later term yet created â€” the project was written with a **null**
+     * the next term by start date. When neither resolved — no active term, no
+     * later term yet created — the project was written with a **null**
      * `academic_semester_id`, so the system recorded a repeat that had no term
      * behind it. Letting the admin pick the term removes the failure mode
      * entirely: there is no code path here that can invent one.
      *
      * The failed attempt is **left alone**. It is not archived, not deleted, and
-     * its marks stand â€” an appeal or an academic-record request is answered from
+     * its marks stand — an appeal or an academic-record request is answered from
      * it. Only its supervision and panel were closed, by `resolve()`.
      *
      * @return array{mode:string, project_id:?int, code:?string, message:string, enrolment_id:?int}
@@ -113,7 +113,7 @@ class ProjectResolutionService
         /**
          * A repeat starts in a **later** term, never the failed one.
          *
-         * The student did not pass, so their attempt is not being extended â€” they
+         * The student did not pass, so their attempt is not being extended — they
          * are being given another go, and an attempt belongs to a term. Until the
          * failed term has closed, that term has not finished judging the attempt,
          * so the button is refused rather than the repeat placed prematurely.
@@ -128,7 +128,7 @@ class ProjectResolutionService
 
         if (! $failedTerm->isClosed()) {
             throw new InvalidArgumentException(
-                "{$failedTerm->name} is still running. A repeat starts in a later term â€” "
+                "{$failedTerm->name} is still running. A repeat starts in a later term — "
                 .'close this semester first.'
             );
         }
@@ -156,7 +156,7 @@ class ProjectResolutionService
              *
              * `EnrolmentService::enrol()` numbers it, refuses a second live
              * attempt at the same part, and refuses to repeat a part already
-             * passed â€” the same rules a hand-enrolled student gets, because this
+             * passed — the same rules a hand-enrolled student gets, because this
              * *is* an enrolment. The term is left null in spirit: the row is
              * created against the term the admin chooses next, via
              * `EnrolmentService::placeRepeat()`.
@@ -165,7 +165,7 @@ class ProjectResolutionService
 
             $this->audit->log(
                 action: AuditAction::ProjectResolved,
-                description: "{$part->label()} repeat opened for {$student->student_id} â€” "
+                description: "{$part->label()} repeat opened for {$student->student_id} — "
                     ."repeating {$failed->code}"
                     .($carryTitle ? ' (title carried)' : ''),
                 subject: $failed,
@@ -195,7 +195,7 @@ class ProjectResolutionService
      * one on record, which the caller reports rather than inventing a term.
      *
      * `starts_at` is nullable on the table, so a term with no recorded start
-     * cannot be ordered â€” it is excluded rather than sorted to the front, where
+     * cannot be ordered — it is excluded rather than sorted to the front, where
      * a null would otherwise become "the next term".
      */
     protected function nextTermAfter(AcademicSemester $term): ?AcademicSemester

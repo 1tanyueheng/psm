@@ -25,7 +25,7 @@ use Illuminate\Validation\Rule;
 use InvalidArgumentException;
 
 /**
- * Module 3 â€” Milestone browsing, submission, review and deadline changes.
+ * Module 3 — Milestone browsing, submission, review and deadline changes.
  *
  * The **proposal milestone** is special: its verdict is the panel's and it
  * settles the project title, so it is decided through the three endpoints at the
@@ -154,7 +154,7 @@ class MilestoneController extends ApiController
          * which is unreliable for the source files this platform accepts
          * (.py, .java, .sql, .md frequently sniff to `text/plain` and are then
          * rejected even though they are on the allowlist). `extensions` checks
-         * the extension the client sent â€” the same value the upload form
+         * the extension the client sent — the same value the upload form
          * advertises in its `accept` attribute, so the form and the validator
          * can never disagree. Files are stored privately under a random name
          * and are never executed, so extension matching is the appropriate
@@ -204,7 +204,7 @@ class MilestoneController extends ApiController
          *
          * Read from config rather than hardcoded so the same code writes to a
          * local disk in development and object storage in production, and the
-         * resolved name is recorded per row â€” which is what lets existing files
+         * resolved name is recorded per row — which is what lets existing files
          * be migrated to a new disk without a flag day.
          */
         $disk = config('filesystems.default', 'local');
@@ -213,7 +213,7 @@ class MilestoneController extends ApiController
          * Paths actually written, so a failure can undo them.
          *
          * The database rolls back on its own, but a file already written to the
-         * disk does not â€” so a failure on the third of five files would leave
+         * disk does not — so a failure on the third of five files would leave
          * two orphans behind with no row pointing at them. Tracked outside the
          * transaction because the cleanup has to run after it has rolled back.
          */
@@ -227,7 +227,7 @@ class MilestoneController extends ApiController
                  *
                  * `currentFiles()` is scoped to `is_current`, so once the old rows
                  * are flipped below it returns nothing and every resubmission would
-                 * be numbered 1 â€” erasing the chapter's revision history.
+                 * be numbered 1 — erasing the chapter's revision history.
                  */
                 $revisionNo = ((int) $milestone->files()->max('revision_no')) + 1;
 
@@ -256,13 +256,13 @@ class MilestoneController extends ApiController
                      *
                      *  - `throw => false`: `FilesystemAdapter::put()` catches
                      *    `UnableToWriteFile` and *returns* `false`. Assigning
-                     *    that into `path` created a row pointing at nothing â€”
+                     *    that into `path` created a row pointing at nothing —
                      *    the student saw a successful submission, the reviewer
                      *    got a 404 on download, and nothing was logged.
                      *  - `throw => true` (the `s3` disk): the exception
                      *    propagates, which would surface as an opaque 500.
                      *
-                     * Note that some failures escape the flag entirely â€”
+                     * Note that some failures escape the flag entirely —
                      * `UnableToCreateDirectory` is not caught by `put()`, so a
                      * local disk raises it either way. Catching here means the
                      * student gets the same actionable message in every case.
@@ -288,7 +288,7 @@ class MilestoneController extends ApiController
                     if (! is_string($path) || $path === '') {
                         throw new InvalidArgumentException(
                             "\"{$originalName}\" could not be saved to storage. "
-                            .'Nothing was submitted â€” please try again, and contact your '
+                            .'Nothing was submitted — please try again, and contact your '
                             .'coordinator if it keeps failing.'
                         );
                     }
@@ -325,14 +325,14 @@ class MilestoneController extends ApiController
             });
         } catch (\Throwable $e) {
             /**
-             * The transaction has rolled back, so no row survives â€” but the
+             * The transaction has rolled back, so no row survives — but the
              * bytes do. Without this, a failure part-way through a multi-file
              * upload leaves objects on the disk that nothing points at: invisible
              * to every screen, still billed for, and impossible to tell apart
              * from a real submission later.
              *
              * Rethrown rather than converted, because the response envelope is
-             * already decided in one place â€” `bootstrap/app.php` maps
+             * already decided in one place — `bootstrap/app.php` maps
              * InvalidArgumentException (a failed write, a rejected transition)
              * to 422 with its message, and anything else to 500.
              */
@@ -381,7 +381,7 @@ class MilestoneController extends ApiController
      * propagating, so a failure here must not replace the real error with a
      * confusing one. A leftover object is untidy; a masked exception is a bug
      * nobody can diagnose. Each path is attempted independently for the same
-     * reason â€” one unwritable key must not strand the rest.
+     * reason — one unwritable key must not strand the rest.
      *
      * @param  array<int, string>  $paths
      */
@@ -412,7 +412,7 @@ class MilestoneController extends ApiController
         ]);
 
         if (! $milestone->status->isProgressed()) {
-            return $this->fail('There is nothing to approve yet â€” no submission has been made.', 422);
+            return $this->fail('There is nothing to approve yet — no submission has been made.', 422);
         }
 
         try {
@@ -467,7 +467,7 @@ class MilestoneController extends ApiController
     }
 
     // -----------------------------------------------------------------
-    // The proposal milestone â€” the title decision
+    // The proposal milestone — the title decision
     // -----------------------------------------------------------------
 
     /**
@@ -477,7 +477,7 @@ class MilestoneController extends ApiController
      *
      * The panel decides the title at the project's proposal milestone, so a
      * seated examiner needs to see which proposals are waiting for them. The
-     * milestone screen carries the form, but nothing pointed them at it â€” a
+     * milestone screen carries the form, but nothing pointed them at it — a
      * panel member had no way to find the students they were appointed to
      * examine except by searching the project list.
      *
@@ -600,14 +600,14 @@ class MilestoneController extends ApiController
 
         return $this->ok(
             new MilestoneResource($updated->load('currentFiles')),
-            'Proposal endorsed â€” the panel may now decide the title.',
+            'Proposal endorsed — the panel may now decide the title.',
         );
     }
 
     /**
      * POST /api/milestones/{milestone}/lampiran-c
      *
-     * Lampiran C â€” the corrections a conditional approval required. Filed by the
+     * Lampiran C — the corrections a conditional approval required. Filed by the
      * student; accepting it approves the milestone and fixes the corrected title.
      */
     public function fileLampiranC(Request $request, Milestone $milestone): JsonResponse
@@ -629,7 +629,7 @@ class MilestoneController extends ApiController
 
         return $this->ok(
             new MilestoneResource($updated->load('currentFiles')),
-            'Lampiran C filed â€” the title is confirmed and the next milestone is open.',
+            'Lampiran C filed — the title is confirmed and the next milestone is open.',
         );
     }
 
@@ -664,7 +664,7 @@ class MilestoneController extends ApiController
     /**
      * POST /api/milestones/{milestone}/comment
      *
-     * Free-text feedback that does not change status â€” keeps the timeline rich
+     * Free-text feedback that does not change status — keeps the timeline rich
      * without forcing a formal decision.
      */
     public function comment(Request $request, Milestone $milestone): JsonResponse
@@ -734,8 +734,8 @@ class MilestoneController extends ApiController
          * Only the live file can be withdrawn.
          *
          * Without this guard a replayed request against an already-superseded
-         * row would quietly succeed, restamp `superseded_at`, and â€” because
-         * the count of current files is already zero â€” drive the milestone
+         * row would quietly succeed, restamp `superseded_at`, and — because
+         * the count of current files is already zero — drive the milestone
          * through a second `rejected` transition, bumping `revision_count`
          * again. The UI only offers the button on current files, so the
          * realistic path never reaches this; a retried request would.
@@ -760,7 +760,7 @@ class MilestoneController extends ApiController
              * The reviewer is about to assess a specific set of files. Once
              * that set changes, the thing awaiting review is no longer the
              * thing that was submitted, so the submission is void and has to be
-             * made again â€” otherwise a supervisor could approve a milestone
+             * made again — otherwise a supervisor could approve a milestone
              * whose contents shifted underneath them between opening it and
              * acting on it. `rejected` still accepts uploads, so the student
              * can drop in a replacement and resubmit in one flow.
@@ -781,8 +781,8 @@ class MilestoneController extends ApiController
             }
 
             /**
-             * Otherwise the milestone keeps its status â€” a revision was already
-             * requested, or it is still open â€” so the withdrawal is recorded on
+             * Otherwise the milestone keeps its status — a revision was already
+             * requested, or it is still open — so the withdrawal is recorded on
              * its own.
              *
              * It belongs in the timeline, not only in the audit log:
