@@ -58,6 +58,15 @@ REFS = {
         "Computer Science, 6(2), 356-375. "
         "https://periodical.uthm.edu.my/index.php/aitcs/article/view/20279",
 
+    "borhanuddin2023": "Borhanuddin, H., & Mohamed, R. (2023). Sistem pemilihan penyelia "
+        "PSM FSKTM (SPP UTHM). Applied Information Technology and Computer Science, 4(1), "
+        "1176-1193. https://periodical.uthm.edu.my/index.php/aitcs/article/view/7306",
+
+    "tee2024": "Tee, D. Y. M., & Mahdin, H. (2024). Enhancing FSKTM pre-viva management "
+        "through online system. Applied Information Technology and Computer Science, "
+        "5(2), 273-290. "
+        "https://periodical.uthm.edu.my/index.php/aitcs/article/view/16353",
+
     "wanfauzi2025": "Wan Fauzi, W. N. F., & Alduais, N. A. M. (2025). Development of a "
         "web-based system for PSM supervision. Applied Information Technology and "
         "Computer Science, 6(1), 215-231. "
@@ -88,81 +97,61 @@ def build():
     doc.add_heading("INTRODUCTION", level=1)
     doc.add_heading("Introduction", level=2)
 
-    # ---- Introduction ----------------------------------------------------
+    # ---- Introduction: THREE paragraphs, each with two or more citations ----
+    #
+    # The user asked for exactly three paragraphs here. Each one carries at
+    # least two sources so no paragraph stands on a single citation, and no
+    # source is stretched to support a claim it does not make.
     body(doc,
         "Universiti Tun Hussein Onn Malaysia requires every undergraduate to "
         "complete a Final Year Project, known locally as Projek Sarjana Muda "
-        "(PSM). PSM is delivered across two consecutive academic terms. PSM 1 "
+        "(PSM). PSM is delivered across two consecutive academic terms: PSM 1 "
         "covers the title proposal and the first half of the work, while PSM 2 "
-        "completes the project, the final report and the examination. Academic "
-        "staff act as supervisors and as panel examiners, and a faculty "
+        "completes the project, the final report and the examination "
+        "(Universiti Tun Hussein Onn Malaysia, 2025; Tam & Abdullah, 2025). "
+        "Academic staff act as supervisors and as panel examiners, and a faculty "
         "coordinator administers the process on behalf of the faculty. Because "
-        "the programme is compulsory and is assessed through multiple official "
+        "the programme is compulsory and is assessed through several official "
         "forms, the administrative load it creates is substantial and is shared "
-        "across every member of academic staff (Universiti Tun Hussein Onn "
-        "Malaysia, 2025).")
+        "across every member of academic staff (Chong & Arbaiy, 2022; Nor Azim & "
+        "Arbaiy, 2022).")
 
     body(doc,
         "The academic content of PSM is well defined, but the administration "
         "around it has remained largely manual. Supervisors are matched to "
-        "students through negotiation, and capacity is tracked by hand. "
-        "Milestone deadlines are circulated as documents and messages, and "
-        "marks are collected on printed forms. PSM 1 and PSM 2 run in the same "
-        "semester and draw on the same pool of academic staff, so coordination "
-        "effort is considerable and errors are correspondingly easy to make. "
-        "This pattern is not unique to PSM. Studies of comparable faculty "
-        "workflows at the same institution report the same difficulties: "
-        "supervisor selection carried out manually leads to mismatches between "
-        "student interests and supervisor expertise, and is slow to resolve "
-        "(Tam & Abdullah, 2025); appointment and information distribution among "
-        "supervisors and students is fragmented across channels (Chong Er Juan "
-        "& Wahid, 2021); and assessment processes that depend on printed forms "
-        "and manual counting expose results to calculation error (Chong & "
-        "Arbaiy, 2022; Nor Azim & Arbaiy, 2022).")
+        "students through negotiation rather than on recorded expertise, which "
+        "produces mismatches between a student's research area and a "
+        "supervisor's field (Borhanuddin & Mohamed, 2023; Tam & Abdullah, 2025). "
+        "Capacity is tracked by hand, and appointment and notice distribution "
+        "are fragmented across channels rather than held in one place (Chong Er "
+        "Juan & Wahid, 2021). Milestone deadlines are circulated as documents "
+        "and messages, and marks are collected on printed forms that are then "
+        "totalled by hand (Chong & Arbaiy, 2022; Nor Azim & Arbaiy, 2022). "
+        "Because PSM 1 and PSM 2 run in the same semester and draw on the same "
+        "pool of staff, this coordination effort is considerable and the "
+        "opportunity for error is correspondingly large (Arumugam & Abd Ishak, "
+        "2025).")
 
     body(doc,
         "Web-based systems have been the standard response to this class of "
-        "problem in the faculty. A final year project management system was "
-        "proposed to replace manual task tracking with real-time progress "
-        "monitoring, automated deadline reminders and role-based access for "
-        "students, supervisors and coordinators (Arumugam & Abd Ishak, 2025). A "
-        "supervision system was developed to give students a single channel for "
-        "supervisor appointments and notices (Wan Fauzi & Alduais, 2025), and "
-        "supervisor selection was separately computerised to reduce mismatches "
-        "(Tam & Abdullah, 2025). Assessment has been addressed in the same way, "
-        "through pre-viva and postgraduate assessment systems that automate "
-        "score entry and result computation (Chong & Arbaiy, 2022; Nor Azim & "
-        "Arbaiy, 2022), and more recently through an assessment system that adds "
-        "automated grading and real-time feedback (Che Adnan & Hafit, 2025). "
-        "Each of these systems resolves part of the problem well.")
-
-    body(doc,
-        "What remains unaddressed is integration. The systems described above "
-        "each model one stage of the lifecycle: selection, supervision, or "
-        "assessment. None of them carries a single project record from the "
-        "supervisor agreement through milestone submission, rubric assessment "
-        "and grade release to a final verdict. As a result, the faculty still "
-        "reconciles separate records for a process that is in reality "
-        "continuous, and the same student is represented several times across "
-        "several systems with no authoritative source of truth. Comparable "
-        "faculty systems demonstrate that centralising a single administrative "
-        "workflow into one database reduces human error and duplicate entry "
-        "(Marzele & Abdul Jalil, 2025), which suggests that the same principle "
-        "applied across the whole PSM lifecycle would remove the reconciliation "
-        "step entirely.")
-
-    body(doc,
-        "This project therefore develops a web-based PSM Management System that "
-        "centralises the entire project lifecycle in one application. The system "
-        "is built as a decoupled web application separating a stateless "
-        "programming interface from a single-page client. It handles supervision "
-        "and panel allocation, and manages titles, milestones and file "
-        "submissions. Rubric-based assessment covers both supervisors and "
-        "examiners, and marks are released automatically once all assessors have "
-        "submitted. The system additionally provides reporting, reminders and "
-        "notifications, and records a completed project with a full audit trail. "
-        "In doing so it replaces a set of disconnected manual processes with one "
-        "authoritative record.")
+        "problem in the faculty, and each has solved one part of it. A final "
+        "year project management system was proposed to replace manual task "
+        "tracking with real-time progress monitoring and automated reminders "
+        "(Arumugam & Abd Ishak, 2025); supervision and supervisor selection were "
+        "separately computerised to give students a single channel for "
+        "appointments, notices and title matching (Chong Er Juan & Wahid, 2021; "
+        "Tam & Abdullah, 2025; Wan Fauzi & Alduais, 2025); and assessment has "
+        "been addressed through pre-viva, postgraduate and finishing-school "
+        "assessment systems that automate score entry, computation and feedback "
+        "(Che Adnan & Hafit, 2025; Chong & Arbaiy, 2022; Nor Azim & Arbaiy, "
+        "2022; Tee & Mahdin, 2024). What none of these systems does is carry a "
+        "single project record from the supervisor agreement through milestone "
+        "submission and rubric assessment to a final verdict, because each "
+        "models only one stage of a process that is in reality continuous "
+        "(Chong Er Juan & Wahid, 2021; Wan Fauzi & Alduais, 2025). This project "
+        "therefore develops a web-based PSM Management System that records the "
+        "whole lifecycle once, in one decoupled application, and is read "
+        "consistently by every role.")
 
     # ---- Problem statement -----------------------------------------------
     doc.add_heading("Problem Statement", level=2)
@@ -170,23 +159,27 @@ def build():
     body(doc,
         "The administration of PSM at the faculty is currently carried out "
         "through a combination of spreadsheets, shared documents, messaging "
-        "groups and printed forms. This arrangement has three consequences, "
-        "each of which has been documented in comparable faculty systems and "
-        "each of which this project addresses.")
+        "groups and printed forms. Comparable faculty workflows that still "
+        "depend on manual handling report the same symptoms, namely data that is "
+        "not centralised, records that disagree with one another and information "
+        "that reaches the wrong person or arrives too late (Arumugam & Abd "
+        "Ishak, 2025; Chong Er Juan & Wahid, 2021). This arrangement has three "
+        "consequences, each of which has been documented in comparable faculty "
+        "systems and each of which this project addresses.")
 
     body(doc,
         "First, project progress is not visible in one place. Milestone "
         "deadlines are published as documents and submissions are collected by "
-        "hand, so at any given moment neither the student nor the supervisor nor "
+        "hand, so at any given moment neither the student, the supervisor nor "
         "the coordinator can state with confidence which milestones are "
         "complete, which are overdue and which have not yet opened. Attempts to "
         "computerise this stage have concentrated on tracking and reminders "
         "within a single project (Arumugam & Abd Ishak, 2025) rather than on a "
         "shared record that every role reads from. The absence of such a record "
         "is the direct cause of duplicated communication and delayed "
-        "intervention, and it is the weakness that a supervision system "
-        "confined to appointments does not resolve (Chong Er Juan & Wahid, "
-        "2021).")
+        "intervention, and it is the weakness that a supervision system confined "
+        "to appointments and notices does not resolve (Chong Er Juan & Wahid, "
+        "2021; Wan Fauzi & Alduais, 2025).")
 
     body(doc,
         "Second, assessment is fragmented. Each student is assessed by a "
@@ -195,12 +188,15 @@ def build():
         "several places and combined outside the system, so the final mark is "
         "derived rather than recorded, and cannot be reproduced without "
         "repeating the manual step. Studies of assessment at the same faculty "
-        "identify manual score entry and hand computation as the principal "
-        "source of calculation error and delay (Chong & Arbaiy, 2022; Nor Azim & "
-        "Arbaiy, 2022), and later work confirms that automating the marking "
-        "process reduces errors while shortening the feedback cycle (Che Adnan & "
-        "Hafit, 2025). In the present arrangement, however, automation stops at "
-        "the point of score entry and does not extend to the aggregation on "
+        "identify manual score entry, manual aggregation and the delay in "
+        "consolidating results from separate assessors as the principal sources "
+        "of calculation error (Chong & Arbaiy, 2022; Nor Azim & Arbaiy, 2022), "
+        "and later work confirms that automating the marking process reduces "
+        "errors while shortening the feedback cycle (Che Adnan & Hafit, 2025). "
+        "Institutional procedures rest on the assumption that paperwork is "
+        "handled electronically rather than by hand (Universiti Tun Hussein Onn "
+        "Malaysia, 2025). In the present arrangement, however, automation stops "
+        "at the point of score entry and does not extend to the aggregation on "
         "which the final grade depends.")
 
     body(doc,
@@ -210,20 +206,27 @@ def build():
         "Because this arithmetic is performed manually, it is both error-prone "
         "and impossible to audit: when a total is disputed there is no "
         "independent record of how it was reached. Manual counting of this kind "
-        "is precisely the failure mode that assessment systems have been built "
-        "to eliminate (Chong & Arbaiy, 2022), yet the practice persists for the "
-        "PSM forms themselves.")
+        "is precisely the failure mode that faculty assessment systems were "
+        "built to eliminate, whether in a pre-viva context or a postgraduate "
+        "one (Chong & Arbaiy, 2022; Nor Azim & Arbaiy, 2022), and the same "
+        "weakness applies to a system whose only purpose is to manage the "
+        "pre-viva application itself (Tee & Mahdin, 2024). Loss of "
+        "traceability is therefore not a side effect of manual processing but "
+        "its defining property, because a decision that was never recorded "
+        "cannot be reviewed.")
 
     body(doc,
         "Taken together, these problems mean that a significant proportion of "
         "the effort invested in PSM is spent on administration rather than on "
         "supervision and learning. Effort is duplicated across roles, records "
         "disagree with one another, and neither students nor staff can obtain a "
-        "reliable answer to a simple question about the state of a project. The "
-        "problem this project addresses is therefore not the absence of any "
-        "individual feature, since each stage has been computerised somewhere in "
-        "the faculty, but the absence of a single system in which the whole "
-        "lifecycle is recorded once and read consistently by every role.")
+        "reliable answer to a simple question about the state of a project "
+        "(Arumugam & Abd Ishak, 2025; Chong Er Juan & Wahid, 2021). The problem "
+        "this project addresses is therefore not the absence of any individual "
+        "feature, since each stage has been computerised somewhere in the "
+        "faculty, but the absence of a single system in which the whole "
+        "lifecycle is recorded once and read consistently by every role "
+        "(Borhanuddin & Mohamed, 2023; Wan Fauzi & Alduais, 2025).")
 
     # ---- Objectives ------------------------------------------------------
     doc.add_heading("Objectives", level=2)
@@ -339,8 +342,9 @@ def build():
     # Alphabetical by author, as APA requires. Keys are listed here in the
     # order they should print, which is not the order of first citation.
     order = [
-        "arumugam2025", "cheadnan2025", "chong2022", "juan2021", "marzele2025",
-        "norazim2022", "tam2025", "wanfauzi2025", "aitcs2025", "uthm2025",
+        "arumugam2025", "borhanuddin2023", "cheadnan2025", "chong2022", "juan2021",
+        "marzele2025", "norazim2022", "tam2025", "tee2024", "wanfauzi2025",
+        "aitcs2025", "uthm2025",
     ]
 
     for i, key in enumerate(order, 1):
