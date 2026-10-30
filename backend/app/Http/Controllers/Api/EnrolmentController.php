@@ -244,8 +244,7 @@ class EnrolmentController extends ApiController
     }
 
     /** POST /api/enrolments/{enrolment}/withdraw */
-    public function withdraw(Request $request, StudentEnrolment $enrolment): JsonResponse
-    {
+    public function withdraw(Request $request, StudentEnrolment $enrolment): JsonResponse    {
         $this->authorize('update', $enrolment);
 
         $validated = $request->validate([
@@ -266,6 +265,29 @@ class EnrolmentController extends ApiController
             $this->present($settled->load(['studentProfile.user', 'semester'])),
             'The enrolment has been withdrawn.',
         );
+    }
+
+    /**
+     * DELETE /api/enrolments/{enrolment}
+     *
+     * Undo a misoperation: the wrong student, part or term. Narrow on purpose —
+     * see `EnrolmentService::remove()` for the four guards. An attempt that has
+     * a project, or that is settled, or that is a repeat, is not deleted; it is
+     * withdrawn or ended by closing the term.
+     */
+    public function destroy(Request $request, StudentEnrolment $enrolment): JsonResponse
+    {
+        $this->authorize('delete', $enrolment);
+
+        $label = $enrolment->label();
+
+        try {
+            $this->enrolments->remove($enrolment, $request->user());
+        } catch (InvalidArgumentException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
+
+        return $this->ok(['deleted' => true], "{$label} was removed.");
     }
 
     /**

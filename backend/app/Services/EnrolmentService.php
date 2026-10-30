@@ -411,6 +411,71 @@ class EnrolmentService
     }
 
     /**
+     * Reverse an enrolment that should never have been made.
+     *
+     * This is the "misoperation" case: the wrong student, the wrong part, the
+     * wrong term. Withdrawing it would leave a settled row that reads as a
+     * deferral for the rest of the student's record, which is a worse lie than
+     * no record at all.
+     *
+     * **Only a clean attempt can be removed.** The guards below are what stop
+     * this from becoming a way to rewrite history:
+     *
+     *  - a live attempt only — a settled one carries an outcome;
+     *  - no project — once work exists the attempt has started, and it is then
+     *    ended by closing the term, not by deleting the row;
+     *  - attempt 1 only — attempt 2 exists *because* attempt 1 failed, and
+     *    deleting it would strand the repeat;
+     *  - no repeat pointing at it — the same rule seen from the other side.
+     *
+     * The deletion is audited with the full row, because the audit log is the
+     * only remaining trace.
+     */
+    public function remove(StudentEnrolment $enrolment, User $actor): void
+    {
+        if ($enrolment->status->isSettled()) {
+            throw new InvalidArgumentException(
+                'That attempt is settled as '.$enrolment->status->label()
+                .'. A settled attempt is not deleted — withdraw it, or close the term that ends it.'
+            );
+        }
+
+        if ($enrolment->project_id !== null) {
+            throw new InvalidArgumentException(
+                'This enrolment already has a project, so the attempt has started. '
+                .'Deleting it would leave the project with no term; withdraw it instead.'
+            );
+        }
+
+        if ($enrolment->attempt_no > 1) {
+            throw new InvalidArgumentException(
+                "This is attempt {$enrolment->attempt_no}, which exists because an earlier attempt "
+                .'failed. Deleting it would strand that repeat — withdraw it instead.'
+            );
+        }
+
+        $repeated = StudentEnrolment::where('repeats_enrolment_id', $enrolment->id)->exists();
+
+        if ($repeated) {
+            throw new InvalidArgumentException(
+                'A repeat already points at this attempt. Deleting it would strand that repeat.'
+            );
+        }
+
+        DB::transaction(function () use ($enrolment, $actor) {
+            $this->audit->log(
+                action: AuditAction::StudentEnrolmentDeleted,
+                description: "Enrolment deleted as a misoperation — {$enrolment->label()}",
+                subject: $enrolment,
+                before: $enrolment->getAttributes(),
+                actor: $actor,
+            );
+
+            $enrolment->delete();
+        });
+    }
+
+    /**
      * Withdraw an attempt — deferral, transfer, or a student who left.
      *
      * Not a failure, and not silent: the row stays with its numbers intact, and

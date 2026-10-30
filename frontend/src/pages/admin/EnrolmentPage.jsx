@@ -50,6 +50,8 @@ export default function EnrolmentPage() {
   const [enrolling, setEnrolling] = useState(false)
   /** The placement dialog for an unplaced repeat. */
   const [placing, setPlacing] = useState(null)
+  /** The confirmation for deleting a mistaken enrolment. */
+  const [deleting, setDeleting] = useState(null)
 
   const load = useCallback(async ({ quiet = false } = {}) => {
     if (!quiet) setLoading(true)
@@ -306,6 +308,23 @@ export default function EnrolmentPage() {
                       {busyId === row.id ? 'Withdrawing…' : 'Withdraw'}
                     </Button>
                   )}
+                  {/*
+                    Delete is only offered where the server would actually allow
+                    it: a live attempt with no project, on its first try, that no
+                    repeat points at. Everywhere else the row is history — a
+                    withdrawal or a closed term — and the button would only
+                    produce a refusal.
+                  */}
+                  {row.is_live && !row.project_id && row.attempt_no === 1 && !row.repeats && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busyId === row.id}
+                      onClick={() => setDeleting(row)}
+                    >
+                      Delete
+                    </Button>
+                  )}
                 </div>
               </Td>
             </tr>
@@ -338,6 +357,19 @@ export default function EnrolmentPage() {
             if (res) setPlacing(null)
           }}
           busy={busyId === placing.id}
+          error={actionError}
+        />
+      )}
+
+      {deleting && (
+        <DeleteDialog
+          row={deleting}
+          onClose={() => setDeleting(null)}
+          onConfirm={async () => {
+            const res = await act(deleting.id, () => enrolmentApi.destroy(deleting.id))
+            if (res) setDeleting(null)
+          }}
+          busy={busyId === deleting.id}
           error={actionError}
         />
       )}
@@ -647,6 +679,53 @@ function PlaceDialog({ row, semesters, onClose, onConfirm, busy, error }) {
           loading={busy}
         >
           Place in {semesters.find((s) => s.id === Number(target))?.name ?? 'term'}
+        </Button>
+      </div>
+    </Overlay>
+  )
+}
+
+/**
+ * Delete a mistaken enrolment.
+ *
+ * Deliberately the most explicit control on the screen, because there is no
+ * undo. Withdraw is the reversible-looking choice at hand, and it is the wrong
+ * one here: a withdrawal says the student deferred, and it stays on their
+ * record for good. A deletion says the row never should have existed.
+ *
+ * The dialog spells out both, so the difference is made at the point of the
+ * click rather than in a wiki.
+ */
+function DeleteDialog({ row, onClose, onConfirm, busy, error }) {
+  return (
+    <Overlay title="Delete this enrolment?" onClose={onClose}>
+      <p className="mb-3 text-sm text-slate-700">
+        {row.student_name ?? 'This student'} — {partLabel(row.psm_part)}, attempt{' '}
+        {row.attempt_no}
+        {row.semester ? `, ${row.semester}` : ''}.
+      </p>
+
+      <p className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        The row is removed and cannot be restored. The deletion is written to the audit
+        log, which is the only remaining trace.
+      </p>
+
+      <p className="mb-3 text-sm text-slate-600">
+        If the student is still taking this part, use <strong>Withdraw</strong> instead:
+        it keeps the attempt on their record and reads as a deferral rather than a
+        mistake.
+      </p>
+
+      {error && (
+        <p className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
+      )}
+
+      <div className="mt-4 flex justify-end gap-2">
+        <Button variant="secondary" onClick={onClose} disabled={busy}>
+          Cancel
+        </Button>
+        <Button variant="danger" onClick={onConfirm} disabled={busy} loading={busy}>
+          Delete enrolment
         </Button>
       </div>
     </Overlay>

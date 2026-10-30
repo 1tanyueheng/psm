@@ -64,14 +64,16 @@ class StudentEnrolmentPolicy
     }
 
     /**
-     * Deleting is not offered.
+     * Deleting is a misoperation undo, not a way to edit history.
      *
-     * An enrolment is a record of what the faculty enrolled a student in. A
-     * mistake is fixed by withdrawing it, which leaves the trace, not by
-     * erasing the row.
+     * Offered to the same people who may enrol, because they are the ones who
+     * make the mistake. The rules that decide *whether a row may go* live in
+     * `EnrolmentService::remove()` — a policy cannot see the attempt's history,
+     * and a half-check here would either block a legitimate undo or let through
+     * a delete that strands a repeat.
      */
     public function delete(User $actor, StudentEnrolment $enrolment): bool
     {
-        return false;
+        return $actor->hasRole('admin', 'coordinator');
     }
 }

@@ -65,6 +65,17 @@ enum AuditAction: string
     case StudentWithdrawn  = 'enrolment.withdrawn';
 
     /**
+     * An enrolment that should never have been made, removed at the admin's
+     * request — the wrong student, part or term.
+     *
+     * Kept apart from `StudentWithdrawn` because the two are opposite facts
+     * about a student's record. A withdrawal is history and stays: the student
+     * deferred or left. A deletion is the admission that the row was a mistake,
+     * and the audit entry is the only trace of it that remains.
+     */
+    case StudentEnrolmentDeleted = 'enrolment.deleted';
+
+    /**
      * A student took back their own Lampiran A before it became a project.
      *
      * Distinct from `ProjectRejected`, which is a coordinator declining a
@@ -196,6 +207,7 @@ enum AuditAction: string
             self::ProjectResolved       => 'Resolved project (pass/fail)',
             self::StudentEnrolled       => 'Enrolled student in a PSM session',
             self::StudentWithdrawn      => 'Withdrew a student enrolment',
+            self::StudentEnrolmentDeleted => 'Deleted a student enrolment',
             self::AgreementWithdrawn    => 'Withdrew a Lampiran A registration',
             self::ProposalReviewed      => 'Reviewed proposal',
             self::ProposalResubmitted   => 'Resubmitted proposal',
@@ -259,6 +271,10 @@ enum AuditAction: string
             str_starts_with($this->value, 'report.')      => 'Reporting',
             str_starts_with($this->value, 'leaderboard.') => 'Recognitions',
             str_starts_with($this->value, 'semester.')    => 'Semesters',
+            // Enrolments decide who the faculty teaches for a term, which makes
+            // them an academic-register event rather than a project one — and it
+            // is the register a coordinator filters for after a term is set up.
+            str_starts_with($this->value, 'enrolment.')   => 'Semesters',
             str_starts_with($this->value, 'archive.')     => 'Archive',
             default => 'Other',
         };

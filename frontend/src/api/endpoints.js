@@ -557,6 +557,20 @@ export const enrolmentApi = {
   /** A deferral or withdrawal — deliberately not a failure. */
   withdraw: (id, reason) => api.post(`/enrolments/${id}/withdraw`, { reason }).then(unwrap),
 
+  /**
+   * Undo an enrolment that should never have been made — the wrong student,
+   * part or term.
+   *
+   * Different from `withdraw`, which *is* a record: a withdrawal says the
+   * student deferred or left, and it stays on their history for good. A delete
+   * says the row was a mistake and leaves nothing behind but the audit entry.
+   *
+   * Narrow on purpose. The server refuses an attempt that has a project (the
+   * work has started), one that is already settled, a repeat (it exists because
+   * an earlier attempt failed), or one a repeat points at.
+   */
+  destroy: (id) => api.delete(`/enrolments/${id}`).then(unwrap),
+
   /** One student's whole PSM history, every attempt at every part. */
   forStudent: (studentProfileId) =>
     api.get(`/students/${studentProfileId}/enrolments`).then(unwrap),

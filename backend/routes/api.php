@@ -488,6 +488,8 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
             Route::post('/', [EnrolmentController::class, 'store'])->name('store');
             Route::post('{enrolment}/place', [EnrolmentController::class, 'place'])->name('place');
             Route::post('{enrolment}/withdraw', [EnrolmentController::class, 'withdraw'])->name('withdraw');
+            // Undo a misoperation. Narrow: see EnrolmentService::remove().
+            Route::delete('{enrolment}', [EnrolmentController::class, 'destroy'])->name('destroy');
         });
     });
 
