@@ -13,6 +13,7 @@ import {
 } from '../../lib/format'
 import { StatusBadge } from './ProjectListPage'
 import MarkBreakdown, { MarkTotal } from '../../components/MarkBreakdown'
+import Psm2BoundaryCard from '../../components/Psm2BoundaryCard'
 
 /**
  * Project detail — the single page from which a project is understood.
@@ -132,8 +133,17 @@ export default function ProjectDetailPage() {
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Progress summary */}
+      {/*
+        The PSM 2 boundary decision. Offered to the student on a PSM 2 project,
+        at the top of the page, because it is the first thing they have to settle
+        before the chain means anything — and it is only offered once. The card
+        renders nothing at all for anyone the question does not concern.
+      */}
+      {isOwner && project.psm_part === 'PSM2' && (
+        <Psm2BoundaryCard project={project} onChanged={load} />
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-3">        {/* Progress summary */}
         <Card className="lg:col-span-2">
           <CardHeader title="Progress" subtitle={`${approved} of ${milestones.length} milestones approved`} />
           <div className="space-y-4">

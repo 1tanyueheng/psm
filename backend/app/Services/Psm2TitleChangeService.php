@@ -88,6 +88,54 @@ class Psm2TitleChangeService
     }
 
     /**
+     * What the student answered at the boundary, if they have answered.
+     *
+     * Stored in `projects.metadata.title_decision`. Two values matter:
+     *
+     *  - `keep` — they were offered the change and declined. The prompt must not
+     *    come back, or it asks the same question every time the page opens;
+     *  - `change` — they took it. Set when the request is open, so the prompt
+     *    stops offering a second decision while the first is in flight.
+     */
+    public function decision(Project $project): ?string
+    {
+        if (($project->metadata['title_changed_at_psm2'] ?? false) === true) {
+            return 'change';
+        }
+
+        return $project->metadata['title_decision'] ?? null;
+    }
+
+    /**
+     * Keep the inherited title.
+     *
+     * Recorded rather than assumed: without it the project page cannot tell
+     * "not asked yet" from "asked and declined", and would either nag for ever
+     * or never ask at all. The four guards are deliberately **not** checked —
+     * declining is always allowed, even after Chapter 5 opens, because the
+     * question has simply been answered.
+     */
+    public function keep(Project $project, User $actor): Project
+    {
+        $project->forceFill([
+            'metadata' => array_merge($project->metadata ?? [], [
+                'title_decision'    => 'keep',
+                'title_decided_at'  => now()->toIso8601String(),
+                'title_decided_by'  => $actor->id,
+            ]),
+        ])->save();
+
+        $this->audit->log(
+            action: AuditAction::ProjectUpdated,
+            description: "{$project->code}: student kept the inherited title at the PSM 2 boundary",
+            subject: $project,
+            actor: $actor,
+        );
+
+        return $project;
+    }
+
+    /**
      * Open the change: a new Lampiran B for the new title.
      *
      * Nothing is created here except the form. The student proposes the new
@@ -128,6 +176,16 @@ class Psm2TitleChangeService
             // Deliberately **not** superseding the previous form: its title was
             // accepted and still stands until the new one is agreed. Linking it
             // as superseded would make the project look untitled in between.
+
+            // Record the answer, so the boundary prompt stops offering a choice
+            // that is already in flight.
+            $project->forceFill([
+                'metadata' => array_merge($project->metadata ?? [], [
+                    'title_decision'   => 'change',
+                    'title_decided_at' => now()->toIso8601String(),
+                    'title_decided_by' => $actor->id,
+                ]),
+            ])->save();
 
             $this->audit->log(
                 action: AuditAction::ProjectUpdated,

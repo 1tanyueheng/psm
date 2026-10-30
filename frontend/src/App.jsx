@@ -28,7 +28,8 @@ const LecturerDashboard = lazy(() => import('./pages/lecturer/LecturerDashboard'
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 const UserListPage = lazy(() => import('./pages/admin/UserListPage'))
 const SemesterListPage = lazy(() => import('./pages/admin/SemesterListPage'))
-const RolloverPage = lazy(() => import('./pages/admin/RolloverPage'))
+// RolloverPage is retired — its route is gone and the file is left on disk for
+// reference only, so it is no longer imported.
 const EnrolmentPage = lazy(() => import('./pages/admin/EnrolmentPage'))
 const SectionManagementPage = lazy(() => import('./pages/admin/SectionManagementPage'))
 
@@ -308,28 +309,23 @@ export default function AppRoutes() {
           />
 
           {/*
-            The PSM 1 → PSM 2 rollover: the batch form of the same move a
-            project page offers one student at a time, and deliberately its own
-            screen rather than a button on the term row — it needs a tick-list,
-            a readiness explanation and a per-student result report.
+            The PSM 1 → PSM 2 rollover screen is retired.
+
+            Moving a finished PSM 1 cohort into PSM 2 is now done the same way
+            every other placement is done: on the enrolment page, where a student
+            is put into a part for a term. Keeping a second batch button for the
+            same move meant two answers to "how does a student reach PSM 2", and
+            the enrolment register is the one that also covers late arrivals and
+            repeats.
           */}
-          <Route
-            path="/rollover"
-            element={
-              <RequireCapability capability="manageSemesters">
-                <RolloverPage />
-              </RequireCapability>
-            }
-          />
 
           {/*
             The term's enrolment register: who is doing PSM 1 or PSM 2 this
             semester, and which term an opened repeat belongs to.
 
-            Companion to the rollover screen rather than a replacement. Rollover
-            moves a finished PSM 1 batch into PSM 2; this places *individual*
-            students — a late arrival, a repeat — into a part for a term, and it
-            is the only place a repeat acquires a semester.
+            This is now the single place a student is placed into a part — the
+            rollover screen that used to do the PSM 1 → PSM 2 move in bulk has
+            been retired in its favour.
           */}
           <Route
             path="/enrolments"

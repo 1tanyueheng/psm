@@ -45,6 +45,80 @@ class LampiranBController extends ApiController
     }
 
     /**
+     * GET /api/projects/{project}/title-change
+     *
+     * Should this student be asked, right now, whether to keep or change the
+     * title? Answers one question for the project page, which is where the
+     * decision is offered the first time the student opens their PSM 2 project.
+     *
+     * "Decided" and "changeable" are separate facts, so both are returned:
+     *
+     *  - `can_change` is `blockedReason() === null` — the four guards;
+     *  - `decided` records that the student has answered, whether they said keep
+     *    or change. Keeping the title has to be an explicit answer, otherwise
+     *    the prompt reappears on every visit until Chapter 5 happens to open.
+     */
+    public function titleChangeStatus(Request $request, Project $project): JsonResponse
+    {
+        $this->authorize('view', $project);
+
+        $isLeader = $project->leader()?->user_id === $request->user()->id;
+        $blocked = $this->titleChanges->blockedReason($project);
+
+        return $this->ok([
+            'eligible' => $project->psm_part === 'PSM2' && $isLeader,
+            'can_change' => $blocked === null,
+            'blocked_reason' => $blocked,
+            'decided' => $this->titleChanges->decision($project) !== null,
+            'decision' => $this->titleChanges->decision($project),
+            'current_title' => $project->title,
+            'changed_from' => $project->metadata['title_changed_from'] ?? null,
+        ]);
+    }
+
+    /**
+     * POST /api/projects/{project}/title-decision
+     *
+     * The student answers the prompt: `keep` the inherited title, or `change` it.
+     *
+     * `keep` records the answer so the question is not asked again. `change`
+     * opens the Lampiran B (the existing title-change path) and records nothing
+     * yet — the decision is confirmed when the supervisor signs.
+     */
+    public function decideTitle(Request $request, Project $project): JsonResponse
+    {
+        $this->authorize('view', $project);
+
+        if ($project->leader()?->user_id !== $request->user()->id) {
+            return $this->fail('Only the student on this project can answer this.', 403);
+        }
+
+        $validated = $request->validate([
+            'decision' => ['required', 'string', 'in:keep,change'],
+        ]);
+
+        if ($validated['decision'] === 'keep') {
+            $this->titleChanges->keep($project, $request->user());
+
+            return $this->ok(
+                ['decision' => 'keep', 'title' => $project->title],
+                'Title kept. You can continue with your PSM 2 work.',
+            );
+        }
+
+        try {
+            $form = $this->titleChanges->request($project, $request->user());
+        } catch (InvalidArgumentException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
+
+        return $this->created(
+            (new LampiranBFormResource($form->load('supervisorProfile.user')))->resolve($request),
+            'Propose the new title, then submit it for your supervisor\'s signature.',
+        );
+    }
+
+    /**
      * POST /api/projects/{project}/title-change
      *
      * A student who passed PSM 1 chooses a different title for PSM 2.

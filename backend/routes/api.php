@@ -663,7 +663,19 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
      * Optional, and only before Chapter 5 opens. It creates a new Lampiran B for
      * the new title; signing that form installs the refiled PSM 1 steps in front
      * of the PSM 2 chain. See `Psm2TitleChangeService`.
+     *
+     * The boundary prompt reads `title-change/status` the first time a student
+     * opens their PSM 2 project and posts the answer to `title-decision`. Keeping
+     * the title is an answer too, recorded so the question is asked once rather
+     * than on every visit.
      */
+    Route::get('projects/{project}/title-change/status', [LampiranBController::class, 'titleChangeStatus'])
+        ->name('title-change.status');
+
+    Route::post('projects/{project}/title-decision', [LampiranBController::class, 'decideTitle'])
+        ->middleware('role:student')
+        ->name('title-decision');
+
     Route::post('projects/{project}/title-change', [LampiranBController::class, 'requestTitleChange'])
         ->middleware('role:student')
         ->name('title-change');

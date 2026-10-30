@@ -439,8 +439,26 @@ function EnrolDialog({ semesters, defaultSemesterId, onClose, onDone }) {
 
   return (
     <Overlay title="Enrol students" onClose={onClose}>
+      {/*
+        What this dialog actually does, in one sentence. The term and the part are
+        the two things that decide everything downstream — the capacity gate, the
+        supervisor picker and the milestone calendar — so the explanation sits
+        above the fields rather than in a tooltip.
+      */}
+      <p className="mb-4 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+        Enrolling puts a student into a <strong>part</strong> for a <strong>term</strong>.
+        That is what gives them a place to be supervised against: the supervisor picker
+        counts them, the deadline calendar covers them, and a repeat gets its term from
+        here. Enrolling does <strong>not</strong> register a title — the student still
+        files Lampiran A.
+      </p>
+
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Semester" required>
+        <Field
+          label="Semester"
+          required
+          hint="The term this attempt belongs to"
+        >
           <Select value={semesterId} onChange={(e) => setSemesterId(e.target.value)}>
             <option value="">Select a term…</option>
             {semesters.map((s) => (
@@ -452,7 +470,15 @@ function EnrolDialog({ semesters, defaultSemesterId, onClose, onDone }) {
           </Select>
         </Field>
 
-        <Field label="PSM part" required>
+        <Field
+          label="PSM part"
+          required
+          hint={
+            part === 'PSM2'
+              ? 'PSM 2 — the student continues their project in this term'
+              : 'PSM 1 — the first half: proposal, chapters and demonstration'
+          }
+        >
           <Select value={part} onChange={(e) => setPart(e.target.value)}>
             {PSM_PARTS.map((p) => (
               <option key={p} value={p}>
@@ -496,37 +522,50 @@ function EnrolDialog({ semesters, defaultSemesterId, onClose, onDone }) {
             ) : shown.length === 0 ? (
               <p className="px-3 py-4 text-sm text-slate-500">No students match that filter.</p>
             ) : (
-              <ul className="divide-y divide-slate-100">
-                {shown.map((c) => (
-                  <li key={c.student_profile_id}>
-                    <label
-                      className={`flex items-center gap-3 px-3 py-2 ${
-                        c.eligible ? 'cursor-pointer hover:bg-slate-50' : 'opacity-60'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="shrink-0"
-                        checked={selected.has(c.student_profile_id)}
-                        onChange={() => toggle(c.student_profile_id)}
-                        disabled={!c.eligible}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm text-slate-800">{c.name}</span>
-                        <span className="block font-mono text-xs text-slate-400">
-                          {c.student_id} · {c.batch}
-                          {c.attempts > 0 && ` · ${c.attempts} prior attempt(s)`}
+              <>
+                {/*
+                  How many can actually be enrolled, stated plainly. Without this
+                  a coordinator ticks the ones they want, presses Enrol, and
+                  learns about the blocked ones only from a greyed checkbox.
+                */}
+                <p className="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                  {eligibleShown.length} can be enrolled in {partLabel(part)}
+                  {shown.length > eligibleShown.length
+                    && ` · ${shown.length - eligibleShown.length} cannot, with the reason shown beside them`}
+                </p>
+                <ul className="divide-y divide-slate-100">
+                  {shown.map((c) => (
+                    <li key={c.student_profile_id}>
+                      <label
+                        className={`flex items-center gap-3 px-3 py-2 ${
+                          c.eligible ? 'cursor-pointer hover:bg-slate-50' : 'opacity-60'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="shrink-0"
+                          checked={selected.has(c.student_profile_id)}
+                          onChange={() => toggle(c.student_profile_id)}
+                          disabled={!c.eligible}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm text-slate-800">{c.name}</span>
+                          <span className="block font-mono text-xs text-slate-400">
+                            {c.student_id} · batch {c.batch}
+                            {c.program_code && ` · ${c.program_code}`}
+                            {c.attempts > 0 && ` · ${c.attempts} prior attempt(s)`}
+                          </span>
                         </span>
-                      </span>
-                      {!c.eligible && (
-                        <span className="max-w-[45%] text-right text-xs text-slate-400">
-                          {c.blocker}
-                        </span>
-                      )}
-                    </label>
-                  </li>
-                ))}
-              </ul>
+                        {!c.eligible && (
+                          <span className="max-w-[45%] text-right text-xs text-rose-500">
+                            {c.blocker}
+                          </span>
+                        )}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </div>
         </>

@@ -226,7 +226,7 @@ export default function LampiranAFormPage() {
 
               PSM 2 is not registered by a student — it is inherited. PSM 1 and
               PSM 2 are one project across two continuous terms on one title, and
-              the move into PSM 2 happens through the PSM 2 Rollover screen,
+              the move into PSM 2 happens through the enrolment page,
               which carries the title, supervisor and panel forward. Offering
               PSM 2 here invited a second Lampiran A for a part that has no
               registration step.

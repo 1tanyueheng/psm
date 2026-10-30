@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AuditAction;
 use App\Enums\NotificationType;
+use App\Enums\PsmPart;
 use App\Enums\ProjectCategory;
 use App\Models\AcademicSemester;
 use App\Models\ExaminerAssignment;
@@ -39,6 +40,7 @@ class RegistrationService
         protected AuditLogger $audit,
         protected NotificationDispatcher $notifications,
         protected SemesterService $semesters,
+        protected EnrolmentService $enrolments,
     ) {
     }
 
@@ -340,6 +342,34 @@ class RegistrationService
                     null,
                     'Registered from Lampiran A (Supervisor Agreement)',
                 )->id;
+            }
+
+            /**
+             * Register the enrolment at the same moment as the pairing.
+             *
+             * Without this, a student who came through registration held a
+             * supervision but no `student_enrolments` row — and the capacity
+             * gate counts **enrolments**, not projects or pairings
+             * (`SupervisorProfile::computeLoadByPartInSemester()`). A registered
+             * student therefore consumed no supervisor slot at all, and a
+             * supervisor at full capacity accepted more students than the cap
+             * allowed as long as they arrived through Lampiran A rather than
+             * through the /enrolments screen.
+             *
+             * Acknowledgement is the right moment: it is where the faculty
+             * decides the student holds a place in this part for this term, which
+             * is exactly what an enrolment records. `enrol()` returns an existing
+             * live row rather than duplicating one, so an admin who enrolled the
+             * student by hand first is not punished for it.
+             */
+            if ($agreement->academic_semester_id !== null) {
+                $this->enrolments->enrol(
+                    $student,
+                    AcademicSemester::findOrFail($agreement->academic_semester_id),
+                    PsmPart::tryParse($agreement->psm_part) ?? PsmPart::Psm1,
+                    $actor,
+                    'Enrolled on acknowledgement of Lampiran A',
+                );
             }
 
             $agreement->update([

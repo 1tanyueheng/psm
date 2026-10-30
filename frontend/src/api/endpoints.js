@@ -500,17 +500,6 @@ export const projectApi = {
   repeat: (id, keepTitle = true) =>
     api.post(`/projects/${id}/repeat`, { keep_title: keepTitle }).then(unwrap),
 
-  /**
-   * Start a repeat of a failed part.
-   *
-   * The two batches diverge and the server decides which happens: PSM 1 goes
-   * back to registration (`mode: 'registration'`, no project created), PSM 2
-   * gets a fresh project in the following term. `keepTitle` is PSM 2 only —
-   * a PSM 1 repeat re-proposes through Lampiran A regardless.
-   */
-  repeat: (id, keepTitle = true) =>
-    api.post(`/projects/${id}/repeat`, { keep_title: keepTitle }).then(unwrap),
-
   // --- Aliases -----------------------------------------------------------
   /**
    * Registration screen metadata — supervisors with room, PSM parts, and the
@@ -586,6 +575,24 @@ export const enrolmentApi = {
 export const lampiranBApi = {
   /** Every filing for a project, newest first, plus the accepted title. */
   list: (projectId) => api.get(`/projects/${projectId}/lampiran-b`).then(unwrap),
+
+  /**
+   * The PSM 2 boundary question.
+   *
+   * Answers whether this student should be asked, right now, whether to keep or
+   * change the inherited title. `decided` is separate from `can_change`: the
+   * guards may still allow a change while the student has already said they want
+   * to keep it, and then the prompt must stay closed.
+   */
+  titleStatus: (projectId) =>
+    api.get(`/projects/${projectId}/title-change/status`).then(unwrap),
+
+  /**
+   * Answer it. `keep` records the answer so the question is not asked again;
+   * `change` opens the Lampiran B for the new title.
+   */
+  decideTitle: (projectId, decision) =>
+    api.post(`/projects/${projectId}/title-decision`, { decision }).then(unwrap),
 
   /**
    * Revise and submit the form. The title must differ from the refused one —

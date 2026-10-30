@@ -64,19 +64,20 @@ const CURRENT_YEAR = new Date().getFullYear()
 const BATCH_YEARS = Array.from({ length: 8 }, (_, i) => String(CURRENT_YEAR - 3 + i))
 
 /**
- * Faculties, offered as a choice rather than typed.
+ * The faculty. Fixed, not chosen.
  *
- * The seed data contains both "FSKTM" and "Faculty of Computing" for the same
- * faculty, which is what free text produces. The list starts with the value the
- * system already uses everywhere else so a new account matches the cohort.
+ * This system administers one faculty's PSM lifecycle: the programme rule, the
+ * coordinator scopes, the Lampiran forms and the pass mark are all FSKTM's. The
+ * old dropdown offered three spellings of the same faculty and let an admin
+ * record an affiliation nothing downstream could act on.
  */
-const FACULTIES = ['FSKTM', 'Faculty of Computing', 'FSKTM UTHM']
+const FACULTY = 'FSKTM'
 
 function blankForm() {
   return {
     role: 'student',
-    name: '', email: '', phone: '', department: '',
-    student_id: '', program_code: '', batch: '', faculty: '',
+    name: '', email: '', phone: '',
+    student_id: '', program_code: '', batch: '', faculty: FACULTY,
     academic_semester_id: '',
     staff_no: '', academic_title: '', max_supervisees: '', programme: '',
   }
@@ -95,7 +96,6 @@ function payloadFor(form) {
     name: form.name.trim(),
     email: form.email.trim(),
     phone: form.phone.trim() || undefined,
-    department: form.department.trim() || undefined,
   }
 
   if (form.role === 'student') {
@@ -112,7 +112,7 @@ function payloadFor(form) {
        */
       batch: form.batch.trim(),
       program_code: form.program_code.trim() || undefined,
-      faculty: form.faculty.trim() || undefined,
+      faculty: FACULTY,
       /**
        * The term the student is enrolling into.
        *
@@ -181,7 +181,7 @@ function payloadFor(form) {
  */
 export default function UserListPage() {
   const { user: me } = useAuth()
-  const { semesters, active, selectedId, selectSemester } = useSemesters()
+  const { semesters, active, selectedId } = useSemesters()
   const [params, setParams] = useSearchParams()
 
   const [rows, setRows] = useState([])
@@ -610,7 +610,6 @@ function CreateUserPanel({
       name: prev.name,
       email: prev.email,
       phone: prev.phone,
-      department: prev.department,
       // The chosen term survives a role change: an admin flipping to student
       // to check a field should not silently lose the term they picked.
       academic_semester_id: prev.academic_semester_id || defaultSemesterId,
@@ -656,9 +655,6 @@ function CreateUserPanel({
           </Field>
           <Field label="Phone" htmlFor="new_phone" errors={errors} field="phone">
             <Input id="new_phone" value={form.phone} onChange={set('phone')} maxLength={32} />
-          </Field>
-          <Field label="Department" htmlFor="new_department" errors={errors} field="department">
-            <Input id="new_department" value={form.department} onChange={set('department')} maxLength={255} />
           </Field>
         </div>
 
@@ -760,13 +756,18 @@ function CreateUserPanel({
               htmlFor="new_faculty"
               errors={errors}
               field="faculty"
-              hint="Defaults to FSKTM if left blank"
+              hint="FSKTM is the only faculty this system serves"
             >
-              <Select id="new_faculty" value={form.faculty} onChange={set('faculty')}>
-                <option value="">FSKTM (default)</option>
-                {FACULTIES.map((f) => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
+              {/*
+                Locked to FSKTM. The system runs one faculty's PSM lifecycle —
+                the programme rule, the coordinator scopes and the Lampiran forms
+                are all FSKTM's — so offering a choice here let an admin record an
+                affiliation nothing downstream could act on. Disabled rather than
+                removed: the value is still submitted (FSKTM), and the field stays
+                visible so nobody wonders where it went.
+              */}
+              <Select id="new_faculty" value={FACULTY} disabled>
+                <option value={FACULTY}>{FACULTY}</option>
               </Select>
             </Field>
           </div>

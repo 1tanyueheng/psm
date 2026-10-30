@@ -60,18 +60,15 @@ const MENU = [
       // The term owns both PSM batches, so it sits above Projects in the
       // reading order even though almost every screen is scoped by it.
       { to: '/semesters', label: 'Semesters', roles: ['coordinator', 'admin'] },
-      // The end-of-term move: PSM 1 students continue into PSM 2 on the title
-      // they already registered. Its own screen because it is a tick-list with
-      // two gates in front of it, not a one-click action.
-      { to: '/rollover', label: 'PSM 2 Rollover', roles: ['coordinator', 'admin'] },
       /*
-       * The term's enrolment register.
+       * The term's enrolment register — now the only way a student reaches a
+       * part.
        *
-       * Sits beside Rollover because they are two halves of the same
-       * start-of-term question. Rollover moves a *batch* of finished PSM 1
-       * students into PSM 2; Enrolment places *individuals* into a part for a
-       * term — a late arrival, a student who deferred, and above all a repeat,
-       * which has no term of its own until somebody chooses one here.
+       * The PSM 2 Rollover screen is retired. It moved a finished PSM 1 cohort
+       * into PSM 2 in bulk, which meant two different answers to the same
+       * question; the register already places a student into a part for a term,
+       * covers the late arrival and the deferral, and is the only place a
+       * repeat acquires a semester. One screen, one rule.
        */
       { to: '/enrolments', label: 'Enrolment', roles: ['coordinator', 'admin'] },
       { to: '/projects', label: 'All Projects', roles: ['student', 'supervisor', 'coordinator', 'admin'] },
