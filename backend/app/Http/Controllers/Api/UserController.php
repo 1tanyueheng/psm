@@ -29,6 +29,16 @@ use Illuminate\Validation\Rule;
  */
 class UserController extends ApiController
 {
+    /**
+     * The only faculty this system serves.
+     *
+     * Not a configuration value on purpose: a setting invites a second value,
+     * and the programme rule, the coordinator scopes, the Lampiran forms and
+     * the pass mark are all FSKTM's. A deployment for another faculty would be
+     * a different system, not a different row here.
+     */
+    private const FACULTY = 'FSKTM';
+
     public function __construct(
         protected AuditLogger $audit,
         protected NotificationDispatcher $notifications,
@@ -151,7 +161,21 @@ class UserController extends ApiController
             'program_code'   => ['required_if:role,student', 'nullable', Rule::in(Programme::values())],
             'program'        => ['nullable', 'string', 'max:128'],
             'batch'          => ['required_if:role,student', 'nullable', 'string', 'max:32'],
-            'faculty'        => ['nullable', 'string', 'max:255'],
+            /**
+             * Not accepted, deliberately.
+             *
+             * The faculty is FSKTM and only FSKTM — see the constant in the
+             * `StudentProfile::create()` call below. It used to be a free
+             * string, and the seeded data still carries three spellings of one
+             * faculty ("FSKTM", "Faculty of Computing", and blank) as the
+             * evidence that nobody downstream could act on the difference.
+             *
+             * Left here, commented, rather than deleted: a caller that still
+             * posts it gets a clear answer from `prohibited`, instead of having
+             * their value silently dropped and wondering why the record says
+             * something else.
+             */
+            'faculty'        => ['prohibited'],
             'thesis_title'   => ['nullable', 'string', 'max:255'],
             /**
              * The term the student is enrolling into (G2).
@@ -299,7 +323,22 @@ class UserController extends ApiController
                         ?? $validated['program_code'],
                     'program_code'   => $validated['program_code'] ?? null,
                     'batch'          => $validated['batch'],
-                    'faculty'        => $validated['faculty'] ?? null,
+                    /**
+                     * The faculty is not the caller's to choose.
+                     *
+                     * This system administers one faculty's PSM lifecycle: the
+                     * programme rule, the coordinator scopes, the Lampiran forms
+                     * and the pass mark are all FSKTM's. A free-text faculty let
+                     * an admin record an affiliation that nothing downstream
+                     * could act on, and the seeded rows show what that produced —
+                     * the same faculty written two ways plus blanks.
+                     *
+                     * Written here rather than validated, because there is no
+                     * legitimate second value to accept. `'faculty'` is
+                     * `prohibited` in the rules above, so a caller learns they
+                     * were wrong instead of having their value dropped silently.
+                     */
+                    'faculty'        => self::FACULTY,
                     'thesis_title'   => $validated['thesis_title'] ?? null,
                     /**
                      * The enrolment term (G2).

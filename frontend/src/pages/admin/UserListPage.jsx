@@ -70,6 +70,11 @@ const BATCH_YEARS = Array.from({ length: 8 }, (_, i) => String(CURRENT_YEAR - 3 
  * coordinator scopes, the Lampiran forms and the pass mark are all FSKTM's. The
  * old dropdown offered three spellings of the same faculty and let an admin
  * record an affiliation nothing downstream could act on.
+ *
+ * It lives here so the form can *show* the value. The server is what makes it
+ * fixed (`UserController` overwrites whatever is sent), because a disabled
+ * control is a UI convention and not a rule — a caller who posts the endpoint
+ * directly never sees the field at all.
  */
 const FACULTY = 'FSKTM'
 
@@ -112,7 +117,14 @@ function payloadFor(form) {
        */
       batch: form.batch.trim(),
       program_code: form.program_code.trim() || undefined,
-      faculty: FACULTY,
+      /**
+       * `faculty` is deliberately **not** sent.
+       *
+       * The faculty is FSKTM and only FSKTM, so it is the server's value to
+       * write — see `UserController::store()`. Sending it here would put the
+       * decision in the client, where a disabled control is the only thing
+       * enforcing it.
+       */
       /**
        * The term the student is enrolling into.
        *
@@ -121,7 +133,7 @@ function payloadFor(form) {
        * `AssignmentService` capacity-checks a supervisor against, and what
        * makes a student appear in a term's cohort at all. The API defaults it
        * to the active term when omitted, which is why its absence was invisible
-       * â€” an admin could not put the new intake into a term that was not the
+       * — an admin could not put the new intake into a term that was not the
        * active one, and could not see which term they had landed in either.
        */
       academic_semester_id: form.academic_semester_id === ''
@@ -601,6 +613,27 @@ function CreateUserPanel({
 }) {
   const set = (key) => (event) => setForm((prev) => ({ ...prev, [key]: event.target.value }))
 
+  /**
+   * The term to show before the admin touches the field.
+   *
+   * Kept out of `blankForm()` because the term list is still loading when the
+   * panel first mounts. It is only what the field *displays*: `blankForm()`
+   * starts empty, and `changeSemester` writes a real choice.
+   */
+  const semesterValue = form.academic_semester_id || defaultSemesterId || ''
+
+  /**
+   * Changing the term is a real state change, not just a re-render.
+   *
+   * `set()` can serve most fields because they start empty, so whatever the
+   * control shows is also its value. This one shows a fallback the form does not
+   * know about, which makes reading the control's own value back the only way to
+   * record the admin's choice.
+   */
+  function changeSemester(event) {
+    setForm((prev) => ({ ...prev, academic_semester_id: event.target.value }))
+  }
+
   function changeRole(event) {
     const role = event.target.value
     setForm((prev) => ({
@@ -617,11 +650,6 @@ function CreateUserPanel({
   }
 
   const role = ROLES.find((r) => r.value === form.role)
-
-  // Seed the term on first render. Doing it here rather than in the parent's
-  // state keeps `blankForm()` free of a value the parent may not have yet â€”
-  // the term list is still loading when the panel first mounts.
-  const semesterValue = form.academic_semester_id || defaultSemesterId || ''
 
   return (
     <Card>
@@ -738,7 +766,7 @@ function CreateUserPanel({
               <Select
                 id="new_semester"
                 value={semesterValue}
-                onChange={set('academic_semester_id')}
+                onChange={changeSemester}
                 disabled={!semesters?.length}
               >
                 {!semesters?.length && <option value="">No semesters yet</option>}
@@ -754,21 +782,20 @@ function CreateUserPanel({
             <Field
               label="Faculty"
               htmlFor="new_faculty"
-              errors={errors}
-              field="faculty"
               hint="FSKTM is the only faculty this system serves"
             >
               {/*
-                Locked to FSKTM. The system runs one faculty's PSM lifecycle —
-                the programme rule, the coordinator scopes and the Lampiran forms
-                are all FSKTM's — so offering a choice here let an admin record an
-                affiliation nothing downstream could act on. Disabled rather than
-                removed: the value is still submitted (FSKTM), and the field stays
-                visible so nobody wonders where it went.
+                Locked to FSKTM, and it is the same control as every other
+                read-only field on this form (`readOnly`, not `disabled`) so it
+                reads as a recorded value rather than as a greyed-out mistake.
+
+                The server writes this regardless of what is posted
+                (`UserController::store()`), because a locked input is a
+                convention in the browser only — the field used to be settable by
+                anyone calling the endpoint, and the seeded data still carries
+                two spellings of the same faculty for exactly that reason.
               */}
-              <Select id="new_faculty" value={FACULTY} disabled>
-                <option value={FACULTY}>{FACULTY}</option>
-              </Select>
+              <Input id="new_faculty" value={FACULTY} readOnly />
             </Field>
           </div>
         )}
