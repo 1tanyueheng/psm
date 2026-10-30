@@ -1,6 +1,6 @@
 # PROGRESS — PSM Assessment System (thesis + code)
 
-**Last updated:** 2026-10-28
+**Last updated:** 2026-10-30
 **Owner:** yuehe
 **Purpose:** the single file another agent (or you, next month) reads first to
 know exactly where this project stands.
@@ -125,11 +125,26 @@ and the older `make_*.py` draughts are superseded; do not add a figure to them.
 
 ### Chapter 1 — Introduction ✅ DONE (cited)
 
-File: `thesis\Chapter1 - with citations.docx`
+File: `thesis\Chapter1 - Introduction (cited).docx` — built by
+`.workbuddy-ai/build_ch1_cited.py`, **this is the current one**. Regenerate it
+with `& python .workbuddy-ai/build_ch1_cited.py`; do not edit the `.docx` by
+hand, or the next rebuild discards the edit.
 
-- Introduction + Problem Statement now carry **7 in-text citations** and a
-  References section (author-date, APA-like).
-- Sources, all AITCS (FSKTM's own journal), all verified:
+- **§1.1 Introduction is three paragraphs, every one of them carrying at least
+  two citations** (2026-10-28, user's instruction: *"do the introduction 1.1 in
+  three paragraph only and each paragraph two or more cite"*). The Problem
+  Statement was strengthened at the same time.
+- The section list, in order: Introduction · Problem Statement · Objectives ·
+  Research Scope · Project Significance · Thesis Outline · References.
+- **11 distinct citations in the prose** (author-date, APA-like) — up from the
+  original seven. Counted from the document itself, not from memory:
+  **§1.1 Introduction has 7**, **Problem Statement has 7**, Research Scope 1,
+  Project Significance 2. `Chong Er Juan & Wahid (2021)` is cited in Chapters 1
+  and 3; `Chong & Arbaiy (2022)`, `Arumugam & Abd Ishak (2025)` and
+  `Tam & Abdullah (2025)` recur across all three chapters.
+- The four sources that carry most of the argument, all AITCS (FSKTM's own
+  journal) and all checked against the published paper rather than carried over
+  on trust:
   - **Nor Azim & Arbaiy (2022)** — FSKTM postgraduate assessment uses printed
     forms returned for manual analysis. Used for "manual admin" + "fragmented
     assessment".
@@ -139,34 +154,90 @@ File: `thesis\Chapter1 - with citations.docx`
     inefficient communication. Used for "progress not visible".
   - **Tam & Abdullah (2025)** — FSKTM FYP; mismatched student research and
     supervisor expertise. Used for PSM structure + supervisor matching.
+  - The rest (`Borhanuddin & Mohamed`, `Che Adnan & Hafit`, `Tee & Mahdin`,
+    `Marzele & Abdul`, `Chong Er Juan & Wahid`, and UTHM's own PSM guide) are
+    listed with them in the document's reference list.
+- `.workbuddy-ai/count_citations.py <docx>…` recounts all of this per section —
+  run it instead of trusting a number written here.
+- `Chapter1 - with citations.docx` is the **earlier seven-citation version** and
+  is superseded. There is also a copy named `Chapter1 - ...` from before a
+  render-tool accident (`5ec566b` restored it); the `(cited)` file is the one to
+  use.
 
-### Chapter 2 — Literature Review ✅ DONE
+### Chapter 2 — Literature Review ✅ DONE (cited, v3)
 
-File: `thesis\Chapter2 - PSM Assessment System v2.docx` (current)
+Current file: **`thesis\Chapter2 - PSM Assessment System v2.docx`** — this is
+the newest copy on disk (2026-10-28 14:32) and carries the 2.2/2.3 merge.
+`Chapter2 - Literature Review (v3).docx` (14:05) is the cited draft it was
+merged from. Everything else named `Chapter2 - Literature Review*.docx` or
+`Chapter2 - PSM Assessment System.docx` is **older and stale**. Build with
+`.workbuddy-ai/cite_ch2.py` (citations) over the v2 document; do not rebuild
+from the original draft.
 
-- Rewritten from scratch (the original draft was about **metaheuristic
-  optimisation / CT** — a completely different project, discarded).
+- Rewritten from scratch — the original draft was about **metaheuristic
+  optimisation / CT**, a completely different project, and was discarded.
 - Style matched to the user's example: TNR 12pt, 1.5 spacing, `Heading 2` with
   literal `2.x` numbering, bold system names, `< Name >` markers, ✔/✖ table.
+- **Section layout after the 2026-10-28 merge** (the user asked to combine the
+  two sections and move the numbering forward, *"move forward numbering only"*):
+
+  | § | Title |
+  |---|---|
+  | 2.1 | Introduction |
+  | 2.2 | **Domain Case Study and Web Based System** — the two former sections, merged |
+  | 2.3 | Problem Study of Existing Related Systems |
+  | 2.4 | Your Proposed System |
+  | 2.5 | Comparison with the Existing Systems |
+  | 2.6 | Chapter Summary |
+
+- **§2.2 and §2.3 both carry citations now** (2026-10-28 request: *"add
+  citation in 2.2 and 2.3 too"*) — §2.2 has 7 distinct sources, §2.3 has 3, 8 in
+  the chapter. Recount with `.workbuddy-ai/count_citations.py`.
 - **Three compared systems, all FSKTM/AITCS and all about FYP:**
   FFMS (Arumugam & Abd Ishak, 2025), PSM Supervision System (Wan Fauzi &
   Alduais, 2025), Supervisor Selection System (Tam & Abdullah, 2025).
-- ~1,670 words, 6 pages. Definitions cited: CIO Wiki (web app), NIST (RBAC).
+- ~1,990 words, 6 pages. Definitions cited: CIO Wiki (web app), NIST (RBAC).
 - Table 2.1 compares 14 features; the three assessment rows are ✖ across all
   three existing systems → this is the evidence for the §1 contribution.
 
-### Chapter 4 — Analysis & Design (use cases) ✅ six written
+### Chapter 3 — Methodology ✅ DONE (2026-10-28)
 
-Each use case gets: use-case specification table + **sequence diagram** +
-**activity diagram**, as its own `.docx`. The numbering is in the table at the
-top of this section.
+File: **`thesis\Chapter3 - Methodology.docx`** — ~1,100 words, built by
+`.workbuddy-ai/build_ch3.py`.
 
-The **use case diagram** (draw.io, `PSM.drawio.png`) shows: Student, Admin,
-Supervisor, Lecturer, Panel, Coordinator, System Controller against login,
-assignment, milestone, evaluation, report, alert, title/registration. It still
-shows **assignment (pairing) as a use case of its own** — that box has to go,
-since pairing is now a step inside Manage Title and Registration, and the
-activity is inside UC-02 rather than beside it.
+- The model is **Prototyping**, not Waterfall. The user's instruction was
+  *"create the chapter 3 with prototyping model"*, and the reasoning is in the
+  chapter: the faculty's administrative rules live in the coordinator's
+  practice rather than in a document, so a model that expects to discover them
+  by showing someone a working version fits where Waterfall does not.
+- **Figure 3.1 — Prototype model** is `thesis\diagrams\prototype_model.png`,
+  drawn by `.workbuddy-ai/prototype_model.py` and embedded by `build_ch3.py`
+  (it replaces the picture that came with the template). Five phases:
+  Requirement Gathering and Analysis → Quick Design → Build a Prototype →
+  Client Evaluation → Refining the Prototype → Implementation and Maintenance,
+  with the loop back.
+- Each phase paragraph names the **objective it satisfies**; **Table 3.1 maps
+  RO1–RO3 to an evaluation focus** (RO3 is the User Acceptance Testing that
+  Chapter 5 still has to report).
+- Citations: Chong Er Juan & Wahid (2021), Chong & Arbaiy (2022), Nor Azim &
+  Arbaiy (2022), Che Adnan & Hafit (2025), Arumugam & Abd Ishak (2025), Wan
+  Fauzi & Alduais (2025), Tam & Abdullah (2025), UTHM (2025), CIO Wiki (2023),
+  NIST (2022).
+
+### Chapter 4 — Analysis & Design (use cases)
+
+**Superseded — kept for history only.** Each use case was once its own `.docx`
+(specification table + sequence diagram + activity diagram). The six files are
+still in `thesis\`, dated 2026-10-28, but **Chapter 4 is now one document** — see
+the next section. Do not add to the per-use-case files.
+
+The numbering they used: UC-01 Login · UC-02 Title and Registration · UC-03
+Milestone · UC-04 Evaluation · UC-05 Report · UC-06 Alert and Notification.
+
+The old **draw.io** use case diagram (`PSM.drawio.png`) drew **pairing as a use
+case of its own**. That is wrong now — pairing is a step inside Manage Title and
+Registration, and its activity is inside UC-02. `usecase_diagram.py` draws the
+correct Figure 4.1; the drawio file must not be used again.
 
 ### Chapter 4 — Analysis and Design ✅ one document (2026-10-28)
 
@@ -195,6 +266,21 @@ a migration or the tables will describe a database that no longer exists.
 | `class_diagram.py` | Figure 4.14 — twelve classes, hand-placed corridors |
 | `dump_schema.php` | `schema.json`, for the data dictionary |
 
+### Which script builds which chapter (2026-10-30)
+
+| Chapter | Build with | Figures from |
+|---|---|---|
+| 1 | `build_ch1_cited.py` | — |
+| 2 | `cite_ch2.py` — citations only; the document itself is `Chapter2 - PSM Assessment System v2.docx` | — |
+| 3 | `build_ch3.py` | `prototype_model.py` → `thesis\diagrams\prototype_model.png` |
+| 4 | `build_chapter4.py` | `usecase_diagram.py`, `class_diagram.py`, `seq_*.py`, `act_*.py` |
+
+Read-only helpers, safe to run at any time: `outline_docx.py` (headings, words
+and table counts of a `.docx`) and `dump_docx.py` (every paragraph with its
+style). They exist because a structural reopen is not a read, and they are how a
+chapter gets checked without opening Word — but **neither is sufficient for
+layout; still render and look** (§4 verification loop).
+
 **The class diagram was the hardest figure in the project.** Three attempts
 failed before one worked, all for the same reason: routing every connector to
 the midpoint of the gap it was given put eleven relations through one bundle.
@@ -204,18 +290,163 @@ point on a shared edge. If it has to be redrawn, keep that property.
 ### Remaining thesis work
 
 - [ ] **Fix the use case diagram** so pairing is not drawn as its own case.
-- [ ] Chapter 3 — Methodology (Waterfall per the template)
-- [ ] Chapter 5 — Implementation and Testing (incl. UAT)
+      (`usecase_diagram.py` already redraws it without pairing — it was the old
+      **draw.io** `PSM.drawio.png` that still drew it, and that file must not be
+      used again.)
+- [ ] Chapter 5 — Implementation and Testing (including the UAT that Table 3.1's
+      RO3 promises)
 - [ ] Chapter 6 — Conclusion
 - [ ] Front/back matter: abstract, TOC, list of figures/tables
+- [ ] **Assemble the full thesis.** Each chapter is its own `.docx` today. They
+      all use the c2 template's styles, so they can be appended into one file,
+      but the figure and table numbers are literal text — check them after the
+      merge.
+- [ ] **One merged References list.** Each chapter carries its own list so far;
+      the final document needs the union, de-duplicated. Watch the name forms:
+      `Chong Er Juan & Wahid (2021)` in Chapter 3 and `Chong & Wahid (2021)` in
+      §3 of this file are probably the same source. Pick one and use it in both.
 
 ---
 
 ## 3A. Codebase status (what the system actually does)
 
-Companion to §3. §3 tracks the *thesis*; this tracks the *software*. Updated
-2026-10-25 after a build session covering the lecturer role, coursework, the
-programme rule and a set of correctness fixes.
+Companion to §3. §3 tracks the *thesis*; this tracks the *software*. **Updated
+2026-10-30.** The newest block is §3A.0 below; the rest was written 2026-10-25
+to 10-27 and still holds except where a later section says otherwise.
+
+### 3A.0 — The last three sessions (2026-10-28 → 10-30)
+
+Read this first. Everything here was verified against the live database and over
+HTTP, and the commits are named so the detail can be found again.
+
+| Date | What changed | Commit |
+|---|---|---|
+| 10-28 | Chapter 1 §1.1 rewritten to three well-cited paragraphs; Ch. 2 §2.2+2.3 merged and cited; **Chapter 3 written (Prototyping)** | `30006e9` `881b240` `3c30dab` |
+| 10-30 | **Acknowledging Lampiran A now creates the enrolment** — the capacity gate counts a registered student for the first time | `b654a9c` |
+| 10-30 | **PSM 2 boundary prompt** on the project page: keep or change the title, asked once | `b654a9c` |
+| 10-30 | **PSM 2 Rollover screen retired** — a PSM 2 placement is an enrolment like any other | `b654a9c` |
+| 10-30 | Add-user form: department removed, **faculty fixed to FSKTM** (and enforced server-side) | `b654a9c` `9eeeb1f` |
+| 10-30 | **Delete an enrolment** — undo a misoperation, four guards, audited as `enrolment.deleted` | `eeced3b` |
+
+#### Acknowledging Lampiran A now enrols the student — this closed a real hole
+
+**Before 2026-10-30 the capacity gate counted nothing for a registered student.**
+A supervision is created on acknowledgement, and capacity is counted from
+`student_enrolments` — but registration never created an enrolment row. A
+student who came in through Lampiran A therefore held a supervisor's slot and
+consumed none, so a supervisor could be over-filled while every screen reported
+them within capacity.
+
+`RegistrationService::acknowledgeBySupervisor()` now calls
+`EnrolmentService::enrol()` in the same transaction as the pairing.
+`enrol()` returns an existing live row rather than duplicating, so an admin who
+placed the student by hand first is not punished for it. Verified: enrolments
+0 → 1, supervisor load 0 → 1 on the same acknowledgement.
+
+**What creating an account still does and does not do.** It records
+`student_profiles.academic_semester_id`, places the student in that term's
+cohort, and gates Lampiran A. It does **not** register them in PSM 1: the
+student still files Lampiran A and the supervisor still acknowledges it. The
+enrolment arrives *at acknowledgement*, not at account creation. This was asked
+directly twice, so it is written down here.
+
+#### The PSM 2 boundary question
+
+A student who passed PSM 1 may take a different title in PSM 2. The decision is
+offered **once**, on their first visit to the PSM 2 project page, as a card at
+the top of the page (`frontend/src/components/Psm2BoundaryCard.jsx`).
+
+| Piece | Where |
+|---|---|
+| `GET /api/projects/{project}/title-change/status` | `LampiranBController::titleChangeStatus()` — answers `eligible`, `can_change`, `decided`, and the reason when not eligible |
+| `POST /api/projects/{project}/title-decision` | records `keep` or `change` in `projects.metadata.title_decision` |
+| `Psm2TitleChangeService::decision()` / `recordDecision()` | the service side |
+| `Psm2BoundaryCard` | the card itself; renders nothing for anyone the question does not concern |
+
+- **`keep` is recorded, not merely dismissed.** Without the stored answer the
+  prompt would reappear on every visit.
+- **`change` is recorded at the moment the button is pressed**, before the
+  supervisor signs anything. Pressing it and walking away locks the choice in.
+  The card says so. Moving the write to "when the form is submitted" is a
+  one-line change if that turns out to be the wrong moment.
+- The `change` path reuses `Psm2TitleChangeService` unchanged: new Lampiran B →
+  supervisor signs → `install()` sets the title and prepends Chapters 1–4 at
+  weight 0 → full defence.
+- **Demo account:** `psm2.demo@psm.test` / `password`, project
+  `PSM2-2025-BIP-901` ("Attendance tracking using face recognition"), decision
+  cleared. Created by `.workbuddy-ai/make_psm2_demo.php`; re-running it resets
+  the decision so the prompt can be seen again.
+
+#### The PSM 2 Rollover screen is retired
+
+`/rollover` is gone: the route, the nav entry and the lazy import. The page file
+`pages/admin/RolloverPage.jsx` is left on disk, unimported, for reference. A PSM 1
+→ PSM 2 move is now **a placement on `/enrolments`**, like every other move into a
+part, because two screens doing the same thing had already been a source of
+disagreement.
+
+**Consequence worth knowing:** a 40-student cohort rollover is now 40 ticks. If
+that is too slow in practice the fix is a "place all finished PSM 1 students"
+action on the enrolment page — **not** a second screen.
+
+#### Enrolments can now be deleted (undoing a misoperation)
+
+Withdrawing was the wrong tool for a mis-entry: a withdrawn row is a deferral, it
+stays on the student's record, and it reads as an academic event. The new
+`DELETE /api/enrolments/{enrolment}` removes the row and leaves the audit log as
+the only trace.
+
+Four guards, each with its own message (`EnrolmentService::remove()`), verified
+over HTTP:
+
+| Guard | Refusal |
+|---|---|
+| settled attempt | "A settled attempt is not deleted — withdraw it, or close the term that ends it." |
+| attempt has a project | "This enrolment already has a project, so the attempt has started…" |
+| attempt > 1 | a repeat exists *because* an earlier attempt failed |
+| a repeat points at it | the same rule seen from the other side |
+
+- Policy: `StudentEnrolmentPolicy::delete()` — admin and coordinator only.
+- Audit action **`enrolment.deleted`**, separate from `enrolment.withdrawn`,
+  because "the student deferred" and "we recorded the wrong student" are
+  opposite facts. Its category is **Semesters** (as are the other `enrolment.*`
+  actions) — they used to fall through to "Other" in the audit filter.
+- The Delete button only appears on rows the server would accept, so it never
+  produces a refusal the admin cannot act on.
+
+#### The faculty is FSKTM, and the server says so
+
+The create-user form had FSKTM locked in the browser while `UserController`
+still accepted any string. `faculty` is now `prohibited` in the create rules and
+written by the server from `UserController::FACULTY`. Posting one gets
+`{"faculty":["The faculty field is prohibited."]}`.
+
+**The database still carries the old spellings**: 29 students say
+`Faculty of Computing`, 6 say `FSKTM`, the rest are null (and both seeded
+coordinators say `Faculty of Computing` in `users.department`). Nothing
+downstream reads the value, so it is cosmetic — but **do not write a query that
+groups by faculty** until it is normalised.
+
+The add-user form also had the **enrolling term** half-wired: the field displayed
+the active term as a fallback while the form state stayed empty until the admin
+touched it. `changeSemester` now records the real choice.
+
+#### Seeing PSM 1 and PSM 2 at once — how it actually behaves
+
+Enrolling one student in both parts is permitted (the unique keys are per part),
+but **no student in the data holds both today** (live enrolments: PSM1 = 13,
+PSM2 = 10, none overlapping). When a PSM 2 is placed before the PSM 1 is closed:
+
+- **The project page is whichever project you opened.** There is no combined
+  page; two projects are two pages. The PSM 2 one carries the boundary card, the
+  PSM 1 one carries "Progress to PSM 2".
+- **The projects list lists both** — `Project::visibleTo()` filters on
+  membership, not on term or part, and the list defaults to the **active term**.
+  Two projects in one term appear as two rows, distinguished by the `PSM 1` /
+  `PSM 2` badge. Filtering by part is a control on the list.
+- **The PSM 2 project has no title of its own until `install()` runs** — it
+  starts with the PSM 1 title carried forward, and that is exactly what the
+  boundary card asks the student to confirm.
 
 ### Assessment model — the numbers changed, know them
 
@@ -357,7 +588,7 @@ ticked) and the code follows it. Its five rules:
 | `ProjectResolutionService::repeat()` | same | **The only survivor** of that class. `resolve()` is deleted. Marks a failed attempt repeatable and opens an unplaced `enrolling` enrolment. |
 | `StudentEnrolment` + `/api/enrolments` | migration `2026_10_26_000001`, `EnrolmentController` | One row per student × part × semester with `attempt_no`. This is where a student's term lives. |
 | `GET/POST /api/enrolments` | `EnrolmentController` | Cohort register; `/eligible`; batch enrol; `/place`; `/withdraw`. |
-| `EnrolmentPage` (`/enrolments`) | `frontend/src/pages/admin/` | **Cohort** tab + **Awaiting a term** tab (unplaced repeats). |
+| `EnrolmentPage` (`/enrolments`) | `frontend/src/pages/admin/` | **Cohort** tab + **Awaiting a term** tab (unplaced repeats), and the **Delete** action for a mis-entry (see §3A.0). |
 
 **Non-attendance is a typed zero, never an assumption.** The assessor enters
 `0`; the system never invents one, because "assessed and failed" and "never
@@ -618,6 +849,8 @@ design read the sections above.
 | *(this session)* | 10-25 | Lecturer role + coursework (PSM 1 → 100); programme rule actually enforced; performance fixes; pass rate; PROGRESS.md |
 | *(this session)* | 10-26 | Archive **removed** from the UI; duplicate supervision fixed; **verdict + repeat** lifecycle; **Form K** milestone; **student enrolments** (a student finally has a term of their own) |
 | *(this session)* | 10-27 | **PSM lifecycle rewritten to a signed-off spec** (`thesis/PSM-LIFECYCLE-SPEC.md`): verdict board, `changeTitle()` and the four-value status **deleted**; `TermCloseService` derives pass/fail from the mark at term close; **Lampiran B becomes a table** with `revision_no` and `rejected_reason`; refused titles **re-presented, no cap**; only a mark below 40 repeats; deadlines become labels (`lateness()`), not locks; **PSM 2 title change** at the chain start with Chapters 1–4 refiled at weight 0; milestone `attempt` column; two diagrams redrawn |
+| *(this session)* | 10-28 | **Chapter 4 rebuilt as one document** in the faculty's format (class diagram, no ERD); Chapter 1 §1.1 → three cited paragraphs; Chapter 2 §2.2+2.3 merged and cited; **Chapter 3 written around the Prototyping model** with Figure 3.1 |
+| *(this session)* | 10-30 | **Acknowledgement enrols the student** (the capacity hole); **PSM 2 boundary prompt**; rollover screen retired; department removed and **faculty fixed to FSKTM server-side**; **enrolment Delete** with four guards and its own audit action |
 
 The transcripts are zstd-compressed and unreadable to a new agent. They are not
 a substitute for this file — read `git log --oneline` instead.
@@ -651,6 +884,7 @@ Other students are `<name>@student.psm.test`.
 | `sup-002@psm.test` | Dr. Tan Wei Ming, BIS, 5 free PSM 1 slots — the positive case for allocation |
 | `test.student@psm.test` | Nur Aina binti Test, `AI240199`, BIS — a clean student for registration |
 | `coordinator@psm.test` | Everything a coordinator can do, including closing a term |
+| **`psm2.demo@psm.test`** | **Not seeded — created by `.workbuddy-ai/make_psm2_demo.php`.** PSM 2 project `PSM2-2025-BIP-901` with the boundary decision **cleared**, so the PSM 2 keep/change prompt can be seen. Re-run the script to reset the decision. |
 
 ### Verification (there is still no test suite)
 
@@ -802,8 +1036,21 @@ and whether it holds a drawing — use it instead of guessing.
 
 Every `build_ch4_*.py` follows the same pattern: load
 `thesis\c2\Chapter2.docx` as the style template, clear the body, write the
-document, keep the trailing `sectPr`, save. **Reuse one of them as the template
-for UC-06.**
+document, keep the trailing `sectPr`, save.
+
+> **The six `build_ch4_<usecase>.py` files and their `.docx` outputs are
+> superseded** (2026-10-28). Chapter 4 is one document, built by
+> `build_chapter4.py`. Do not add a figure or a section to the per-use-case
+> files — they exist only as the history of how the chapter was assembled.
+> `build_ch3.py` is now the better starting point for a *new* chapter anyway: it
+> is smaller and it shows how a figure from `thesis\diagrams\` is replaced in
+> place.
+
+Read-only helpers, safe to run at any time: `outline_docx.py` (headings, words,
+tables of a `.docx`) and `dump_docx.py` (every paragraph with its style). They
+exist because a structural reopen is not a read — the two together are how a
+chapter gets checked without opening Word. **Neither is sufficient for layout;
+still render and look** (§4 verification loop).
 
 ### Verification loop (do this every time)
 
@@ -889,22 +1136,33 @@ write into ./thesis/ and tell the user to copy across.
 
 ## 7. Open issues / risks
 
-### Codebase (2026-10-27)
+### Codebase (2026-10-30)
 
 - [ ] **Nothing in the new lifecycle has been clicked through in a browser.**
-      `/enrolments`, the withdraw button, the Lampiran B card on the proposal
-      milestone, the term close, and the PSM 2 title change are all verified over
-      the API and all build — but **no human has seen any of them**. This is the
-      single biggest gap before a demo. Walk them in this order: register →
-      supervisor acknowledges → file Lampiran B → sign → upload proposal →
-      endorse → panel refuses → re-file → panel accepts → close the term.
-- [ ] **The PSM 2 title change has an API but no screen.**
-      `POST /api/projects/{project}/title-change` works and is verified; nothing
-      in `frontend/` calls it, so a student cannot take the path from the UI.
+      `/enrolments` (including the new Delete), the withdraw button, the Lampiran
+      B card on the proposal milestone, the term close, the **PSM 2 boundary
+      card** and the add-user form are all verified over the API and all build —
+      but **no human has seen any of them**. This is the single biggest gap
+      before a demo. Walk them in this order: register → supervisor acknowledges
+      → file Lampiran B → sign → upload proposal → endorse → panel refuses →
+      re-file → panel accepts → close the term.
+- [x] ~~The PSM 2 title change has an API but no screen.~~ **Closed 2026-10-30** —
+      `Psm2BoundaryCard` asks the question on the PSM 2 project page and records
+      the answer. See §3A.0.
+- [ ] **A bulk PSM 1 → PSM 2 move no longer exists.** The rollover screen is
+      retired and a placement is one student at a time. Fine for a demo, slow for
+      a real cohort — see §3A.0 for the intended fix.
+- [ ] **The faculty column carries three spellings.** Cosmetic today (nothing
+      reads it) but it will bite the first report that groups by it. New accounts
+      are always `FSKTM`.
+- [ ] **`projects.metadata.title_decision` is a JSON value, not a column.** It
+      works and it is recorded, but a real query ("who changed their title") has
+      to read into JSON. Promote it to a column when the reporting needs it.
 - [ ] **The close guard names one real student today.** `AI240001` is enrolled in
       term 2 with no project, so closing term 2 is refused until they are given
       one or withdrawn. That is the guard working, not a bug — but it will stop a
-      demo that ends with "close the term".
+      demo that ends with "close the term". (With enrolment Delete now available,
+      it can finally be cleared without inventing history.)
 - [ ] **The demo signatures are not in the repository's reach.** They are PNGs
       under `backend/storage/app/private/signatures/lampiran-b/`, but
       `backend/storage` is masked by the `psm-system_storage-data` volume, so the
