@@ -909,6 +909,7 @@ return $this->ok(null, 'Supervisor removed. The record has been retained for aud
             ->live();
 
         $students = StudentProfile::query()
+            ->withActiveAccount()
             ->with(['user', 'academicSemester', 'enrolments'])
             ->whereDoesntHave('activeSupervisions')
             ->where('is_active_cohort', true)
@@ -928,6 +929,7 @@ return $this->ok(null, 'Supervisor removed. The record has been retained for aud
          * queue, for the page to point at `/enrolments`.
          */
         $needsEnrolment = StudentProfile::query()
+            ->withActiveAccount()
             ->whereDoesntHave('activeSupervisions')
             ->where('is_active_cohort', true)
             ->where('academic_semester_id', $semesterId)

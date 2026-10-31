@@ -338,4 +338,33 @@ class StudentProfile extends Model
     {
         return $query->where('is_active_cohort', true);
     }
+
+    /**
+     * Students whose account still exists and can still act.
+     *
+     * **A soft-deleted user leaves its student profile behind**, and that
+     * profile keeps `is_active_cohort = true`, so the student went on appearing
+     * in the enrolment and supervision pickers with a blank name — the name
+     * lives on `users`, which `StudentProfileResource` can no longer load.
+     * Four such rows from 2026-10-26 (`AI907087`, `AI907727`, `AI907747`,
+     * `AI907843`, all named "… Probe") sat in the enrolment dialog for six days
+     * before anyone noticed, because the row looked like a student with an
+     * unfilled name rather than like a deleted account.
+     *
+     * `whereHas('user')` alone is not enough: `User` is soft-deletable, so the
+     * relation still resolves a trashed row unless the scope says otherwise —
+     * hence the explicit `withTrashed()`-free `whereHas`, which applies the
+     * model's default scope and therefore excludes trashed users. The status
+     * test is separate because a *deactivated* account is equally unable to
+     * take a place in a term.
+     *
+     * Use this in every candidate list. A picker that offers a deleted account
+     * is a row the admin cannot act on and cannot debug.
+     */
+    public function scopeWithActiveAccount(Builder $query): Builder
+    {
+        // `active()` is `status = 'active'`; the default SoftDeletes scope on
+        // User already excludes trashed rows from this subquery.
+        return $query->whereHas('user', fn ($q) => $q->active());
+    }
 }

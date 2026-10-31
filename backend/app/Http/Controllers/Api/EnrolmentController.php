@@ -116,6 +116,7 @@ class EnrolmentController extends ApiController
         $part = PsmPart::parseOrFail($validated['psm_part']);
 
         $students = StudentProfile::query()
+            ->withActiveAccount()
             ->with(['user', 'enrolments.semester'])
             ->orderBy('student_id')
             ->get();
