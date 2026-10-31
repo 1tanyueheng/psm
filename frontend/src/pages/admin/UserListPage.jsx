@@ -23,7 +23,7 @@ const ROLES = [
   {
     value: 'student',
     label: 'Student',
-    hint: 'Registers a project â€” needs a matric number, a programme and a batch.',
+    hint: 'Registers a project — needs a matric number, a programme and a batch.',
   },
   {
     value: 'supervisor',
@@ -176,7 +176,7 @@ function payloadFor(form) {
 }
 
 /**
- * Module 2 â€” user administration.
+ * Module 2 — user administration.
  *
  * The job of this screen is account lifecycle: an admin arrives here to add an
  * account, find one, unblock it, or issue a password reset.
@@ -188,7 +188,7 @@ function payloadFor(form) {
  *    answer. Deactivating is reversible; deleting hides a student's history.
  *  - The create form does **not** ask for a password. New accounts start on the
  *    system default (`psm.default_user_password`) and the holder resets it from
- *    the sign-in screen â€” the admin only ever holds an address, so there is
+ *    the sign-in screen — the admin only ever holds an address, so there is
  *    nothing to choose and nothing to deliver.
  */
 export default function UserListPage() {
@@ -279,7 +279,7 @@ export default function UserListPage() {
    *
    * Every action here changes server state that other people depend on
    * (a suspended supervisor stops being assignable), so the list is reloaded
-   * rather than patched locally â€” the response is the source of truth.
+   * rather than patched locally — the response is the source of truth.
    */
   async function act(key, fn, successMessage) {
     setBusy(key)
@@ -300,7 +300,7 @@ export default function UserListPage() {
    * Create an account, then refresh.
    *
    * Field-level 422s are mapped back onto the form rather than shown as a
-   * banner, so the message lands beside the field that caused it â€” the server is
+   * banner, so the message lands beside the field that caused it — the server is
    * the authority on which role needs which field.
    */
   async function submitCreate() {
@@ -316,7 +316,7 @@ export default function UserListPage() {
       setForm(blankForm())
       setNotice(
         `Account created for ${created?.email ?? form.email}. It starts on the system default `
-        + 'password â€” tell the holder to reset it from the sign-in screen.',
+        + 'password — tell the holder to reset it from the sign-in screen.',
       )
       await load()
     } catch (err) {
@@ -482,7 +482,7 @@ export default function UserListPage() {
                       <Badge tone={roleTone(row.role)}>{roleLabel(row.role)}</Badge>
                     </Td>
                     <Td className="font-mono text-xs text-slate-500">
-                      {row.student_id ?? row.staff_no ?? 'â€”'}
+                      {row.student_id ?? row.staff_no ?? '—'}
                     </Td>
                     <Td>
                       <Badge tone={suspended ? 'danger' : 'success'}>
@@ -529,7 +529,7 @@ export default function UserListPage() {
                           }
                         >
                           {busy === `toggle-${row.id}`
-                            ? 'Workingâ€¦'
+                            ? 'Working…'
                             : suspended
                               ? 'Reactivate'
                               : 'Suspend'}
@@ -547,7 +547,7 @@ export default function UserListPage() {
                             )
                           }
                         >
-                          {busy === `reset-${row.id}` ? 'Sendingâ€¦' : 'Reset password'}
+                          {busy === `reset-${row.id}` ? 'Sending…' : 'Reset password'}
                         </Button>
 
                         {row.locked_at && (
@@ -677,7 +677,7 @@ function CreateUserPanel({
             required
             errors={errors}
             field="email"
-            hint="Their institutional address â€” the password reset goes here"
+            hint="Their institutional address — the password reset goes here"
           >
             <Input id="new_email" type="email" value={form.email} onChange={set('email')} maxLength={255} />
           </Field>
@@ -902,7 +902,7 @@ function CreateUserPanel({
             onClick={onSubmit}
             disabled={saving || !form.name.trim() || !form.email.trim()}
           >
-            {saving ? 'Creatingâ€¦' : 'Create account'}
+            {saving ? 'Creating…' : 'Create account'}
           </Button>
         </div>
       </div>

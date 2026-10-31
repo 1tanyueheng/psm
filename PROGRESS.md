@@ -330,6 +330,7 @@ HTTP, and the commits are named so the detail can be found again.
 | 11-01 | **One part per student per term, enforced** — PSM 1 and PSM 2 never run together (the user's rule) | see below |
 | 11-01 | **The supervision queue is scoped to one term and one part**, and lists only students who can actually be assigned | see below |
 | 11-01 | **The assignment page timed out** — a missing eager load made the supervisor list run 203 queries; now 7 | see below |
+| 11-01 | **Mojibake repaired across the frontend** — the `Choose supervisor…` dropdown placeholder had been mangled; 92 sequences in 6 files, plus a reusable repair script | see §5 |
 
 #### One part per student per term — the rule (2026-11-01)
 
@@ -1053,6 +1054,42 @@ docker exec -i psm-app rm -f /var/www/html/probe.php
   anything it will not touch.
 - **A one-liner passed through `& python -c "..."` is itself mangled** the same
   way. Put the script in a file with the `write` tool, then run the file.
+
+### Mojibake — it has now happened three times, and the frontend is the costly one
+
+| Occurrence | Where | How it showed |
+|---|---|---|
+| earlier | 9 backend files | mangled prose in comments; nothing user-facing |
+| 2026-10-30 | `UserListPage.jsx` | `â€”` in a comment |
+| **2026-11-01** | **6 frontend files, 92 sequences** | **`Choose supervisorâ€¦` in a live dropdown** — the user sent a screenshot |
+
+The third one matters because **in JSX the strings are the interface**. The
+backend repair script guards by repairing comments only — correct there, wrong
+here, because in a component the mangled string *is* the defect. Use the sibling
+script for the frontend:
+
+```
+python .workbuddy-ai/fix_mojibake_frontend.py         # dry run, prints every line
+python .workbuddy-ai/fix_mojibake_frontend.py --write
+```
+
+It repairs every occurrence (not just comments), applies double-encoded patterns
+before single ones, and **exits non-zero if anything is still mangled** so a
+partial repair cannot pass for a complete one. It found 92 sequences in 6 files
+on 2026-11-01 and was clean afterwards.
+
+**Its one limitation, learnt the hard way:** a character mangled *twice* whose
+last byte was CP1252-undefined leaves a **truncated** run that no byte pattern
+can recover — the `✓` in `MilestoneDetailPage.jsx` came out as `Ã¢œœ`, matching
+nothing in the table. The script reports it rather than guessing, which is the
+right behaviour: judge it from context (that one sat in the green "Approved"
+badge) and fix the line by hand, then add the observed sequence to `PATTERNS`
+so the next run recognises it.
+
+**Check the repair changed nothing else:** `git diff` then compare the ASCII
+skeleton of the `+` and `-` lines. On 2026-11-01 the diff was 91 for 91 with
+**zero** lines whose ASCII changed — proof it was character repair and not a
+rewrite.
 
 ---
 

@@ -291,7 +291,7 @@ export default function AssignmentPage() {
                           </div>
                           <p className="mt-0.5 text-sm text-slate-500">
                             {student.program}
-                            {student.batch && ` Â· batch ${student.batch}`}
+                            {student.batch && ` · batch ${student.batch}`}
                           </p>
                           {student.project_title && (
                             <p className="mt-1 line-clamp-1 text-sm text-slate-600">
@@ -313,7 +313,7 @@ export default function AssignmentPage() {
                             }}
                           >
                             <option value="">
-                              {available.length === 0 ? 'No capacity available' : 'Choose supervisorâ€¦'}
+                              {available.length === 0 ? 'No capacity available' : 'Choose supervisor…'}
                             </option>
                             {available.map((s) => (
                               <option key={s.id} value={s.id}>
@@ -325,7 +325,7 @@ export default function AssignmentPage() {
                             ))}
                           </Select>
                           {busyId === student.id && (
-                            <p className="mt-1 text-xs text-slate-500">Assigningâ€¦</p>
+                            <p className="mt-1 text-xs text-slate-500">Assigning…</p>
                           )}
                         </div>
                       </div>
@@ -336,7 +336,7 @@ export default function AssignmentPage() {
             </Card>
           </div>
 
-          {/* Capacity panel â€” the constraint the coordinator is working within. */}
+          {/* Capacity panel — the constraint the coordinator is working within. */}
           <div className="lg:col-span-1">
             <Card>
               <CardHeader title="Supervisor capacity" subtitle="Only supervisors with room are offered" />
@@ -351,7 +351,7 @@ export default function AssignmentPage() {
                     const atCapacity = max > 0 && used >= max
                     // A supervisor who has paused intake is unavailable but not
                     // full. `has_capacity` folds both together, so it drives the
-                    // picker while these two drive the explanation â€” otherwise a
+                    // picker while these two drive the explanation — otherwise a
                     // paused supervisor shows a red bar and sends the coordinator
                     // hunting for capacity that was never the problem.
                     const paused = s.is_accepting_students === false
@@ -407,7 +407,7 @@ export default function AssignmentPage() {
                         <Avatar name={pair.student?.name ?? '?'} size="sm" />
                         <div className="min-w-0">
                           <div className="truncate text-sm text-slate-700">
-                            {pair.student?.name ?? 'â€”'}
+                            {pair.student?.name ?? '—'}
                           </div>
                           <div className="font-mono text-xs text-slate-400">
                             {pair.student?.student_id}
@@ -415,17 +415,17 @@ export default function AssignmentPage() {
                         </div>
                       </div>
                     </Td>
-                    <Td className="text-sm text-slate-600">{pair.student?.program ?? 'â€”'}</Td>
+                    <Td className="text-sm text-slate-600">{pair.student?.program ?? '—'}</Td>
                     <Td>
                       <div className="flex items-center gap-2">
                         <Avatar name={pair.supervisor?.name ?? '?'} size="sm" />
                         <span className="text-sm text-slate-700">
-                          {pair.supervisor?.name ?? 'â€”'}
+                          {pair.supervisor?.name ?? '—'}
                         </span>
                       </div>
                     </Td>
                     <Td className="text-sm text-slate-500">
-                      {formatDate(pair.assigned_at, { fallback: 'â€”' })}
+                      {formatDate(pair.assigned_at, { fallback: '—' })}
                     </Td>
                     <Td>
                       <Button

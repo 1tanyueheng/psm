@@ -106,7 +106,7 @@ export default function ArchivePage() {
         title="Project archive"
         subtitle={
           meta
-            ? `${meta.total} archived project${meta.total === 1 ? '' : 's'} â€” searchable and citable`
+            ? `${meta.total} archived project${meta.total === 1 ? '' : 's'} — searchable and citable`
             : undefined
         }
       />
@@ -247,15 +247,15 @@ export default function ArchivePage() {
                         )}
                       </ul>
                     </Td>
-                    <Td className="text-sm text-slate-600">{row.academic_session ?? 'â€”'}</Td>
+                    <Td className="text-sm text-slate-600">{row.academic_session ?? '—'}</Td>
                     <Td className="text-sm text-slate-600">
-                      {CATEGORY_LABELS[row.category] ?? row.category ?? 'â€”'}
+                      {CATEGORY_LABELS[row.category] ?? row.category ?? '—'}
                     </Td>
                     <Td className="text-sm text-slate-600">
                       {(row.supervisor_names ?? row.supervisors ?? [])
                         .map((s) => (typeof s === 'string' ? s : s.name))
                         .filter(Boolean)
-                        .join(', ') || 'â€”'}
+                        .join(', ') || '—'}
                     </Td>
                     <Td>
                       {row.final_mark != null ? (
@@ -263,7 +263,7 @@ export default function ArchivePage() {
                           {formatMark(row.final_mark)}
                         </span>
                       ) : (
-                        <span className="text-sm text-slate-400">â€”</span>
+                        <span className="text-sm text-slate-400">—</span>
                       )}
                     </Td>
                   </tr>
@@ -274,7 +274,7 @@ export default function ArchivePage() {
           {meta && meta.last_page > 1 && (
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-500">
-                Showing {meta.from}â€“{meta.to} of {meta.total}
+                Showing {meta.from}–{meta.to} of {meta.total}
               </p>
               <div className="flex gap-2">
                 <Button
