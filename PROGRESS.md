@@ -329,6 +329,7 @@ HTTP, and the commits are named so the detail can be found again.
 | 10-30 | **Delete an enrolment** — undo a misoperation, four guards, audited as `enrolment.deleted` | `eeced3b` |
 | 11-01 | **One part per student per term, enforced** — PSM 1 and PSM 2 never run together (the user's rule) | see below |
 | 11-01 | **The supervision queue is scoped to one term and one part**, and lists only students who can actually be assigned | see below |
+| 11-01 | **The assignment page timed out** — a missing eager load made the supervisor list run 203 queries; now 7 | see below |
 
 #### One part per student per term — the rule (2026-11-01)
 
@@ -391,6 +392,44 @@ badge → assign → **201** → queue drops them.
 > must list exactly what the assign call would accept.* A row that is offered and
 > then refused is worse than no row, because the coordinator goes looking for a
 > cause that is not there.
+
+#### The assignment page timed out — a 203-query supervisor list (2026-11-01)
+
+The user saw **"timeout of 30000ms exceeded"** on `/assignments`. The page awaits
+three calls together, so the slowest one is the page:
+
+| Call | Before | After |
+|---|---|---|
+| `GET /api/assignments/supervisors?per_page=100` | **17.6 s** | **1.7 s** |
+| `GET /api/assignments/students/unassigned` | 1.2 s | 1.5 s |
+| `GET /api/assignments/supervisions` | 1.7 s | 1.4 s |
+| **Page load (the slowest of the three)** | **~20 s** | **1.7 s** |
+
+**Cause: a missing eager load, not a slow query.** `SupervisorProfileResource`
+computes six capacity figures per row, and each falls back to its own query when
+`activeSupervisions` is not loaded — `currentLoad()`,
+`remainingCapacity()`, `utilisationPercent()`, `isFull()`, `isOverloaded()`,
+and `has_capacity` → `isFullInSemester()`. Measured on 20 supervisors:
+**203 queries, 179 of them the identical `supervision_assignments` lookup,
+14.7 s of database time**.
+
+The in-memory path already existed — `computeLoadByPartInSemester()` checks
+`relationLoaded('activeSupervisions')` — so the fix is one `->with([...])` in
+`AssignmentController::indexSupervisors()`, adding
+`activeSupervisions.studentProfile.enrolments` (the in-memory branch asks each
+supervision's student which terms they are enrolled in). **203 → 7 queries.**
+
+> **The general trap: a capacity getter is a query unless the relation is
+> loaded.** Any screen that lists supervisors and shows load must eager-load
+> `activeSupervisions.studentProfile.enrolments` or it costs one round trip per
+> getter per row. Against the hosted Supabase database (~60–500 ms per round
+> trip) that is the difference between a page and a timeout. The measurement
+> recipe is in `.workbuddy-ai/` — wrap the model calls in `DB::listen()` and
+> count, as `probe_sup_queries2.php` did; do not eyeball the SQL.
+
+**Verified after the fix:** the figures are unchanged — 20 supervisors, 19 with
+capacity, Dr. Ahmad Faizal correctly `is_full` at 2/8 and withheld from the
+picker. A fast wrong number would be worse than a slow right one.
 
 #### Acknowledging Lampiran A now enrols the student — this closed a real hole
 
