@@ -122,6 +122,38 @@ class EnrolmentService
         }
 
         /**
+         * One part per student per term — PSM 1 and PSM 2 never run together.
+         *
+         * The faculty sits a student for one part in a term, and state is kept
+         * that way deliberately (the user's rule, 2026-11-01: "strictly no
+         * permit of PSM 1 and 2 in same term"). Without this check the per-part
+         * unique indexes would happily accept both, and the consequences are
+         * silent rather than loud: the student's dashboard picks one project and
+         * hides the other, and a supervisor's capacity is consumed twice for a
+         * student who can only be working on one thing.
+         *
+         * Checked per **term**, not globally — PSM 2 in a later term is the
+         * normal progression, and it is the term boundary that is enforced, not
+         * the sequence.
+         */
+        $otherPart = $part === PsmPart::Psm1 ? PsmPart::Psm2 : PsmPart::Psm1;
+
+        $sameTerm = StudentEnrolment::where('student_profile_id', $student->id)
+            ->where('academic_semester_id', $term->id)
+            ->where('psm_part', $otherPart->value)
+            ->live()
+            ->first();
+
+        if ($sameTerm !== null) {
+            throw new InvalidArgumentException(
+                "{$student->student_id} is already enrolled in {$otherPart->label()} for "
+                ."{$term->name}. A student takes one part in a term — "
+                ."{$otherPart->label()} and {$part->label()} do not run together. "
+                ."Place them in {$part->label()} in a later term instead."
+            );
+        }
+
+        /**
          * The attempt number is the count of everything before it, plus one.
          *
          * Counted including withdrawn attempts: the number records what

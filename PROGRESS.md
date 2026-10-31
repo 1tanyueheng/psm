@@ -1,6 +1,6 @@
 # PROGRESS — PSM Assessment System (thesis + code)
 
-**Last updated:** 2026-10-30
+**Last updated:** 2026-11-01
 **Owner:** yuehe
 **Purpose:** the single file another agent (or you, next month) reads first to
 know exactly where this project stands.
@@ -311,10 +311,10 @@ point on a shared edge. If it has to be redrawn, keep that property.
 ## 3A. Codebase status (what the system actually does)
 
 Companion to §3. §3 tracks the *thesis*; this tracks the *software*. **Updated
-2026-10-30.** The newest block is §3A.0 below; the rest was written 2026-10-25
+2026-11-01.** The newest block is §3A.0 below; the rest was written 2026-10-25
 to 10-27 and still holds except where a later section says otherwise.
 
-### 3A.0 — The last three sessions (2026-10-28 → 10-30)
+### 3A.0 — The last sessions (2026-10-28 → 11-01)
 
 Read this first. Everything here was verified against the live database and over
 HTTP, and the commits are named so the detail can be found again.
@@ -327,6 +327,70 @@ HTTP, and the commits are named so the detail can be found again.
 | 10-30 | **PSM 2 Rollover screen retired** — a PSM 2 placement is an enrolment like any other | `b654a9c` |
 | 10-30 | Add-user form: department removed, **faculty fixed to FSKTM** (and enforced server-side) | `b654a9c` `9eeeb1f` |
 | 10-30 | **Delete an enrolment** — undo a misoperation, four guards, audited as `enrolment.deleted` | `eeced3b` |
+| 11-01 | **One part per student per term, enforced** — PSM 1 and PSM 2 never run together (the user's rule) | see below |
+| 11-01 | **The supervision queue is scoped to one term and one part**, and lists only students who can actually be assigned | see below |
+
+#### One part per student per term — the rule (2026-11-01)
+
+> **"Strictly no permit of PSM 1 and 2 in same term."** — the user, 2026-11-01.
+
+`EnrolmentService::enrol()` refuses a second part for the same student in the
+same term, in both directions, naming the other part and the term. It lives in
+the **service**, so every path inherits it: the enrol dialog, the CSV import,
+acknowledgement, and repeat placement.
+
+Verified in a rolled-back probe:
+
+| Case | Result |
+|---|---|
+| PSM 1 in term 2, then PSM 2 in term 2 | **REFUSED** |
+| PSM 1 in an earlier term, then PSM 2 in term 2 | allowed — the normal progression |
+| PSM 1 **failed** in term 2, then PSM 2 in term 2 | allowed — the attempt is settled |
+
+The check is **per term**, not a global sequence: it is the term boundary that is
+enforced. A settled attempt in the same term does not block, because it is
+history — which is what lets a failed student's `repeat()` work.
+
+**Why it had to be a rule and not just a screen.** The per-part unique indexes
+would happily accept both enrolments. The damage was silent: the student
+dashboard picks one project and hides the other, and a supervisor's capacity is
+consumed twice for a student who can only be working on one thing.
+
+#### The supervision queue — what was wrong with `/assignments` (2026-11-01)
+
+The user reported newly created, not-yet-enrolled students sitting in the
+unassigned list. They were — along with students from every other term and both
+parts. Four faults, all in `AssignmentController::unassignedStudents()`:
+
+| Fault | Effect |
+|---|---|
+| Term filter applied only when `psm_part` was absent, and the page sent **neither** | the queue listed **every term at once** |
+| No part filter | PSM 2 students sat in the PSM 1 queue |
+| No enrolment requirement | **un-enrolled students were offered and then refused**, failing on capacity — a message about supervisors for a problem about enrolment |
+| `academicSemester` not loaded | the resource emits it `whenLoaded`, so **the term column was blank on every row** |
+
+All four are fixed. The endpoint now requires a **(term, part) scope** and draws
+its population from a live enrolment in that scope, so the queue and
+`AssignmentService::assignSupervisor()` agree about who is assignable.
+
+- Students in the term with **no enrolment** no longer appear in the queue; they
+  come back as `meta.needs_enrolment { count, students[] }` and the page prints
+  them with a **"Go to enrolment →"** link. Nobody silently vanishes.
+- Each row carries its `enrolment` (part, attempt, status, has_project); the page
+  prints a **PSM 1 / PSM 2 badge** and an **Attempt n** badge.
+- The page follows the **global term selector** like every other screen, and has
+  its own **PSM 1 / PSM 2 switch**.
+
+**A bug found on the way: the page assigned with `psm_part: 'BOTH'`, hard-coded.**
+`BOTH` consumes a capacity slot in *both* parts. With the new rule a student can
+only be in one part, so the assignment now sends the part of the queue it came
+from. Verified end to end: enrol → appears in the PSM 1 queue with the right
+badge → assign → **201** → queue drops them.
+
+> **If the supervision queue is changed again, keep this property:** *the queue
+> must list exactly what the assign call would accept.* A row that is offered and
+> then refused is worse than no row, because the coordinator goes looking for a
+> cause that is not there.
 
 #### Acknowledging Lampiran A now enrols the student — this closed a real hole
 
@@ -431,22 +495,32 @@ The add-user form also had the **enrolling term** half-wired: the field displaye
 the active term as a fallback while the form state stayed empty until the admin
 touched it. `changeSemester` now records the real choice.
 
-#### Seeing PSM 1 and PSM 2 at once — how it actually behaves
+#### Two projects at once — now impossible, and why it mattered
 
-Enrolling one student in both parts is permitted (the unique keys are per part),
-but **no student in the data holds both today** (live enrolments: PSM1 = 13,
-PSM2 = 10, none overlapping). When a PSM 2 is placed before the PSM 1 is closed:
+**Since 2026-11-01 a student cannot hold PSM 1 and PSM 2 in the same term** (the
+rule is in §3A.0). This section describes what the screens did **before** that
+rule, because it is the reason the rule exists:
 
-- **The project page is whichever project you opened.** There is no combined
-  page; two projects are two pages. The PSM 2 one carries the boundary card, the
-  PSM 1 one carries "Progress to PSM 2".
-- **The projects list lists both** — `Project::visibleTo()` filters on
-  membership, not on term or part, and the list defaults to the **active term**.
-  Two projects in one term appear as two rows, distinguished by the `PSM 1` /
-  `PSM 2` badge. Filtering by part is a control on the list.
-- **The PSM 2 project has no title of its own until `install()` runs** — it
-  starts with the PSM 1 title carried forward, and that is exactly what the
-  boundary card asks the student to confirm.
+- **The student dashboard showed only one project.** `StudentDashboard.jsx`
+  loaded `projectApi.list({ per_page: 10 })` with no term filter and then took
+  `items.find(p => p.psm_part === 'PSM2') ?? items[0]`. With both parts live, the
+  **PSM 2 project replaced the PSM 1 one on the home page** and the PSM 1 work
+  was invisible there — including its milestones and its progress bar.
+- **The projects list showed both**, because `Project::visibleTo()` filters on
+  membership, not on term or part — but it defaults to the active term, so a
+  PSM 1 project from an earlier term dropped off that list too.
+- **The project page was whichever project you opened** — there is no combined
+  page. The PSM 2 one carries the boundary card; the PSM 1 one carries "Progress
+  to PSM 2".
+
+**What remains true:** progression to PSM 2 is still per-project and per-term.
+`TermCloseService` settles a PSM 1 in its term, and the PSM 2 enrolment goes into
+a **later** term — which is what the new rule leaves untouched.
+
+> **The dashboard still prefers PSM 2 and falls back to `items[0]`.** That is
+> correct only while a student holds one part at a time, which the rule now
+> guarantees. If the rule is ever relaxed, `StudentDashboard.jsx` must stop
+> guessing and show a chooser — do not relax one without changing the other.
 
 ### Assessment model — the numbers changed, know them
 
@@ -1070,8 +1144,14 @@ LibreOffice Kit paths are in the `office-render` skill.
   supervisor. `MilestoneService::approve()` / `requestRevision()` **refuse**
   the proposal milestone — use `ProposalReviewService::recordDecision()`.
 - Pairing is **coordinator/admin only**; supervisor and student can view only.
-- Supervision capacity is enforced **per PSM part**, not globally; a `BOTH`
-  pairing consumes a slot in both parts.
+- Supervision capacity is enforced **per PSM part**, not globally.
+- **Do not pair a student with `psm_part = 'BOTH'`** (2026-11-01). A `BOTH`
+  pairing consumes a slot in **both** parts, but a student may only be enrolled
+  in one part per term, so it charges the supervisor twice for one student. The
+  assignment screen sent `BOTH` unconditionally until this was found; it now
+  sends the part of the queue it came from. `BOTH` survives only on legacy rows
+  (`ProgressionService` used to rewrite a pairing `PSM1 → BOTH`), so read it but
+  never write it.
 - `AssignmentService::assignSupervisor()` runs 6 ordered guards; programme
   check comes **before** capacity on purpose (a "full" message would mislead).
 - Milestones: `activateNext()` only runs on **Approved**. A revision request

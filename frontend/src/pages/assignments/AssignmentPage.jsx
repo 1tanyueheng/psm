@@ -1,11 +1,15 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { assignmentApi } from '../../api/endpoints'
 import { unwrapPaged } from '../../api/client'
+import { useSemesters } from '../../context/SemesterContext'
 import {
   Card, CardHeader, PageHeader, Avatar, EmptyState, Spinner,
   ErrorState, Button, Select, Input, DataTable, Td, ProgressBar,
+  SegmentedControl, Badge,
 } from '../../components/ui'
 import { formatDate } from '../../lib/format'
+import { PSM_PARTS, partLabel, partBadgeTone } from '../../lib/psmPart'
 
 /**
  * Supervisor assignment (Module 2).
@@ -15,9 +19,21 @@ import { formatDate } from '../../lib/format'
  * declared capacity. So the page shows the unassigned queue and the available
  * supervisors side by side and refuses to offer a full supervisor at all,
  * rather than letting the coordinator pick one and hit a server error.
+ *
+ * **The queue is scoped to one term and one part, and that is not decoration.**
+ * The server will not assign a student who has no live enrolment, because the
+ * enrolment is what gives them a term for the capacity gate to count against —
+ * so an unscoped queue listed students the assignment refused, and a PSM 2
+ * student appeared beside PSM 1 ones where the parts never run together. The
+ * term follows the header selector like every other screen; the part switches
+ * here because PSM 1 and PSM 2 are staffed separately.
  */
 export default function AssignmentPage() {
+  const { selectedId: termId, selected } = useSemesters()
+
   const [unassigned, setUnassigned] = useState([])
+  const [needsEnrolment, setNeedsEnrolment] = useState({ count: 0, students: [] })
+  const [psmPart, setPsmPart] = useState(PSM_PARTS[0])
   const [supervisors, setSupervisors] = useState([])
   const [pairs, setPairs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -32,11 +48,22 @@ export default function AssignmentPage() {
     setError(null)
     try {
       const [unassignedRes, supervisorRes, pairRes] = await Promise.all([
-        assignmentApi.unassigned({ per_page: 100 }),
+        // The term and the part are both required by the queue: without them
+        // the server would return every term and both parts at once.
+        assignmentApi.unassigned({
+          semester_id: termId ?? undefined,
+          psm_part: psmPart,
+          per_page: 100,
+        }),
         assignmentApi.supervisors({ per_page: 100 }),
         assignmentApi.list({ per_page: 100 }),
       ])
-      setUnassigned(unwrapPaged(unassignedRes).items)
+      const page = unwrapPaged(unassignedRes)
+      setUnassigned(page.items)
+      // Students in this term with no enrolment at all. They cannot be
+      // assigned — and they must not vanish, so the page reports them and
+      // points at the screen that fixes it.
+      setNeedsEnrolment(page.meta?.needs_enrolment ?? { count: 0, students: [] })
       setSupervisors(unwrapPaged(supervisorRes).items)
       setPairs(unwrapPaged(pairRes).items)
     } catch (err) {
@@ -44,7 +71,7 @@ export default function AssignmentPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [termId, psmPart])
 
   useEffect(() => {
     load()
@@ -76,7 +103,18 @@ export default function AssignmentPage() {
       await assignmentApi.assign({
         student_profile_id: student.id,
         supervisor_profile_id: supervisorId,
-        psm_part: 'BOTH',
+        /**
+         * The part the queue is showing — not `'BOTH'`.
+         *
+         * This used to be hard-coded to `BOTH`, which consumes a capacity slot
+         * in *both* parts. That was wrong twice over: it double-charged a
+         * supervisor for a student who can only be taking one part in this
+         * term, and it recorded a supervision that spans PSM 1 and PSM 2 for a
+         * student who (since 2026-11-01) may not be enrolled in both at once.
+         * The student is in this queue *because* of their enrolment in this
+         * part, so that enrolment is the answer.
+         */
+        psm_part: psmPart,
       })
       await load()
     } catch (err) {
@@ -106,17 +144,66 @@ export default function AssignmentPage() {
     <div className="space-y-6">
       <PageHeader
         title="Supervisor assignments"
-        subtitle={`${unassigned.length} student${unassigned.length === 1 ? '' : 's'} awaiting a supervisor`}
+        subtitle={
+          [
+            `${unassigned.length} ${partLabel(psmPart)} student${unassigned.length === 1 ? '' : 's'} awaiting a supervisor`,
+            selected?.name,
+          ]
+            .filter(Boolean)
+            .join(' · ')
+        }
       />
 
       {actionError && <ErrorState error={{ message: actionError }} />}
 
+      {/*
+        Which part is being staffed. PSM 1 and PSM 2 do not run together for one
+        student in a term, and they are staffed separately, so the queue is one
+        part at a time rather than a merged list where a PSM 2 student sits in a
+        PSM 1 slot that does not apply to them.
+      */}
+      <SegmentedControl
+        value={psmPart}
+        onChange={setPsmPart}
+        name="assignment_part"
+        options={PSM_PARTS.map((p) => ({ value: p, label: partLabel(p) }))}
+      />
+
       {unassigned.length > 0 && (
         <Card className="border-amber-200 bg-amber-50/50">
           <p className="text-sm text-amber-900">
-            {unassigned.length} student{unassigned.length === 1 ? '' : 's'} have no supervisor.
+            {unassigned.length} {partLabel(psmPart)} student
+            {unassigned.length === 1 ? '' : 's'} have no supervisor.
             Milestones are not generated until a primary supervisor is assigned.
           </p>
+        </Card>
+      )}
+
+      {/*
+        Students in this term who cannot be assigned because they were never
+        enrolled. They used to sit in the queue looking assignable and then fail
+        on capacity — a message about supervisors for a problem about enrolment.
+        Named here instead, with the screen that fixes it one click away.
+      */}
+      {needsEnrolment.count > 0 && (
+        <Card className="border-slate-200 bg-slate-50/60">
+          <p className="text-sm text-slate-700">
+            <span className="font-medium">{needsEnrolment.count} student
+              {needsEnrolment.count === 1 ? '' : 's'}</span>{' '}
+            in this term {needsEnrolment.count === 1 ? 'has' : 'have'} no enrolment
+            {' '}and cannot be assigned yet. Enrol them first — the enrolment is what gives
+            them a term for capacity to be counted against.
+          </p>
+          <p className="mt-1.5 text-xs text-slate-500">
+            {needsEnrolment.students.slice(0, 8).map((s) => s.student_id).join(', ')}
+            {needsEnrolment.count > 8 && ` and ${needsEnrolment.count - 8} more`}
+          </p>
+          <Link
+            to="/enrolments"
+            className="mt-2 inline-block text-sm font-medium text-brand-700 hover:underline"
+          >
+            Go to enrolment →
+          </Link>
         </Card>
       )}
 
@@ -185,6 +272,22 @@ export default function AssignmentPage() {
                             <span className="font-mono text-xs text-slate-400">
                               {student.student_id}
                             </span>
+                            {/*
+                              The part and the attempt this row is about, read
+                              from the enrolment rather than from the queue's
+                              filter — so a repeat is visible as attempt 2
+                              without opening the student's record.
+                            */}
+                            {student.enrolment && (
+                              <Badge tone={partBadgeTone(student.enrolment.psm_part)}>
+                                {student.enrolment.part_label}
+                              </Badge>
+                            )}
+                            {(student.enrolment?.attempt_no ?? 1) > 1 && (
+                              <Badge tone="warning">
+                                Attempt {student.enrolment.attempt_no}
+                              </Badge>
+                            )}
                           </div>
                           <p className="mt-0.5 text-sm text-slate-500">
                             {student.program}

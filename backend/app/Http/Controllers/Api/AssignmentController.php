@@ -838,47 +838,134 @@ return $this->ok(null, 'Supervisor removed. The record has been retained for aud
         return $this->ok($areas);
     }
 
-/**
+    /**
      * GET /api/assignments/students/unassigned
      *
-     * Students with no active supervisor — the coordinator's work queue.
+     * Students with no active supervisor — the coordinator's work queue for one
+     * term and one part.
      *
-     * The semester filter is on the student's *enrolment*, not on their project:
-     * a student waiting for a supervisor has a profile enrolled in this term but
-     * often no project at all, and filtering on the project would hide exactly
-     * the people this queue exists to surface.
+     * **Only students this endpoint could actually enrol in a supervision.**
+     * Three rules make the queue agree with `AssignmentService::assignSupervisor()`,
+     * because a row that is offered and then refused is worse than no row at all:
      *
-     * A `psm_part` filter does narrow through the project, which means a student
-     * with no project yet drops out of both batch tabs. That is deliberate: they
-     * cannot be attributed to a batch, and listing them under both would double
-     * them up in a queue the coordinator works through once.
+     *  - **a live enrolment in the term** — an enrolment records the student's
+     *    term, and the capacity gate reads `student_profiles.academic_semester_id`,
+     *    which is null for anyone who was never enrolled. Such a student used to
+     *    appear here and then fail on capacity with a message about supervisors
+     *    that had nothing to do with the real problem (no term). They are now
+     *    reported separately as `needs_enrolment` so nobody silently vanishes;
+     *  - **the term comes from the enrolment**, not the profile, and it is
+     *    required — an unfiltered queue mixed every term together;
+     *  - **the part comes from the enrolment too**, so a PSM 2 student is never
+     *    offered a PSM 1 slot. The part is required for the same reason.
+     *
+     * The term is nullable only for the internal fallback to the current term —
+     * `AcademicSemester::resolveFilterId()` does that, so a caller that omits it
+     * gets this term rather than every term.
      */
     public function unassignedStudents(Request $request): JsonResponse
     {
         $this->authorize('create', SupervisionAssignment::class);
 
         $semesterId = AcademicSemester::resolveFilterId($request->input('semester_id'));
-        $psmPart = $request->validate([
+
+        $validated = $request->validate([
             'psm_part' => ['nullable', Rule::in(['PSM1', 'PSM2'])],
-        ])['psm_part'] ?? null;
+        ]);
+
+        $psmPart = $validated['psm_part'] ?? PsmPart::Psm1->value;
+
+        /**
+         * The population the queue is drawn from: a live enrolment in this term
+         * for this part. Withdrawn and settled enrolments are history, not work.
+         */
+        $enrolled = fn ($q) => $q
+            ->where('academic_semester_id', $semesterId)
+            ->where('psm_part', $psmPart)
+            ->live();
 
         $students = StudentProfile::query()
-            ->with('user')
+            ->with(['user', 'academicSemester', 'enrolments'])
             ->whereDoesntHave('activeSupervisions')
-            ->when($semesterId !== null && $psmPart === null, fn ($q) => $q->where(
-                'academic_semester_id',
-                $semesterId
-            ))
-            ->when($request->filled('batch'), fn ($q) => $q->where('batch', $request->input('batch')))
             ->where('is_active_cohort', true)
-            ->when($psmPart !== null, fn ($q) => $q->inSemesterPart($semesterId, $psmPart))
+            ->whereHas('enrolments', $enrolled)
+            ->when($request->filled('batch'), fn ($q) => $q->where('batch', $request->input('batch')))
             ->orderBy('batch')
             ->orderBy('student_id')
             ->paginate($request->integer('per_page', 25));
 
+        /**
+         * Everyone else who has no supervisor, named rather than dropped.
+         *
+         * A student in this term who was never enrolled cannot be assigned —
+         * the enrolment is what gives them a term and what the capacity gate
+         * counts. Hiding them would leave the coordinator with a student who is
+         * invisible everywhere; so the count and the ids come back beside the
+         * queue, for the page to point at `/enrolments`.
+         */
+        $needsEnrolment = StudentProfile::query()
+            ->whereDoesntHave('activeSupervisions')
+            ->where('is_active_cohort', true)
+            ->where('academic_semester_id', $semesterId)
+            ->whereDoesntHave('enrolments', fn ($q) => $q
+                ->where('academic_semester_id', $semesterId)
+                ->live())
+            ->when($request->filled('batch'), fn ($q) => $q->where('batch', $request->input('batch')))
+            ->orderBy('student_id')
+            ->get(['id', 'student_id', 'batch', 'academic_semester_id']);
+
         return $this->paginated(
             $students,
-            fn (StudentProfile $s) => (new StudentProfileResource($s))->resolve($request)
+            fn (StudentProfile $s) => [
+                ...(new StudentProfileResource($s))->resolve($request),
+                // Which enrolment this row is about. The page prints the part
+                // and the attempt so a coordinator can tell a first attempt
+                // from a repeat without opening another screen.
+                'enrolment' => $this->enrolmentSummary($s, $semesterId, $psmPart),
+            ],
+            // The queue's own scope, echoed back so the page can label the tab
+            // from the server's answer rather than from what it hoped to send.
+            [
+                'psm_part'        => $psmPart,
+                'semester_id'     => $semesterId,
+                'needs_enrolment' => [
+                    'count'    => $needsEnrolment->count(),
+                    'students' => $needsEnrolment->map(fn (StudentProfile $s) => [
+                        'id'         => $s->id,
+                        'student_id' => $s->student_id,
+                        'batch'      => $s->batch,
+                    ])->values(),
+                ],
+            ],
         );
+    }
+
+    /**
+     * The live enrolment a queue row is about, in the shape the page prints.
+     *
+     * Returned instead of being assumed: the queue is keyed on (term, part) and
+     * a student could in principle hold two live attempts at one part across
+     * terms, so the row says which one it is reading.
+     */
+    protected function enrolmentSummary(StudentProfile $s, ?int $semesterId, string $psmPart): ?array
+    {
+        $row = $s->enrolments
+            ->first(fn ($e) => $e->academic_semester_id === $semesterId
+                && ($e->psm_part?->value ?? null) === $psmPart
+                && $e->status?->isLive());
+
+        if ($row === null) {
+            return null;
+        }
+
+        return [
+            'id'          => $row->id,
+            'psm_part'    => $row->psm_part?->value,
+            'part_label'  => $row->psm_part?->label(),
+            'attempt_no'  => $row->attempt_no,
+            'status'      => $row->status?->value,
+            'status_label'=> $row->status?->label(),
+            'has_project' => $row->project_id !== null,
+        ];
     }
 }
