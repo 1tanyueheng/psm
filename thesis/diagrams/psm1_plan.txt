@@ -1,24 +1,3 @@
-%% PSM 1 delivery plan - PSM Assessment System.
-%%
-%% The FACULTY'S submitted items are the anchor and must not move: they are
-%% taken from `psm1_timeline.png` and dated against the faculty's own week table
-%% (Weeks 01-16, each Monday to Friday). Everything on the other rows is the
-%% work those anchors imply, hung off the anchor that gates it, so no row
-%% pretends to a deadline the faculty has not set.
-%%
-%% The model is Prototyping (Chapter 3): a chapter is a prototype, the
-%% supervisor's evaluation is the client evaluation, and `after evN` is the
-%% refinement loop. That is why each chapter is written BEFORE the week it is
-%% due and refined straight after it is marked - a deadline the writer has
-%% already missed is not a plan.
-%%
-%% Week 01 starts Mon 21 Sep 2026, so the grid is `2026-09-21 + 7 days x (week-1)`.
-%%   W01 21 Sep | W05 19 Oct | W07 02 Nov | W09 16 Nov | W11 30 Nov
-%%   W12 07 Dec | W13 14 Dec | W14 21 Dec | W15 28 Dec | W16 04 Jan
-%%
-%% Mermaid takes `weekday monday`: this is an academic plan, so every bar runs
-%% Monday to Friday exactly as the faculty's table does. A bar drawn over a
-%% weekend would claim hours that do not exist.
 gantt
     title PSM 1 - PSM Assessment System, delivery by teaching week
     dateFormat YYYY-MM-DD
@@ -26,71 +5,66 @@ gantt
     weekday monday
     todayMarker off
 
-    %% ---- Weeks 01-04: registration, defence, and the first prototype -------
     section Forms A, B, C and OSHE (W01-W03)
-    Scope and context study                :done, s01, 2026-09-21, 5d
-    Submit FORM A                          :milestone, formA, 2026-09-21, 0d
-    Submit FORM B - requirements agreed    :milestone, formB, 2026-09-21, 0d
-    Title Defence                          :milestone, titleDef, 2026-09-28, 0d
-    Submit FORM C and OSHE                 :milestone, formC, 2026-10-05, 0d
+    Scope and context study                 :done, s01, 2026-09-21, 5d
+    Submit FORM A                           :milestone, formA, 2026-09-21, 0d
+    Submit FORM B - requirements agreed     :milestone, formB, 2026-09-21, 0d
+    Title Defence                           :milestone, titleDef, 2026-09-28, 0d
+    Submit FORM C and OSHE                  :milestone, formC, 2026-10-05, 0d
 
     section Requirement analysis (W01-W02)
-    Gather and analyse requirements        :done, s02, 2026-09-21, 10d
-    Lampiran A, B and C flows analysed     :s03, 2026-09-28, 5d
+    Gather and analyse requirements         :done, s02, 2026-09-21, 10d
+    Lampiran A, B and C flows analysed      :s03, 2026-09-28, 5d
 
     section Quick design and first prototype (W03-W04)
-    Quick design - modules and data model  :s04, 2026-10-05, 5d
-    Build the first prototype (auth, RBAC) :s05, 2026-10-12, 5d
+    Quick design - modules and data model   :s04, 2026-10-05, 5d
+    Build the first prototype (auth, RBAC)  :s05, 2026-10-12, 5d
 
-    %% ---- Chapters: written, submitted, evaluated, refined -------------------
     section Chapter 1 - Introduction (W03, W05-W06)
-    Draft Chapter 1                        :s06, 2026-10-05, 10d
-    Submit Chapter 1 to SV                 :milestone, ch1sub, 2026-10-19, 0d
-    Chap 1 evaluation by SV                :milestone, ev1, 2026-10-19, 0d
-    Refine Chapter 1                       :ref1, 2026-10-26, 5d
+    Draft Chapter 1                         :s06, 2026-10-05, 10d
+    Submit Chapter 1 to SV                  :milestone, ch1sub, 2026-10-19, 0d
+    Chap 1 evaluation by SV                 :milestone, ev1, 2026-10-19, 0d
+    Refine Chapter 1                        :ref1, 2026-10-26, 5d
 
     section Chapter 2 - Literature Review (W04-W08)
-    Draft Chapter 2                        :s07, 2026-10-19, 10d
-    Submit Chapter 2 to SV                 :milestone, ch2sub, 2026-11-02, 0d
-    Chap 2 evaluation by SV                :milestone, ev2, 2026-11-02, 0d
-    Refine Chapter 2                       :ref2, 2026-11-09, 5d
+    Draft Chapter 2                         :s07, 2026-10-19, 10d
+    Submit Chapter 2 to SV                  :milestone, ch2sub, 2026-11-02, 0d
+    Chap 2 evaluation by SV                 :milestone, ev2, 2026-11-02, 0d
+    Refine Chapter 2                        :ref2, 2026-11-09, 5d
 
     section Mid-semester break (W08)
-    Mid-semester break                     :crit, msb, 2026-11-09, 5d
+    Mid-semester break                      :crit, msb, 2026-11-09, 5d
 
     section Chapter 3 - Methodology (W06-W10)
-    Draft Chapter 3                        :s08, 2026-10-26, 15d
-    Submit Chapter 3 to SV                 :milestone, ch3sub, 2026-11-16, 0d
-    Chap 3 evaluation by SV                :milestone, ev3, 2026-11-16, 0d
-    Refine Chapter 3                       :ref3, 2026-11-23, 5d
+    Draft Chapter 3                         :s08, 2026-10-26, 15d
+    Submit Chapter 3 to SV                  :milestone, ch3sub, 2026-11-16, 0d
+    Chap 3 evaluation by SV                 :milestone, ev3, 2026-11-16, 0d
+    Refine Chapter 3                        :ref3, 2026-11-23, 5d
 
     section Chapter 4 - Analysis and Design (W08-W12)
-    Draft Chapter 4                        :s09, 2026-11-09, 15d
-    Submit Chapter 4 to SV                 :milestone, ch4sub, 2026-11-30, 0d
-    Chap 4 evaluation by SV                :milestone, ev4, 2026-11-30, 0d
-    Refine Chapter 4                       :ref4, 2026-12-07, 5d
+    Draft Chapter 4                         :s09, 2026-11-09, 15d
+    Submit Chapter 4 to SV                  :milestone, ch4sub, 2026-11-30, 0d
+    Chap 4 evaluation by SV                 :milestone, ev4, 2026-11-30, 0d
+    Refine Chapter 4                        :ref4, 2026-12-07, 5d
 
-    %% ---- Implementation, demo and documents --------------------------------
     section Implementation (W03-W12)
-    Build the second prototype (P1 + P2)   :s10, 2026-10-19, 35d
-    Marking, release and term close        :s11, 2026-11-16, 15d
+    Build the second prototype (P1 + P2)    :s10, 2026-10-19, 35d
+    Marking, release and term close         :s11, 2026-11-16, 15d
 
     section Demo and research framework (W11-W13)
-    Rehearse the demo                      :s12, 2026-11-30, 5d
-    Demo prototype + research framework    :milestone, demo, 2026-12-07, 0d
-    Act on the supervisor's notes          :ref5, 2026-12-14, 5d
+    Rehearse the demo                       :s12, 2026-11-30, 5d
+    Demo prototype + research framework     :milestone, demo, 2026-12-07, 0d
+    Act on the supervisor's notes           :ref5, 2026-12-14, 5d
 
     section Documents (W11-W13)
-    Assemble the PSM 1 documents           :s13, 2026-12-07, 5d
-    Submit PSM 1 documents                 :milestone, docs, 2026-12-14, 0d
+    Assemble the PSM 1 documents            :s13, 2026-12-07, 5d
+    Submit PSM 1 documents                  :milestone, docs, 2026-12-14, 0d
 
-    %% ---- The panel ---------------------------------------------------------
     section Panel evaluation and presentation (W13-W15)
-    Panel reads the report (asynchronous)  :s14, 2026-12-14, 10d
-    Document evaluation by the panel       :milestone, panel, 2026-12-21, 0d
-    Prepare the slides and the Q and A      :s15, 2026-12-14, 10d
+    Panel reads the report (asynchronous)   :s14, 2026-12-14, 10d
+    Document evaluation by the panel        :milestone, panel, 2026-12-21, 0d
+    Prepare the slides and Q and A          :s15, 2026-12-14, 10d
     PSM 1 presentation and Q and A (sync)   :milestone, pres, 2026-12-28, 0d
 
-    %% ---- Hands back to PSM 2 ----------------------------------------------
     section Handover (W16)
-    File the next Lampiran A / PSM 2 setup :s16, 2027-01-04, 5d
+    File the next Lampiran A / PSM 2 setup  :s16, 2027-01-04, 5d
