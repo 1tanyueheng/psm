@@ -64,7 +64,9 @@ ly = lstep(ly, "Finds the milestones due\nin 7, 3 or 1 days")
 _, l1_bot, l1 = ldecide(ly, "Anything\ndue?")
 dg.label(LX + DIAW / 2 + 12, l1 - 26, "No", anchor="la", bold=True)
 
-ly = lstep(l1_bot, "Checks each user: active,\nopted in, not already sent")
+# `ldecide` returns the diamond's geometry but does not reassign `ly`, so this
+# step has to take `l1_bot`. Passing `ly` drew the box on top of the diamond.
+ly = lstep(l1_bot, "Checks each user: active,\nnot already sent")
 
 _, l2_bot, l2 = ldecide(ly, "Should they\nreceive it?")
 dg.label(LX + DIAW / 2 + 12, l2 - 26, "No", anchor="la", bold=True)
@@ -77,11 +79,20 @@ next_top = ly + G
 lnext_bot = dg.action(LX, next_top, "Next wave, or finish", w=BOXL)
 dg.connect(LX, ly, LX, next_top)
 
-# 'No' on the first decision and 'No' on the second both skip to "Next wave".
-dg.route([(LX + DIAW / 2, l1), (LX + BOXL / 2 + 46, l1),
-          (LX + BOXL / 2 + 46, next_top + 40), (LX + BOXL / 2, next_top + 40)])
-dg.route([(LX + DIAW / 2, l2), (LX + BOXL / 2 + 80, l2),
-          (LX + BOXL / 2 + 80, next_top + 40), (LX + BOXL / 2, next_top + 40)])
+# 'No' on either decision skips to "Next wave".
+#
+# Both routes leave from the diamond's right vertex and travel down a channel
+# clear of every shape. The earlier numbers (BOXL/2 + 46 and + 80) were computed
+# when a taller right-hand column pushed the frame wider; with that column gone
+# the two runs cut through "Checks each user" and the second diamond, which the
+# render showed plainly. They now sit outside the widest box on the spine.
+SIDE_A = LX + BOXL / 2 + 40
+SIDE_B = LX + BOXL / 2 + 74
+
+dg.route([(LX + DIAW / 2, l1), (SIDE_A, l1),
+          (SIDE_A, next_top + 40), (LX + BOXL / 2, next_top + 40)])
+dg.route([(LX + DIAW / 2, l2), (SIDE_B, l2),
+          (SIDE_B, next_top + 40), (LX + BOXL / 2, next_top + 40)])
 
 lend = lnext_bot + G
 dg.connect(LX, lnext_bot, LX, lend)
@@ -104,21 +115,20 @@ ry = rstep(ry, "User opens the\nnotification centre")
 _, r1_bot, r1 = (lambda t: (t, dg.decision(RX, t, "What do they\ndo?", w=DIAW, h=DIAH), t + DIAH / 2))(ry + G)
 dg.connect(RX, ry, RX, ry + G)
 
-# Two things the centre can do, one after the other on the same column:
-# read or dismiss a notification, and change which types arrive at all.
+# One thing the centre can do: read or dismiss a notification.
+#
+# A second branch here used to model switching a notification type on or off,
+# and "Preferences saved". That flow was removed from the system on 2026-11-01
+# — nothing in the catalogue can be switched off, because every notification
+# reports a decision about the student's own project. The figure showed a
+# capability the system no longer has, and the sequence diagram beside it had
+# already lost the same branch, so the two disagreed.
 read_end = rstep(r1_bot, "Opens, marks read\nor dismisses it")
 read_end = rstep(read_end, "Unread badge refreshed")
 dg.label(RX - DIAW / 2 - 12, r1 + 12, "read / dismiss", anchor="ra")
 
-pref = dg.action(RX, read_end + 70, "Turns a notification\ntype on or off", w=BOXR)
-dg.connect(RX, read_end, RX, read_end + 70)
-dg.label(RX + BOXR / 2 + 12, read_end + 110, "or change preferences", anchor="la")
-
-pref_end = dg.action(RX, pref + G, "Preferences saved", w=BOXR)
-dg.connect(RX, pref, RX, pref + G)
-
-y_end = pref_end + G + 14
-dg.connect(RX, pref_end, RX, y_end)
+y_end = read_end + G + 14
+dg.connect(RX, read_end, RX, y_end)
 ry = dg.end(RX, y_end, r=18)
 dg.label(RX, ry + 10, "end")
 

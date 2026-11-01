@@ -388,8 +388,8 @@ table(
          "log."],
         ["6", "Alert and Notification",
          "Runs the scheduled deadline reminders seven, three and one days before a "
-         "deadline. Provides the notification centre where a user reads, dismisses or "
-         "changes which types they receive."],
+         "deadline. Provides the notification centre where a user reads and dismisses "
+         "the items addressed to them."],
     ],
     widths=(1.2, 4.0, 9.7),
 )

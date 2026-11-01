@@ -1,0 +1,28 @@
+Fold in the user's Mermaid notification diagram, and remove the preference flow
+from its activity diagram so the two agree.
+
+The user rendered `thesis/diagrams/notification.txt` themselves and replaced
+sequence_notification.png. Chapter 4 is rebuilt on it.
+
+Rebuilding exposed that Figure 4.13, the Notification activity diagram, still
+showed the flow the user had just removed: "Checks each user: active, opted in",
+"Should they receive it?", "Turns a notification type on or off", "Preferences
+saved", "or change preferences". The sequence diagram and the specification had
+both lost that branch; the activity diagram had not, so the three disagreed.
+The branch is removed from both columns of the figure.
+
+Removing it exposed two layout faults that the taller right-hand column had been
+hiding, both found by looking at the render:
+
+  * The "Checks each user" box was drawn on top of the "Anything due?" diamond.
+    `ldecide()` returns the diamond's geometry but does not reassign `ly`, and
+    the next step was given `ly` instead of `l1_bot`.
+  * The two "No" return routes grazed the diamond's internal shape and the top
+    of another box. Their x-offsets were tuned for the older, wider frame.
+
+The module table in 4.1 also still said the centre lets a user "change which
+types they receive"; that sentence is now "read and dismiss the items addressed
+to them", matching FR21 and the use case.
+
+Verified: 32 pages, 114 sentences with none over 15 words, and no opt-out
+wording left anywhere in the chapter — prose, tables or figures.
