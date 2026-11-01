@@ -41,6 +41,16 @@ WEEKS = {
 WEEK0 = dt.date.fromisoformat(WEEKS["01"][0])   # Monday of week 01
 LAST_WEEK = max(WEEKS)
 
+# Mermaid dispatches on the FIRST WORD of a line. A task whose name begins with
+# one of these is not a task: it is swallowed as a diagram directive, and it
+# renders as raw text across the top of the chart. `Title Defence` did exactly
+# that on 2026-11-01 — the title of the diagram became
+# "Defence :milestone, titleDef, 2026-09-28, 0d" and the defence vanished from
+# its row.
+RESERVED_PREFIXES = ("title", "section", "dateformat", "axisformat", "excludes",
+                     "todaymarker", "weekday", "tickinterval", "ends",
+                     "inclusiveenddates", "topaxis", "displaymode", "gantt")
+
 
 def parse(path):
     text = open(path, encoding="utf-8").read()
@@ -58,7 +68,10 @@ def parse(path):
             continue
         if s.startswith("title") or s.startswith("dateFormat") or \
            s.startswith("axisFormat") or s.startswith("excludes") or \
-           s.startswith("todayMarker") or s.startswith("weekday"):
+           s.startswith("todayMarker") or s.startswith("weekday") or \
+           s.startswith("tickInterval") or s.startswith("inclusiveEndDates") or \
+           s.startswith("topAxis") or s.startswith("displayMode") or \
+           s.startswith("tickInterval"):
             continue
         if s.startswith("section "):
             cur_section = s[len("section "):].strip()
@@ -70,6 +83,12 @@ def parse(path):
             errors.append(f"{no}: no ':' in {s!r}")
             continue
         name, spec = s.split(":", 1)
+        first = name.strip().split()[0].lower()
+        if first in RESERVED_PREFIXES:
+            errors.append(
+                f"{no}: task name {name.strip()!r} starts with the Mermaid "
+                f"keyword {first!r}, so it is not read as a task at all — "
+                f"rename it (e.g. 'Defence of the proposed title')")
         # `after X` is a START, not an id.
         #
         # Mermaid's Gantt line is `<name> :<tags>, <id>, <start>, <end>` and the

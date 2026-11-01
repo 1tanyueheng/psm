@@ -1,7 +1,8 @@
 gantt
     title PSM 1 - PSM Assessment System, delivery by teaching week
     dateFormat YYYY-MM-DD
-    axisFormat W%W
+    axisFormat %d %b
+    tickInterval 1week
     weekday monday
     todayMarker off
 
@@ -9,7 +10,7 @@ gantt
     Scope and context study                 :done, s01, 2026-09-21, 5d
     Submit FORM A                           :milestone, formA, 2026-09-21, 0d
     Submit FORM B - requirements agreed     :milestone, formB, 2026-09-21, 0d
-    Title Defence                           :milestone, titleDef, 2026-09-28, 0d
+    Defence of the proposed title           :milestone, titleDef, 2026-09-28, 0d
     Submit FORM C and OSHE                  :milestone, formC, 2026-10-05, 0d
 
     section Requirement analysis (W01-W02)
