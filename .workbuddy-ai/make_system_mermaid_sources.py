@@ -217,9 +217,7 @@ sequenceDiagram
     participant UI as React SPA
     participant API as Route + Policy
     participant SVC as Service layer
-    participant ELO as Eloquent models
     participant DB as PostgreSQL<br/>(Supabase)
-    participant S3 as Supabase Storage<br/>(S3 endpoint)
     participant N as Notification<br/>dispatcher
 
     Note over UI,DB: One request, one template. Every use case is<br/>a controller that asks a service, which owns the rule.
