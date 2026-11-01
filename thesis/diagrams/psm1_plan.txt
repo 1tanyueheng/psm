@@ -88,8 +88,8 @@ gantt
     section Panel evaluation and presentation (W13-W15)
     Panel reads the report (asynchronous)  :s14, 2026-12-14, 10d
     Document evaluation by the panel       :milestone, panel, 2026-12-21, 0d
-    Prepare the slides and the Q&amp;A      :s15, 2026-12-14, 10d
-    PSM 1 presentation and Q&amp;A (sync)   :milestone, pres, 2026-12-28, 0d
+    Prepare the slides and the Q and A      :s15, 2026-12-14, 10d
+    PSM 1 presentation and Q and A (sync)   :milestone, pres, 2026-12-28, 0d
 
     %% ---- Hands back to PSM 2 ----------------------------------------------
     section Handover (W16)
