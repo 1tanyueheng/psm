@@ -1,0 +1,20 @@
+Bring Chapter 3 within the 15-word sentence limit, leaving its figure and table
+untouched.
+
+The user asked for a sentence-length check on the methodology chapter and was
+explicit that the picture and the table must not change. Chapter 3 is generated
+by build_ch3.py, which edits thesis/c3/Chapter3.docx in place — same paragraphs,
+same order, same numbering — so the prose lives as a TEXT dict in that script
+and the figure and table are separate concerns in the same file. Only TEXT was
+rewritten; CAPTIONS, FIGURE and TABLE_ROWS are untouched.
+
+31 of 45 sentences were over the limit, the longest at 64 words. The worst was
+the Phase 3 technology paragraph, one sentence carrying six clauses.
+
+Now 124 sentences, none over 15, longest exactly 15. As in Chapters 1, 2 and 4,
+a citation bracket counts toward the limit, so several compact citations were
+lifted into short sentences of their own with the authors named in prose.
+
+Verified in the rendered document: 5 pages, Figure 3.1 still at paragraph 10
+with its caption at 11, both embedded images present, and Table 3.1 still holding
+its header and three RO rows. Paragraph count unchanged at 37.
