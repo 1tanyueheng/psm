@@ -1,0 +1,28 @@
+Close the seam between an activity-diagram arrow and the shape it leaves.
+
+The user reported that the arrows in Figures 4.5, 4.7 and 4.9 were "not connected
+to the block". Measuring the source PNG showed they were: on the evaluation
+figure the row through the first decision carries one continuous run from the
+diamond's vertex at x=776 to the refusal box at x=1141, and a 5x crop showed a
+solid junction.
+
+The fault is at print size, not in the geometry. A connector that begins exactly
+on a 2 px outline forms a butt join; a 1800 px figure placed at 16 cm is scaled
+to about a quarter, so that join collapses to sub-pixel and reads as a gap.
+
+`actkit.Diagram.connect()` now takes `into=`, which extends the line that many
+points past its start so it overlaps the shape. Every refusal branch and every
+vertical connector in the five activity diagrams passes into=6. All six
+diagrams regenerated and checked at 5x magnification.
+
+Getting the images into the document took a second approach. The chapter had
+been rebuilt by the user with their own Mermaid sequence renders and with
+Database Design and Interface Design removed, so the embedded activity diagrams
+were stale and no file on disk matched them by hash. Position identifies an
+image where content does not: every figure is a drawing paragraph followed by
+its caption. replace_docx_images_by_caption.py pairs each blip with the caption
+that follows it and rewrites only that media part.
+
+Result: the six activity diagrams replaced, the eight user images untouched,
+and the document still 85 paragraphs, 9 tables and 23 pages — the user's
+structural edits are exactly as they were. A .bak of the previous file is kept.

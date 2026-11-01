@@ -54,7 +54,7 @@ def decide(prev, text, w=DIAW, h=DIAH):
 
 
 def refuse(mid, text, label="No", w=BOXR):
-    dg.connect(CX + DIAW / 2, mid, RX - w / 2, mid)
+    dg.connect(CX + DIAW / 2, mid, RX - w / 2, mid, into=6)
     dg.label(CX + DIAW / 2 + 12, mid - 26, label, anchor="la", bold=True)
     return dg.action(RX, mid - 40, text, w=w)
 

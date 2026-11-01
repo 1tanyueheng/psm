@@ -45,19 +45,19 @@ prev = y
 def step(prev, text, w=BOXC):
     top = prev + G
     bottom = dg.action(CX, top, text, w=w)
-    dg.connect(CX, prev, CX, top)
+    dg.connect(CX, prev, CX, top, into=6)
     return bottom
 
 
 def decide(prev, text, w=DIAW, h=DIAH):
     top = prev + G
     bottom = dg.decision(CX, top, text, w=w, h=h)
-    dg.connect(CX, prev, CX, top)
+    dg.connect(CX, prev, CX, top, into=6)
     return top, bottom, top + h / 2
 
 
 def refuse(mid, text, label="No", w=BOXR):
-    dg.connect(CX + DIAW / 2, mid, RX - w / 2, mid)
+    dg.connect(CX + DIAW / 2, mid, RX - w / 2, mid, into=6)
     dg.label(CX + DIAW / 2 + 12, mid - 26, label, anchor="la", bold=True)
     return dg.action(RX, mid - 40, text, w=w)
 
@@ -79,7 +79,7 @@ _, d2_bot, d2 = decide(prev, "Approve, or\nsend back?", w=DIAW + 40, h=150)
 # Send back -> the milestone reopens and the student re-uploads.
 RB_X = CX + BOXC / 2 + 60 + 210
 rb = dg.action(RB_X, d2 - 40, "status = rejected\nrevision counter + 1", w=400)
-dg.connect(CX + (DIAW + 40) / 2, d2, RB_X - 200, d2)
+dg.connect(CX + (DIAW + 40) / 2, d2, RB_X - 200, d2, into=6)
 dg.label(CX + (DIAW + 40) / 2 + 12, d2 - 28, "send back", anchor="la", bold=True)
 
 # The re-upload path.

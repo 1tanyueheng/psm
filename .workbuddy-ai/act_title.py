@@ -44,14 +44,14 @@ prev = y
 def step(prev, text, w=BOXC):
     top = prev + G
     bottom = dg.action(CX, top, text, w=w)
-    dg.connect(CX, prev, CX, top)
+    dg.connect(CX, prev, CX, top, into=6)
     return bottom
 
 
 def decide(prev, text, w=DIAW, h=DIAH):
     top = prev + G
     bottom = dg.decision(CX, top, text, w=w, h=h)
-    dg.connect(CX, prev, CX, top)
+    dg.connect(CX, prev, CX, top, into=6)
     # The right-hand vertex is at CX + w/2 for the width THIS diamond was given.
     # `refuse()` used the module default DIAW and so started every "No" arrow
     # from the wrong x — some inside the diamond, some floating in the gap
@@ -60,7 +60,7 @@ def decide(prev, text, w=DIAW, h=DIAH):
 
 
 def refuse(mid, text, label="No", w=BOXR, dia_w=DIAW):
-    dg.connect(CX + dia_w / 2, mid, RX - w / 2, mid)
+    dg.connect(CX + dia_w / 2, mid, RX - w / 2, mid, into=6)
     dg.label(CX + dia_w / 2 + 12, mid - 26, label, anchor="la", bold=True)
     return dg.action(RX, mid - 38, text, w=w)
 
@@ -97,7 +97,7 @@ _, d4_bot, d4, d4_w = decide(prev, "Signed?", w=DIAW - 70, h=124)
 # RIGHT edge, at its vertical centre.
 RB_X = CX + BOXC / 2 + 60 + 190
 rb = dg.action(RB_X, d4 - 38, "Returned to the student\nwith a reason", w=380)
-dg.connect(CX + d4_w / 2, d4, RB_X - 190, d4)
+dg.connect(CX + d4_w / 2, d4, RB_X - 190, d4, into=6)
 dg.label(CX + d4_w / 2 + 12, d4 - 26, "No", anchor="la", bold=True)
 
 FILE_H = 2 * LINE_H + PAD        # "Student files Lampiran B / and the supervisor signs"

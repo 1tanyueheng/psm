@@ -49,7 +49,7 @@ d_mid = d_top + DIAH / 2
 # No -> the error, then back to the form.
 RX = CX + BOXC / 2 + 60 + 230
 err = dg.action(RX, d_mid - 44, "Show the error:\nunknown account, wrong\npassword, locked, or inactive", w=460)
-dg.connect(CX + DIAW / 2, d_mid, RX - 230, d_mid)
+dg.connect(CX + DIAW / 2, d_mid, RX - 230, d_mid, into=6)
 dg.label(CX + DIAW / 2 + 12, d_mid - 28, "No", anchor="la", bold=True)
 
 back_x = RX + 230 + 50

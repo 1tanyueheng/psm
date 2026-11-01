@@ -94,7 +94,26 @@ class Diagram:
             self.d.polygon(pts, fill=colour)
 
     def connect(self, x1, y1, x2, y2, head=True, colour=LINE, dash=False,
-                open_head=False):
+                open_head=False, into=0):
+        """A straight connector from (x1,y1) to (x2,y2).
+
+        `into` extends the line by that many points *past* its start point.
+
+        A connector that begins exactly on a shape's edge draws a butt join
+        against a 2 px outline. At 16 cm placement a 1800 px figure is scaled to
+        about a quarter, so that join becomes sub-pixel and reads as a gap: the
+        arrow looks like it starts just outside the shape. Several of the
+        activity diagrams were reported this way, and meas uring the source PNG
+        showed the line *did* start on the vertex — the defect was at print size,
+        not in the geometry. Overlapping the line a few points into the shape
+        removes any chance of a seam.
+        """
+        if into:
+            dx, dy = x2 - x1, y2 - y1
+            dist = math.hypot(dx, dy)
+            if dist:
+                x1 -= dx / dist * into
+                y1 -= dy / dist * into
         self.seg(x1, y1, x2, y2, colour=colour, dash=dash)
         if head:
             self.arrowhead(x1, y1, x2, y2, colour=colour, open_=open_head)
