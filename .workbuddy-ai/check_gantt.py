@@ -8,11 +8,15 @@ still wrong.
 Checks:
   1. every task line is `<name> :[tags,] id, <start>, <end|duration>`;
   2. ids are unique (Mermaid silently reuses a duplicate id's dates);
-  3. `after <id>` references exist;
-  4. section anchors carry the week label in the source, and the computed week
-     number agrees with it;
-  5. no task starts before the plan or outside its section's week band;
-  6. milestones are 0d and sit inside their section's range.
+  3. `after <id>` references exist and are not circular;
+  4. section anchors carry the week label in the source, and every row lands
+     inside the band its own section advertises;
+  5. nothing starts before the plan or past the last week of the table;
+  6. milestones are 0d;
+  7. `weekday monday` plans never place a bar on a Saturday or Sunday;
+  8. the FACULTY ANCHORS land on the week the timetable gives them — this is
+     the check that matters, because a plan that slips a milestone is a plan
+     that breaks the student's submission.
 
 Usage:  python check_gantt.py thesis/diagrams/psm1_plan.txt
 """
@@ -20,7 +24,22 @@ import datetime as dt
 import re
 import sys
 
-WEEK0 = dt.date(2026, 9, 14)          # Monday of week 00 on the faculty timetable
+# The faculty's own week table, verbatim. This is the source of truth for what
+# "W07" means; the Gantt dates are checked against it, never the other way round.
+# It runs Monday to FRIDAY, which is why the plan uses `weekday monday` and every
+# bar is a whole number of working days.
+WEEKS = {
+    "01": ("2026-09-21", "2026-09-25"), "02": ("2026-09-28", "2026-10-02"),
+    "03": ("2026-10-05", "2026-10-09"), "04": ("2026-10-12", "2026-10-16"),
+    "05": ("2026-10-19", "2026-10-23"), "06": ("2026-10-26", "2026-10-30"),
+    "07": ("2026-11-02", "2026-11-06"), "08": ("2026-11-09", "2026-11-13"),
+    "09": ("2026-11-16", "2026-11-20"), "10": ("2026-11-23", "2026-11-27"),
+    "11": ("2026-11-30", "2026-12-04"), "12": ("2026-12-07", "2026-12-11"),
+    "13": ("2026-12-14", "2026-12-18"), "14": ("2026-12-21", "2026-12-25"),
+    "15": ("2026-12-28", "2027-01-01"), "16": ("2027-01-04", "2027-01-08"),
+}
+WEEK0 = dt.date.fromisoformat(WEEKS["01"][0])   # Monday of week 01
+LAST_WEEK = max(WEEKS)
 
 
 def parse(path):
@@ -96,17 +115,55 @@ def as_date(v, today=WEEK0):
     return ("date", dt.date.fromisoformat(v))
 
 
-def as_end(v, start, milestones):
+def as_end(v, start, milestones=()):
+    """The last date a task occupies.
+
+    A `Nd` duration on this plan means N WORKING days (the plan uses
+    `weekday monday`, so a 5d bar is Mon..Fri). Mermaid itself counts calendar
+    days, which is exactly why the durations here are multiples of five and
+    this function counts weekdays — the two agree only if that holds, and the
+    check below is what proves it does.
+    """
     m = re.fullmatch(r"(\d+)d", v)
-    if m:
-        d = int(m.group(1))
-        # A 0d milestone occupies its start date and ends on it.
-        return start if d == 0 else start + dt.timedelta(days=d - 1)
-    return dt.date.fromisoformat(v)
+    if not m:
+        return dt.date.fromisoformat(v)
+    n = int(m.group(1))
+    if n == 0:
+        return start                       # a milestone occupies one day
+    d, seen = start, 0
+    while True:
+        if d.weekday() < 5:
+            seen += 1
+            if seen == n:
+                return d
+        d += dt.timedelta(days=1)
 
 
 def week_of(d):
+    """0-based index of the teaching week a date falls in."""
     return (d - WEEK0).days // 7
+
+
+def week_label(d):
+    n = week_of(d) + 1
+    return f"W{n:02d}" if 1 <= n <= int(LAST_WEEK) else f"W{n:+03d}"
+
+
+def business_days(s, e):
+    """Count Mon-Fri days in a span.
+
+    Mermaid's `Nd` durations are CALENDAR days, not working days. Writing `7d`
+    for "one working week" produces a bar that runs Fri..Thu and occupies a
+    weekend, which on an academic plan claims hours that do not exist. The plan
+    therefore uses `Nd` where N is the number of working days it needs, and this
+    is what verifies it.
+    """
+    n, d = 0, s
+    while d <= e:
+        if d.weekday() < 5:
+            n += 1
+        d += dt.timedelta(days=1)
+    return n
 
 
 def main(path):
@@ -167,30 +224,25 @@ def main(path):
         rows.append((t["section"], t["name"], t["tags"], s, e, w0, w1))
 
     # --- every milestone must land on the week its section claims
-    print(f"{'section':34} {'task':44} {'start':10} {'end':10}  weeks")
-    print("-" * 116)
+    print(f"{'section':40} {'task':42} {'start':10} {'end':10}  weeks")
+    print("-" * 122)
     for sec, name, tags, s, e, w0, w1 in rows:
-        weeks = f"W{w0:02d}" if w0 == w1 else f"W{w0:02d}-W{w1:02d}"
+        weeks = (week_label(s) if w0 == w1
+                 else f"{week_label(s)}-{week_label(e)}")
         tag = " [M]" if "milestone" in tags else ""
-        print(f"{sec:34} {name + tag:44} {s}  {e}  {weeks}")
+        print(f"{sec:40} {name + tag:42} {s}  {e}  {weeks}")
 
-    # --- the timetable's own claims, checked against the computed schedule
+    # --- the FACULTY ANCHORS. These are the dates the student actually
+    #     submits on; each is checked against the week table, not against
+    #     whatever the Gantt happens to say.
     EXPECT = {
-        "formA":    ("2026-09-14", 0),
-        "formB":    ("2026-09-21", 1),
-        "titleDef": ("2026-09-28", 2),
-        "formC":    ("2026-10-05", 3),
-        "ch1sub":   ("2026-10-19", 5),
-        "ch2sub":   ("2026-11-02", 7),
-        "ch3sub":   ("2026-11-16", 9),
-        "ch4sub":   ("2026-11-30", 11),
-        "demo":     ("2026-12-07", 12),
-        "docs":     ("2026-12-14", 13),
-        "panel":    ("2026-12-21", 14),
-        "pres":     ("2026-12-28", 15),
+        "formA":    "01", "formB": "01", "titleDef": "02", "formC":  "03",
+        "ch1sub":   "05", "ch2sub": "07", "ch3sub":  "09", "ch4sub": "11",
+        "demo":     "12", "docs":   "13", "panel":   "14", "pres":   "15",
     }
     print()
-    for tid, (want_date, want_week) in EXPECT.items():
+    print("faculty anchors:")
+    for tid, want_week in EXPECT.items():
         t = by_id.get(tid)
         if t is None:
             errors.append(f"missing timetable anchor {tid!r}")
@@ -198,37 +250,64 @@ def main(path):
         s = resolved.get(tid)
         if s is None:
             continue
-        got_week = week_of(s)
-        ok = s.isoformat() == want_date and got_week == want_week
-        print(f"{tid:10} {s}  W{got_week:02d}  expected {want_date} W{want_week:02d}"
-              f"  {'OK' if ok else 'MISMATCH'}")
+        got = week_label(s)
+        ok = got == f"W{want_week}"
+        print(f"  {tid:10} {s}  {got}  expected W{want_week}  "
+              f"{'OK' if ok else 'MISMATCH'}")
         if not ok:
-            errors.append(f"{tid}: {s} W{got_week:02d} != {want_date} W{want_week:02d}")
+            errors.append(f"{tid}: {s} is {got}, timetable says W{want_week}")
 
     # --- a milestone that is not 0d is not a milestone
     for t in tasks:
         if "milestone" in t["tags"] and t["end"] != "0d":
             errors.append(f"{t['no']}: milestone {t['id']!r} is {t['end']}, must be 0d")
 
-    # --- nothing may start before the plan does. This is the check that would
-    #     have caught the `after` bug above: four rows silently began in W00.
+    # --- nothing may sit outside the weeks the faculty table covers. This is
+    #     the check that would have caught the `after` bug: four rows silently
+    #     began in W00, which does not exist in the table.
     plan_start = min(r[3] for r in rows)
     for sec, name, tags, s, e, w0, w1 in rows:
         if w0 < 0:
             errors.append(f"{name!r} starts {s}, before the plan begins {plan_start}")
-        if w1 > 15:
-            errors.append(f"{name!r} runs to W{w1:02d}, past the last teaching week")
+        if week_label(e) > f"W{LAST_WEEK}":
+            errors.append(f"{name!r} runs to {e}, past W{LAST_WEEK} of the table")
+
+    # --- a `Nd` duration must be a whole number of working weeks — five working
+    #     days per chunk — so that the calendar-day arithmetic Mermaid does and
+    #     the working-day arithmetic this plan means agree. A 7d bar from a
+    #     Monday ends the next Sunday; a 5d bar ends that Friday. The plan uses
+    #     the second, and this is what enforces it.
+    for t in tasks:
+        m = re.fullmatch(r"(\d+)d", t["end"])
+        if not m:
+            continue                      # an explicit end date; the week check is enough
+        if "milestone" in t["tags"]:
+            continue                      # 0d is the only legal milestone length, checked above
+        n = int(m.group(1))
+        if n % 5:
+            errors.append(f"{t['id']!r} runs {n}d; use a multiple of 5 "
+                          f"(one working week = 5d) or the bar straddles a weekend")
+            continue
+        s = resolved.get(t["id"])
+        if s is None:
+            continue
+        if s.weekday() != 0:
+            errors.append(f"{t['id']!r} starts on a {s.strftime('%A')}; "
+                          f"a multi-week bar must start on a Monday")
+        e = as_end(t["end"], s)
+        if e.weekday() != 4:
+            errors.append(f"{t['id']!r} ends on a {e.strftime('%A')}; "
+                          f"a multi-week bar must end on a Friday")
 
     # --- a row must not sit outside the week band its own section advertises.
-    #     `Form C + OSHE (W03)` holds the first prototype, which runs into W04,
-    #     so a section that genuinely spans two weeks says so in its own name.
+    #     A section that genuinely spans weeks says so in its own name.
     for sec, name, tags, s, e, w0, w1 in rows:
         claimed = [int(x) for x in re.findall(r"W(\d\d)", sec or "")]
         if not claimed:
             continue
         lo, hi = min(claimed), max(claimed)
-        if not (lo <= w0 and w1 <= hi):
-            errors.append(f"{name!r} runs W{w0:02d}-W{w1:02d} "
+        if not (lo <= w0 + 1 and w1 + 1 <= hi):
+            errors.append(f"{name!r} runs {week_label(s)}-{week_label(e)} "
                           f"but its section says W{lo:02d}-W{hi:02d}")
 
     print()
