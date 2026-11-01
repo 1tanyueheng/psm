@@ -1,0 +1,83 @@
+%% PSM 1 delivery plan - PSM Assessment System.
+%%
+%% The FACULTY'S submitted items are the anchor: they come from the timetable in
+%% `thesis/diagrams/psm1_timeline.png` and must not move. Everything on the
+%% Deliverable / Chapter rows is the work they imply, hung off the anchor that
+%% gates it, so no row pretends to a deadline the faculty has not set.
+%%
+%% The model is Prototyping (Chapter 3): every chapter is a prototype, the
+%% supervisor's evaluation is the client evaluation, and the refinement loop is
+%% `after evN`. That is why each chapter row extends to the week after its
+%% evaluation - the evaluation is not the end of the chapter, it is when the
+%% chapter gets its verdict.
+%%
+%% Weeks: 00 starts Mon 14 Sep 2026, so week 05 = 19 Oct, week 11 = 30 Nov,
+%% week 15 = 28 Dec. Section order follows the timetable, not the model, because
+%% this is a schedule and the reader is holding the timetable.
+gantt
+    title PSM 1 - PSM Assessment System delivery by week
+    dateFormat YYYY-MM-DD
+    axisFormat W%W
+    excludes weekends
+    todayMarker off
+
+    %% Weeks 1..15 are numbered 00..14 on the axis because week 00 is the
+    %% registration week; the label in every task carries the timetable's own
+    %% number so the two cannot be confused.
+    section Form A (W00)
+    Submit FORM A                          :milestone, formA, 2026-09-14, 0d
+    Scope and context study                :done, s01, 2026-09-14, 7d
+
+    section Form B (W01)
+    Submit FORM B - requirements agreed    :milestone, formB, 2026-09-21, 0d
+
+    section Analyse (W01-W02)
+    Requirement gathering and analysis     :done, s02, 2026-09-21, 14d
+
+    section Title defence (W02)
+    Title Defence                          :milestone, titleDef, 2026-09-28, 0d
+    Lampiran A, B and C flows analysed     :s03, 2026-09-28, 7d
+
+    section Form C + OSHE (W03-W04)
+    Submit FORM C and OSHE                 :milestone, formC, 2026-10-05, 0d
+    Design and build the first prototype   :s04, 2026-10-05, 14d
+
+    section Chapter 1 (W04-W06)
+    Submit Chapter 1 to SV                 :milestone, ch1sub, 2026-10-19, 0d
+    Chapter 1 - Introduction               :s05, 2026-10-12, 7d
+    Chap 1 evaluation (W05)                :milestone, ev1, 2026-10-19, 0d
+    Refine Chapter 1                       :ref1, after ev1, 7d
+
+    section Chapter 2 (W05-W08)
+    Submit Chapter 2 to SV                 :milestone, ch2sub, 2026-11-02, 0d
+    Chapter 2 - Literature Review          :s06, 2026-10-19, 14d
+    Chap 2 evaluation (W07)                :milestone, ev2, 2026-11-02, 0d
+    Refine Chapter 2                       :ref2, after ev2, 7d
+
+    section Mid-semester break (W08)
+    Mid-semester break                     :crit, msb, 2026-11-09, 7d
+
+    section Chapter 3 (W07-W10)
+    Submit Chapter 3 to SV                 :milestone, ch3sub, 2026-11-16, 0d
+    Chapter 3 - Methodology                :s07, 2026-11-02, 14d
+    Chap 3 evaluation (W09)                :milestone, ev3, 2026-11-16, 0d
+    Refine Chapter 3                       :ref3, after ev3, 7d
+
+    section Chapter 4 (W09-W12)
+    Submit Chapter 4 to SV                 :milestone, ch4sub, 2026-11-30, 0d
+    Chapter 4 - Analysis and Design        :s08, 2026-11-16, 14d
+    Chap 4 evaluation (W11)                :milestone, ev4, 2026-11-30, 0d
+    Refine Chapter 4                       :ref4, after ev4, 7d
+
+    section Demo and framework (W12)
+    Demo prototype and research framework  :milestone, demo, 2026-12-07, 0d
+    Refinement against the supervisor's notes :s09, 2026-12-07, 7d
+
+    section Documents (W11-W13)
+    Submit PSM 1 documents                 :milestone, docs, 2026-12-14, 0d
+    Final assembly, figures and references :s10, 2026-11-30, 21d
+
+    section Panel (W13-W15)
+    Document evaluation by panel (async)   :milestone, panel, 2026-12-21, 0d
+    Prepare the presentation and Q&amp;A    :s11, 2026-12-14, 14d
+    PSM 1 presentation, Q&amp;A (sync)      :milestone, pres, 2026-12-28, 0d

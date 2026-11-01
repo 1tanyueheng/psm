@@ -398,6 +398,37 @@ from. Two kinds, and they are not interchangeable:
 | **`class_diagram.txt`** | `classDiagram` | **Figure 4.14** — the **twelve classes of the Chapter 4 data dictionary**, members and multiplicities as the PNG has them. This is what the user asked for on 11-01: *"just using these table only"* |
 | `system_class.txt` | `classDiagram` | the whole system: **39 classes, one per model**, 45 relations. Kept as reference, **not** the chapter figure |
 | `system_interaction.txt` | `sequenceDiagram` | one request through Route → Policy → Service → Eloquent → PostgreSQL, with the enrolment, assignment, window-open and release paths |
+| **`psm1_plan.txt`** | **`gantt`** | **the PSM 1 delivery plan by teaching week**, Weeks 00–15, from the faculty timetable in `psm1_timeline.png` |
+
+##### The PSM 1 Gantt — how to date it, and what not to change
+
+`psm1_plan.txt` is a Mermaid `gantt` covering **Weeks 00–15**, Mon 14 Sep 2026 →
+Sun 3 Jan 2027 (`2026-09-14` + 7 days × the week number). `excludes weekends`,
+`axisFormat W%W`, `todayMarker off`.
+
+- **The twelve faculty milestones are the anchor and must not move**: FORM A
+  (W00), FORM B (W01), Title Defence (W02), FORM C + OSHE (W03), Chapters 1–4
+  (W05, W07, W09, W11), Demo (W12), PSM 1 documents (W13), panel evaluation
+  (W14), presentation (W15). Every date in that file is checked against the
+  timetable by `.workbuddy-ai/check_gantt.py`.
+- **Everything else is work hung off an anchor**, so no row claims a deadline
+  the faculty has not set. The `Refine Chapter n` rows use **`after evN`** (the
+  day after that evaluation), which is the Prototyping loop from Chapter 3, not
+  an invented date.
+- **`check_gantt.py <file>` is the verification.** There is no Mermaid renderer
+  in this repo and draw.io converts rather than renders, so this parses the
+  source the way Mermaid does and then checks the *dates*: uniqueness of ids,
+  `after` references, milestones being `0d`, nothing before W00 or past W15,
+  every row inside the week band its own section names, and the twelve anchors
+  against the timetable.
+- **Its first version was silently useless**, which is the lesson worth keeping:
+  it folded `after ev1` into the *id* slot, so four rows started on `TODAY`
+  (= W00) and the checker reported no problems. A validator that mis-parses the
+  construct it exists to validate is worse than none — it was caught only by
+  printing the schedule and reading the weeks. **Always print and read the
+  output, not just the exit code.**
+- **Mermaid wants `<name> :<tags>, <id>, <start>, <end>`** — a task with no id
+  (`:after ev1, 7d`) loses its `after` clause. Every row here carries one.
 
 **No `Note over A,B` statements in any sequence source** (2026-11-01, the user's
 rule). A note is not a message and not a step: on Figure 4.2 it was where the
