@@ -1,0 +1,35 @@
+Rewrite Chapters 1 and 2 so every sentence is 15 words or fewer.
+
+The user's instruction: "make sure each sentence no more than 15 words. Make
+sentence short and clean." Chapter 1 went from 44 of 50 sentences over the limit
+to none, with the longest sentence falling from 96 words to 15. Chapter 2 went
+from 38 over the limit to none.
+
+Chapter 1 is generated, so the change is in build_ch1_cited.py and the .docx was
+rebuilt from it — editing the output alone would be discarded on the next build.
+Chapter 2 has no build script; merge_ch2_sections.py edits the document in
+place, so the rewrite was applied the same way, through scripts that assert the
+old text before overwriting it.
+
+Two things worth recording:
+
+  * A citation bracket counts toward the limit, because it is part of the
+    sentence. Several compact citations are too long to sit inside a 15-word
+    sentence at all — (Chong Er Juan & Wahid, 2021; Wan Fauzi & Alduais, 2025)
+    is eleven words on its own — so those were lifted into their own short
+    sentence with the authors named in prose. Still valid APA, and every source
+    stays attached to the claim it supports.
+
+  * 2.2 is retitled. "Domain Case Study and Web Based System" names a
+    technology rather than the study area; the template's own domain header is
+    "Domain Case Study: <the domain>". It is now "Domain Case Study: Final Year
+    Project Lifecycle Management", which also covers the existing systems being
+    compared in 2.3.
+
+Citation counts were compared before and after: Chapter 1 keeps all 11 sources,
+Chapter 2 keeps all 17 exactly, with none lost or invented, and the comparison
+table and all six headings are untouched.
+
+count_sentences.py checks the Chapter 1 source; check_docx_sentences.py checks
+any built document and exits non-zero on a violation, so the rule cannot quietly
+regress.
