@@ -34,7 +34,6 @@ HEADS = [
 ]
 
 STEPS = [
-    {"kind": "section", "label": "1. Open a form and mark it  ·  one 0-5 score per criterion"},
 
     {"a": 0, "b": 1, "kind": "call", "label": "1. Open the allocated form"},
     {"a": 1, "b": 2, "kind": "call", "label": "2. GET /api/evaluations/{id}"},
@@ -45,8 +44,6 @@ STEPS = [
     {"a": 2, "b": 1, "kind": "return",
      "label": "5. One 0-5 select per criterion"},
 
-    {"kind": "section", "label": "2. Save the marks  ·  the item score becomes the rubric's weight"},
-
     {"a": 0, "b": 1, "kind": "call", "label": "6. Choose scores and a comment"},
     {"a": 1, "b": 2, "kind": "call", "label": "7. PUT /api/evaluations/{id}/marks"},
     {"a": 2, "b": 3, "kind": "call", "label": "8. saveMarks(evaluation, marks)"},
@@ -55,8 +52,6 @@ STEPS = [
     {"a": 3, "b": 4, "kind": "call",
      "label": "10. Save the weighted mark\nand the item score"},
     {"a": 2, "b": 1, "kind": "return", "label": "11. Marks saved"},
-
-    {"kind": "section", "label": "3. Submit  ·  the form locks and the mark is published in one step"},
 
     {"a": 0, "b": 1, "kind": "call", "label": "12. Submit the form"},
     {"a": 1, "b": 2, "kind": "call", "label": "13. POST /api/evaluations/{id}/submit"},
@@ -68,7 +63,6 @@ STEPS = [
     {"a": 2, "b": 1, "kind": "return", "label": "17. Marks locked"},
     {"a": 1, "b": 0, "kind": "return", "label": "18. The student sees the mark"},
 ]
-
 
 if __name__ == "__main__":
     print("wrote", Sequence(XS, HEADS).draw(STEPS, OUT))

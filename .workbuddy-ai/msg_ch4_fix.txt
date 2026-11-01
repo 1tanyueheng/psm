@@ -1,0 +1,44 @@
+Fix the Chapter 4 diagrams, and remove an alternative flow that does not exist.
+
+From the user's review of the rendered chapter:
+
+  * **Notification A.4 "the change is ignored" removed.** The user confirmed no
+    notification type is mandatory, so no preference can be refused. FR21 and
+    the Notification module row promised an exception the system does not make
+    and were reworded with it.
+
+  * **Milestone activity diagram.** The note "The proposal is the exception ..."
+    was drawn at x=40, y=210, on the main spine, so its second line was struck
+    through by the arrow below it; removed. The re-upload arrow ended at
+    `upload_top + 30`, which is inside the action box, so its head was swallowed
+    by the box outline; it now lands on the box's right edge. The first attempt
+    at that fix routed the line straight through the "Refuse 422" box, which the
+    render showed; it now uses a clear right-hand margin.
+
+  * **Title activity diagram.** Every refuse() arrow aimed at `CX + DIAW/2`,
+    but the diamonds have three different widths, so most "No" arrows started
+    inside the diamond or in the gap. The width is now passed through. The
+    "re-files" return landed inside the Lampiran B box; it now lands on the
+    edge via a clear margin.
+
+  * **Consecutive self-calls overlapped in every sequence diagram.** row_h()
+    reserved a flat `max(56, LH*n + 30)` for a self-call, while draw() renders a
+    bracket of `LH*n + 28` — so any self-call of two lines or more was drawn
+    taller than the row it was given, and a following self-call was drawn on top
+    of it. The milestone diagram showed it as struck-through text. Both now use
+    the same number.
+
+  * **Four sequence scripts could not be built at all.** seq_evaluation,
+    seq_report, seq_title and seq_notification still contained section-band
+    steps, which seqkit no longer supports (the bands were removed at the user's
+    request). They died on `KeyError: 'a'`, so those four diagrams had not been
+    regenerated since the bands went. The steps are removed and all four now
+    build.
+
+  * **Mermaid sources for all six use cases** in thesis/diagrams/*.txt, with the
+    alternatives drawn as alt branches numbered A.1..A.n to match the
+    specification tables — the mismatch the user reported. The user renders
+    these in the Mermaid editor and supplies the images.
+
+Verified: 32 pages, no blank pages, 114 sentences with none over 15 words, and
+every regenerated diagram read at full size.

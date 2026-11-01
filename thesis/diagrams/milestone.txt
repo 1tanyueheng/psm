@@ -1,0 +1,79 @@
+%%{init: {
+  'theme': 'base',
+  'sequence': {
+    'mirrorActors': false
+  },
+  'themeCSS': '.actor-line { stroke-dasharray: 4, 4; }',
+  'themeVariables': {
+    'fontFamily': 'Times New Roman, serif',
+    'fontSize': '15px',
+    'primaryColor': '#ffffff',
+    'primaryTextColor': '#1a1a1a',
+    'primaryBorderColor': '#1a1a1a',
+    'lineColor': '#333333',
+    'signalColor': '#333333',
+    'signalTextColor': '#1a1a1a',
+    'actorBkg': '#ffffff',
+    'actorBorder': '#1a1a1a',
+    'actorTextColor': '#1a1a1a',
+    'actorLineColor': '#8c8c8c',
+    'labelBoxBkgColor': '#f4f4f4',
+    'labelBoxBorderColor': '#1a1a1a',
+    'labelTextColor': '#1a1a1a',
+    'noteBkgColor': '#ffffff',
+    'noteBorderColor': '#8c8c8c',
+    'sequenceNumberColor': '#1a1a1a',
+    'actorPadding': 25,
+    'messageMargin': 35
+  }
+}}%%
+sequenceDiagram
+    autonumber
+    actor S as Student
+    participant UI as Milestone UI<br/>(React SPA)
+    participant C as Milestone<br/>Controller
+    participant SVC as Milestone<br/>Service
+    participant M as Milestone row
+    participant SUP as Supervisor
+
+    S->>UI: Open the project's milestone list
+    UI->>C: GET /api/milestones?project_id=...
+    C->>M: Load the chain in order
+    M-->>C: one row per step, with its status
+    C-->>UI: 200 OK, the chain
+
+    S->>UI: Upload the work to the open milestone
+    UI->>C: POST /api/milestones/{id}/submit
+    C->>SVC: submit(milestone, files)
+
+    alt A.1 The chain has not opened this milestone
+        SVC-->>C: 422 refused
+        C-->>UI: 422 refused, the milestone is still locked
+    else Open
+        SVC->>M: Save the submission, status = submitted
+        SVC->>M: Record the lateness flag, if any
+        C-->>UI: 201 Created
+    end
+
+    SUP->>UI: Open the submission
+    UI->>C: GET /api/milestones/{id}
+    C-->>UI: the milestone and its files
+    SUP->>UI: Approve, or request a revision
+    UI->>C: POST /api/milestones/{id}/review
+    C->>SVC: review(milestone, decision)
+
+    alt A.2 The supervisor requests a revision
+        SVC->>M: status = rejected, revision_count + 1
+        SVC-->>C: the milestone reopens for a new upload
+        C-->>UI: 200 OK, back to a locked chain position
+    else A.3 The proposal is sent back
+        SVC->>M: status = rejected, attempt unchanged
+        C-->>UI: 200 OK, the chain does not advance
+    else A.4 The milestone is the proposal and the panel approves
+        SVC->>M: status = approved
+        Note over SVC,M: Approving the proposal does not open the chain,<br/>because its verdict belongs to the panel
+    else A non-proposal milestone is approved
+        SVC->>M: status = approved
+        SVC->>M: Open the next milestone in the chain
+        C-->>UI: 200 OK
+    end

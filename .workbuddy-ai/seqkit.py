@@ -48,7 +48,12 @@ def font(size, bold=False):
 def row_h(label, kind):
     n = label.count("\n") + 1
     if kind == "self":
-        return max(56, LH * n + 30)
+        # A self-call draws a bracket of `LH * n + 28` plus a little air. The
+        # reservation used to be a flat `max(56, LH * n + 30)`, which is smaller
+        # than the bracket for every label of two lines or more: two consecutive
+        # self-calls then overlapped, and the second label was drawn on top of
+        # the first bracket. Draw and reserve now use the same number.
+        return max(56, LH * n + 28 + 16)
     return LH * n + LEAD + TAIL
 
 

@@ -31,7 +31,6 @@ HEADS = [
 ]
 
 STEPS = [
-    {"kind": "section", "label": "1. Scheduled reminder  ·  7, 3 and 1 days before a deadline"},
 
     {"a": 0, "b": 1, "kind": "call", "label": "1. Run psm:send-deadline-reminders"},
     {"a": 1, "b": 3, "kind": "call",
@@ -46,13 +45,10 @@ STEPS = [
     {"a": 2, "b": 1, "kind": "return", "label": "9. sent"},
     {"a": 1, "b": 0, "kind": "return", "label": "10. Summary per wave"},
 
-    {"kind": "section", "label": "2. Notification centre  ·  the reader"},
-
     {"a": 4, "b": 3, "kind": "call",
      "label": "11. The user reads, dismisses,\nor changes which types they receive"},
     {"a": 3, "b": 4, "kind": "return", "label": "12. Unread count and the latest five"},
 ]
-
 
 if __name__ == "__main__":
     print("wrote", Sequence(XS, HEADS).draw(STEPS, OUT))

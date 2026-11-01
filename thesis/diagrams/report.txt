@@ -1,0 +1,69 @@
+%%{init: {
+  'theme': 'base',
+  'sequence': {
+    'mirrorActors': false
+  },
+  'themeCSS': '.actor-line { stroke-dasharray: 4, 4; }',
+  'themeVariables': {
+    'fontFamily': 'Times New Roman, serif',
+    'fontSize': '15px',
+    'primaryColor': '#ffffff',
+    'primaryTextColor': '#1a1a1a',
+    'primaryBorderColor': '#1a1a1a',
+    'lineColor': '#333333',
+    'signalColor': '#333333',
+    'signalTextColor': '#1a1a1a',
+    'actorBkg': '#ffffff',
+    'actorBorder': '#1a1a1a',
+    'actorTextColor': '#1a1a1a',
+    'actorLineColor': '#8c8c8c',
+    'labelBoxBkgColor': '#f4f4f4',
+    'labelBoxBorderColor': '#1a1a1a',
+    'labelTextColor': '#1a1a1a',
+    'noteBkgColor': '#ffffff',
+    'noteBorderColor': '#8c8c8c',
+    'sequenceNumberColor': '#1a1a1a',
+    'actorPadding': 25,
+    'messageMargin': 35
+  }
+}}%%
+sequenceDiagram
+    autonumber
+    actor CO as Coordinator
+    participant UI as Report UI<br/>(React SPA)
+    participant C as Report<br/>Controller
+    participant SVC as Analytics<br/>Service
+    participant DB as Projects, Marks,<br/>Milestones
+
+    CO->>UI: Choose the batch, the PSM part and the term
+    UI->>C: GET /api/reports/cohort
+    C->>SVC: check the analytics permission on the server
+
+    alt A.1 The caller may not view analytics
+        C-->>UI: 403 Forbidden
+    else A.2 A filter names a term that does not exist
+        C-->>UI: 422 refused
+    else Permitted, with valid filters
+        SVC->>DB: Aggregate progress, at-risk, workload and mark bands
+        DB-->>SVC: the figures
+        SVC-->>C: the figures
+        C-->>UI: 200 OK, the tables and charts
+
+        alt A.4 No grade has been released yet
+            Note over SVC,DB: Empty mark bands rather than zero,<br/>because no mark is not a mark of zero
+        else Grades have been released
+            SVC->>DB: Include the released marks
+        end
+    end
+
+    CO->>UI: Export the grade or project list
+    UI->>C: GET /api/reports/export
+    C->>SVC: apply the narrower export permission
+
+    alt A.3 The caller may not export
+        C-->>UI: 403 Forbidden
+    else Permitted
+        SVC->>DB: Stream the rows as CSV
+        SVC->>DB: Record the export and its filters in the audit log
+        C-->>UI: the CSV file
+    end

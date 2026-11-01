@@ -32,7 +32,6 @@ HEADS = [
 ]
 
 STEPS = [
-    {"kind": "section", "label": "1. Filing Lampiran A"},
 
     {"a": 0, "b": 1, "kind": "call", "label": "1. Fill in Lampiran A and submit"},
     {"a": 1, "b": 2, "kind": "call",
@@ -44,8 +43,6 @@ STEPS = [
      "label": "5. Save the agreement\nstatus = pending_supervisor"},
     {"a": 2, "b": 1, "kind": "return", "label": "6. 201 Created"},
 
-    {"kind": "section", "label": "2. Supervisor acknowledgement  ·  this is where the pairing is created"},
-
     {"a": 0, "b": 1, "kind": "call",
      "label": "7. Choose one of the proposed titles\nand acknowledge"},
     {"a": 1, "b": 2, "kind": "call",
@@ -55,8 +52,6 @@ STEPS = [
      "label": "10. Create the supervision and\nsave the agreed title"},
     {"a": 2, "b": 1, "kind": "return", "label": "11. Lampiran B may be filed"},
 
-    {"kind": "section", "label": "3. Filing and signing Lampiran B  ·  the signature opens the proposal"},
-
     {"a": 0, "b": 1, "kind": "call", "label": "12. File Lampiran B, then sign it"},
     {"a": 1, "b": 3, "kind": "call",
      "label": "13. PUT .../{form}/file\nPOST .../{form}/sign"},
@@ -64,15 +59,12 @@ STEPS = [
      "label": "14. Endorse the form and\nopen the proposal milestone"},
     {"a": 1, "b": 0, "kind": "return", "label": "15. The proposal is open"},
 
-    {"kind": "section", "label": "4. Withdrawal  ·  only while no project exists yet"},
-
     {"a": 0, "b": 1, "kind": "call", "label": "16. Withdraw the filing"},
     {"a": 1, "b": 2, "kind": "call", "label": "17. POST .../{agreement}/withdraw"},
     {"a": 2, "b": 3, "kind": "call", "label": "18. withdrawAgreement()"},
     {"a": 2, "b": 1, "kind": "return",
      "label": "19. 200 OK: cancelled, pairing retired"},
 ]
-
 
 if __name__ == "__main__":
     print("wrote", Sequence(XS, HEADS).draw(STEPS, OUT))

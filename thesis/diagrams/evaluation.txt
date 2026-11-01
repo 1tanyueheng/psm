@@ -1,0 +1,77 @@
+%%{init: {
+  'theme': 'base',
+  'sequence': {
+    'mirrorActors': false
+  },
+  'themeCSS': '.actor-line { stroke-dasharray: 4, 4; }',
+  'themeVariables': {
+    'fontFamily': 'Times New Roman, serif',
+    'fontSize': '15px',
+    'primaryColor': '#ffffff',
+    'primaryTextColor': '#1a1a1a',
+    'primaryBorderColor': '#1a1a1a',
+    'lineColor': '#333333',
+    'signalColor': '#333333',
+    'signalTextColor': '#1a1a1a',
+    'actorBkg': '#ffffff',
+    'actorBorder': '#1a1a1a',
+    'actorTextColor': '#1a1a1a',
+    'actorLineColor': '#8c8c8c',
+    'labelBoxBkgColor': '#f4f4f4',
+    'labelBoxBorderColor': '#1a1a1a',
+    'labelTextColor': '#1a1a1a',
+    'noteBkgColor': '#ffffff',
+    'noteBorderColor': '#8c8c8c',
+    'sequenceNumberColor': '#1a1a1a',
+    'actorPadding': 25,
+    'messageMargin': 35
+  }
+}}%%
+sequenceDiagram
+    autonumber
+    actor A as Assessor<br/>(supervisor, examiner, lecturer)
+    participant UI as Evaluation UI<br/>(React SPA)
+    participant C as Evaluation<br/>Controller
+    participant SVC as Evaluation<br/>Service
+    participant R as Rubric, Scores,<br/>Vitality + Audit
+
+    A->>UI: Open the allocated form
+    UI->>C: GET /api/evaluations/{id}
+    C->>SVC: load the rubric and the existing scores
+    SVC-->>C: rubric criteria and their weights
+    C-->>UI: 200 OK, one 0-5 select per criterion
+
+    A->>UI: Choose a score for each criterion
+    UI->>C: PUT /api/evaluations/{id}/marks
+    C->>SVC: saveMark(evaluation, marks)
+
+    alt A.1 This form's assessment window is not open
+        SVC-->>C: 422 refused
+        C-->>UI: 422 refused, this form is not open yet
+    else A.3 A score is outside 0 to 5
+        SVC-->>C: 422 refused
+        C-->>UI: 422 refused, the assessor corrects it
+    else Valid
+        SVC->>R: Convert each item score to the criterion's weight
+        SVC->>R: Store the item score beside the converted mark
+        C-->>UI: 200 OK, marks saved
+    end
+
+    A->>UI: Submit the form
+    UI->>C: POST /api/evaluations/{id}/submit
+    C->>SVC: submit(evaluation)
+
+    alt A.2 The form is already submitted
+        SVC-->>C: 422 refused, the form is locked
+    else A.4 A criterion is unmarked
+        SVC-->>C: 422 refused, naming each unmarked criterion
+    else A.5 A dependent milestone is not approved
+        SVC-->>C: 422 refused
+    else A.6 The assessor declares a conflict of interest
+        SVC->>R: Mark the form recused
+        SVC->>R: Notify the coordinators, so a replacement can be allocated
+    else Every criterion marked
+        SVC->>R: Lock the form, recompute and publish the final mark
+        C-->>UI: 200 OK
+        UI-->>A: The student can now see the mark
+    end

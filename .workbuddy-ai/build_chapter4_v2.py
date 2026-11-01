@@ -434,7 +434,7 @@ table(
         ["6", "Notification",
          "- The system shall send a deadline reminder seven, three and one days before a milestone is due.\n"
          "- The system shall de-duplicate a reminder so a retried run cannot send it twice.\n"
-         "- The system shall let a user read, dismiss and change which notification types they receive, except the mandatory ones."],
+         "- The system shall let a user read, dismiss and change which notification types they receive."],
     ],
     widths=(1.2, 2.8, 10.9),
 )
@@ -784,16 +784,18 @@ USE_CASES = [
                      "A.2 The wave was already sent to this recipient\n\n"
                      "1. It is skipped, which is what keeps a retried run safe.\n\n"
                      "A.3 The user opted out of that type, or is inactive\n\n"
-                     "1. Nothing is sent.\n\n"
-                     "A.4 The user turns off a type the faculty treats as mandatory\n\n"
-                     "1. The change is ignored, so those notifications always arrive."),
+                     "1. Nothing is sent."),
+        # There is no "the change is ignored" flow. The user confirmed on
+        # 2026-11-01 that no notification type is mandatory, so no setting can be
+        # refused: every preference a user sets is honoured. FR21 was reworded to
+        # match, because it had promised an exception the system does not make.
         exceptions=("E.1 A mail transport failure occurs\n"
                     "The ledger entry stays unwritten, so the next run retries the same "
                     "recipient rather than losing the reminder."),
         requirements=[
             ("FR19", "The system shall send a deadline reminder seven, three and one days before a milestone is due.", "Basic"),
             ("FR20", "The system shall de-duplicate a reminder so a retried run cannot send it twice.", "Basic"),
-            ("FR21", "The system shall let a user read, dismiss and choose notification types, except mandatory ones.", "Average"),
+            ("FR21", "The system shall let a user read, dismiss and choose which notification types they receive.", "Average"),
         ],
         seq="sequence_notification.png",
         act="activity_notification.png",

@@ -1,0 +1,57 @@
+%%{init: {
+  'theme': 'base',
+  'sequence': {
+    'mirrorActors': false
+  },
+  'themeCSS': '.actor-line { stroke-dasharray: 4, 4; }',
+  'themeVariables': {
+    'fontFamily': 'Times New Roman, serif',
+    'fontSize': '15px',
+    'primaryColor': '#ffffff',
+    'primaryTextColor': '#1a1a1a',
+    'primaryBorderColor': '#1a1a1a',
+    'lineColor': '#333333',
+    'signalColor': '#333333',
+    'signalTextColor': '#1a1a1a',
+    'actorBkg': '#ffffff',
+    'actorBorder': '#1a1a1a',
+    'actorTextColor': '#1a1a1a',
+    'actorLineColor': '#8c8c8c',
+    'labelBoxBkgColor': '#f4f4f4',
+    'labelBoxBorderColor': '#1a1a1a',
+    'labelTextColor': '#1a1a1a',
+    'noteBkgColor': '#ffffff',
+    'noteBorderColor': '#8c8c8c',
+    'sequenceNumberColor': '#1a1a1a',
+    'actorPadding': 25,
+    'messageMargin': 35
+  }
+}}%%
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant UI as Login UI<br/>(React SPA)
+    participant AC as AuthController<br/>(Laravel API)
+    participant DB as User model<br/>+ database
+
+    U->>UI: Enter email and password
+    UI->>AC: POST /api/auth/login
+
+    Note over UI,AC: A.1 Missing or malformed input<br/>is refused by the form before it is sent
+
+    AC->>DB: Find the account by email
+    DB-->>AC: user row, or none
+    AC->>DB: Verify the password against its hash
+    DB-->>AC: hash, or no match
+
+    alt A.2 Unknown account, A.3 locked, A.4 inactive
+        AC-->>UI: 422 refused (one message for all three)
+        UI-->>U: Show the error, stay on the form
+    else Credentials correct and account usable
+        AC->>AC: Reset the failed attempt counter
+        AC->>AC: Record the sign-in in the audit log
+        AC->>DB: Create the Sanctum token
+        DB-->>AC: token, user, home route
+        AC-->>UI: 200 OK
+        UI-->>U: Redirect to the role dashboard
+    end

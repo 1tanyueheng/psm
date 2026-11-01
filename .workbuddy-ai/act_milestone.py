@@ -22,7 +22,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from actkit import Diagram
+from actkit import LINE_H, PAD, Diagram
 
 OUT = r"C:\Users\yuehe\Desktop\study\fyp\AIProject\psm-system\thesis\diagrams\activity_milestone.png"
 
@@ -81,10 +81,30 @@ RB_X = CX + BOXC / 2 + 60 + 210
 rb = dg.action(RB_X, d2 - 40, "status = rejected\nrevision counter + 1", w=400)
 dg.connect(CX + (DIAW + 40) / 2, d2, RB_X - 200, d2)
 dg.label(CX + (DIAW + 40) / 2 + 12, d2 - 28, "send back", anchor="la", bold=True)
-back_x = RB_X + 200 + 50
-dg.route([(RB_X, rb), (RB_X, rb + 46), (back_x, rb + 46),
-          (back_x, upload_top + 30), (CX + BOXC / 2, upload_top + 30)])
-dg.label(back_x + 12, rb + 56, "re-upload", anchor="la")
+
+# The re-upload path.
+#
+# Two faults were here, both found by looking at the render rather than the code:
+#
+#   1. It came back in at `upload_top + 30`, which is *inside* the action box, so
+#      the arrowhead was swallowed by the box's outline and the line ended in the
+#      middle of the shape. It now lands on the box's RIGHT edge at its centre.
+#
+#   2. The vertical run sat at `back_x`, which is 1395 — straight through the
+#      "Refuse 422" box (x 1432..1992 is clear of it, but 1395 is not: the box
+#      starts at RX - w/2 = 1340 - 280 = 1060 and ends at 1620). The run now
+#      goes down the right-hand margin at `MARGIN_X`, past every shape.
+UPLOAD_H = 1 * LINE_H + PAD          # one line of text, so the box is this tall
+right_edge = CX + BOXC / 2
+mid_up = upload_top + UPLOAD_H / 2
+
+# Right of the widest shape on the right-hand column (the Refuse box ends at
+# 1620), so the return line never crosses a box.
+MARGIN_X = W - 30
+
+dg.route([(RB_X, rb), (RB_X, rb + 46), (MARGIN_X, rb + 46),
+          (MARGIN_X, mid_up), (right_edge, mid_up)])
+dg.label(MARGIN_X - 12, rb + 56, "re-upload", anchor="ra")
 
 prev = step(d2_bot, "Milestone approved")
 dg.label(CX - (DIAW + 40) / 2 - 12, d2 + 12, "approve", anchor="ra", bold=True)
@@ -96,8 +116,15 @@ dg.connect(CX, prev, CX, y + 10)
 y = dg.end(CX, y, r=18)
 dg.label(CX, y + 10, "end")
 
-dg.note(40, 210, "The proposal is the exception: its verdict is the\n"
-                 "panel's, and approving it never opens the chain.")
+# The note about the proposal has been removed (2026-11-01).
+#
+# It read "The proposal is the exception: its verdict is the panel's, and
+# approving it never opens the chain", and it was drawn at x=40, y=210 — which
+# is on the main spine, so its second line was struck through by the arrow
+# between "chain generated" and "First milestone opened". Worse, it was a claim
+# the specification contradicts: the panel decision is asserted in the use case
+# as an alternative flow (A.4), not left off the figure. The flow itself is
+# unchanged; only the offending label is gone.
 
 dg.save(OUT, crop_bottom=y + 64)
 print("wrote", OUT)

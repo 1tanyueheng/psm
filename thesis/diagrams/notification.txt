@@ -1,0 +1,64 @@
+%%{init: {
+  'theme': 'base',
+  'sequence': {
+    'mirrorActors': false
+  },
+  'themeCSS': '.actor-line { stroke-dasharray: 4, 4; }',
+  'themeVariables': {
+    'fontFamily': 'Times New Roman, serif',
+    'fontSize': '15px',
+    'primaryColor': '#ffffff',
+    'primaryTextColor': '#1a1a1a',
+    'primaryBorderColor': '#1a1a1a',
+    'lineColor': '#333333',
+    'signalColor': '#333333',
+    'signalTextColor': '#1a1a1a',
+    'actorBkg': '#ffffff',
+    'actorBorder': '#1a1a1a',
+    'actorTextColor': '#1a1a1a',
+    'actorLineColor': '#8c8c8c',
+    'labelBoxBkgColor': '#f4f4f4',
+    'labelBoxBorderColor': '#1a1a1a',
+    'labelTextColor': '#1a1a1a',
+    'noteBkgColor': '#ffffff',
+    'noteBorderColor': '#8c8c8c',
+    'sequenceNumberColor': '#1a1a1a',
+    'actorPadding': 25,
+    'messageMargin': 35
+  }
+}}%%
+sequenceDiagram
+    autonumber
+    participant SCH as Scheduler<br/>(scheduled command)
+    participant NS as Notification<br/>Service
+    participant DB as Milestones, Users,<br/>Ledger
+    participant M as Mail transport
+    actor U as User
+
+    SCH->>NS: Run the reminder sweep
+    NS->>DB: Find milestones due in seven, three or one days
+    DB-->>NS: the milestones and their owners
+    NS->>DB: Read each user's preferences and status
+
+    alt A.1 Nothing is due in this wave
+        NS-->>SCH: nothing to send, move to the next wave
+    else A.2 This recipient was already sent this wave
+        Note over NS,DB: The ledger entry exists, so a retried run<br/>cannot send the same reminder twice
+        NS-->>SCH: skipped
+    else A.3 The user opted out of this type, or is inactive
+        NS-->>SCH: nothing sent to that user
+    else Send
+        NS->>DB: Write the in-app notification
+        NS->>M: Send the mail
+        M-->>NS: accepted
+        NS->>DB: Record the dispatch in the ledger
+        NS-->>SCH: sent
+    end
+
+    U->>NS: Open the notification centre
+    NS->>DB: Read the user's unread items
+    DB-->>NS: the items
+    NS-->>U: the list
+    U->>NS: Dismiss an item, or change the types they receive
+    NS->>DB: Save the dismissal or the preference
+    NS-->>U: confirmed

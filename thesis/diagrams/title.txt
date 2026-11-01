@@ -29,7 +29,7 @@
 }}%%
 sequenceDiagram
     autonumber
-    participant S as Student /<br/>Supervisor
+    actor S as Student /<br/>Supervisor
     participant UI as Registration UI<br/>(React SPA)
     participant C as Registration<br/>Controller
     participant SVC as Registration<br/>Service
@@ -39,22 +39,41 @@ sequenceDiagram
     S->>UI: Fill in Lampiran A and submit
     UI->>C: POST /api/registrations/agreements
     C->>SVC: submitAgreement(...)
-    SVC->>SVC: Validate term open, no project,<br/>title usable, supervisor serves<br/>the programme
-    SVC->>A: Save the agreement<br/>status = pending_supervisor
-    C-->>UI: 201 Created
+    SVC->>SVC: Confirm a term is open and no project exists
+    SVC->>SVC: Confirm the supervisor serves the programme
 
-    S->>UI: Choose one proposed title<br/>and acknowledge
+    alt A.1 No term, or a project or agreement already exists
+        C-->>UI: 422 refused, naming the cause
+    else A.2 A proposed title is unusable
+        C-->>UI: 422 refused, the student corrects it
+    else A.3 Supervisor does not serve the programme
+        C-->>UI: 422 refused
+    else Valid
+        SVC->>A: Save the agreement, status = pending_supervisor
+        C-->>UI: 201 Created
+    end
+
+    S->>UI: Choose one proposed title and acknowledge
     UI->>C: POST .../{agreement}/acknowledge
     C->>SVC: acknowledgeBySupervisor(...)
-    SVC->>A: Create the supervision and<br/>save the agreed title
-    C-->>UI: Lampiran B may be filed
+
+    alt A.4 The title named is not one the student proposed
+        C-->>UI: 422 refused, Part C is a choice between the candidates
+    else Title is one of the three proposed
+        SVC->>A: Create the supervision, record the agreed title
+        C-->>UI: Lampiran B may be filed
+    end
 
     S->>UI: File Lampiran B, then sign it
-    UI->>SVC: PUT .../{form}/file<br/>POST .../{form}/sign
-    SVC->>B: Endorse the form and<br/>open the proposal milestone
-    UI-->>S: The proposal is open
+    UI->>SVC: PUT .../{form}/file and POST .../{form}/sign
 
-    S->>UI: Withdraw the filing
-    UI->>C: POST .../{agreement}/withdraw
-    C->>SVC: withdrawAgreement()
-    C-->>UI: 200 OK (cancelled, pairing retired)
+    alt A.5 The supervisor sends the form back
+        SVC->>B: Return the form as a draft, with a reason
+        B-->>UI: Draft, waiting for the student
+    else Signed
+        SVC->>B: Endorse the form
+        SVC->>B: Open the proposal milestone
+        UI-->>S: The proposal is open
+    end
+
+    Note over S,UI: A.6 Withdrawal is a separate action, available<br/>only until a project is registered from the filing
