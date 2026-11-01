@@ -402,33 +402,41 @@ from. Two kinds, and they are not interchangeable:
 
 ##### The PSM 1 Gantt — how to date it, and what not to change
 
-`psm1_plan.txt` is a Mermaid `gantt` covering **Weeks 00–15**, Mon 14 Sep 2026 →
-Sun 3 Jan 2027 (`2026-09-14` + 7 days × the week number). `excludes weekends`,
-`axisFormat W%W`, `todayMarker off`.
+`psm1_plan.txt` is a Mermaid `gantt` covering **Weeks 01–16** of the faculty's
+own week table: W01 starts **Mon 21 Sep 2026**, W16 ends **Fri 8 Jan 2027**,
+each week **Monday to Friday**. Section 4 of this file's §3 has no dates any
+more — the week table in `psm1_weektable.png` is the source and
+`.workbuddy-ai/check_gantt.py` carries it as `WEEKS`.
 
 - **The twelve faculty milestones are the anchor and must not move**: FORM A
-  (W00), FORM B (W01), Title Defence (W02), FORM C + OSHE (W03), Chapters 1–4
+  (W01), FORM B (W01), Title Defence (W02), FORM C + OSHE (W03), Chapters 1–4
   (W05, W07, W09, W11), Demo (W12), PSM 1 documents (W13), panel evaluation
-  (W14), presentation (W15). Every date in that file is checked against the
-  timetable by `.workbuddy-ai/check_gantt.py`.
-- **Everything else is work hung off an anchor**, so no row claims a deadline
-  the faculty has not set. The `Refine Chapter n` rows use **`after evN`** (the
-  day after that evaluation), which is the Prototyping loop from Chapter 3, not
-  an invented date.
+  (W14), presentation (W15). All twelve are checked against the table.
+- **Everything else hangs off an anchor**, so no row claims a deadline the
+  faculty has not set. Each chapter is drafted *before* the week it is due and
+  refined in the week after its evaluation — a deadline the writer has already
+  missed is not a plan.
+- **`Nd` in Mermaid is CALENDAR days, not working days.** `7d` from a Monday
+  ends the following Sunday, so a bar meant to be one working week silently
+  claims both weekends. **Every duration here is a multiple of five, every bar
+  starts Monday and ends Friday**, and the checker refuses anything else. This
+  is the single most likely way to get this file subtly wrong.
+- **`after evN` is no longer used.** "The Tuesday after an evaluation" is a
+  defensible date and an indefensible bar — it breaks the Monday rule for no
+  reading benefit. The refinements start the Monday after their evaluation.
 - **`check_gantt.py <file>` is the verification.** There is no Mermaid renderer
   in this repo and draw.io converts rather than renders, so this parses the
-  source the way Mermaid does and then checks the *dates*: uniqueness of ids,
-  `after` references, milestones being `0d`, nothing before W00 or past W15,
-  every row inside the week band its own section names, and the twelve anchors
-  against the timetable.
-- **Its first version was silently useless**, which is the lesson worth keeping:
-  it folded `after ev1` into the *id* slot, so four rows started on `TODAY`
-  (= W00) and the checker reported no problems. A validator that mis-parses the
+  source the way Mermaid does and then checks the *dates*: unique ids,
+  `after` references, milestones being `0d`, weekdays only, every row inside the
+  band its section advertises, and the twelve anchors against the week table.
+- **Its first version was silently useless**, which is the lesson worth
+  keeping: it folded `after ev1` into the *id* slot, so four rows started on
+  `TODAY` and the checker reported no problems. A validator that mis-parses the
   construct it exists to validate is worse than none — it was caught only by
   printing the schedule and reading the weeks. **Always print and read the
   output, not just the exit code.**
 - **Mermaid wants `<name> :<tags>, <id>, <start>, <end>`** — a task with no id
-  (`:after ev1, 7d`) loses its `after` clause. Every row here carries one.
+  (`:after ev1, 7d`) loses its start clause entirely. Every row here carries one.
 
 **No `Note over A,B` statements in any sequence source** (2026-11-01, the user's
 rule). A note is not a message and not a step: on Figure 4.2 it was where the
