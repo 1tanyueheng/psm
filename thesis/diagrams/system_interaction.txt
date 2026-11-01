@@ -1,0 +1,83 @@
+%%{init: {
+  'theme': 'base',
+  'sequence': {
+    'mirrorActors': false
+  },
+  'themeCSS': '.actor-line { stroke-dasharray: 4, 4; }',
+  'themeVariables': {
+    'fontFamily': 'Times New Roman, serif',
+    'fontSize': '15px',
+    'primaryColor': '#ffffff',
+    'primaryTextColor': '#1a1a1a',
+    'primaryBorderColor': '#1a1a1a',
+    'lineColor': '#333333',
+    'signalColor': '#333333',
+    'signalTextColor': '#1a1a1a',
+    'actorBkg': '#ffffff',
+    'actorBorder': '#1a1a1a',
+    'actorTextColor': '#1a1a1a',
+    'actorLineColor': '#8c8c8c',
+    'labelBoxBkgColor': '#f4f4f4',
+    'labelBoxBorderColor': '#1a1a1a',
+    'labelTextColor': '#1a1a1a',
+    'noteBkgColor': '#ffffff',
+    'noteBorderColor': '#8c8c8c',
+    'sequenceNumberColor': '#1a1a1a',
+    'actorPadding': 25,
+    'messageMargin': 35
+  }
+}}%%
+sequenceDiagram
+    autonumber
+    actor C as Coordinator
+    participant UI as React SPA
+    participant API as Route + Policy
+    participant SVC as Service layer
+    participant ELO as Eloquent models
+    participant DB as PostgreSQL<br/>(Supabase)
+    participant S3 as Supabase Storage<br/>(S3 endpoint)
+    participant N as Notification<br/>dispatcher
+
+    Note over UI,DB: One request, one template. Every use case is<br/>a controller that asks a service, which owns the rule.
+
+    C->>UI: Place a student in PSM 1 for the term
+    UI->>API: POST /api/enrolments
+    API->>API: StudentEnrolmentPolicy + Role gate
+    API->>SVC: EnrolmentService::enrol()
+
+    alt The student already holds the other part this term
+        SVC-->>API: 422 refused, naming the other part and the term
+        API-->>UI: 422 refused
+        UI-->>C: The rule is stated, not implied
+    else PSM 1 in an earlier term only
+        SVC->>DB: Save the enrolment, attempt_no = 1
+        SVC->>DB: Write the audit row (enrolment.created)
+        API-->>UI: 201 Created
+    end
+
+    C->>UI: Put a supervisor on the student
+    UI->>API: POST /api/assignments
+    API->>SVC: AssignmentService::assignSupervisor()
+    SVC->>DB: Six ordered guards, programme before capacity
+    SVC->>DB: Save the supervision, retire the old seating
+    SVC->>N: Queue the acknowledgement reminder
+    API-->>UI: 201 Created
+
+    Note over API,N: Every write passes the same four gates,<br/>so the rules cannot be bypassed by a screen.
+
+    C->>UI: Open the assessment window
+    UI->>API: POST /api/assessment-windows/{id}/open
+    API->>SVC: AssessmentWindowService::open()
+    SVC->>DB: One evaluation row per assessor, per rubric
+    SVC->>N: Notify every assessor who now has a form
+    API-->>UI: 200 OK, N forms created
+
+    C->>UI: Release the mark once every assessor has submitted
+    UI->>API: POST /api/evaluations/release
+    API->>SVC: MarkVisibilityService::release()
+    SVC->>DB: Recompute weightedTotal, rescale to 0-100
+    SVC->>DB: Save final_mark and its breakdown
+    SVC->>N: Notify the student the mark is visible
+    API-->>UI: 200 OK, the definition of the contribution's third claim
+
+    Note over SVC,N: At term close TermCloseService derives<br/>completed or failed from final_mark >= 40,<br/>then settles enrolments and releases seats.

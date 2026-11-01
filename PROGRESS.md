@@ -1,6 +1,6 @@
 # PROGRESS — PSM Assessment System (thesis + code)
 
-**Last updated:** 2026-11-01
+**Last updated:** 2026-11-01 (evening session — see §3A.0's second table)
 **Owner:** yuehe
 **Purpose:** the single file another agent (or you, next month) reads first to
 know exactly where this project stands.
@@ -261,9 +261,14 @@ a migration or the tables will describe a database that no longer exists.
 
 | Script | Makes |
 |---|---|
-| `build_chapter4.py` | the whole chapter |
+| `build_chapter4_v2.py` | the whole chapter (v2 — the faculty format the user supplied) |
 | `usecase_diagram.py` | Figure 4.1 — replaces the old draw.io file, which still drew pairing as a use case |
 | `class_diagram.py` | Figure 4.14 — twelve classes, hand-placed corridors |
+| `act_*.py` | the six **activity** diagrams — still PIL, still the figures in the chapter |
+| `seq_*.py` | the PIL **sequence** diagrams — **no longer used**; the chapter carries the user's Mermaid renders |
+| `make_mermaid_sources.py` | `login.txt`, `title.txt`, `milestone.txt`, `evaluation.txt`, `report.txt`, `notification.txt` — the six sequence sources the user pastes into draw.io |
+| `make_system_mermaid_sources.py` | `system_class.txt` (39 classes) and `system_interaction.txt` — the whole-system figures, self-checked. See §3A.0a |
+| `replace_docx_images_by_caption.py` | swaps a PNG into the `.docx` by the caption under it — the only safe way to update a figure once the user has edited the document |
 | `dump_schema.php` | `schema.json`, for the data dictionary |
 
 ### Which script builds which chapter (2026-10-30)
@@ -289,6 +294,14 @@ point on a shared edge. If it has to be redrawn, keep that property.
 
 ### Remaining thesis work
 
+- [ ] **Give Figure 4.7's "approve" branch a label** — the diamond draws
+      `send back` on the right and `approve` on the left, but the **straight-down
+      branch carries nothing**. See §7.
+- [ ] **Chapter 4 has no Database Design or Interface Design section any more.**
+      The user removed both on 11-01 when they rebuilt the chapter in the
+      faculty's format (`c4\Chapter4.docx`). Decide whether they are required
+      before the chapter is handed in; the content still exists in
+      `build_chapter4_v2.py` and can be restored.
 - [ ] **Fix the use case diagram** so pairing is not drawn as its own case.
       (`usecase_diagram.py` already redraws it without pairing — it was the old
       **draw.io** `PSM.drawio.png` that still drew it, and that file must not be
@@ -305,14 +318,23 @@ point on a shared edge. If it has to be redrawn, keep that property.
       the final document needs the union, de-duplicated. Watch the name forms:
       `Chong Er Juan & Wahid (2021)` in Chapter 3 and `Chong & Wahid (2021)` in
       §3 of this file are probably the same source. Pick one and use it in both.
+- [ ] **Decide whether the class diagram stays at 12 classes.** Figure 4.14 is
+      `class_diagram.py`'s hand-routed twelve; `system_class.txt` covers all 39.
+      A chapter normally shows the domain core, so the twelve are probably
+      right — but the wider one now exists if the examiner asks.
+- [ ] **The six sequence sources still carry `themeCSS`.** In draw.io it is
+      dropped silently, so the line that hides the bottom actor does nothing
+      there; the user works around it by inserting as an **Image**. If the
+      sources are ever regenerated, drop the `themeCSS` key and say so.
 
 ---
 
 ## 3A. Codebase status (what the system actually does)
 
 Companion to §3. §3 tracks the *thesis*; this tracks the *software*. **Updated
-2026-11-01.** The newest block is §3A.0 below; the rest was written 2026-10-25
-to 10-27 and still holds except where a later section says otherwise.
+2026-11-01.** The newest block is §3A.0 below (and its §3A.0a for the evening of
+11-01); the rest was written 2026-10-25 to 10-27 and still holds except where a
+later section says otherwise.
 
 ### 3A.0 — The last sessions (2026-10-28 → 11-01)
 
@@ -331,6 +353,93 @@ HTTP, and the commits are named so the detail can be found again.
 | 11-01 | **The supervision queue is scoped to one term and one part**, and lists only students who can actually be assigned | see below |
 | 11-01 | **The assignment page timed out** — a missing eager load made the supervisor list run 203 queries; now 7 | see below |
 | 11-01 | **Mojibake repaired across the frontend** — the `Choose supervisor…` dropdown placeholder had been mangled; 92 sequences in 6 files, plus a reusable repair script | see §5 |
+| 11-01 | Chapters 1–3 brought under the **15-word sentence limit**; Chapter 4 rebuilt in the faculty format; the six sequence diagrams became **Mermaid** sources the user pastes into draw.io | see §3, §4 |
+| 11-01 | **Three activity-diagram faults fixed** by figure number (4.5 spine gap, 4.7 re-upload path, 4.9 missing Yes) | `36f42d6` |
+| 11-01 | **Figure 4.7's re-upload arrow re-targeted to the spine** above the upload box, as the user asked | §3A.0a |
+| 11-01 | **Figure 4.9's `end` was cropped off** — canvas too short; fixed | §3A.0a |
+| 11-01 | **The system-wide class diagram and a system interaction diagram, as Mermaid** — 39 models, 45 relations | §3A.0a |
+
+#### 3A.0a — The evening of 11-01: the diagrams, and the Mermaid pairing
+
+The user's last requests in the session that broke were all about **Figure 4.7's
+re-upload path** and about getting **Mermaid** sources instead of hand-drawn
+PNGs. State at the end of the session:
+
+| Figure | State | Verified how |
+|---|---|---|
+| **4.5** Title and registration | spine gap closed, `re-files` return has a head and rejoins the file step | PNG read at full size |
+| **4.7** Milestone | re-upload leaves the rejected box with its own arrowhead, runs up the right margin and **lands on the vertical spine between "First milestone opened" and "Student uploads the file(s)"** | PNG read, plus the page rendered out of the `.docx` |
+| **4.9** Evaluation | every diamond has **Yes** on the left and **No** on the right; **the `end` circle is drawn again** | PNG read at full size |
+| 4.8 sequence (and the other five) | the user's own **Mermaid** renders, inserted as images — the PIL `seq_*.py` figures are no longer used | `.docx` render |
+
+**Figure 4.9 was cropped, not mis-drawn.** `act_evaluation.py` declared
+`Diagram(W, 1200)` while the flow needs about y=1180 for the end circle, and
+`actkit.Diagram.save()` clamps `crop_bottom` to the canvas — so the end was
+drawn past the bottom and then cut off. The canvas is now 2000; the picture is
+the same 1800 px wide, so nothing else moved. **A canvas that is too short does
+not fail; it silently clips.** Check the exported size, not just the code.
+
+**Figure 4.7 has a second defect that is still open** — see §7, "the rejected
+box has no Yes": the "Approve, or send back?" diamond draws `send back` on its
+right branch and `approve` on its left, but its **straight-down branch carries
+nothing**, so the approve path reads as an unlabelled line. Fix it the way 4.9
+was fixed (a `Yes` label at the diamond's bottom vertex), then re-render and
+replace the figure in the chapter.
+
+##### Mermaid sources — where they live now
+
+`thesis\diagrams\*.txt` are the **pasted-into-draw.io** sources the user works
+from. Two kinds, and they are not interchangeable:
+
+| File | Kind | What it draws |
+|---|---|---|
+| `login.txt`, `title.txt`, `milestone.txt`, `evaluation.txt`, `report.txt`, `notification.txt` | `sequenceDiagram` | Figures 4.2, 4.4, 4.6, 4.8, 4.10, 4.11–4.12 — **the user's own**, generated earlier by `make_mermaid_sources.py` |
+| `system_class.txt` | `classDiagram` | the whole system: **39 classes, one per model**, 45 relations |
+| `system_interaction.txt` | `sequenceDiagram` | one request through Route → Policy → Service → Eloquent → PostgreSQL, with the enrolment, assignment, window-open and release paths |
+
+`activity_title.txt` was written during the broken session and then
+**removed**: it was a `flowchart` of Figure 4.5, the flowcharts were never part
+of the six-sequence Mermaid set, and draw.io's importer garbles flowcharts. The
+PNG remains the figure.
+
+`make_system_mermaid_sources.py` generates the last two and **self-checks**
+before writing — it fails if any class is used but not declared, and it asserts
+every relation line has the `:` Mermaid requires. Re-run it after adding a model;
+it does not read the models, so the class list is a hand-kept copy. **The check
+that catches a missed model is comparing the list with
+`backend/app/Models/*.php`, and it is a two-liner — run it.**
+
+##### What draw.io does and does not accept, learned the hard way
+
+These cost most of the broken session's time. They apply to any Mermaid work in
+this thesis.
+
+- **`themeCSS` is silently dropped.** draw.io converts Mermaid into its own
+  shapes; there is no CSS pipeline. `.actor-bottom { display: none }` in
+  `themeCSS` — which is what the six sequence sources still carry — **does
+  nothing** in draw.io.
+- **`mirrorActors: false` only works with "Insert as Image".** With the default
+  **Insert as Diagram**, draw.io lays the actors out itself and the bottom actor
+  always appears. Choose **Image** in the dialog's dropdown *at insert time* —
+  it cannot be converted afterwards.
+- **A Diagram is one locked container group;** clicking selects the group, not
+  a shape. Right-click → **Ungroup** is the escape hatch, but it discards the
+  Mermaid link.
+- **`namespace` and `direction` in a class diagram do not survive the import.**
+  `system_class.txt` therefore uses no `namespace`: each class id carries its
+  group (`People__User`) and the relations give the layout its columns.
+- **Comments must come *before* the `%%{init}%%` block**, not between it and the
+  `classDiagram` / `sequenceDiagram` keyword.
+
+##### The session that broke
+
+`session-a734ccbf-2564-4b88-aaa5-da4cfd9751e7` stopped mid-turn-27. Its
+transcript is `session.v4.jsonl.zstd` under
+`%USERPROFILE%\.dsh\sessions\--C-Users-yuehe-…--\`. It **is** readable —
+`zstd -d` decompresses it (msys64 ships `zstd.exe`) and every record is one JSON
+line: `user/message`, `assistant/message`, `tool/call`, `tool/result`. That is
+how this section was recovered, and it is the better route than guessing from
+`git log`. **The claim in §6 that the transcripts cannot be read is wrong.**
 
 #### One part per student per term — the rule (2026-11-01)
 
@@ -965,6 +1074,7 @@ design read the sections above.
 | *(this session)* | 10-27 | **PSM lifecycle rewritten to a signed-off spec** (`thesis/PSM-LIFECYCLE-SPEC.md`): verdict board, `changeTitle()` and the four-value status **deleted**; `TermCloseService` derives pass/fail from the mark at term close; **Lampiran B becomes a table** with `revision_no` and `rejected_reason`; refused titles **re-presented, no cap**; only a mark below 40 repeats; deadlines become labels (`lateness()`), not locks; **PSM 2 title change** at the chain start with Chapters 1–4 refiled at weight 0; milestone `attempt` column; two diagrams redrawn |
 | *(this session)* | 10-28 | **Chapter 4 rebuilt as one document** in the faculty's format (class diagram, no ERD); Chapter 1 §1.1 → three cited paragraphs; Chapter 2 §2.2+2.3 merged and cited; **Chapter 3 written around the Prototyping model** with Figure 3.1 |
 | *(this session)* | 10-30 | **Acknowledgement enrols the student** (the capacity hole); **PSM 2 boundary prompt**; rollover screen retired; department removed and **faculty fixed to FSKTM server-side**; **enrolment Delete** with four guards and its own audit action |
+| *(this session)* | 11-01 | **Chapters 1–3** brought under the 15-word sentence limit (chapters only — figures and tables untouched); **Chapter 4 rebuilt** in the faculty's format with the six **Mermaid** sequence sources; three activity-diagram faults fixed by figure number; **Figure 4.7's re-upload arrow re-targeted to the spine**; **Figure 4.9's cropped `end` restored**; **system-wide class + interaction Mermaid sources** written |
 
 The transcripts are zstd-compressed and unreadable to a new agent. They are not
 a substitute for this file — read `git log --oneline` instead.
@@ -1126,7 +1236,7 @@ script. The script produced no error for any of them.
 | **A connector through a shape** | a line crossing a box | the route reused an x that the boxes occupied further down |
 | **Two opposite labels reading as one line** | "Yes — proposal No — other" | one label above the line, one below, both on the same side |
 | **A stale word in a box** | "the chain has not opened it yet *(late work is accepted)*" beside a "Refuse" label | the box was written before deadlines stopped blocking |
-| **Content cropped** | the end circle missing | canvas height fixed at `3600` while the drawing ran past it — always pass `crop_bottom=` |
+| **Content cropped** | the end circle missing | canvas height fixed at `3600` (or `1200` in `act_evaluation.py`, 11-01) while the drawing ran past it. `save()` **clamps** `crop_bottom` to the canvas, so an over-tall canvas is harmless and an under-tall one silently clips. Always pass `crop_bottom=` **and** check the exported size |
 
 **Read the rendered PNG at full size, crop by crop.** A 40 % zoom-down view hides
 exactly the overlaps this table lists.
@@ -1136,15 +1246,20 @@ exactly the overlaps this table lists.
 | Script | Makes |
 |---|---|
 | `uml_kit.py` | **Shared drawing library** — shapes, arrows, `connect()`, `route()`, `label()`. Start here. |
-| `act_login_v2.py`, `act_pairing_v2.py`, `act_ms_v3.py`, `act_report.py`, `act_notif.py` | Activity diagrams |
-| `seq_report.py`, `seq_notif.py` | Sequence diagrams (later ones) |
-| `make_*_seq.py`, `make_*_act.py` | Earlier sequence/activity diagrams |
-| `build_ch4_*.py` | Build the `.docx` for each use case |
+| `actkit.py` | the newer activity kit: `Diagram`, `action()`, `decision()`, `connect()`, `route()`, `arrowhead()`, `label()`, `save(crop_bottom=)`. Every `act_*.py` uses it |
+| `act_login.py`, `act_title.py`, `act_milestone.py`, `act_evaluation.py`, `act_report.py`, `act_notification.py` | **The six activity figures in Chapter 4** — these are current |
+| `seqkit.py` + `seq_login.py`, `seq_title.py`, `seq_milestone.py`, `seq_evaluation.py`, `seq_report.py`, `seq_notification.py` | the six sequence figures. **Superseded** by the user's Mermaid renders; keep them as the record of the intended flow |
+| `make_mermaid_sources.py` | writes the six `sequenceDiagram` sources the user pastes into draw.io |
+| `make_system_mermaid_sources.py` | writes `thesis\diagrams\system_class.txt` and `system_interaction.txt` — the whole-system figures, with self-checks |
+| `act_login_v2.py`, `act_pairing_v2.py`, `act_ms_v3.py`, `act_notif.py` | earlier activity draughts, superseded |
+| `make_*_seq.py`, `make_*_act.py` | earlier sequence/activity diagrams, superseded |
+| `build_ch4_*.py` | the per-use-case `.docx` builders — **superseded** by `build_chapter4_v2.py` |
+| `replace_docx_images_by_caption.py` | swaps a PNG into an edited `.docx` by matching the caption under each image |
 | `build_xlsx.py` | The HIRARC form (unrelated side task) |
 | `cite_ch1.py` | Added the Chapter 1 citations |
 | `build_ch1_cited.py` | Builds `Chapter1 - Introduction (cited).docx` from the Chapter 2 style template |
 | `make_demo_signatures.py` | The eight watermarked demo supervisor signatures |
-| `fix_mojibake.py`, `fix_mojibake_strings.py`, `fix_mojibake_last.py` | One-off repairs for text a PowerShell round-trip double-encoded — see §6 |
+| `fix_mojibake.py`, `fix_mojibake_strings.py`, `fix_mojibake_last.py`, `fix_mojibake_frontend.py` | One-off repairs for text a PowerShell round-trip double-encoded — see §5 |
 
 **`act_ms_v3.py` carries the PSM 2 title change as a branch**, not as a second
 figure. It is drawn up the right-hand column *before* the chain exists, because a
@@ -1244,8 +1359,21 @@ LibreOffice Kit paths are in the `office-render` skill.
 
 ## 6. How to hand this to another agent
 
-Do **not** rely on the chat transcript — it is zstd-compressed under
-`%USERPROFILE%\.dsh\sessions\` and a new agent cannot read it. Do this instead:
+Do **not** rely on the chat transcript as your first stop, but **it can be
+read** — the older note in this file saying otherwise was wrong:
+
+```powershell
+$src = "C:\Users\yuehe\.dsh\sessions\--C-Users-yuehe-Desktop-study-fyp-AIProject-psm-system--\session-<id>\session.v4.jsonl.zstd"
+& "C:\msys64\ucrt64\bin\zstd.exe" -d -f -o "$env:TEMP\s.jsonl" $src
+# then: one JSON object per line; $o.type is one of
+#   user/message, assistant/message, tool/call, tool/result, todo/write, ...
+# user text is in $o.data.content[*].text
+```
+
+That is how §3A.0a was recovered from the session that broke on 11-01, and it is
+more reliable than guessing at what a half-finished commit intended. A 10 MB
+transcript is 5,000 records; read the `user/message` lines first to get the
+requests, then only the last few turns. Do this instead:
 
 1. Keep **this file** (`PROGRESS.md`) in the repo root and keep it current.
    It is the memory.
@@ -1387,11 +1515,31 @@ write into ./thesis/ and tell the user to copy across.
 
 ### Thesis
 
+- [ ] **The rejected box has no Yes on Figure 4.7.** The "Approve, or send
+      back?" diamond labels its right branch `send back` and its left branch
+      `approve`, but the branch that goes **straight down** into "Milestone
+      approved" has no label at all — so the normal path reads as an unlabelled
+      line rather than as the answer. It is the same class of fault as the
+      missing `Yes` in Figure 4.9, fixed on 11-01; this one is in
+      `act_milestone.py` around the `d2_bot` step, and the fix is a
+      `dg.label(...)` on the spine just under the diamond's bottom vertex.
+      **Found by looking at the render on 11-01 and not yet fixed.**
+- [ ] **Chapter 4 is 24 pages after the 11-01 figure swaps** (it was 23 — Figure
+      4.9's restored `end` circle made it slightly taller and pushed one page).
+      Check the table of contents once it exists.
+- [ ] **The chapter `.docx` must be patched, not rebuilt.** The user has edited
+      `thesis\Chapter4 - Analysis and Design.docx` by hand — rebuilt it in the
+      faculty format and inserted their own Mermaid renders. Running
+      `build_chapter4_v2.py` would throw all of that away. Update a figure with
+      `replace_docx_images_by_caption.py`, which matches each image to the
+      caption underneath it. **The document was open in Word on 11-01 and the
+      last figure swaps were rendered from a temp copy, not written back** — see
+      §3A.0a.
 - [ ] The old `Chapter2 - Literature Review*.docx` files (4 stale copies) are
       still in `thesis\`. Only `Chapter2 - PSM Assessment System v2.docx` is
       current. For Chapter 1, **`Chapter1 - Introduction (cited).docx`** is the
-      current one (ten verified citations, built by `build_ch1_cited.py`);
-      `Chapter1 - with citations.docx` is the earlier seven-citation version.
+      current one; `Chapter1 - with citations.docx` is the earlier
+      seven-citation version.
 - [ ] Citation style is **author-date**. If the faculty requires IEEE numbered,
       all chapters must be converted together.
 - [ ] Chapter 2 compares only 3 systems (template expects 3). Two more PSM

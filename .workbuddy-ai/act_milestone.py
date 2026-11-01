@@ -103,8 +103,20 @@ dg.label(CX + (DIAW + 40) / 2 + 12, d2 - 28, "send back", anchor="la", bold=True
 # needs: the path leads back to the upload step. The corner is a corner, not an
 # end, and the "re-upload" label sits beside it to say so.
 UPLOAD_H = 1 * LINE_H + PAD          # one line of text, so the box is this tall
-right_edge = CX + BOXC / 2
-mid_up = upload_top + UPLOAD_H / 2
+
+# The return joins the SPINE ABOVE the upload box, not the box's side.
+#
+# `upload_top` is the bottom of "First milestone opened", and the connector from
+# there down to the upload box runs through the gap between them. Landing the
+# return on that connector means the reader sees the flow arrive on the same
+# vertical path the spine uses, and the arrow then continues into the box along
+# the path that is already drawn. Landing it on the box's right edge instead put
+# a second arrowhead against the side of the step, which read as the flow
+# joining the step from nowhere.
+#
+# The join is placed midway down the gap so the arrowhead has air above and
+# below it and does not sit on either outline.
+SPINE_Y = upload_top + G / 2
 
 # Right of the widest shape on the right-hand column (the Refuse box ends at
 # 1620), so the return line never crosses a box.
@@ -130,8 +142,15 @@ DROP = rb + 46
 dg.connect(RB_X, rb - 2, RB_X, DROP, into=6)
 dg.arrowhead(RB_X, DROP - 24, RB_X, DROP, colour=LINE, size=12)
 
-# 2. across and up the margin, then into the upload box
-dg.route([(RB_X, DROP), (MARGIN_X, DROP), (MARGIN_X, mid_up), (right_edge, mid_up)])
+# 2. across and up the margin, then LEFT INTO THE SPINE above the upload box.
+#
+# It used to finish at `right_edge`, the box's right-hand side, so the arrowhead
+# met the step horizontally from the side. The flow it represents re-opens the
+# chain at the point *before* the upload, so it joins the vertical connector that
+# runs from "First milestone opened" down into the upload box — at SPINE_Y, which
+# is midway down that gap. The arrow therefore lands on the same path the reader
+# already follows, and then continues into the step along it.
+dg.route([(RB_X, DROP), (MARGIN_X, DROP), (MARGIN_X, SPINE_Y), (CX, SPINE_Y)])
 dg.label(MARGIN_X - 12, DROP + 10, "re-upload", anchor="ra")
 
 prev = step(d2_bot, "Milestone approved")

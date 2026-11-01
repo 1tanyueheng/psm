@@ -1,0 +1,107 @@
+%% PSM Assessment System - domain class diagram.
+%% 39 classes, one per model in backend/app/Models, and
+%% 45 relations. Paste into mermaid.live, or draw.io ->
+%% Arrange > Insert > Advanced > Mermaid (choose DIRECTORY, not EXTERNAL).
+%% The part before '__' in each id is only for sorting the source.
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'fontFamily': 'Times New Roman, serif',
+    'fontSize': '14px',
+    'primaryColor': '#ffffff',
+    'primaryTextColor': '#1a1a1a',
+    'primaryBorderColor': '#1a1a1a',
+    'lineColor': '#333333',
+    'edgeLabelBackground': '#ffffff',
+    'clusterBkg': '#ffffff',
+    'clusterBorder': '#8c8c8c'
+  }
+}}%%
+classDiagram
+    direction TB
+
+    class People__User["User"]
+    class People__StudentProfile["StudentProfile"]
+    class People__SupervisorProfile["SupervisorProfile"]
+    class People__StudentEnrolment["StudentEnrolment"]
+    class People__CoordinatorScope["CoordinatorScope"]
+    class People__ExpertiseArea["ExpertiseArea"]
+    class People__Section["Section"]
+    class People__LecturerMark["LecturerMark"]
+    class Supervision__SupervisorAgreement["SupervisorAgreement"]
+    class Supervision__SupervisionAssignment["SupervisionAssignment"]
+    class Supervision__ExaminerPair["ExaminerPair"]
+    class Supervision__ExaminerAssignment["ExaminerAssignment"]
+    class Supervision__ProjectMember["ProjectMember"]
+    class Chain__Project["Project"]
+    class Chain__LampiranBForm["LampiranBForm"]
+    class Chain__Milestone["Milestone"]
+    class Chain__MilestoneTemplate["MilestoneTemplate"]
+    class Chain__MilestoneTemplateItem["MilestoneTemplateItem"]
+    class Chain__MilestoneSchedule["MilestoneSchedule"]
+    class Chain__SubmissionFile["SubmissionFile"]
+    class Chain__SubmissionEvent["SubmissionEvent"]
+    class Chain__MilestoneReview["MilestoneReview"]
+    class Marking__RubricTemplate["RubricTemplate"]
+    class Marking__RubricComponent["RubricComponent"]
+    class Marking__RubricCriterion["RubricCriterion"]
+    class Marking__AssessmentWindow["AssessmentWindow"]
+    class Marking__Evaluation["Evaluation"]
+    class Marking__EvaluationScore["EvaluationScore"]
+    class Marking__MarkSubmission["MarkSubmission"]
+    class Marking__FinalGrade["FinalGrade"]
+    class Marking__GradeScheme["GradeScheme"]
+    class Term__AcademicSemester["AcademicSemester"]
+    class Output__DatabaseNotification["DatabaseNotification"]
+    class Output__ReminderDispatch["ReminderDispatch"]
+    class Output__AuditLog["AuditLog"]
+    class Report__Leaderboard["Leaderboard"]
+    class Report__LeaderboardEntry["LeaderboardEntry"]
+    class Report__LeaderboardSetting["LeaderboardSetting"]
+    class Archive__ArchivedProject["ArchivedProject"]
+
+    People__User ||--o| : profile People__StudentProfile
+    People__User ||--o| : profile People__SupervisorProfile
+    People__User ||--o{ : appointed to People__Section
+    People__User ||--o{ : scopes People__CoordinatorScope
+    People__User ||--o{ : audit entries Output__AuditLog
+    People__User ||--o{ : notifications Output__DatabaseNotification
+    People__SupervisorProfile ||--o{ : expertise People__ExpertiseArea
+    People__StudentProfile ||--o{ : enrols People__StudentEnrolment
+    Term__AcademicSemester ||--o{ : enrolments People__StudentEnrolment
+    Term__AcademicSemester ||--o{ : sections, one per code People__Section
+    People__Section ||--o{ : coursework People__LecturerMark
+    People__StudentEnrolment ||--o{ : coursework People__LecturerMark
+    People__StudentProfile ||--o{ : agreements Supervision__SupervisorAgreement
+    People__SupervisorProfile ||--o{ : agreements Supervision__SupervisorAgreement
+    People__StudentEnrolment ||--o| : placement Chain__Project
+    People__StudentProfile ||--o{ : projects leading Chain__Project
+    People__SupervisorProfile ||--o{ : supervises Supervision__SupervisionAssignment
+    Chain__Project ||--o{ : supervisions Supervision__SupervisionAssignment
+    Chain__Project ||--o{ : members Supervision__ProjectMember
+    Chain__Project ||--o{ : panel seatings Supervision__ExaminerAssignment
+    Supervision__ExaminerPair ||--o{ : seats Supervision__ExaminerAssignment
+    Chain__Project ||--o{ : chain Chain__Milestone
+    Chain__Project ||--o{ : filings Chain__LampiranBForm
+    Chain__MilestoneTemplate ||--o{ : ordered steps Chain__MilestoneTemplateItem
+    Chain__MilestoneTemplateItem ||--o{ : instances Chain__Milestone
+    People__StudentEnrolment ||--o{ : deadlines Chain__MilestoneSchedule
+    Chain__Milestone ||--o{ : files Chain__SubmissionFile
+    Chain__Milestone ||--o{ : events Chain__SubmissionEvent
+    Chain__Milestone ||--o{ : reviews Chain__MilestoneReview
+    Marking__RubricTemplate *-- : components Marking__RubricComponent
+    Marking__RubricComponent *-- : criteria Marking__RubricCriterion
+    People__StudentEnrolment ||--o{ : form Marking__Evaluation
+    People__SupervisorProfile ||--o{ : assesses Marking__Evaluation
+    Marking__RubricComponent ||--o{ : instance Marking__Evaluation
+    Term__AcademicSemester ||--o{ : windows Marking__AssessmentWindow
+    Marking__RubricComponent ||--o{ : window Marking__AssessmentWindow
+    Marking__Evaluation *-- : scores Marking__EvaluationScore
+    Marking__RubricCriterion ||--o{ : scores Marking__EvaluationScore
+    Marking__Evaluation ||--o{ : submissions Marking__MarkSubmission
+    People__StudentEnrolment ||--o| : final mark Marking__FinalGrade
+    Marking__GradeScheme ||--o{ : grades Marking__FinalGrade
+    Chain__Milestone ||--o{ : reminders Output__ReminderDispatch
+    Report__Leaderboard *-- : entries Report__LeaderboardEntry
+    Report__LeaderboardSetting --> : configures Report__Leaderboard
+    Chain__Project --> : archived copy Archive__ArchivedProject

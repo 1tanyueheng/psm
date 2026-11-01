@@ -35,7 +35,13 @@ BOXR = 420
 DIAW, DIAH = 320, 140
 G = 48
 
-dg = Diagram(W, 1200)
+# The canvas used to be 1200 tall, which is less than this flow needs: the end
+# circle was drawn past the bottom and then cropped off, so the figure finished
+# on a line that ran off the page with nothing at its end. The end is at about
+# y=1180, and `save(crop_bottom=...)` crops to what was drawn, so the canvas
+# only has to be tall enough. `save()` clamps the crop to the canvas, which is
+# why an over-tall canvas is harmless but an under-tall one silently clips.
+dg = Diagram(W, 2000)
 
 y = 30
 y = dg.start(CX, y + 8)
