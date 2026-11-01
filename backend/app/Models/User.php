@@ -397,47 +397,37 @@ class User extends Authenticatable
     }
 
     // -----------------------------------------------------------------
-    // Module 6 — notification preferences
+    // Module 6 — notifications
     // -----------------------------------------------------------------
 
     /**
-     * Whether the user wants this notification type.
+     * Does this user receive this notification type? Always yes.
      *
-     * Resolution order: explicit per-type preference → urgent override →
-     * default (on). Opting out of an urgent type is not honoured, because the
-     * whole point of Module 6 is that deadlines stop being missed.
+     * **No opt-out blocks a notification.** The per-type preference store and
+     * the check it fed were removed on 2026-11-01, at the user's direction.
+     * A PSM notification reports a decision about the student's project — a
+     * missed deadline, a refused title, a released mark — so a student who
+     * opted out of one would simply never hear it. The system is not a
+     * newsletter to be unsubscribed from.
+     *
+     * The method stays, returning true, rather than being cut from every call
+     * site: `channelsFor()` and the dispatcher still ask the question, and any
+     * future delivery rule belongs here rather than scattered through them.
      */
     public function wantsNotification(NotificationType $type): bool
     {
-        if ($type->isUrgent()) {
-            return true;
-        }
-
-        $prefs = $this->notification_preferences ?? [];
-
-        if (array_key_exists($type->value, $prefs)) {
-            return (bool) $prefs[$type->value];
-        }
-
-        return true;
+        return $type instanceof NotificationType;
     }
 
-    public function setNotificationPreference(NotificationType $type, bool $enabled): void
-    {
-        $prefs = $this->notification_preferences ?? [];
-        $prefs[$type->value] = $enabled;
-
-        $this->notification_preferences = $prefs;
-        $this->save();
-    }
-
-    /** Channels for a given type, after applying the user's preferences. */
+    /**
+     * Channels for a given type.
+     *
+     * Digest mode is the one preference that remains. It delays — a digest-only
+     * user gets mail rather than an in-app entry for routine types — but it
+     * never drops anything, and urgent types keep both channels.
+     */
     public function channelsFor(NotificationType $type): array
     {
-        if (! $this->wantsNotification($type)) {
-            return [];
-        }
-
         $channels = $type->defaultChannels();
 
         // A digest-only user still gets urgent mail immediately, but in-app

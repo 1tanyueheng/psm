@@ -38,14 +38,14 @@ sequenceDiagram
     SCH->>NS: Run the reminder sweep
     NS->>DB: Find milestones due in seven, three or one days
     DB-->>NS: the milestones and their owners
-    NS->>DB: Read each user's preferences and status
+    NS->>DB: Read each user's account status
 
     alt A.1 Nothing is due in this wave
         NS-->>SCH: nothing to send, move to the next wave
     else A.2 This recipient was already sent this wave
         Note over NS,DB: The ledger entry exists, so a retried run<br/>cannot send the same reminder twice
         NS-->>SCH: skipped
-    else A.3 The user opted out of this type, or is inactive
+    else A.3 The account is inactive
         NS-->>SCH: nothing sent to that user
     else Send
         NS->>DB: Write the in-app notification
@@ -59,6 +59,6 @@ sequenceDiagram
     NS->>DB: Read the user's unread items
     DB-->>NS: the items
     NS-->>U: the list
-    U->>NS: Dismiss an item, or change the types they receive
-    NS->>DB: Save the dismissal or the preference
+    U->>NS: Dismiss an item
+    NS->>DB: Remove the item from that user's centre
     NS-->>U: confirmed

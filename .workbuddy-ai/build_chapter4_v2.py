@@ -434,7 +434,7 @@ table(
         ["6", "Notification",
          "- The system shall send a deadline reminder seven, three and one days before a milestone is due.\n"
          "- The system shall de-duplicate a reminder so a retried run cannot send it twice.\n"
-         "- The system shall let a user read, dismiss and change which notification types they receive."],
+         "- The system shall let a user read and dismiss the notifications addressed to them."],
     ],
     widths=(1.2, 2.8, 10.9),
 )
@@ -764,38 +764,42 @@ USE_CASES = [
         description=("The system sends deadline reminders seven, three and one days before "
                      "a milestone is due. It records each one so a retried run cannot send it "
                      "twice. Every user has a notification centre where they read and dismiss "
-                     "items and choose which types they receive."),
+                     "the items addressed to them."),
         preconditions="Milestones with deadlines exist for the reminder run. The user is signed in for the centre.",
         post=("A reminder has been sent once per recipient per wave, and is recorded in "
-              "the ledger. Changes to preferences are saved."),
+              "the ledger. A dismissed item is removed from that user's centre."),
         normal=("1.0 Send a Deadline Reminder\n\n"
                 "1. The scheduled command runs.\n"
                 "2. The system finds the milestones due in seven, three or one days.\n"
-                "3. The system checks that each user is active, has not opted out, and has not already been sent this wave.\n"
+                "3. The system checks that each user's account is active and has not already been sent this wave.\n"
                 "4. The system writes the in-app record and sends the mail.\n"
                 "5. The system records the dispatch in the ledger.\n"
                 "6. The system moves to the next wave or finishes.\n\n"
                 "2.0 Use the Notification Centre\n\n"
                 "1. The user opens the notification centre.\n"
-                "2. The user reads or dismisses an item.\n"
-                "3. The user may change which notification types they receive."),
+                "2. The user reads an item and is taken to what it concerns.\n"
+                "3. The user dismisses an item, which removes it from their centre."),
         alternative=("A.1 Nothing is due in a wave\n\n"
                      "1. The run moves to the next wave.\n\n"
                      "A.2 The wave was already sent to this recipient\n\n"
                      "1. It is skipped, which is what keeps a retried run safe.\n\n"
-                     "A.3 The user opted out of that type, or is inactive\n\n"
-                     "1. Nothing is sent."),
-        # There is no "the change is ignored" flow. The user confirmed on
-        # 2026-11-01 that no notification type is mandatory, so no setting can be
-        # refused: every preference a user sets is honoured. FR21 was reworded to
-        # match, because it had promised an exception the system does not make.
+                     "A.3 The account is inactive\n\n"
+                     "1. Nothing is sent to that user."),
+        # There is no "user switched this type off" flow, in either direction.
+        #
+        # An earlier draft listed one both as a normal step ("the user may choose
+        # which types they receive") and as an alternative ("the change is
+        # ignored"). The user removed the per-type preference from the system on
+        # 2026-11-01: a notification reports a decision about the student's own
+        # project, so nothing is switchable. The only delivery setting left is
+        # digest mode, which decides when a message arrives, never whether.
         exceptions=("E.1 A mail transport failure occurs\n"
                     "The ledger entry stays unwritten, so the next run retries the same "
                     "recipient rather than losing the reminder."),
         requirements=[
             ("FR19", "The system shall send a deadline reminder seven, three and one days before a milestone is due.", "Basic"),
             ("FR20", "The system shall de-duplicate a reminder so a retried run cannot send it twice.", "Basic"),
-            ("FR21", "The system shall let a user read, dismiss and choose which notification types they receive.", "Average"),
+            ("FR21", "The system shall let a user read and dismiss the notifications addressed to them.", "Average"),
         ],
         seq="sequence_notification.png",
         act="activity_notification.png",

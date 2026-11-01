@@ -7,7 +7,6 @@ use App\Http\Controllers\ApiController;
 use App\Http\Resources\NotificationResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 /**
  * Module 6 — In-app notification centre and preferences.
@@ -92,6 +91,15 @@ class NotificationController extends ApiController
 
     /**
      * GET /api/notifications/preferences
+     *
+     * The delivery settings a user can change. There is now only one: digest
+     * mode, which decides **when** a notification arrives, never whether.
+     *
+     * The per-type switch list was removed on 2026-11-01 at the user's
+     * direction. A PSM notification reports a decision on the student's own
+     * project, so there is nothing sensible for a student to switch off; the
+     * catalogue is returned read-only so the screen can still tell a user what
+     * the system will send them and through which channels.
      */
     public function preferences(Request $request): JsonResponse
     {
@@ -108,10 +116,12 @@ class NotificationController extends ApiController
                         return [
                             'value'    => $value,
                             'label'    => $type->label(),
-                            // Urgent types cannot be disabled, so the UI greys them out
-                            'enabled'  => $user->wantsNotification($type),
-                            'lockable' => $type->isUrgent(),
-                            'channels' => $type->defaultChannels(),
+                            // Always true, and reported as such rather than
+                            // omitted: a user reading this screen should be able
+                            // to see that the type will reach them.
+                            'enabled'  => true,
+                            'urgent'   => $type->isUrgent(),
+                            'channels' => $user->channelsFor($type),
                         ];
                     })->values(),
                 ])
@@ -121,34 +131,23 @@ class NotificationController extends ApiController
 
     /**
      * PUT /api/notifications/preferences
+     *
+     * Only digest mode is accepted. A `preferences` array is still tolerated and
+     * ignored, so an older client is not broken by a 422 it cannot act on — but
+     * it no longer changes anything, because no type can be switched off.
      */
     public function updatePreferences(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'digest_only'      => ['sometimes', 'boolean'],
-            'preferences'      => ['sometimes', 'array'],
-            'preferences.*.type'    => ['required', Rule::in(NotificationType::values())],
-            'preferences.*.enabled' => ['required', 'boolean'],
+            'digest_only' => ['sometimes', 'boolean'],
         ]);
 
         $user = $request->user();
 
         if (array_key_exists('digest_only', $validated)) {
             $user->digest_only = $validated['digest_only'];
+            $user->save();
         }
-
-        foreach ($validated['preferences'] ?? [] as $pref) {
-            $type = NotificationType::from($pref['type']);
-
-            // Urgent types are forced on; silently ignore an attempt to disable
-            if ($type->isUrgent()) {
-                continue;
-            }
-
-            $user->setNotificationPreference($type, (bool) $pref['enabled']);
-        }
-
-        $user->save();
 
         return $this->ok(null, 'Notification preferences saved.');
     }
