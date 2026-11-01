@@ -399,6 +399,28 @@ from. Two kinds, and they are not interchangeable:
 | `system_class.txt` | `classDiagram` | the whole system: **39 classes, one per model**, 45 relations. Kept as reference, **not** the chapter figure |
 | `system_interaction.txt` | `sequenceDiagram` | one request through Route → Policy → Service → Eloquent → PostgreSQL, with the enrolment, assignment, window-open and release paths |
 
+**No `Note over A,B` statements in any sequence source** (2026-11-01, the user's
+rule). A note is not a message and not a step: on Figure 4.2 it was where the
+whole of **A.6** lived — *"Withdrawal is a separate action, available only until
+a project has been registered"* — which meant the alternative had no messages of
+its own and the diagram showed nothing for it. A.6 is a message path now:
+
+```
+S->>UI: Withdraw the filing before a project is registered
+UI->>C: DELETE /api/registrations/agreements/{agreement}
+C->>SVC: withdrawAgreement(agreement)
+SVC->>A: Cancel the agreement and retire the supervision
+SVC->>B: Clear the pending form
+C-->>UI: 200 OK
+UI-->>S: The filing is withdrawn
+```
+
+The first message carries the gate *and* starts with the actor's action, so the
+path reads as the student's own alternative rather than as the system talking to
+itself. **Any rule that used to sit in a note belongs in the label of the message
+that depends on it.** Two notes remain in `evaluation.txt` and `notification.txt`
+— check them before those figures are re-rendered.
+
 **`class_diagram.txt` and `system_class.txt` are answers to different questions
 and must not be confused.** The chapter figure is the twelve; the 39-model one
 exists because "what is the system actually made of" was asked once. Multiset

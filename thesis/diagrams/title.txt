@@ -76,4 +76,18 @@ sequenceDiagram
         UI-->>S: The proposal is open
     end
 
-    Note over S,UI: A.6 Withdrawal is a separate action, available<br/>only until a project is registered from the filing
+    %% A.6 in Table 4.2 — "The student withdraws the filing before a project is
+    %% registered" — used to be a `Note over S,UI`: a note is not a sequence
+    %% message and not a step, so the alternative had no messages of its own and
+    %% nothing was drawn for it. It is a path now, led by the student's own
+    %% action so it reads as one of their alternatives, with the two steps the
+    %% table names as the two things the service does. The rule that gates it
+    %% (withdrawal holds only until a project is registered from the filing)
+    %% rides in the first message rather than in a note beside it.
+    S->>UI: Withdraw the filing before a project is registered
+    UI->>C: DELETE /api/registrations/agreements/{agreement}
+    C->>SVC: withdrawAgreement(agreement)
+    SVC->>A: Cancel the agreement and retire the supervision
+    SVC->>B: Clear the pending form
+    C-->>UI: 200 OK
+    UI-->>S: The filing is withdrawn
