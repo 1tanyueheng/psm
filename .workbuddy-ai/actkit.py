@@ -97,16 +97,15 @@ class Diagram:
                 open_head=False, into=0):
         """A straight connector from (x1,y1) to (x2,y2).
 
-        `into` extends the line by that many points *past* its start point.
+        `into` overlaps the line into the shape it *starts* from, which removes
+        the sub-pixel seam a butt join makes at print size.
 
-        A connector that begins exactly on a shape's edge draws a butt join
-        against a 2 px outline. At 16 cm placement a 1800 px figure is scaled to
-        about a quarter, so that join becomes sub-pixel and reads as a gap: the
-        arrow looks like it starts just outside the shape. Several of the
-        activity diagrams were reported this way, and meas uring the source PNG
-        showed the line *did* start on the vertex — the defect was at print size,
-        not in the geometry. Overlapping the line a few points into the shape
-        removes any chance of a seam.
+        The overlap must extend **backwards along the line**, not simply above
+        it. The first version moved y1 by `-into` unconditionally, which is right
+        for a downward connector but wrong for any other direction: the vertical
+        link between two diamonds in Figure 4.5 is drawn bottom-up, so its start
+        was pushed *into empty space* and left a 110 px gap where the line used
+        to meet the first diamond. Direction is now taken from the vector itself.
         """
         if into:
             dx, dy = x2 - x1, y2 - y1

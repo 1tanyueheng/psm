@@ -69,16 +69,24 @@ _, d1_bot, d1 = decide(prev, "Window\nopen?", h=132)
 refuse(d1, "Refuse 422: this form's\nassessment window is not open")
 
 prev = step(d1_bot, "Marks each criterion\non the 0-5 scale")
+# Every diamond in this figure branches two ways, and only the refusal branch
+# was labelled. A reader saw "No" pointing right and an unlabelled line going
+# down, which reads as a plain sequence rather than as a decision. Each success
+# branch is now labelled "Yes" on the left of the spine, where the edge leaves
+# the diamond's left vertex — the same convention the title figure uses.
+dg.label(CX - DIAW / 2 - 12, d1 + 12, "Yes", anchor="ra", bold=True)
 
 _, d2_bot, d2 = decide(prev, "Every score\nin range?", h=136)
 refuse(d2, "Refuse 422\n0 to 5 only")
 
 prev = step(d2_bot, "Saves the marks\n(0-5 becomes the weight)")
+dg.label(CX - DIAW / 2 - 12, d2 + 12, "Yes", anchor="ra", bold=True)
 
 _, d3_bot, d3 = decide(prev, "Submits the\nform?", w=DIAW - 40, h=132)
 refuse(d3, "Refuse 422 naming each\ncriterion still unmarked", label="No")
 
 prev = step(d3_bot, "Form locked; final mark\nrecomputed and published")
+dg.label(CX - (DIAW - 40) / 2 - 12, d3 + 12, "Yes", anchor="ra", bold=True)
 
 y = prev + G + 30
 dg.connect(CX, prev, CX, y + 10)

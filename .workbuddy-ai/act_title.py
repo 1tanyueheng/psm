@@ -21,7 +21,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from actkit import LINE_H, PAD, Diagram
+from actkit import LINE, LINE_H, PAD, Diagram
 
 OUT = r"C:\Users\yuehe\Desktop\study\fyp\AIProject\psm-system\thesis\diagrams\activity_title.png"
 
@@ -74,6 +74,12 @@ refuse(d1, "Refuse 422, naming the cause:\nno open term, a project already\nexis
        dia_w=d1_w)
 
 d2_top, d2_bot, d2, d2_w = decide(d1_bot + 116, "Titles\nusable?")
+# `decide()` draws only the short link from its `prev` into the diamond's top
+# vertex, so the 116 px of air between the first diamond and this one stayed
+# unpainted: the spine ran from 366 to 367, stopped, and resumed at 478. The
+# extra air was there so the two refusal boxes would not read as one, but the
+# line has to cross it.
+dg.connect(CX, d1_bot, CX, d1_bot + 116, into=6)
 refuse(d2, "Refuse 422: too short,\ntoo few words, or a placeholder", dia_w=d2_w)
 
 prev = step(d2_bot, "Agreement created\nstatus = pending_supervisor")
@@ -107,7 +113,9 @@ right_edge = CX + BOXC / 2
 # Run down the right margin, clear of the "Returned" box and the refusal column.
 MARGIN_X = W - 30
 
-dg.route([(RB_X, rb), (RB_X, rb + 44), (MARGIN_X, rb + 44),
+dg.connect(RB_X, rb - 2, RB_X, rb + 44, into=6)
+dg.arrowhead(RB_X, rb + 20, RB_X, rb + 44, colour=LINE, size=12)
+dg.route([(RB_X, rb + 44), (MARGIN_X, rb + 44),
           (MARGIN_X, mid_file), (right_edge, mid_file)])
 dg.label(MARGIN_X - 12, rb + 54, "re-files", anchor="ra")
 dg.label(CX - d4_w / 2 - 12, d4 + 10, "Yes", anchor="ra", bold=True)

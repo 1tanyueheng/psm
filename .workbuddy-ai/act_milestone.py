@@ -22,7 +22,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from actkit import LINE_H, PAD, Diagram
+from actkit import LINE, LINE_H, PAD, Diagram
 
 OUT = r"C:\Users\yuehe\Desktop\study\fyp\AIProject\psm-system\thesis\diagrams\activity_milestone.png"
 
@@ -84,16 +84,24 @@ dg.label(CX + (DIAW + 40) / 2 + 12, d2 - 28, "send back", anchor="la", bold=True
 
 # The re-upload path.
 #
-# Two faults were here, both found by looking at the render rather than the code:
+# Three faults were here, each found by looking at the render:
 #
-#   1. It came back in at `upload_top + 30`, which is *inside* the action box, so
-#      the arrowhead was swallowed by the box's outline and the line ended in the
+#   1. It came back in at `upload_top + 30`, inside the action box, so the
+#      arrowhead was swallowed by the box's outline and the line ended in the
 #      middle of the shape. It now lands on the box's RIGHT edge at its centre.
 #
-#   2. The vertical run sat at `back_x`, which is 1395 — straight through the
-#      "Refuse 422" box (x 1432..1992 is clear of it, but 1395 is not: the box
-#      starts at RX - w/2 = 1340 - 280 = 1060 and ends at 1620). The run now
-#      goes down the right-hand margin at `MARGIN_X`, past every shape.
+#   2. The vertical run sat at `back_x` = 1395, straight through the
+#      "Refuse 422" box (which spans x 1060..1620). It now uses MARGIN_X.
+#
+#   3. The route left the rejected box from its bottom-LEFT corner area rather
+#      than from the centre of its bottom edge, so the first vertical drop did
+#      not line up with the horizontal run and the corner looked broken. It now
+#      drops from the box's horizontal centre.
+#
+# The route is one polyline, so it carries a single arrowhead — at its far end,
+# where it enters "Student uploads the file(s)". That is the point the reader
+# needs: the path leads back to the upload step. The corner is a corner, not an
+# end, and the "re-upload" label sits beside it to say so.
 UPLOAD_H = 1 * LINE_H + PAD          # one line of text, so the box is this tall
 right_edge = CX + BOXC / 2
 mid_up = upload_top + UPLOAD_H / 2
@@ -102,9 +110,29 @@ mid_up = upload_top + UPLOAD_H / 2
 # 1620), so the return line never crosses a box.
 MARGIN_X = W - 30
 
-dg.route([(RB_X, rb), (RB_X, rb + 46), (MARGIN_X, rb + 46),
-          (MARGIN_X, mid_up), (right_edge, mid_up)])
-dg.label(MARGIN_X - 12, rb + 56, "re-upload", anchor="ra")
+# Drop from the CENTRE of the rejected box's bottom edge. RB_X is the box's
+# centre already; the earlier route reused it for the vertical and then turned
+# at MARGIN_X, which is correct, but the first point was drawn without an
+# overlap, leaving a hairline where it met the border.
+# Drop from the CENTRE of the rejected box's bottom edge, then right, then up
+# the margin, then left into the upload box.
+#
+# A single polyline draws one arrowhead, at its far end. The user read the
+# rightward run as a line that "flies off with no end", because for 1500 px it
+# is an unbroken line with nothing to say where it is going. The drop is
+# therefore drawn as its own connector with a head, so the reader sees the flow
+# leave the box, and the long return keeps the head that lands on the upload
+# step. Two heads, one continuous path.
+MARGIN_X = W - 30
+DROP = rb + 46
+
+# 1. out of the rejected box, with a direction arrow at the turn
+dg.connect(RB_X, rb - 2, RB_X, DROP, into=6)
+dg.arrowhead(RB_X, DROP - 24, RB_X, DROP, colour=LINE, size=12)
+
+# 2. across and up the margin, then into the upload box
+dg.route([(RB_X, DROP), (MARGIN_X, DROP), (MARGIN_X, mid_up), (right_edge, mid_up)])
+dg.label(MARGIN_X - 12, DROP + 10, "re-upload", anchor="ra")
 
 prev = step(d2_bot, "Milestone approved")
 dg.label(CX - (DIAW + 40) / 2 - 12, d2 + 12, "approve", anchor="ra", bold=True)
