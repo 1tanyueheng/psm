@@ -319,9 +319,10 @@ point on a shared edge. If it has to be redrawn, keep that property.
       `Chong Er Juan & Wahid (2021)` in Chapter 3 and `Chong & Wahid (2021)` in
       §3 of this file are probably the same source. Pick one and use it in both.
 - [ ] **Decide whether the class diagram stays at 12 classes.** Figure 4.14 is
-      `class_diagram.py`'s hand-routed twelve; `system_class.txt` covers all 39.
-      A chapter normally shows the domain core, so the twelve are probably
-      right — but the wider one now exists if the examiner asks.
+      the twelve the data dictionary defines, and `thesis\diagrams\class_diagram.txt`
+      is now that same twelve as Mermaid so it can be edited in draw.io. The
+      39-model version (`system_class.txt`) exists as reference only — the
+      chapter keeps the twelve unless the examiner asks for the whole domain.
 - [ ] **The six sequence sources still carry `themeCSS`.** In draw.io it is
       dropped silently, so the line that hides the bottom actor does nothing
       there; the user works around it by inserting as an **Image**. If the
@@ -394,8 +395,16 @@ from. Two kinds, and they are not interchangeable:
 | File | Kind | What it draws |
 |---|---|---|
 | `login.txt`, `title.txt`, `milestone.txt`, `evaluation.txt`, `report.txt`, `notification.txt` | `sequenceDiagram` | Figures 4.2, 4.4, 4.6, 4.8, 4.10, 4.11–4.12 — **the user's own**, generated earlier by `make_mermaid_sources.py` |
-| `system_class.txt` | `classDiagram` | the whole system: **39 classes, one per model**, 45 relations |
+| **`class_diagram.txt`** | `classDiagram` | **Figure 4.14** — the **twelve classes of the Chapter 4 data dictionary**, members and multiplicities as the PNG has them. This is what the user asked for on 11-01: *"just using these table only"* |
+| `system_class.txt` | `classDiagram` | the whole system: **39 classes, one per model**, 45 relations. Kept as reference, **not** the chapter figure |
 | `system_interaction.txt` | `sequenceDiagram` | one request through Route → Policy → Service → Eloquent → PostgreSQL, with the enrolment, assignment, window-open and release paths |
+
+**`class_diagram.txt` and `system_class.txt` are answers to different questions
+and must not be confused.** The chapter figure is the twelve; the 39-model one
+exists because "what is the system actually made of" was asked once. Multiset
+direction on the twelve is taken from the PNG and reads right-to-left on the
+inheritance edges (`StudentProfile --|> User`), which is Mermaid's own
+parenthesis direction — **do not "fix" it to `User --|> StudentProfile`.**
 
 `activity_title.txt` was written during the broken session and then
 **removed**: it was a `flowchart` of Figure 4.5, the flowcharts were never part
@@ -404,10 +413,12 @@ PNG remains the figure.
 
 `make_system_mermaid_sources.py` generates the last two and **self-checks**
 before writing — it fails if any class is used but not declared, and it asserts
-every relation line has the `:` Mermaid requires. Re-run it after adding a model;
-it does not read the models, so the class list is a hand-kept copy. **The check
-that catches a missed model is comparing the list with
-`backend/app/Models/*.php`, and it is a two-liner — run it.**
+every relation line has the `:` Mermaid requires. `make_class_diagram_mermaid.py`
+generates `class_diagram.txt` and checks the same things against the PNG's
+twelve. Re-run either after adding a model; neither reads the models, so the
+class lists are hand-kept copies. **The check that catches a missed model is
+comparing the list with `backend/app/Models/*.php`, and it is a two-liner — run
+it.**
 
 ##### What draw.io does and does not accept, learned the hard way
 
@@ -1251,6 +1262,7 @@ exactly the overlaps this table lists.
 | `seqkit.py` + `seq_login.py`, `seq_title.py`, `seq_milestone.py`, `seq_evaluation.py`, `seq_report.py`, `seq_notification.py` | the six sequence figures. **Superseded** by the user's Mermaid renders; keep them as the record of the intended flow |
 | `make_mermaid_sources.py` | writes the six `sequenceDiagram` sources the user pastes into draw.io |
 | `make_system_mermaid_sources.py` | writes `thesis\diagrams\system_class.txt` and `system_interaction.txt` — the whole-system figures, with self-checks |
+| `make_class_diagram_mermaid.py` | writes `thesis\diagrams\class_diagram.txt` — **Figure 4.14 as Mermaid**, the twelve data-dictionary classes, self-checked against `class_diagram.py`'s boxes |
 | `act_login_v2.py`, `act_pairing_v2.py`, `act_ms_v3.py`, `act_notif.py` | earlier activity draughts, superseded |
 | `make_*_seq.py`, `make_*_act.py` | earlier sequence/activity diagrams, superseded |
 | `build_ch4_*.py` | the per-use-case `.docx` builders — **superseded** by `build_chapter4_v2.py` |
