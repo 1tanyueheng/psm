@@ -1,0 +1,50 @@
+Rebuild Chapter 4 as one complete chapter in the requested format.
+
+The chapter now takes its subtopic list from the faculty's template
+(thesis/c4/Chapter4.docx) and its layout from the example the user supplied
+(Downloads/chapter4part2.docx).
+
+Structure, following the template: System Requirement Analysis with the module
+table and both requirement tables, then User Requirement Analysis with the use
+case diagram and six specifications, then the class diagram, then Database
+Design, Interface Design and a Chapter Summary.
+
+Format, following the example: each specification is a four-column table whose
+value cells merge across columns two to four, led by a History Log block with one
+row per version, then Version, Use Case ID and Use Case Name, then the
+Created By / Updated By and Date Created / Last Revision Date pairs. Actors,
+Description, Preconditions, Post conditions, Normal Flow, Alternative Flow and
+Exceptions follow, with a Related requirement block (ID / Requirement /
+Priority) at the foot.
+
+Two departures from the example, both deliberate:
+
+  * The example ends each table with "Sequence Diagram:" and "Activity Diagram:"
+    rows. In Word the table splits across pages and those two rows were stranded
+    at the top of a page with the diagrams on the next one, pointing at nothing.
+    Removed, and figure paragraphs now carry keepNext so a caption cannot be
+    separated from its diagram.
+
+  * The template asks for a class diagram and the database and interface design,
+    which the example does not carry. Those are kept.
+
+Four faults found by rendering and fixed:
+
+  * The template's heading styles carry automatic numbering, so the literal
+    4.1 and the style's own number printed together as "1.1  4.1.1". The style
+    numbering is removed and the literal numbers are the only ones shown.
+  * Table and figure numbers restarted mid-chapter, giving two Figure 4.1s and
+    two Table 4.1s. They are now renumbered in one pass over the finished
+    document, so document order alone decides a number.
+  * Every data dictionary table was numbered 4.3.2; each now has its own
+    subsection.
+  * A prose sentence beginning "Figure 4.1 shows ..." was counted as a caption
+    by the renumbering pass, pushing every later figure up by one. Captions are
+    now recognised by their "Label 4.N:" form only.
+
+Sentence length: the prose was rewritten to the 15-word limit the user set for
+Chapters 1 and 2. 24 sentences were over it, one at 49 words; now 114 sentences
+with none over and a longest of 14.
+
+Verified: 32 pages, 18 tables, 18 embedded images, no blank pages, no dangling
+cross-references, and every page with a figure read for layout.
