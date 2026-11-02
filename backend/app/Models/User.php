@@ -167,20 +167,35 @@ class User extends Authenticatable
      * student's own placement); passing none means the term the system is
      * working in, which is what a screen asks when it loads without a filter.
      *
-     * One section per teacher per term is the faculty's rule, so this returns a
-     * single model rather than a collection. There is no unique index that says
-     * so — `sections` only constrains the code within a term — because the rule
-     * is about a *person*, so it is enforced where the appointment is made
-     * (`LecturerMarkController::update()`), which is also the only place that can
-     * explain the refusal.
+     * The section this person lectures, optionally narrowed to one course.
      *
-     * Memoised per term, including the null. `LecturerMarkPolicy` calls this once
-     * per row while checking a roster, and without the cache that is a query per
-     * student on a page that already loads every student. The `array_key_exists`
-     * form matters: caching on `!== null` would re-query for every unappointed
-     * account, which is the case the null exists to handle.
+     * **The appointment is per term, and since 2026-11-02 per course as well.**
+     * A term runs two offerings of the service course — BIC31602 for BIP, BIW,
+     * BIS and BIM, BIT34002 for BIT — and a person may teach a section of each
+     * in the same term. So "which section does this person lecture" has no
+     * single answer without a course, and this returns the first matching row
+     * rather than pretending otherwise: callers that need the right one pass
+     * `$courseCode`, and callers that do not are reading a page that lists
+     * every section of the term anyway.
+     *
+     * Sections carry the term themselves, so `S1` exists once per course per
+     * term and a person may teach `S1` this term and `S2` the next. Passing no
+     * term means the term the system is working in.
+     *
+     * One section per teacher **per course per term** is the faculty's rule, so
+     * the narrow call returns a single model. There is no unique index that says
+     * so — `sections` only constrains the code within a term and course —
+     * because the rule is about a *person*, so it is enforced where the
+     * appointment is made (`LecturerMarkController::update()`), which is also
+     * the only place that can explain the refusal.
+     *
+     * Memoised per term (and course), including the null. `LecturerMarkPolicy`
+     * calls this once per row while checking a roster, and without the cache
+     * that is a query per student on a page that already loads every student.
+     * The `array_key_exists` form matters: caching on `!== null` would re-query
+     * for every unappointed account, which is the case the null handles.
      */
-    public function lecturerSection(?int $semesterId = null): ?Section
+    public function lecturerSection(?int $semesterId = null, ?string $courseCode = null): ?Section
     {
         // A student never lectures a section, and the short circuit keeps a
         // student's roster check from costing a query per row.
@@ -190,17 +205,22 @@ class User extends Authenticatable
 
         $semesterId ??= AcademicSemester::current()?->id;
 
-        // The key carries the term because the answer does: without a term in
-        // view the honest answer is null, not "whatever they last taught".
-        $key = 'lecturerSection:'.($semesterId ?? 'none');
+        // The key carries the term and the course because the answer does.
+        $key = 'lecturerSection:'.($semesterId ?? 'none').':'.($courseCode ?? 'any');
 
         if (! array_key_exists($key, $this->cachedRelations)) {
             // Prefer an eager-loaded relation when the caller asked for one: the
             // admin's lecturer picker loads every candidate's appointments at
             // once, and a query here would re-query once per row.
+            $matches = fn (Section $s) => $s->academic_semester_id === $semesterId
+                && ($courseCode === null || $s->course_code === $courseCode);
+
             $this->cachedRelations[$key] = $this->relationLoaded('sectionsLectured')
-                ? $this->sectionsLectured->firstWhere('academic_semester_id', $semesterId)
-                : $this->sectionsLectured()->where('academic_semester_id', $semesterId)->first();
+                ? $this->sectionsLectured->first($matches)
+                : $this->sectionsLectured()
+                    ->when($courseCode !== null, fn ($q) => $q->where('course_code', $courseCode))
+                    ->where('academic_semester_id', $semesterId)
+                    ->first();
         }
 
         return $this->cachedRelations[$key];

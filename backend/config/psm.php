@@ -239,26 +239,37 @@ return [
     /**
      * Module 4 — the coursework component (`CW`).
      *
-     * A lecturer marks four items for one section of a service course that runs
-     * alongside PSM 1. They are not Lampiran: there is no rubric behind them,
-     * no assessor type, and no evaluation row — the lecturer keys a number per
-     * item and it is stored on `lecturer_marks`. The four sum to exactly the
-     * `CW` weight above, and `LecturerMark::COMPONENTS` is the single
-     * declaration of both the names and the maxima so the form, the validation
-     * and the aggregate cannot disagree.
+     * A lecturer marks three assignment criteria for one section of a service
+     * course that runs alongside PSM 1. They are not Lampiran: there is no
+     * rubric behind them, no assessor type, and no evaluation row — the lecturer
+     * keys a number per criterion and it is stored on `lecturer_marks`. The
+     * three sum to exactly the `CW` weight above, and this array is the single
+     * declaration of both the keys and the maxima so the form, the validation
+     * and the aggregate cannot disagree (`LecturerMark::components()`).
+     *
+     * **The three criteria are the course's own taxonomy, not PSM's.** They are
+     * the assessable domains of the service course, keyed per student:
+     * affective, cognitive and psychomotor. "Assignment-C" is not "cognitive
+     * assignment" — it is the criterion, and the earlier four-item split
+     * (Quiz 5 / C 12 / P 9 / A 9) was replaced by this one on 2026-11-02 at the
+     * user's instruction. The key names follow the course codes
+     * (`LECT ASSIGNMENT_COGNITIVE`), because the lecturer's own mark sheet uses
+     * them and a renamed key is one more thing to mistranslate.
      *
      * **These are fixed by faculty decision, not configurable.** The split is
      * what the course coordinator publishes, so it is a constant rather than
-     * settings a term could drift from.
+     * settings a term could drift from. `lecturer_marks` keeps the old
+     * `quiz` / `assignment_c` / `assignment_p` / `assignment_a` columns
+     * nullable and unread, so no historical mark is destroyed by this change;
+     * see the 2026_11_02 migration.
      */
     'coursework' => [
         'form_code' => 'CW',
         'label'     => 'Coursework',
         'components' => [
-            'quiz'          => ['label' => 'Quiz',         'max' => 5.0],
-            'assignment_c'  => ['label' => 'Assignment-C', 'max' => 12.0],
-            'assignment_p'  => ['label' => 'Assignment-P', 'max' => 9.0],
-            'assignment_a'  => ['label' => 'Assignment-A', 'max' => 9.0],
+            'affective'   => ['label' => 'Assignment-Affective',   'max' => 8.0],
+            'cognitive'   => ['label' => 'Assignment-Cognitive',   'max' => 15.0],
+            'psychomotor' => ['label' => 'Assignment-Psychomotor', 'max' => 7.0],
         ],
     ],
 

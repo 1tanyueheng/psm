@@ -9,29 +9,34 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * One lecturer's coursework marks for one student in one term.
  *
- * Four fixed components — Quiz 5, Assignment-C 12, Assignment-P 9, Assignment-A
- * 9 — summing to the `CW` weight in `psm.assessment_weights`. They reach the
- * PSM 1 aggregate as a single weighted **component**, the same way a Lampiran
- * does, but they are not an evaluation: there is no rubric, no assessor type and
- * no per-criterion breakdown, because the lecturer marks a mark sheet rather
- * than a form.
+ * Three fixed criteria — affective 8, cognitive 15, psychomotor 7 — summing to
+ * the `CW` weight in `psm.assessment_weights`. They reach the PSM 1 aggregate
+ * as a single weighted **component**, the same way a Lampiran does, but they
+ * are not an evaluation: there is no rubric, no assessor type and no
+ * per-criterion breakdown, because the lecturer marks a mark sheet rather than
+ * a form.
  *
  * The raw marks are stored in their own units and converted to a percentage in
  * exactly one place (`percent()`), so the student's page, the lecturer's entry
  * form and the aggregate cannot each do the arithmetic slightly differently.
+ *
+ * **The four legacy columns (`quiz`, `assignment_c`, `assignment_p`,
+ * `assignment_a`) are still on the table and are no longer read.** They are
+ * kept so the marks keyed under the old 5/12/9/9 split are not destroyed by the
+ * 2026-11-02 change to the 8/15/7 criteria; nothing writes them and nothing
+ * totals them.
  */
 class LecturerMark extends Model
 {
     use HasFactory;
 
     /**
-     * The components and their maxima, read from `config/psm.php`.
+     * The criteria and their maxima, read from `config/psm.php`.
      *
      * Declared once so the entry form, the validation rules, the student's
      * breakdown and the aggregate all take their names and maxima from the same
      * place. The maxima are fixed by faculty decision and sum to the `CW`
-     * weight; `PsmConfigTest`-style assertions are unnecessary because the sum
-     * is checked by `weightsBalance()` against the same config.
+     * weight; the sum is checked by `weightsBalance()` against the same config.
      *
      * @return array<string, array{label: string, max: float}>
      */
@@ -56,10 +61,9 @@ class LecturerMark extends Model
         'student_profile_id',
         'section_id',
         'academic_semester_id',
-        'quiz',
-        'assignment_c',
-        'assignment_p',
-        'assignment_a',
+        'affective',
+        'cognitive',
+        'psychomotor',
         'entered_by',
         'entered_at',
     ];
@@ -67,11 +71,10 @@ class LecturerMark extends Model
     protected function casts(): array
     {
         return [
-            'quiz'         => 'float',
-            'assignment_c' => 'float',
-            'assignment_p' => 'float',
-            'assignment_a' => 'float',
-            'entered_at'   => 'datetime',
+            'affective'   => 'float',
+            'cognitive'   => 'float',
+            'psychomotor' => 'float',
+            'entered_at'  => 'datetime',
         ];
     }
 

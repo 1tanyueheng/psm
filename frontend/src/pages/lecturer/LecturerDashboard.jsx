@@ -53,14 +53,20 @@ import { formatDateTime, formatMark, formatPercent } from '../../lib/format'
  */
 
 /**
- * The four components, with their maxima.
+ * The three criteria, with their maxima — the course's own assessment domains.
+ *
+ * They replaced Quiz 5 / Assignment-C 12 / Assignment-P 9 / Assignment-A 9 on
+ * 2026-11-02 at the faculty's instruction. The old names were a guess at what
+ * "C", "P" and "A" stood for and the guess was wrong: there was never a quiz,
+ * and `Assignment-C` was the *criterion* (cognitive), not a cognitive
+ * assignment. The course's mark sheet calls them
+ * `LECT ASSIGNMENT_AFFECTIVE / COGNITIVE / PSYCHOMOTOR`.
  *
  * Hardcoded rather than fetched, because they are a faculty decision and not a
- * setting: `config/psm.php` declares the same four with the same maxima and
- * comments that they are fixed. The values are mirrored here so an input can
- * carry `max`, `step` and a client-side bound *before* the first save — the
- * server's validation is still the authority, and its message is what a
- * rejected save displays.
+ * setting: `config/psm.php` declares the same three with the same maxima. The
+ * values are mirrored here so an input can carry `max`, `step` and a
+ * client-side bound *before* the first save — the server's validation is still
+ * the authority, and its message is what a rejected save displays.
  *
  * If the faculty ever changes the split, this list and `config/psm.php` move
  * together. The roster response also carries a `components` array, which is
@@ -68,10 +74,9 @@ import { formatDateTime, formatMark, formatPercent } from '../../lib/format'
  * bounding the inputs.
  */
 const COMPONENTS = [
-  { key: 'quiz', label: 'Quiz', max: 5 },
-  { key: 'assignment_c', label: 'Assignment-C', max: 12 },
-  { key: 'assignment_p', label: 'Assignment-P', max: 9 },
-  { key: 'assignment_a', label: 'Assignment-A', max: 9 },
+  { key: 'affective', label: 'Assignment-Affective', max: 8 },
+  { key: 'cognitive', label: 'Assignment-Cognitive', max: 15 },
+  { key: 'psychomotor', label: 'Assignment-Psychomotor', max: 7 },
 ]
 
 /** The coursework total. Also a faculty constant — see the note above. */
@@ -350,6 +355,14 @@ export default function LecturerDashboard() {
         title={section.name}
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
+            {/*
+              * The course comes before the code: a term runs BIC31602 and
+              * BIT34002 as separate cohorts, each with its own S1, so "S1" on
+              * its own does not tell a teacher which class they are marking.
+              */}
+            <span className="font-mono text-xs font-medium text-slate-700">
+              {section.course_code ?? 'BIC31602'}
+            </span>
             <span className="font-mono text-xs text-slate-500">{section.code}</span>
             <span>
               {stats.total} student{stats.total === 1 ? '' : 's'} in your section
@@ -397,7 +410,7 @@ export default function LecturerDashboard() {
         <StatCard
           label="Coursework out of"
           value={MAX_TOTAL}
-          hint="Quiz 5, assignments 12, 9, 9"
+          hint={COMPONENTS.map((c) => `${c.label.replace('Assignment-', '')} ${c.max}`).join(', ')}
         />
         <StatCard
           label="Not yet fully marked"
@@ -410,7 +423,7 @@ export default function LecturerDashboard() {
       <Card>
         <CardHeader
           title="Coursework marks"
-          subtitle="Each item is out of its own maximum. Leave a box empty until it has been marked — an empty box is not a zero."
+          subtitle="Each criterion is out of its own maximum. Leave a box empty until it has been marked — an empty box is not a zero."
           action={
             hasRole('lecturer') ? (
               <Badge tone="brand">Keyed by you</Badge>

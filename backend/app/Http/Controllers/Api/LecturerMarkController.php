@@ -246,31 +246,38 @@ class LecturerMarkController extends ApiController
 
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:128'],
+            'course_code' => ['sometimes', 'string', Rule::in(array_keys(Section::courses()))],
             'lecturer_id' => $this->lecturerRules(),
             'academic_semester_id' => ['sometimes', 'nullable', 'integer', 'exists:academic_semesters,id'],
         ]);
 
         /**
-         * One section per teacher **per term**.
+         * One section per teacher **per course per term**.
          *
-         * The rule is about a person, and a person teaches one class at a time:
-         * two rows naming the same lecturer in one term would make which one they
-         * can key depend on row order. Across terms it is expected — the seating
-         * rotates, and last term's rows keep the person who taught them — so the
-         * check is narrowed to the term being written, taken from the request when
-         * the row is being moved and from the row otherwise.
+         * The rule is about a person, and a person teaches one class of a course
+         * at a time: two rows naming the same lecturer for the same course in
+         * one term would make which one they can key depend on row order. Across
+         * terms it is expected — the seating rotates, and last term's rows keep
+         * the person who taught them — so the check is narrowed to the term and
+         * course being written, taken from the request when the row is being
+         * moved and from the row otherwise.
+         *
+         * Since 2026-11-02 the course is part of the rule: the term runs both
+         * BIC31602 and BIT34002, and teaching one section of each is not the
+         * fault this check exists to catch.
          */
         if (array_key_exists('lecturer_id', $validated) && $validated['lecturer_id'] !== null) {
             $termId = $validated['academic_semester_id'] ?? $section->academic_semester_id;
+            $courseCode = $validated['course_code'] ?? $section->course_code;
 
-            $taken = $this->sectionTakenBy((int) $validated['lecturer_id'], $termId, $section->id);
+            $taken = $this->sectionTakenBy((int) $validated['lecturer_id'], $termId, $section->id, $courseCode);
 
             if ($taken !== null) {
                 $name = User::find($validated['lecturer_id'])?->name ?? 'That lecturer';
 
                 return $this->fail(
-                    "{$name} already teaches {$taken->code} this term. "
-                    .'A teacher may teach only one section per term.',
+                    "{$name} already teaches {$taken->code} for {$courseCode} this term. "
+                    .'A teacher may teach only one section of a course per term.',
                     422
                 );
             }
@@ -338,24 +345,57 @@ class LecturerMarkController extends ApiController
                 'required',
                 'string',
                 'max:16',
-                Rule::unique('sections', 'code')->where('academic_semester_id', $semesterId),
+            ],
+            // The offering the class belongs to. `BIC31602` serves BIP/BIW/BIS/BIM
+            // and `BIT34002` serves BIT; they are different courses with their
+            // own sections and their own teachers.
+            'course_code' => [
+                'sometimes',
+                'string',
+                Rule::in(array_keys(Section::courses())),
             ],
             'name'        => ['sometimes', 'nullable', 'string', 'max:128'],
             'lecturer_id' => $this->lecturerRules(),
         ]);
 
         $code = strtoupper(trim($validated['code']));
+        $courseCode = strtoupper(trim((string) ($validated['course_code'] ?? Section::COURSE_BIC)));
+
+        /**
+         * `code` is unique within a **term and a course**, never globally.
+         *
+         * This used to be a validation rule; it is now an explicit check so the
+         * refusal can name the course. `S1` exists once per course per term by
+         * design — every term teaches an S1 in each offering — so a plain
+         * `unique:sections,code` would refuse the second term's first section,
+         * and a rule scoped to the term alone would refuse the BIT group's S1
+         * because the BIC group already has one.
+         */
+        $duplicate = Section::query()
+            ->where('academic_semester_id', $semesterId)
+            ->where('course_code', $courseCode)
+            ->where('code', $code)
+            ->exists();
+
+        if ($duplicate) {
+            return $this->fail(
+                "{$courseCode} already has a section {$code} this term. "
+                .'A code names one class per course per term.',
+                422
+            );
+        }
+
         $lecturerId = $validated['lecturer_id'] ?? null;
 
         if ($lecturerId !== null) {
-            $taken = $this->sectionTakenBy((int) $lecturerId, $semesterId);
+            $taken = $this->sectionTakenBy((int) $lecturerId, $semesterId, null, $courseCode);
 
             if ($taken !== null) {
                 $name = User::find($lecturerId)?->name ?? 'That lecturer';
 
                 return $this->fail(
-                    "{$name} already teaches {$taken->code} this term. "
-                    .'A teacher may teach only one section per term.',
+                    "{$name} already teaches {$taken->code} for {$courseCode} this term. "
+                    .'A teacher may teach only one section of a course per term.',
                     422
                 );
             }
@@ -374,6 +414,7 @@ class LecturerMarkController extends ApiController
         $section = Section::create([
             'code'                 => $code,
             'name'                 => $validated['name'] ?? ($digits !== '' ? "Section {$digits}" : $code),
+            'course_code'          => $courseCode,
             'lecturer_id'          => $lecturerId,
             'academic_semester_id' => $semesterId,
         ]);
@@ -455,7 +496,8 @@ class LecturerMarkController extends ApiController
 
         $includeLecturers = (bool) ($validated['include_lecturers'] ?? false);
 
-        $sourceSections = Section::query()->forSemester($source->id)->orderBy('code')->get();
+        $sourceSections = Section::query()->forSemester($source->id)
+            ->orderBy('course_code')->orderBy('code')->get();
 
         if ($sourceSections->isEmpty()) {
             return $this->fail("{$source->name} has no sections to copy.", 422);
@@ -463,10 +505,16 @@ class LecturerMarkController extends ApiController
 
         // Codes are compared case-insensitively because the admins type them by
         // hand; `S1` and `s1` are the same class and must not both be created.
+        //
+        // Keyed on course AND code since 2026-11-02: a term runs two offerings of
+        // the service course, each with its own S1, so a code alone no longer
+        // identifies a class — copying would otherwise skip the BIT group's S1
+        // as though the BIC group's one already covered it.
         $existing = Section::query()
             ->forSemester($target->id)
-            ->pluck('code')
-            ->map(fn ($code) => strtoupper(trim((string) $code)))
+            ->get(['course_code', 'code'])
+            ->map(fn ($s) => strtoupper(trim((string) $s->course_code))
+                .'|'.strtoupper(trim((string) $s->code)))
             ->all();
 
         [$created, $skipped, $withoutLecturer] = DB::transaction(function () use (
@@ -482,8 +530,9 @@ class LecturerMarkController extends ApiController
 
             foreach ($sourceSections as $from) {
                 $code = strtoupper(trim((string) $from->code));
+                $courseCode = strtoupper(trim((string) $from->course_code));
 
-                if (in_array($code, $existing, true)) {
+                if (in_array($courseCode.'|'.$code, $existing, true)) {
                     $skipped++;
 
                     continue;
@@ -491,7 +540,7 @@ class LecturerMarkController extends ApiController
 
                 $lecturerId = $includeLecturers ? $from->lecturer_id : null;
 
-                if ($lecturerId !== null && $this->sectionTakenBy((int) $lecturerId, $target->id) !== null) {
+                if ($lecturerId !== null && $this->sectionTakenBy((int) $lecturerId, $target->id, null, $courseCode) !== null) {
                     $lecturerId = null;
                     $withoutLecturer++;
                 }
@@ -499,6 +548,7 @@ class LecturerMarkController extends ApiController
                 $section = Section::create([
                     'code'                 => $code,
                     'name'                 => $from->name,
+                    'course_code'          => $courseCode,
                     'lecturer_id'          => $lecturerId,
                     'academic_semester_id' => $target->id,
                 ]);
@@ -508,11 +558,11 @@ class LecturerMarkController extends ApiController
                     description: "Section {$section->code} copied into {$target->name} from {$from->academicSemester?->name}",
                     subject: $section,
                     before: [],
-                    after: $section->only(['code', 'name', 'lecturer_id', 'academic_semester_id']),
+                    after: $section->only(['code', 'name', 'course_code', 'lecturer_id', 'academic_semester_id']),
                     actor: $request->user(),
                 );
 
-                $created[] = ['id' => $section->id, 'code' => $section->code];
+                $created[] = ['id' => $section->id, 'code' => $section->code, 'course_code' => $section->course_code];
             }
 
             return [$created, $skipped, $withoutLecturer];
@@ -622,6 +672,29 @@ class LecturerMarkController extends ApiController
 
         $student = StudentProfile::with('user')->findOrFail($studentProfileId);
 
+        /**
+         * The student must be placed in their own programme's course.
+         *
+         * A term runs two offerings of the service course, each with its own
+         * sections and its own S1, so `section_id` alone can name the wrong one.
+         * The check is here as well as in the CSV import because this endpoint
+         * is what the roster panel calls, and a panel that offers only what the
+         * save would accept is the only way the admin never meets a refusal they
+         * cannot act on.
+         */
+        if (($validated['section_id'] ?? null) !== null) {
+            $target = Section::find($validated['section_id']);
+            $wanted = Section::courseForProgramme($student->programme);
+
+            if ($target !== null && $target->course_code !== $wanted) {
+                return $this->fail(
+                    "Section {$target->code} is {$target->course_code}, but a student on "
+                    .($student->programme ?: 'that programme')." takes {$wanted}.",
+                    422
+                );
+            }
+        }
+
         $before = $student->section_id;
 
         $student->forceFill(['section_id' => $validated['section_id'] ?? null])->save();
@@ -630,7 +703,7 @@ class LecturerMarkController extends ApiController
             action: \App\Enums\AuditAction::StudentSectionAssigned,
             description: $validated['section_id'] ?? null
                 ? "{$student->student_id} placed in section "
-                    .(Section::find($validated['section_id'])?->code ?? '?')
+                    .(Section::find($validated['section_id'])?->qualifiedLabel() ?? '?')
                 : "{$student->student_id} removed from their section",
             subject: $student,
             before: ['section_id' => $before],
@@ -647,6 +720,17 @@ class LecturerMarkController extends ApiController
 
     /**
      * Place students into sections from a class list (CSV).
+     *
+     * The list names a section **code**; since 2026-11-02 that is no longer
+     * enough to identify the class, because a term runs two offerings and each
+     * has its own S1. The student's own programme resolves the course
+     * (`Section::courseForProgramme()`), so a BIT student lands in the BIT
+     * group without the upload having to say so and without the admin being able
+     * to put them in the wrong class by accident.
+     *
+     * A student whose programme has no section under that code is reported, not
+     * silently placed: "no such class" and "wrong class for this student" are
+     * different facts and only the first is the uploader's typo.
      *
      * The faculty already knows who is in which section — it arrives from the
      * enrolment office as a spreadsheet — so the sheet is accepted as it is
@@ -712,10 +796,16 @@ class LecturerMarkController extends ApiController
         // Resolved once for the whole upload: a class list is sixty rows and a
         // query per row would be sixty round trips to find data that fits in
         // memory several times over.
+        //
+        // The map is keyed on COURSE|CODE, because a code alone is ambiguous
+        // since a term runs two offerings of the service course. A one-code
+        // lookup would hand every student whichever S1 happened to be loaded
+        // last.
         $sections = Section::query()
             ->forSemester($semesterId)
             ->get()
-            ->keyBy(fn (Section $s) => strtoupper(trim($s->code)));
+            ->keyBy(fn (Section $s) => strtoupper(trim((string) $s->course_code))
+                .'|'.strtoupper(trim((string) $s->code)));
 
         $students = StudentProfile::query()
             ->get()
@@ -757,14 +847,39 @@ class LecturerMarkController extends ApiController
                 continue;
             }
 
-            $section = $sections[$code] ?? null;
+            $section = $sections[Section::courseForProgramme($student->programme).'|'.$code] ?? null;
 
             if ($section === null) {
                 $report[] = $row + [
                     'status'  => 'error',
                     'message' => $code === ''
                         ? 'No section code in this row.'
-                        : "No section {$code} in this term.",
+                        : "No section {$code} for "
+                            .Section::courseForProgramme($student->programme)
+                            .' (the course a '
+                            .($student->programme ?: 'this')
+                            .' student takes) in this term.',
+                ];
+                $failed++;
+                continue;
+            }
+
+            /**
+             * The student must belong to the course the section teaches.
+             *
+             * `S1` exists twice in a term now — once per offering — and the
+             * upload names only the code, so the student's programme is what
+             * decides which of the two they are being placed in. A BIT student
+             * named against the BIC group's S1 is refused here rather than
+             * quietly seated in the wrong cohort's class.
+             */
+            $wanted = Section::courseForProgramme($student->programme);
+
+            if ($wanted !== $section->course_code) {
+                $report[] = $row + [
+                    'status'  => 'error',
+                    'message' => "Section {$code} in this term is {$section->course_code}, "
+                        ."but a student on {$student->programme} takes {$wanted}.",
                 ];
                 $failed++;
                 continue;
@@ -1026,23 +1141,36 @@ class LecturerMarkController extends ApiController
     }
 
     /**
-     * The *other* section of a term that this person already teaches, if any.
+     * The *other* section of the same course, in the same term, that this person
+     * already teaches — if any.
      *
-     * One section per teacher per term is the faculty's rule — four classes,
-     * four different people — and it is enforced here rather than by a unique
-     * index for two reasons. The rule is about a *person*, so the rows it must
-     * forbid cannot be found by looking at one column; and the person doing the
-     * appointing deserves a sentence naming the class that is in the way rather
-     * than a constraint violation. Across terms the same teacher is expected, so
-     * the check is always narrowed to one term.
+     * One section per teacher per course per term is the faculty's rule: four
+     * classes, four different people, and nobody was ever expected to teach the
+     * BIC group and the BIT group at once. The rule is scoped to the **course**
+     * rather than the term since 2026-11-02, because a term now runs two
+     * offerings of the service course and a section can only be narrowed to one
+     * of them by its own `course_code`.
+     *
+     * It is enforced here rather than by a unique index for two reasons. The
+     * rule is about a *person*, so the rows it must forbid cannot be found by
+     * looking at one column; and the person doing the appointing deserves a
+     * sentence naming the class that is in the way rather than a constraint
+     * violation. Across terms the same teacher is expected, so the check is
+     * always narrowed to one term.
      *
      * `$exceptSectionId` is the row being edited, which is not its own rival.
      */
-    protected function sectionTakenBy(int $lecturerId, ?int $semesterId, ?int $exceptSectionId = null): ?Section
-    {
+    protected function sectionTakenBy(
+        int $lecturerId,
+        ?int $semesterId,
+        ?int $exceptSectionId = null,
+        ?string $courseCode = null,
+    ): ?Section {
         return Section::query()
             ->where('lecturer_id', $lecturerId)
             ->where('academic_semester_id', $semesterId)
+            ->when($courseCode !== null,
+                fn ($query) => $query->where('course_code', $courseCode))
             ->when($exceptSectionId !== null, fn ($query) => $query->whereKeyNot($exceptSectionId))
             ->first();
     }
@@ -1069,6 +1197,11 @@ class LecturerMarkController extends ApiController
             'id'                   => $section->id,
             'code'                 => $section->code,
             'name'                 => $section->name,
+            // The offering this class belongs to. Two courses share the title
+            // "Projek Sarjana Muda I", so `S1` alone does not identify a class
+            // when a term runs both — the payload always carries the course.
+            'course_code'          => $section->course_code,
+            'course'               => Section::courses()[$section->course_code] ?? null,
             'academic_semester_id' => $section->academic_semester_id,
             // The term travels with the section so the marking screen can label
             // itself without a second call, and so "you have no section in this
@@ -1087,15 +1220,19 @@ class LecturerMarkController extends ApiController
 
     protected function marksPayload(LecturerMark $mark): array
     {
-        return [
-            'id'           => $mark->id,
-            'quiz'         => $mark->quiz,
-            'assignment_c' => $mark->assignment_c,
-            'assignment_p' => $mark->assignment_p,
-            'assignment_a' => $mark->assignment_a,
-            'entered_at'   => $mark->entered_at?->toIso8601String(),
-            'entered_by_name' => $mark->enteredBy?->name,
-        ];
+        // Built from `components()` rather than listed, so the payload follows
+        // the rubric: the 2026-11-02 change from quiz/C/P/A to
+        // affective/cognitive/psychomotor needed no edit here.
+        return array_merge(
+            ['id' => $mark->id],
+            collect(LecturerMark::components())
+                ->mapWithKeys(fn ($spec, $key) => [$key => $mark->{$key}])
+                ->all(),
+            [
+                'entered_at'      => $mark->entered_at?->toIso8601String(),
+                'entered_by_name' => $mark->enteredBy?->name,
+            ],
+        );
     }
 
     /** One roster row, in the shape the marking table renders. */

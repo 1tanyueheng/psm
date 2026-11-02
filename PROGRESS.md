@@ -753,9 +753,17 @@ a **later** term — which is what the new rule leaves untouched.
 - PSM 1 used to total **65**, with the remainder "marked outside the system".
   Coursework closed that gap — see `config/psm.php` `assessment_weights` and
   `coursework`.
-- Coursework = **Quiz 5, Assignment-C 12, Assignment-P 9, Assignment-A 9**.
-  These are faculty-fixed constants, not settings. `LecturerMark::components()`
-  is the single declaration; the form, validation and aggregate all read it.
+- Coursework = **Assignment-Affective 8, Assignment-Cognitive 15,
+  Assignment-Psychomotor 7** (2026-11-02). These are faculty-fixed constants,
+  not settings. `LecturerMark::components()` is the single declaration; the
+  form, validation and aggregate all read it.
+  **This replaced Quiz 5 / Assignment-C 12 / Assignment-P 9 / Assignment-A 9**,
+  which was a guess at what C/P/A stood for and was wrong — there was never a
+  quiz, and `Assignment-C` was the criterion (cognitive), not a cognitive
+  assignment. The course's mark sheet names them
+  `LECT ASSIGNMENT_AFFECTIVE / COGNITIVE / PSYCHOMOTOR`. The old columns stay on
+  `lecturer_marks`, nullable and unread, so a term already marked under the old
+  split keeps its numbers.
 - The aggregate **already rescales to 0–100** (`computeFinalGrade()`:
   `(weightedTotal / weightSum) * 100`). Adding coursework therefore *re-weights
   the blend*, it does not fix a denominator. Every PSM 1 mark moves.
@@ -781,11 +789,25 @@ a **later** term — which is what the new rule leaves untouched.
 
 ### Sections and coursework
 
-- `sections` is **per term**: `UNIQUE (academic_semester_id, code)`.
-  `S1` exists once per term; the row **is** the lecturer appointment. Rotation
-  needs no join table — verified that the same code in two terms is allowed,
-  that the same code in one term is refused, and that editing one term does not
-  touch the other.
+**A section now belongs to a course (2026-11-02).** The faculty runs two
+offerings of the service course in one term, and they are different courses:
+
+| Course | Serves | Sections |
+|---|---|---|
+| **BIC31602** — Projek Sarjana Muda I | BIP, BIW, BIS, BIM | own `S1`…`S4` |
+| **BIT34002** — Projek Sarjana Muda I | BIT | own `S1`, `S2` |
+
+Before this, a section was only a code within a term, so the two cohorts shared
+one `S1` row. `sections.course_code` states the course and the unique key is
+**`(term, course, code)`** — verified that a term can hold a BIC `S1` and a BIT
+`S1` at once. `Section::courses()` and `Section::courseForProgramme()` are the
+single declaration; a student's own programme decides which offering they are
+placed in, and both the roster panel and the CSV import refuse a placement in
+the other one.
+
+- **One section per teacher per course per term**, not per term. A teacher may
+  hold one BIC section and one BIT section; two of the same course in one term
+  is what `sectionTakenBy()` refuses, naming the class in the way.
 - `lecturer_marks`: one row per (student, term). Null means **not entered**,
   never zero — an incomplete set is excluded from the aggregate rather than
   dragging a mark down.
@@ -798,6 +820,8 @@ a **later** term — which is what the new rule leaves untouched.
   external registration portal is the system of record; this only mirrors the
   result, so an unrecognised matric is reported rather than invented.
   It must name a term when uploading, because section codes repeat per term.
+  **The section code is resolved within the student's own course**, because the
+  same code now appears twice in a term.
 - Also available: `POST /api/sections/copy` (provision a term by copying the
   previous term's sections in one click) and `GET /api/sections/lecturers`.
 

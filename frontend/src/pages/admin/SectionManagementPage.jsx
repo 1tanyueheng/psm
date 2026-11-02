@@ -17,6 +17,24 @@ import {
 } from '../../components/ui'
 
 /**
+ * The two offerings of the service course, mirrored from `Section::courses()`
+ * in the backend.
+ *
+ * They are different courses with the same title, not two names for one:
+ * `BIC31602` serves BIP, BIW, BIS and BIM together, `BIT34002` is BIT's own
+ * class. A term runs both, each with its own `S1`, its own roster and its own
+ * teacher — which is why a section has to say which course it is.
+ *
+ * Mirrored rather than fetched because the list changes when the faculty
+ * changes a course code, not at runtime; the server validates the value either
+ * way and its refusal is what the form displays.
+ */
+const COURSES = [
+  { code: 'BIC31602', title: 'Projek Sarjana Muda I', programmes: 'BIP, BIW, BIS, BIM' },
+  { code: 'BIT34002', title: 'Projek Sarjana Muda I', programmes: 'BIT' },
+]
+
+/**
  * Module 1/4 — section administration.
  *
  * The screen has three jobs, in the order a term is actually opened:
@@ -243,6 +261,13 @@ export default function SectionManagementPage() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
+                        {/*
+                          * The course leads, because a term runs two offerings of
+                          * the same course title and `S1` alone no longer says
+                          * which class this is. BIT34002 is its own group with
+                          * its own sections and its own teacher.
+                          */}
+                        <Badge tone="info">{section.course_code ?? 'BIC31602'}</Badge>
                         <span className="font-mono text-xs text-slate-500">{section.code}</span>
                         <span className="text-sm font-medium text-slate-800">{section.name}</span>
                         {section.lecturer ? (
@@ -409,6 +434,7 @@ function useLecturerOptions(semesterId) {
  * and that count is shown rather than swallowed.
  */
 function ProvisionCard({ termId, termName, empty, lecturers, lecturersError, onChanged, onNotice }) {
+  const [courseCode, setCourseCode] = useState(COURSES[0].code)
   const [code, setCode] = useState('')
   const [name, setName] = useState('')
   const [lecturerId, setLecturerId] = useState('')
@@ -429,6 +455,11 @@ function ProvisionCard({ termId, termName, empty, lecturers, lecturersError, onC
 
     try {
       const payload = {
+        // Which offering of the service course this class belongs to. The
+        // server defaults to BIC31602, but sending it explicitly means the
+        // admin's choice is the one recorded rather than a default they never
+        // saw.
+        course_code: courseCode,
         code: trimmedCode,
         // Left blank, the server derives "Section 1" from `S1`. Sending `null`
         // rather than `''` is what makes the derivation happen.
@@ -516,11 +547,34 @@ function ProvisionCard({ termId, termName, empty, lecturers, lecturersError, onC
       )}
 
       <form onSubmit={addSection} className="space-y-4">
-        <div className="grid gap-5 sm:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {/*
+            * The course comes first because it decides which roster the section
+            * belongs to. BIC31602 serves BIP, BIW, BIS and BIM; BIT34002 is BIT's
+            * own class, with its own sections and its own teacher.
+            */}
+          <Field
+            label="Course"
+            htmlFor="new_section_course"
+            hint="BIC31602 for BIP/BIW/BIS/BIM, BIT34002 for BIT"
+          >
+            <Select
+              id="new_section_course"
+              value={courseCode}
+              onChange={(e) => setCourseCode(e.target.value)}
+            >
+              {COURSES.map((course) => (
+                <option key={course.code} value={course.code}>
+                  {course.code} — {course.title}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
           <Field
             label="Section code"
             htmlFor="new_section_code"
-            hint="Short and unique within the term, e.g. S5"
+            hint="Short and unique within the course, e.g. S5"
           >
             <Input
               id="new_section_code"
@@ -561,14 +615,23 @@ function ProvisionCard({ termId, termName, empty, lecturers, lecturersError, onC
                 <option
                   key={option.value}
                   value={option.value}
-                  // Appointing somebody who already holds a section of this term
-                  // is the one combination the server refuses, so it is not
-                  // offered here either.
-                  disabled={option.meta?.section != null}
+                  // Appointing somebody who already holds a section of this
+                  // course this term is the one combination the server refuses,
+                  // so it is not offered here either. Another course's section
+                  // does not count — a teacher may hold one of each.
+                  disabled={
+                    option.meta?.section != null &&
+                    (option.meta.section.course_code ?? COURSES[0].code) === courseCode
+                  }
                 >
                   {option.label}
                   {option.meta?.role_label ? ` (${option.meta.role_label})` : ''}
-                  {option.meta?.section ? ` — teaches ${option.meta.section.code}` : ''}
+                  {option.meta?.section
+                    ? ` — teaches ${option.meta.section.course_code ?? ''} ${option.meta.section.code}`.replace(
+                        /\s+/g,
+                        ' ',
+                      )
+                    : ''}
                 </option>
               ))}
             </Select>

@@ -50,10 +50,24 @@ class LecturerMarkSeeder extends Seeder
      * supervision.
      */
     private const SECTIONS = [
-        ['code' => 'S1', 'name' => 'Section 1', 'name_of' => 'Dr. Farah binti Idris',      'staff' => 'LEC-001'],
-        ['code' => 'S2', 'name' => 'Section 2', 'name_of' => 'Mr. Ramesh a/l Subramaniam', 'staff' => 'LEC-002'],
-        ['code' => 'S3', 'name' => 'Section 3', 'name_of' => 'Dr. Norhayati binti Salleh', 'staff' => 'LEC-003'],
-        ['code' => 'S4', 'name' => 'Section 4', 'name_of' => 'Ms. Tan Li Wen',            'staff' => 'LEC-004'],
+        // BIC31602 — BIP, BIW, BIS and BIM share one offering.
+        ['course' => Section::COURSE_BIC, 'code' => 'S1', 'name' => 'Section 1', 'name_of' => 'Dr. Farah binti Idris',      'staff' => 'LEC-001'],
+        ['course' => Section::COURSE_BIC, 'code' => 'S2', 'name' => 'Section 2', 'name_of' => 'Mr. Ramesh a/l Subramaniam', 'staff' => 'LEC-002'],
+        ['course' => Section::COURSE_BIC, 'code' => 'S3', 'name' => 'Section 3', 'name_of' => 'Dr. Norhayati binti Salleh', 'staff' => 'LEC-003'],
+        ['course' => Section::COURSE_BIC, 'code' => 'S4', 'name' => 'Section 4', 'name_of' => 'Ms. Tan Li Wen',            'staff' => 'LEC-004'],
+
+        /**
+         * BIT34002 — BIT has its own class, its own sections and its own teacher.
+         *
+         * It shares the title "Projek Sarjana Muda I" with the BIC group and
+         * nothing else: a BIT student takes this course, is placed in one of
+         * these sections, and has their coursework keyed here. Both offerings
+         * run in the same term with a `S1` of their own, which is why replacing
+         * the older BIC sections keeps working — the unique key is
+         * (term, course, code).
+         */
+        ['course' => Section::COURSE_BIT, 'code' => 'S1', 'name' => 'Section 1', 'name_of' => 'Mr. Mohd Aizat bin Hamzah', 'staff' => 'LEC-005'],
+        ['course' => Section::COURSE_BIT, 'code' => 'S2', 'name' => 'Section 2', 'name_of' => 'Dr. Siti Zaleha binti Osman', 'staff' => 'LEC-006'],
     ];
 
     public function run(): void
@@ -110,6 +124,7 @@ class LecturerMarkSeeder extends Seeder
             $sections[] = Section::updateOrCreate(
                 [
                     'academic_semester_id' => $term->id,
+                    'course_code'          => $spec['course'],
                     'code'                 => $spec['code'],
                 ],
                 [
@@ -123,28 +138,42 @@ class LecturerMarkSeeder extends Seeder
     }
 
     /**
-     * Spread the PSM 1 cohort across the sections.
+     * Spread the PSM 1 cohort across the sections **of their own course**.
      *
-     * Round-robin by student id order, which is what an admin working down an
-     * enrolment list would produce. Only students with a PSM 1 project are
-     * placed, for the reason in the class docblock.
+     * Round-robin by student id order within each course, which is what an admin
+     * working down an enrolment list would produce. Only students with a PSM 1
+     * project are placed, for the reason in the class docblock.
+     *
+     * Grouping by course matters since 2026-11-02: a BIT student belongs to the
+     * BIT34002 sections and a BIC student to the BIC31602 ones, and spreading
+     * the whole cohort across all six would seat students in a course they do
+     * not take — the placement rule the API enforces.
      *
      * @param  array<int, Section>  $sections
      */
     private function placeStudents(array $sections, AcademicSemester $term): int
     {
-        $students = StudentProfile::query()
-            ->whereHas('projects', fn ($q) => $q->where('psm_part', 'PSM1'))
-            ->orderBy('student_id')
-            ->get();
+        $byCourse = [];
+
+        foreach ($sections as $section) {
+            $byCourse[$section->course_code][] = $section;
+        }
 
         $placed = 0;
 
-        foreach ($students as $index => $student) {
-            $section = $sections[$index % count($sections)];
+        foreach ($byCourse as $courseCode => $courseSections) {
+            $students = StudentProfile::query()
+                ->whereHas('projects', fn ($q) => $q->where('psm_part', 'PSM1'))
+                ->whereIn('programme', Section::courses()[$courseCode]['programmes'] ?? [])
+                ->orderBy('student_id')
+                ->get();
 
-            $student->forceFill(['section_id' => $section->id])->save();
-            $placed++;
+            foreach ($students as $index => $student) {
+                $section = $courseSections[$index % count($courseSections)];
+
+                $student->forceFill(['section_id' => $section->id])->save();
+                $placed++;
+            }
         }
 
         return $placed;

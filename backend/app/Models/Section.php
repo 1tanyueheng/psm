@@ -38,9 +38,74 @@ class Section extends Model
     protected $fillable = [
         'code',
         'name',
+        'course_code',
         'lecturer_id',
         'academic_semester_id',
     ];
+
+    /** The attribute default, so a section created in code needs no course. */
+    protected $attributes = [
+        'course_code' => self::COURSE_BIC,
+    ];
+
+    /**
+     * The two offerings of the service course.
+     *
+     * They are different courses, not two names for one: `BIC31602` serves BIP,
+     * BIW, BIS and BIM together, and `BIT34002` serves BIT alone. A student is
+     * placed into the course their programme belongs to, and a lecturer teaches
+     * one course — so a section states its course and nobody crosses over.
+     *
+     * Declared once here and read everywhere (the section list, the placement
+     * rules, the admin's form), because a second list of course codes is a
+     * second thing that can drift.
+     */
+    public const COURSE_BIC = 'BIC31602';
+
+    public const COURSE_BIT = 'BIT34002';
+
+    /** @return array<string, array{code: string, label: string, title: string, programmes: array<int, string>}> */
+    public static function courses(): array
+    {
+        return [
+            self::COURSE_BIC => [
+                'code'       => self::COURSE_BIC,
+                'label'      => 'BIC31602',
+                'title'      => 'Projek Sarjana Muda I',
+                'programmes' => ['BIP', 'BIW', 'BIS', 'BIM'],
+            ],
+            self::COURSE_BIT => [
+                'code'       => self::COURSE_BIT,
+                'label'      => 'BIT34002',
+                'title'      => 'Projek Sarjana Muda I',
+                'programmes' => ['BIT'],
+            ],
+        ];
+    }
+
+    /** The course a programme is taught under. Unknown programmes take the BIC course. */
+    public static function courseForProgramme(?string $programme): string
+    {
+        $programme = strtoupper(trim((string) $programme));
+
+        foreach (static::courses() as $course) {
+            if (in_array($programme, $course['programmes'], true)) {
+                return $course['code'];
+            }
+        }
+
+        return self::COURSE_BIC;
+    }
+
+    /** "BIC31602 — Projek Sarjana Muda I" */
+    public function courseLabel(): string
+    {
+        $course = static::courses()[$this->course_code] ?? null;
+
+        return $course === null
+            ? (string) $this->course_code
+            : "{$course['label']} — {$course['title']}";
+    }
 
     // -----------------------------------------------------------------
     // Relations
@@ -101,5 +166,17 @@ class Section extends Model
     public function label(): string
     {
         return "{$this->code} — {$this->name}";
+    }
+
+    /**
+     * "BIT34002 · S1 — Section 1", or just the section when there is one course.
+     *
+     * The course is part of the name only when it has to be: with two offerings
+     * of the same course title in one term, "S1" alone is ambiguous and a
+     * coordinator looking at a roster needs to know which class they are in.
+     */
+    public function qualifiedLabel(): string
+    {
+        return "{$this->course_code} · {$this->label()}";
     }
 }
