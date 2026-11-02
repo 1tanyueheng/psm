@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { lecturerApi } from '../../api/endpoints'
 import { useAuth } from '../../context/AuthContext'
 import { useSemesters } from '../../context/SemesterContext'
@@ -10,7 +11,6 @@ import {
   DataTable,
   EmptyState,
   ErrorState,
-  Input,
   PageHeader,
   Select,
   Spinner,
@@ -83,68 +83,15 @@ const COMPONENTS = [
 const MAX_TOTAL = COMPONENTS.reduce((sum, c) => sum + c.max, 0)
 
 /**
- * Turn a student's stored marks into the strings the inputs hold.
+ * The lecturer's section roster — a list, not a marking sheet.
  *
- * `null` becomes `''` rather than `'0'`. This is the whole not-entered-versus-
- * zero distinction at the data layer: a blank input is the only representation
- * of "nobody has keyed this", and defaulting it to `'0'` here would key a real
- * zero for every student in the section the first time the page rendered.
+ * This list does not mark anybody. A row opens the student's own marking page
+ * (`/dashboard/lecturer/students/:id`), which is where the three criteria are
+ * keyed — see that file for why one student per page beat four inputs in a row.
  */
-function formFromMarks(marks) {
-  return Object.fromEntries(
-    COMPONENTS.map(({ key }) => [key, marks?.[key] == null ? '' : String(marks[key])]),
-  )
-}
-
-/**
- * Turn the typed strings back into a payload.
- *
- * An empty string — or a box holding only whitespace — becomes `null`, which is
- * the API's word for "not entered". Everything else goes as a number so the
- * server's `numeric` rule sees a number rather than a string.
- */
-function payloadFromForm(form) {
-  return Object.fromEntries(
-    COMPONENTS.map(({ key }) => {
-      const raw = String(form[key] ?? '').trim()
-      return [key, raw === '' ? null : Number(raw)]
-    }),
-  )
-}
-
-/**
- * Catch what the browser's `max` attribute does not.
- *
- * `type="number"` with `max` stops the spinner and marks the field invalid, but
- * it does not stop a typed 40 being submitted — and a native tooltip is a poor
- * way to explain "Quiz is out of 5". Validating here means the common mistake
- * is caught without a round trip, while anything more subtle still reaches the
- * server, whose message is authoritative and is never swallowed.
- *
- * Returns null when the row is fine.
- */
-function clientError(form) {
-  for (const { key, label, max } of COMPONENTS) {
-    const raw = String(form[key] ?? '').trim()
-
-    if (raw === '') continue
-
-    const value = Number(raw)
-
-    if (!Number.isFinite(value)) {
-      return `${label} must be a number, or left blank if it has not been marked.`
-    }
-
-    if (value < 0 || value > max) {
-      return `${label} must be between 0 and ${max}.`
-    }
-  }
-
-  return null
-}
-
 export default function LecturerDashboard() {
-  const { user, hasRole } = useAuth()
+  const navigate = useNavigate()
+  const { hasRole } = useAuth()
   const { selectedId, semesters, selected, selectSemester } = useSemesters()
 
   const [section, setSection] = useState(null)
@@ -152,24 +99,6 @@ export default function LecturerDashboard() {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-
-  /**
-   * The typed values, keyed by student profile id.
-   *
-   * Held separately from `students` so a save in flight cannot be clobbered by
-   * a reload: the roster response is the server's truth, while this is what the
-   * lecturer is currently typing. They are merged at render.
-   */
-  const [drafts, setDrafts] = useState({})
-
-  /**
-   * Per-row save state, keyed by student id.
-   *
-   * Each entry is `{ saving, message, tone }`. Per row rather than one page-wide
-   * flag because saves are independent — one failing must not make the row
-   * beside it look busy or broken.
-   */
-  const [rows, setRows] = useState({})
 
   // --- Load the section and its roster ---------------------------------
   const load = useCallback(async () => {
@@ -183,8 +112,6 @@ export default function LecturerDashboard() {
 
       setSection(roster?.section ?? null)
       setStudents(Array.isArray(roster?.students) ? roster.students : [])
-      setDrafts({})
-      setRows({})
     } catch (err) {
       setError(err)
     } finally {
@@ -201,90 +128,6 @@ export default function LecturerDashboard() {
     const complete = students.filter((s) => s.complete).length
     return { total: students.length, complete, outstanding: students.length - complete }
   }, [students])
-
-  const updateDraft = (studentId, key, value) => {
-    setDrafts((prev) => ({ ...prev, [studentId]: { ...prev[studentId], [key]: value } }))
-  }
-
-  /** One row's state, with the not-yet-touched defaults filled in. */
-  const rowState = (studentId) => rows[studentId] ?? { saving: false, message: null, tone: null }
-
-  /**
-   * Save one student's marks.
-   *
-   * Three things happen in a specific order, and each is deliberate:
-   *
-   *  1. A client-side bound is checked first, so an obviously wrong value never
-   *     makes the round trip. The typed value is *kept* either way.
-   *  2. A 422 from the server is displayed verbatim. The server knows which
-   *     component is out of range and says so by name, and replacing that with
-   *     a generic "could not save" would throw away the only useful sentence.
-   *  3. On failure the draft is left exactly as typed — the lecturer keeps
-   *     their number, fixes it, and presses Save again. Clearing the box back to
-   *     the stored value would destroy the work and hide the mistake.
-   */
-  async function save(student) {
-    const form = drafts[student.id] ?? formFromMarks(student.marks)
-    const invalid = clientError(form)
-
-    if (invalid) {
-      setRows((prev) => ({
-        ...prev,
-        [student.id]: { saving: false, message: invalid, tone: 'error' },
-      }))
-      return
-    }
-
-    setRows((prev) => ({ ...prev, [student.id]: { saving: true, message: null, tone: null } }))
-
-    try {
-      const saved = await lecturerApi.saveMarks(student.id, {
-        ...payloadFromForm(form),
-        // The term the marks belong to. A marks row is per student *per term*,
-        // so leaving this off would write to the null-term row instead of the
-        // one being displayed.
-        semester_id: selectedId ?? undefined,
-      })
-
-      /**
-       * Trust the server's arithmetic, not a local sum.
-       *
-       * The response carries the recomputed total, percent and completeness.
-       * Recomputing them here would be a second implementation of the same rule
-       * and the two would eventually disagree — which is exactly the sort of
-       * bug that shows a student one mark and their supervisor another.
-       */
-      setStudents((prev) =>
-        prev.map((s) =>
-          s.id === student.id
-            ? {
-                ...s,
-                marks: saved?.marks ?? s.marks,
-                total: saved?.total ?? null,
-                percent: saved?.percent ?? null,
-                complete: Boolean(saved?.complete),
-              }
-            : s,
-        ),
-      )
-
-      setRows((prev) => ({
-        ...prev,
-        [student.id]: { saving: false, message: 'Marks saved.', tone: 'success' },
-      }))
-    } catch (err) {
-      // `err.message` is the server's own sentence — see the note above on why
-      // it is shown rather than replaced.
-      setRows((prev) => ({
-        ...prev,
-        [student.id]: {
-          saving: false,
-          message: err?.message ?? 'The marks could not be saved.',
-          tone: 'error',
-        },
-      }))
-    }
-  }
 
   if (loading) return <Spinner label="Loading your section…" />
 
@@ -317,7 +160,11 @@ export default function LecturerDashboard() {
       <>
         <PageHeader
           title="Coursework marks"
-          subtitle={`Signed in as ${user?.name ?? 'a lecturer'}`}
+          subtitle={
+            selected?.name
+              ? `No section of yours in ${selected.name}`
+              : 'Your coursework sections'
+          }
           action={
             semesters?.length > 1 ? (
               <Select
@@ -422,17 +269,17 @@ export default function LecturerDashboard() {
 
       <Card>
         <CardHeader
-          title="Coursework marks"
-          subtitle="Each criterion is out of its own maximum. Leave a box empty until it has been marked — an empty box is not a zero."
+          title="Your students"
+          subtitle="Open a student to key or review their three coursework criteria. The status here says whether anything is still missing."
           action={
             hasRole('lecturer') ? (
               <Badge tone="brand">Keyed by you</Badge>
             ) : (
               /*
-               * An admin or coordinator sees the same page to correct a mark.
+               * An admin or coordinator reaches this screen to correct a mark.
                * Saying so matters: `entered_by` records who typed it, and a
-               * correction attributed to the section's lecturer when staff
-               * made it would be a false audit trail.
+               * correction attributed to the section's lecturer when staff made
+               * it would be a false audit trail.
                */
               <Badge tone="warning">Staff correction</Badge>
             )
@@ -447,134 +294,106 @@ export default function LecturerDashboard() {
         ) : (
           <DataTable
             /*
-             * Wide by nature: matric, name, programme, four inputs, a total, a
-             * percent, a status and a button. `fixed` is off because the widths
-             * are left to the content, and the min width is raised so the inputs
-             * keep a usable size instead of shattering on a narrow screen.
+             * A list, not a marking sheet.
+             *
+             * Marking moved to `/dashboard/lecturer/students/:id` on 2026-11-02.
+             * One student per page is the difference between a screen a lecturer
+             * reads and a screen they work in: four inputs in a row of a
+             * twelve-column table are small targets that scroll sideways, and a
+             * save that fails halfway down a section is hard to find again.
+             *
+             * The list keeps what a list is good at — who is marked, who is not,
+             * and in what order to work.
              */
-            minWidth={1100}
+            minWidth={760}
             columns={[
               'Matric no.',
               'Student',
               'Programme',
-              ...COMPONENTS.map(({ label, max }) => ({
-                key: label,
-                label: `${label} / ${max}`,
-                align: 'right',
-              })),
               { key: 'total', label: `Total / ${MAX_TOTAL}`, align: 'right' },
               { key: 'percent', label: 'Percent', align: 'right' },
               'Status',
-              'Save',
+              { key: 'open', label: '', align: 'right' },
             ]}
           >
-            {students.map((student) => {
-              const state = rowState(student.id)
-              const form = drafts[student.id] ?? formFromMarks(student.marks)
-              const dirty = drafts[student.id] != null
+            {students.map((student) => (
+              <tr
+                key={student.id}
+                className="hover:bg-slate-50/60 cursor-pointer"
+                /*
+                 * The whole row opens the marking page, not only the link.
+                 * A row a lecturer has to aim at is a row they mis-click; the
+                 * link inside stays for the keyboard and for a right-click
+                 * "open in new tab".
+                 */
+                onClick={() => navigate(`/dashboard/lecturer/students/${student.id}`)}
+              >
+                <Td className="font-mono text-xs text-slate-500 whitespace-nowrap">
+                  {student.student_id ?? '—'}
+                </Td>
 
-              return (
-                <tr key={student.id} className="hover:bg-slate-50/60 align-top">
-                  <Td className="font-mono text-xs text-slate-500 whitespace-nowrap">
-                    {student.student_id ?? '—'}
-                  </Td>
+                <Td>
+                  <Link
+                    to={`/dashboard/lecturer/students/${student.id}`}
+                    className="text-sm font-medium text-brand-700 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {student.name}
+                  </Link>
+                  {student.email && (
+                    <div className="text-xs text-slate-500 truncate max-w-[220px]">
+                      {student.email}
+                    </div>
+                  )}
+                </Td>
 
-                  <Td>
-                    <div className="text-sm font-medium text-slate-800">{student.name}</div>
-                    {student.email && (
-                      <div className="text-xs text-slate-500 truncate max-w-[180px]">
-                        {student.email}
-                      </div>
-                    )}
-                  </Td>
+                <Td className="text-xs text-slate-600 whitespace-nowrap">
+                  {student.program_code ?? '—'}
+                </Td>
 
-                  <Td className="text-xs text-slate-600 whitespace-nowrap">
-                    {student.program_code ?? '—'}
-                  </Td>
+                <Td align="right" className="tabular-nums text-sm font-medium text-slate-900">
+                  {formatMark(student.total)} / {MAX_TOTAL}
+                </Td>
 
-                  {COMPONENTS.map(({ key, label, max }) => (
-                    <Td key={key} align="right">
-                      <Input
-                        /* The label is carried by the column header, so the
-                           input itself needs an accessible name rather than a
-                           visible one — a label per box would repeat the
-                           header four times down the row. */
-                        aria-label={`${label} for ${student.name ?? 'this student'}, out of ${max}`}
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        max={max}
-                        step="0.01"
-                        /*
-                         * Bounds the typed characters as well as the value.
-                         * "12" is the longest legitimate entry (Assignment-C at
-                         * full marks is "12", and a decimal never needs more
-                         * than five: "12.00"). The attribute alone would not
-                         * stop "99999"; it is a fast first line, with the
-                         * client-side bound and the server behind it.
-                         */
-                        maxLength={5}
-                        value={form[key]}
-                        onChange={(e) => updateDraft(student.id, key, e.target.value)}
-                        className="w-20 text-right tabular-nums"
-                        placeholder="—"
-                      />
-                    </Td>
-                  ))}
+                <Td align="right" className="tabular-nums text-sm text-slate-600">
+                  {formatPercent(student.percent)}
+                </Td>
 
-                  <Td align="right" className="tabular-nums text-sm font-medium text-slate-900">
-                    {formatMark(student.total)} / {MAX_TOTAL}
-                  </Td>
+                <Td>
+                  {student.complete ? (
+                    <Badge tone="success">Complete</Badge>
+                  ) : (
+                    /*
+                     * "Incomplete", not "0 / 30" or "0%" — the row has no
+                     * total until every criterion is keyed, and showing a
+                     * partial sum would look like a failing mark.
+                     */
+                    <Badge tone="warning">Incomplete</Badge>
+                  )}
+                  {student.marks?.entered_at && (
+                    <div className="mt-1 text-[11px] text-slate-400 whitespace-nowrap">
+                      {formatDateTime(student.marks.entered_at)}
+                      {student.marks.entered_by_name && (
+                        <> · {student.marks.entered_by_name}</>
+                      )}
+                    </div>
+                  )}
+                </Td>
 
-                  <Td align="right" className="tabular-nums text-sm text-slate-600">
-                    {formatPercent(student.percent)}
-                  </Td>
-
-                  <Td>
-                    {student.complete ? (
-                      <Badge tone="success">Complete</Badge>
-                    ) : (
-                      /*
-                       * "Incomplete", not "0 / 35" or "0%" — the row has no
-                       * total until every item is keyed, and showing a partial
-                       * sum would look like a failing mark.
-                       */
-                      <Badge tone="warning">Incomplete</Badge>
-                    )}
-                    {student.marks?.entered_at && (
-                      <div className="mt-1 text-[11px] text-slate-400 whitespace-nowrap">
-                        {formatDateTime(student.marks.entered_at)}
-                        {student.marks.entered_by_name && (
-                          <> · {student.marks.entered_by_name}</>
-                        )}
-                      </div>
-                    )}
-                  </Td>
-
-                  <Td>
-                    <Button
-                      size="sm"
-                      variant={dirty ? 'primary' : 'secondary'}
-                      loading={state.saving}
-                      onClick={() => save(student)}
-                    >
-                      {state.saving ? 'Saving…' : 'Save'}
-                    </Button>
-
-                    {state.message && (
-                      <p
-                        className={`mt-1 text-xs ${
-                          state.tone === 'error' ? 'text-rose-600' : 'text-emerald-600'
-                        }`}
-                        role={state.tone === 'error' ? 'alert' : 'status'}
-                      >
-                        {state.message}
-                      </p>
-                    )}
-                  </Td>
-                </tr>
-              )
-            })}
+                <Td align="right">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      navigate(`/dashboard/lecturer/students/${student.id}`)
+                    }}
+                  >
+                    {student.complete ? 'Review' : 'Mark'} →
+                  </Button>
+                </Td>
+              </tr>
+            ))}
           </DataTable>
         )}
       </Card>
@@ -583,17 +402,18 @@ export default function LecturerDashboard() {
         <CardHeader title="How these marks are counted" />
         <ul className="space-y-2 text-sm text-slate-600">
           <li>
-            The four items sum to <span className="font-medium text-slate-800">{MAX_TOTAL}</span>,
+            The three criteria sum to <span className="font-medium text-slate-800">{MAX_TOTAL}</span>,
             which enters the PSM 1 result as the coursework component.
           </li>
           <li>
             <span className="font-medium text-slate-800">An empty box is not a zero.</span> It means
-            the item has not been marked yet, so the student&rsquo;s coursework has no total and
+            the criterion has not been marked yet, so the student&rsquo;s coursework has no total and
             nothing is published for it. A real zero is a mark you type.
           </li>
           <li>
-            Marks save one student at a time. If the server refuses a value it will say which item
-            and why, and what you typed stays in the box so you can correct it.
+            Marks save one student at a time, on their own page. If the server refuses a value it
+            will say which criterion and why, and what you typed stays in the box so you can
+            correct it.
           </li>
         </ul>
       </Card>

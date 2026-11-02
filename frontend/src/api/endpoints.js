@@ -192,6 +192,27 @@ export const sectionApi = {
   list: (params) => api.get('/sections', { params }).then(unwrap),
 
   /**
+   * One section with its roster and the students still waiting for a class.
+   *
+   * This is the section page's single call. `students` is everybody placed in
+   * the section; `candidates` is the students of the same **course** who are in
+   * no section at all, so the add-a-student picker offers only people the save
+   * would accept — a BIT student named against a BIC31602 section is a 422, and
+   * a picker that offers it is a trap.
+   */
+  get: (id) => api.get(`/sections/${id}`).then(unwrap),
+
+  /**
+   * Delete an empty section.
+   *
+   * Admin only, and refused while the section still holds students or keyed
+   * marks: both foreign keys are `nullOnDelete`, so a delete that went through
+   * would unplace every student silently and detach their marks from the class
+   * they belong to. The 422 names which of the two is in the way.
+   */
+  remove: (id) => api.delete(`/sections/${id}`).then(unwrap),
+
+  /**
    * Candidates for a section's lecturer — lecturers *and* supervisors.
    *
    * `semester_id` is what makes the list honest rather than merely complete: the

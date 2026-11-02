@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { sectionApi, userApi } from '../../api/endpoints'
 import { useSemesters } from '../../context/SemesterContext'
 import {
@@ -33,6 +34,22 @@ const COURSES = [
   { code: 'BIC31602', title: 'Projek Sarjana Muda I', programmes: 'BIP, BIW, BIS, BIM' },
   { code: 'BIT34002', title: 'Projek Sarjana Muda I', programmes: 'BIT' },
 ]
+
+/**
+ * Programme → course, mirrored from `Section::courseForProgramme()`.
+ *
+ * Used to narrow a section picker to the one course the student belongs to. The
+ * server is still the authority — it refuses a cross-course placement by name —
+ * but a picker that offers a row the save will refuse is a trap, and the fault
+ * is worse here than elsewhere because both rows are called `S1`.
+ */
+const COURSE_FOR_PROGRAMME = {
+  BIP: 'BIC31602',
+  BIW: 'BIC31602',
+  BIS: 'BIC31602',
+  BIM: 'BIC31602',
+  BIT: 'BIT34002',
+}
 
 /**
  * Module 1/4 — section administration.
@@ -268,8 +285,19 @@ export default function SectionManagementPage() {
                           * its own sections and its own teacher.
                           */}
                         <Badge tone="info">{section.course_code ?? 'BIC31602'}</Badge>
-                        <span className="font-mono text-xs text-slate-500">{section.code}</span>
-                        <span className="text-sm font-medium text-slate-800">{section.name}</span>
+                        {/*
+                          * The section's name is the way in. Managing a class is
+                          * not one field on a list — it is its roster, its
+                          * teacher, its class-list upload and its placements —
+                          * so the heading opens a page for that section rather
+                          * than trying to hold all of it here.
+                          */}
+                        <Link
+                          to={`/admin/sections/${section.id}`}
+                          className="font-mono text-sm font-medium text-brand-700 underline decoration-brand-300 underline-offset-2 hover:decoration-brand-700"
+                        >
+                          {section.code} — {section.name}
+                        </Link>
                         {section.lecturer ? (
                           <Badge tone="success">{section.lecturer.name}</Badge>
                         ) : (
@@ -287,10 +315,18 @@ export default function SectionManagementPage() {
                       )}
                     </div>
 
-                    <Badge tone="neutral">
-                      {section.student_count ?? 0} student
-                      {(section.student_count ?? 0) === 1 ? '' : 's'}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge tone="neutral">
+                        {section.student_count ?? 0} student
+                        {(section.student_count ?? 0) === 1 ? '' : 's'}
+                      </Badge>
+                      <Link
+                        to={`/admin/sections/${section.id}`}
+                        className="text-sm font-medium text-brand-700 hover:underline"
+                      >
+                        Manage students →
+                      </Link>
+                    </div>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -897,6 +933,33 @@ function PlaceStudentCard({ sections, onPlaced }) {
   }, [students, query])
 
   /**
+   * Only the sections the chosen student is allowed to sit in.
+   *
+   * A term runs two offerings of the service course and each has its own `S1`,
+   * so a flat list shows two rows reading "S1 — Section 1" with nothing to tell
+   * them apart. Two things fix that here:
+   *
+   *   1. every option is labelled with its course, and
+   *   2. the list is filtered to the student's own course, because the server
+   *      refuses the other one (`assignStudent`) — offering it would be offering
+   *      a refusal the admin cannot act on.
+   *
+   * With no student chosen the whole list is shown, still course-labelled, so
+   * an admin can see what exists.
+   */
+  const chosenStudent = students.find((s) => String(s.value) === studentId)
+
+  const placeable = useMemo(() => {
+    const programme = chosenStudent?.meta?.program_code
+
+    if (!programme) return sections
+
+    const course = COURSE_FOR_PROGRAMME[String(programme).toUpperCase()]
+
+    return course ? sections.filter((s) => (s.course_code ?? COURSES[0].code) === course) : sections
+  }, [sections, chosenStudent])
+
+  /**
    * Record the placement.
    *
    * The student is identified by their **user** id from the picker, but the
@@ -996,9 +1059,9 @@ function PlaceStudentCard({ sections, onPlaced }) {
                 onChange={(e) => setSectionId(e.target.value)}
               >
                 <option value="">No section</option>
-                {sections.map((section) => (
+                {placeable.map((section) => (
                   <option key={section.id} value={section.id}>
-                    {section.code} — {section.name}
+                    {section.course_code ?? 'BIC31602'} · {section.code} — {section.name}
                   </option>
                 ))}
               </Select>

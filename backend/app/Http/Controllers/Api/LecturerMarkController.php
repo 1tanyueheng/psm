@@ -221,16 +221,148 @@ class LecturerMarkController extends ApiController
 
         $semesterId = AcademicSemester::resolveFilterId($request->input('semester_id'));
 
+        /**
+         * Order by course, then code.
+         *
+         * A term holds two offerings, so sorting on `code` alone interleaves the
+         * BIC and BIT `S1` rows and a reader cannot tell which cohort they are
+         * looking at without reading every badge.
+         */
         $sections = Section::query()
             ->with(['lecturer', 'academicSemester'])
             ->forSemester($semesterId)
+            ->withCount('students')
+            ->orderBy('course_code')
             ->orderBy('code')
             ->get()
             ->map(fn (Section $s) => $this->sectionPayload($s) + [
-                'student_count' => $s->students()->count(),
+                'student_count' => (int) $s->students_count,
             ]);
 
         return $this->ok($sections);
+    }
+
+    /**
+     * One section, with its roster and anyone still unplaced.
+     *
+     * This is what the section's own page reads. Two things it deliberately
+     * carries beyond the list endpoint:
+     *
+     *  - **the roster**, ordered by matric number, because the section page's
+     *    job is its students rather than its metadata; and
+     *  - **candidates** for placement — students of this section's course who
+     *    are not in any section yet. A picker that only lists what the admin
+     *    already knows is not a picker; and a picker that lists *everybody*
+     *    offers students the course rule will refuse (a BIT student named
+     *    against a BIC31602 section is a 422 waiting to happen).
+     */
+    public function show(Request $request, Section $section): JsonResponse
+    {
+        $this->authorize('viewAny', Section::class);
+
+        $section->load(['lecturer', 'academicSemester']);
+
+        $roster = StudentProfile::query()
+            ->where('section_id', $section->id)
+            ->with(['user:id,name,email'])
+            ->orderBy('student_id')
+            ->get()
+            ->map(fn (StudentProfile $p) => [
+                'id'           => $p->id,
+                'student_id'   => $p->student_id,
+                'name'         => $p->user?->name,
+                'email'        => $p->user?->email,
+                'program_code' => $p->program_code,
+                'program'      => $p->program,
+                'in_section'   => true,
+            ]);
+
+        /**
+         * Who may be added: students of this course, placed nowhere.
+         *
+         * "Placed nowhere" rather than "not placed here", because moving a
+         * student between sections is what the roster panel's student picker
+         * does; this list answers "who is still waiting for a class", which is
+         * the question the section page exists to speed up.
+         */
+        $programmes = Section::courses()[$section->course_code]['programmes'] ?? [];
+
+        $candidates = StudentProfile::query()
+            ->whereNull('section_id')
+            ->whereIn('program_code', $programmes)
+            ->with(['user:id,name,email'])
+            ->orderBy('student_id')
+            ->get()
+            ->map(fn (StudentProfile $p) => [
+                'id'           => $p->id,
+                'student_id'   => $p->student_id,
+                'name'         => $p->user?->name,
+                'email'        => $p->user?->email,
+                'program_code' => $p->program_code,
+                'program'      => $p->program,
+                'in_section'   => false,
+            ]);
+
+        return $this->ok([
+            'section'    => $this->sectionPayload($section) + ['student_count' => $roster->count()],
+            'students'   => $roster,
+            'candidates' => $candidates,
+            'course'     => Section::courses()[$section->course_code] ?? null,
+        ]);
+    }
+
+    /**
+     * Delete a section.
+     *
+     * Refused when the section still holds students or keyed marks, because both
+     * would be silently orphaned: `student_profiles.section_id` and
+     * `lecturer_marks.section_id` are `nullOnDelete`, so a delete that went
+     * through would unplace every student without saying so and detach their
+     * marks from the class they belong to.
+     *
+     * The caller is told which of the two is in the way, with a count, so the
+     * next step is obvious — withdraw the students, or close the term.
+     */
+    public function destroy(Request $request, Section $section): JsonResponse
+    {
+        $this->authorize('manage', Section::class);
+
+        $students = StudentProfile::query()->where('section_id', $section->id)->count();
+        $marks = LecturerMark::query()->where('section_id', $section->id)->count();
+
+        if ($students > 0 || $marks > 0) {
+            $reasons = [];
+
+            if ($students > 0) {
+                $reasons[] = "{$students} student(s) still placed in it";
+            }
+
+            if ($marks > 0) {
+                $reasons[] = "{$marks} set(s) of marks keyed against it";
+            }
+
+            return $this->fail(
+                "{$section->course_code} {$section->code} cannot be deleted: "
+                .implode(' and ', $reasons)
+                .'. Move the students out first, or keep the section as the record it is.',
+                422
+            );
+        }
+
+        $label = "{$section->course_code} {$section->code}";
+
+        $this->audit->log(
+            action: AuditAction::SectionChanged,
+            description: "Section {$label} deleted from ".($section->academicSemester?->name ?? 'a term'),
+            subject: $section,
+            before: $section->only(['code', 'name', 'course_code', 'lecturer_id', 'academic_semester_id']),
+            after: [],
+            actor: $request->user(),
+        );
+
+        $section->delete();
+
+        return $this->ok(null, "{$label} deleted.");
     }
 
     /**

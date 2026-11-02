@@ -318,6 +318,22 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
         ->middleware('role:admin')
         ->name('sections.update');
 
+    /**
+     * One section and its roster — the section's own page.
+     *
+     * Readable by a coordinator as well (`viewAny` on Section): placing a student
+     * is their job even though appointing the teacher is not, and a roster they
+     * cannot read is a roster they cannot place anybody into.
+     */
+    Route::get('sections/{section}', [LecturerMarkController::class, 'show'])
+        ->name('sections.show');
+
+    // Deleting is admin-only, like creating: it removes a class from the term.
+    // Refused while it still holds students or marks — see `destroy()`.
+    Route::delete('sections/{section}', [LecturerMarkController::class, 'destroy'])
+        ->middleware('role:admin')
+        ->name('sections.destroy');
+
     // -----------------------------------------------------------------
     // Module 2/3 — Registration flow (Lampiran A & B)
     // -----------------------------------------------------------------

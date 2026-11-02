@@ -32,6 +32,8 @@ const SemesterListPage = lazy(() => import('./pages/admin/SemesterListPage'))
 // reference only, so it is no longer imported.
 const EnrolmentPage = lazy(() => import('./pages/admin/EnrolmentPage'))
 const SectionManagementPage = lazy(() => import('./pages/admin/SectionManagementPage'))
+const SectionDetailPage = lazy(() => import('./pages/admin/SectionDetailPage'))
+const LecturerMarkStudentPage = lazy(() => import('./pages/lecturer/LecturerMarkStudentPage'))
 
 const ProjectListPage = lazy(() => import('./pages/projects/ProjectListPage'))
 const ProjectDetailPage = lazy(() => import('./pages/projects/ProjectDetailPage'))
@@ -188,6 +190,24 @@ export default function AppRoutes() {
             element={
               <RequireCapability capability="keyCoursework">
                 <LecturerDashboard />
+              </RequireCapability>
+            }
+          />
+          {/*
+            One student's coursework — the marking page the roster links to.
+
+            Same capability guard as the list: an admin or coordinator reaches
+            it to correct a mark (`entered_by` records who really typed it), and
+            a lecturer reaches it for their own section's students only. The
+            server is what enforces "own section" — `saveMarks` refuses anyone
+            else's student by resolving the section from the student's own
+            placement rather than from the session.
+          */}
+          <Route
+            path="/dashboard/lecturer/students/:studentId"
+            element={
+              <RequireCapability capability="keyCoursework">
+                <LecturerMarkStudentPage />
               </RequireCapability>
             }
           />
@@ -360,6 +380,24 @@ export default function AppRoutes() {
               <RequireCapability capability="manageSections">
                 <SectionManagementPage />
               </RequireCapability>
+            }
+          />
+          {/*
+            One section's own page — its roster, its teacher, its class-list
+            upload and its placements.
+
+            Guarded on `viewAny`-grade access rather than `manageSections`: a
+            coordinator may place students even though they may not appoint the
+            teacher, and the page hides the teacher and delete cards for them
+            rather than refusing the whole screen. A roster a coordinator cannot
+            read is a roster they cannot place anybody into.
+          */}
+          <Route
+            path="/admin/sections/:id"
+            element={
+              <RequireRole roles={['admin', 'coordinator']}>
+                <SectionDetailPage />
+              </RequireRole>
             }
           />
 

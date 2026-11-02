@@ -675,9 +675,21 @@ class UserController extends ApiController
                         'label' => $u->displayName(),
                         'meta'  => match ($role) {
                             'student' => [
-                                'student_id' => $u->studentProfile?->student_id,
-                                'batch'      => $u->studentProfile?->batch,
-                                'program'    => $u->studentProfile?->program,
+                                'student_id'  => $u->studentProfile?->student_id,
+                                'batch'       => $u->studentProfile?->batch,
+                                'program'     => $u->studentProfile?->program,
+                                /**
+                                 * The CODE, not just the display name.
+                                 *
+                                 * `program` carries a label like "Bachelor of
+                                 * Computer Science". `program_code` carries
+                                 * `BIP`/`BIT`/…, and that is the value the
+                                 * course a student takes is derived from
+                                 * (`Section::courseForProgramme()`). A section
+                                 * picker that wants to show only the student's
+                                 * own course cannot do it from the label.
+                                 */
+                                'program_code' => $u->studentProfile?->program_code,
                             ],
                             default => [],
                         },
