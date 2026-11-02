@@ -164,7 +164,7 @@ class LecturerMarkSeeder extends Seeder
         foreach ($byCourse as $courseCode => $courseSections) {
             $students = StudentProfile::query()
                 ->whereHas('projects', fn ($q) => $q->where('psm_part', 'PSM1'))
-                ->whereIn('programme', Section::courses()[$courseCode]['programmes'] ?? [])
+                ->whereIn('program_code', Section::courses()[$courseCode]['programmes'] ?? [])
                 ->orderBy('student_id')
                 ->get();
 

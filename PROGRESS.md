@@ -799,15 +799,50 @@ offerings of the service course in one term, and they are different courses:
 
 Before this, a section was only a code within a term, so the two cohorts shared
 one `S1` row. `sections.course_code` states the course and the unique key is
-**`(term, course, code)`** — verified that a term can hold a BIC `S1` and a BIT
-`S1` at once. `Section::courses()` and `Section::courseForProgramme()` are the
-single declaration; a student's own programme decides which offering they are
-placed in, and both the roster panel and the CSV import refuse a placement in
-the other one.
+**`(term, course, code)`**. `Section::courses()` and
+`Section::courseForProgramme()` are the single declaration; a student's own
+programme decides which offering they are placed in, and both the roster panel
+and the CSV import refuse a placement in the other one.
+
+**Verified against the live database and over HTTP on 2026-11-02** (not just
+linted), after Docker came up:
+
+| Check | Result |
+|---|---|
+| `php -l` on all eight changed files | clean |
+| `migrate` | both migrations Ran; `sections.course_code` present, default `BIC31602`, all existing rows backfilled |
+| index | `sections_semester_course_code_unique` on (term, course, code); the old two-column index is gone |
+| a BIT `S1` beside the BIC `S1` in one term | created; duplicate BIT `S1` refused with SQLSTATE 23505 |
+| `POST /api/sections` duplicate code | **422** "BIT34002 already has a section S1 this term" |
+| appoint a BIC teacher to a BIT section | **200** — one section *per course* is allowed |
+| appoint them to a second BIC section | **422** "already teaches S1 for BIC31602 this term" |
+| `PUT /api/students/5/section` BIT student → BIC section | **422** "Section S3 is BIC31602, but a student on BIT takes BIT34002" |
+| BIT student → BIT section | **200** |
+| BIC student → BIT section | **422** "Section S2 is BIT34002, but a student on BIS takes BIC31602" |
+| `PUT .../marks` with cognitive 20 | **422** "must not be greater than 15" |
+| `PUT .../marks` with the old `quiz`/`assignment_c` shape | **422** "No coursework marks were given" — the old keys are not marks any more |
+| total/percent under the new criteria | 26/30 → **86.67**; null when a criterion is blank; a keyed 0 is not a blank |
+| `GET /api/lecturer/section` as `lec-005` | `BIT34002 S1`, and the roster lists only the BIT students |
+
+`LecturerMarkSeeder` now provisions **six** sections (BIC S1–S4, BIT S1–S2) with
+six lecturers and places 16 students by programme: 4 + 3 + 3 + 3 in BIC,
+2 + 1 in BIT. `LEC-005` and `LEC-006` are the two new BIT teachers.
+
+> **Term 3 (`2026/2027 Semester I`) has four BIC sections with no teacher and
+> no BIT offering.** They were created by an earlier manual run, not by the
+> seeder, and the seeder only provisions the *current* term. That is correct
+> behaviour, not a bug — but a demo that switches to term 3 shows an unstaffed
+> term. Provision it through `/admin/sections` (or "Copy last term's sections")
+> before demonstrating it.
 
 - **One section per teacher per course per term**, not per term. A teacher may
   hold one BIC section and one BIT section; two of the same course in one term
   is what `sectionTakenBy()` refuses, naming the class in the way.
+- **The student's programme column is `program_code`, not `programme`.** Set on
+  2026-11-02 by writing `$student->programme` in two places and getting a
+  `SQLSTATE[42703]` from Postgres on the first run. `program` and `program_code`
+  both exist on `student_profiles`; `program_code` holds the BIC/BIT values and
+  is what `Section::courseForProgramme()` reads.
 - `lecturer_marks`: one row per (student, term). Null means **not entered**,
   never zero — an incomplete set is excluded from the aggregate rather than
   dragging a mark down.

@@ -684,12 +684,12 @@ class LecturerMarkController extends ApiController
          */
         if (($validated['section_id'] ?? null) !== null) {
             $target = Section::find($validated['section_id']);
-            $wanted = Section::courseForProgramme($student->programme);
+            $wanted = Section::courseForProgramme($student->program_code);
 
             if ($target !== null && $target->course_code !== $wanted) {
                 return $this->fail(
                     "Section {$target->code} is {$target->course_code}, but a student on "
-                    .($student->programme ?: 'that programme')." takes {$wanted}.",
+                    .($student->program_code ?: 'that programme')." takes {$wanted}.",
                     422
                 );
             }
@@ -847,7 +847,7 @@ class LecturerMarkController extends ApiController
                 continue;
             }
 
-            $section = $sections[Section::courseForProgramme($student->programme).'|'.$code] ?? null;
+            $section = $sections[Section::courseForProgramme($student->program_code).'|'.$code] ?? null;
 
             if ($section === null) {
                 $report[] = $row + [
@@ -855,9 +855,9 @@ class LecturerMarkController extends ApiController
                     'message' => $code === ''
                         ? 'No section code in this row.'
                         : "No section {$code} for "
-                            .Section::courseForProgramme($student->programme)
+                            .Section::courseForProgramme($student->program_code)
                             .' (the course a '
-                            .($student->programme ?: 'this')
+                            .($student->program_code ?: 'this')
                             .' student takes) in this term.',
                 ];
                 $failed++;
@@ -873,13 +873,13 @@ class LecturerMarkController extends ApiController
              * named against the BIC group's S1 is refused here rather than
              * quietly seated in the wrong cohort's class.
              */
-            $wanted = Section::courseForProgramme($student->programme);
+            $wanted = Section::courseForProgramme($student->program_code);
 
             if ($wanted !== $section->course_code) {
                 $report[] = $row + [
                     'status'  => 'error',
                     'message' => "Section {$code} in this term is {$section->course_code}, "
-                        ."but a student on {$student->programme} takes {$wanted}.",
+                        ."but a student on {$student->program_code} takes {$wanted}.",
                 ];
                 $failed++;
                 continue;
