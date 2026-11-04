@@ -39,14 +39,14 @@ docker compose exec app php artisan storage:link
 | API | http://localhost:8000 | Laravel |
 | SPA | http://localhost:5173 | Vite dev server |
 | Public leaderboard | http://localhost:8000/leaderboard | No login required |
-| MySQL | `localhost:3306` | Credentials in `docker-compose.yml` |
+| PostgreSQL (dev) | `localhost:5432` | The local `psm-db` container. Production is Supabase — see `docs/DEPLOYMENT.md` |
 | Mailpit (dev mail) | http://localhost:8025 | Catches all outgoing mail |
 
 ---
 
 ## 2. Native setup
 
-Requires PHP 8.2+, Composer 2, MySQL 8, and Node 20+.
+Requires PHP 8.2+, Composer 2, **PostgreSQL 14+** (or a Supabase connection string) and Node 20+.
 
 ```bash
 # --- Backend ---
@@ -59,12 +59,12 @@ php artisan key:generate
 Edit `.env` for your database:
 
 ```
-DB_CONNECTION=mysql
+DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
-DB_PORT=3306
+DB_PORT=5432
 DB_DATABASE=psm_system
-DB_USERNAME=root
-DB_PASSWORD=
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
 ```
 
 ```bash
@@ -227,7 +227,7 @@ consumer in exchange for a hot-reload nicety that only affects development.
 
 The repository is Docker-first so Render can build it directly.
 
-1. Create a **PostgreSQL or MySQL** managed database, or use Render's MySQL.
+1. Create a **PostgreSQL** managed database — Supabase is what this project uses. (The code ran on MySQL early on; it has not since the schema moved.)
 2. Create a **Web Service** from the repo, environment `Docker`.
 3. Set the environment variables below.
 4. Render runs the health check at `/up` (registered in `bootstrap/app.php`).
@@ -269,7 +269,7 @@ APP_DEBUG=false
 APP_URL=https://your-app.onrender.com
 FRONTEND_URL=https://your-app.onrender.com
 
-DB_CONNECTION=mysql
+DB_CONNECTION=pgsql
 DB_HOST=...
 DB_PORT=3306
 DB_DATABASE=psm_system
@@ -322,8 +322,13 @@ AUDIT_RETAIN_YEARS=7
 ## 8. Troubleshooting
 
 **`SQLSTATE[HY000] [1045] Access denied`**
-Database credentials in `.env` are wrong, or the MySQL container is not yet
+Database credentials in `.env` are wrong, or the `psm-db` container is not yet
 healthy. Check `docker compose logs db`.
+
+> This used to say "the MySQL container". The local container is **PostgreSQL**
+> (`psm-db`) and the hosted database is Supabase. In practice this error means a
+> wrong `DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD` rather than a missing
+> server, so read the `.env` values before restarting anything.
 
 **`No application encryption key`**
 `php artisan key:generate`. Do this before migrating; changing the key later

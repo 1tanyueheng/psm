@@ -19,13 +19,21 @@ Decoupled single-page application talking to a stateless JSON API.
                                                                │
                         ┌──────────────────────────────────────┼──────────────┐
                         │                                      │              │
-                   ┌────▼─────┐                        ┌───────▼──────┐  ┌────▼─────┐
-                   │  MySQL   │                        │  Scheduler   │  │ Storage  │
-                   │  8.x     │                        │ (reminders,  │  │ (submis- │
-                   └──────────┘                        │  overdue,    │  │  sions)  │
-                                                       │  prune)      │  └──────────┘
-                                                       └──────────────┘
+                   ┌────▼──────────┐                    ┌───────▼──────┐  ┌────▼─────────┐
+                   │ PostgreSQL    │                    │  Scheduler   │  │ Supabase     │
+                   │ (Supabase)    │                    │ (reminders,  │  │ Storage      │
+                   └───────────────┘                    │  overdue,    │  │ (S3 endpoint)│
+                                                        │  prune)      │  └──────────────┘
+                                                        └──────────────┘
 ```
+
+> **The database is PostgreSQL on Supabase, not MySQL.** This diagram said MySQL
+> until 2026-11-04, and it was wrong: `DB_CONNECTION=pgsql` is set in
+> `backend/.env` and the pooler host is `aws-0-ap-southeast-1.pooler.supabase.com`.
+> `config/database.php` still defaults to `mysql`, which is only a fallback and
+> has misled readers before. A few migrations branch on the driver; only the
+> `pgsql` branch ever runs. **Write PostgreSQL when you write SQL.**
+
 
 **Why decoupled.** Module 8 requires a public page that works with no login.
 If the UI were server-rendered, that page would have to be carved out as a

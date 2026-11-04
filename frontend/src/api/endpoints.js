@@ -96,6 +96,20 @@ export const userApi = {
   reactivate: (id) => api.post(`/users/${id}/reactivate`).then(unwrap),
   unlock: (id) => api.post(`/users/${id}/unlock`).then(unwrap),
   sendPasswordReset: (id) => api.post(`/users/${id}/reset-password`).then(unwrap),
+
+  /**
+   * Replace a coordinator's programme scope.
+   *
+   * `scopes` is the **whole** answer, not a delta — the screen shows every
+   * programme the person may see, so what it sends back replaces what is stored.
+   * `[]` means no restriction (they see the whole faculty); a row with
+   * `is_primary: true` marks the **head coordinator** and overrides any
+   * programme on the same list.
+   *
+   * Admin only, and the server refuses a person editing their own scope: a
+   * permission its holder can grant themselves is not a permission.
+   */
+  updateScopes: (id, scopes) => api.put(`/users/${id}/scopes`, { scopes }).then(unwrap),
 }
 
 export const profileApi = {

@@ -93,11 +93,21 @@ class UserResource extends JsonResource
 
             'student_profile'    => new StudentProfileResource($this->whenLoaded('studentProfile')),
             'supervisor_profile' => new SupervisorProfileResource($this->whenLoaded('supervisorProfile')),
+            /**
+             * The programmes a coordinator may see.
+             *
+             * `is_primary` is the head-coordinator flag: a row carrying it means
+             * "not limited by programme". `label` reads through
+             * `CoordinatorScope::describe()` so the screen never has to work out
+             * what an empty scope means — `batch` was removed from the table on
+             * 2026-11-04, because scoping by intake year hid projects instead of
+             * filtering them.
+             */
             'coordinator_scopes' => $this->whenLoaded('coordinatorScopes', fn () => $this->coordinatorScopes->map(fn ($s) => [
-                'id'      => $s->id,
-                'batch'   => $s->batch,
-                'program' => $s->program,
-                'label'   => $s->describe(),
+                'id'         => $s->id,
+                'program'    => $s->program,
+                'is_primary' => (bool) $s->is_primary,
+                'label'      => $s->describe(),
             ])),
 
             'notification_preferences' => $this->notification_preferences ?? new \stdClass(),

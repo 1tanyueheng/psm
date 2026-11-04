@@ -4,7 +4,21 @@ Final Year Project (PSM) lifecycle management platform for a university faculty
 — from supervisor assignment through milestone delivery, rubric marking,
 moderation, archiving, and a public award display.
 
-Stack: **React 18 (Vite, JavaScript)** · **Laravel 11 (PHP 8.2)** · **MySQL 8** · **Docker on Render**
+Stack: **React 18 (Vite, JavaScript)** · **Laravel 11 (PHP 8.2)** · **PostgreSQL (Supabase)** · **Docker**
+
+| Piece | Where |
+|---|---|
+| API | Laravel 11, Sanctum tokens, runs in the `psm-app` container |
+| Frontend | React 18 SPA, `psm-frontend` |
+| Database | **PostgreSQL on Supabase** — `DB_CONNECTION=pgsql`. `config/database.php` still *defaults* to `mysql`; that default is never used and has misled readers before |
+| Files | **Supabase Storage** over its S3 endpoint, `FILESYSTEM_DISK=s3` |
+| Mail (dev) | Mailpit, `psm-mailpit` |
+
+> **The database is PostgreSQL, not MySQL.** This line used to name MySQL, and so
+> did `docs/ARCHITECTURE.md`. A few migrations branch on `pgsql` vs `mysql`, and
+> only the `pgsql` path runs. If you are reading this to decide how to write a
+> query, write PostgreSQL.
+
 
 ---
 

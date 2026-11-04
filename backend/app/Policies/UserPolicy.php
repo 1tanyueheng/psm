@@ -101,6 +101,23 @@ class UserPolicy
         return $actor->hasRole('admin', 'coordinator') && $target->isSupervisor();
     }
 
+    /**
+     * Module 2 — changing which programmes a coordinator may see.
+     *
+     * **Deliberately narrower than `update()`, which lets anyone edit their own
+     * contact details.** Reusing `update()` here would let a coordinator widen
+     * their own scope — the one thing a scope exists to prevent — because
+     * `update()` returns true when `$actor->id === $target->id`.
+     *
+     * Admin only, and never on yourself, for the same reason `changeRole()` is:
+     * who may see which programme is a faculty decision about a person, not
+     * something the person adjusts.
+     */
+    public function manageScopes(User $actor, User $target): bool
+    {
+        return $actor->hasRole('admin') && $actor->id !== $target->id;
+    }
+
     /** Module 5 — cohort analytics and Module 7 exports. */
     public function viewAnalytics(User $actor): bool
     {

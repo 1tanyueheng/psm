@@ -128,6 +128,18 @@ Route::middleware(['auth:sanctum', 'active', 'first.login', 'audit'])->group(fun
         Route::post('users/{user}/deactivate', [UserController::class, 'deactivate'])->name('users.deactivate');
         Route::post('users/{user}/reactivate', [UserController::class, 'reactivate'])->name('users.reactivate');
         Route::post('users/{user}/unlock', [UserController::class, 'unlock'])->name('users.unlock');
+
+        /**
+         * Which programmes a coordinator may see.
+         *
+         * Admin-only by the route *and* by `UserPolicy::manageScopes()`, which
+         * also refuses a person editing their own scope. `PATCH users/{user}`
+         * deliberately does not accept `scopes`: that endpoint lets a user edit
+         * their own profile, and a scope is not a profile field.
+         */
+        Route::put('users/{user}/scopes', [UserController::class, 'updateScopes'])
+            ->name('users.scopes.update');
+
         Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     });
 

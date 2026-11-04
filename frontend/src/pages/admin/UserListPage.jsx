@@ -454,7 +454,7 @@ export default function UserListPage() {
       ) : (
         <Card className="overflow-hidden p-0">
           <DataTable
-              columns={['Name', 'Role', 'Identifier', 'Status', 'Last signed in', 'Actions']}
+              columns={['Name', 'Role', 'Identifier', 'Access', 'Status', 'Last signed in', 'Actions']}
             >
               {rows.map((row) => {
                 const suspended = row.is_active === false || row.status === 'suspended'
@@ -483,6 +483,17 @@ export default function UserListPage() {
                     </Td>
                     <Td className="font-mono text-xs text-slate-500">
                       {row.student_id ?? row.staff_no ?? '—'}
+                    </Td>
+                    <Td>
+                      <AccessCell
+                        row={row}
+                        programmes={programmes}
+                        canEdit={!isSelf}
+                        onSaved={(message) => {
+                          setNotice(message)
+                          load()
+                        }}
+                      />
                     </Td>
                     <Td>
                       <Badge tone={suspended ? 'danger' : 'success'}>
@@ -608,6 +619,184 @@ export default function UserListPage() {
  * staff number while creating a student. Switching roles resets the role-specific
  * fields, so a value typed for one role cannot be submitted for another.
  */
+/**
+ * "Which programmes may this person see?", and the editor for it.
+ *
+ * ## Why this is in the list rather than on a detail page
+ *
+ * A scope is one answer per person — a programme list and a head flag — and the
+ * question an administrator actually asks is comparative: "who is limited and to
+ * what". A column shows that at a glance; a detail page would mean opening nine
+ * coordinators to compare nine answers.
+ *
+ * ## The three states, and why the UI spells them out
+ *
+ *   no scope rows          -> the whole faculty        (the fail-open case)
+ *   programme rows         -> only those programmes
+ *   `is_primary`           -> the head: every programme
+ *
+ * The empty case is the dangerous one, because it is what an administrator gets
+ * by *forgetting*, and it grants more access rather than less. So it is rendered
+ * as an amber "All cohorts" badge rather than as a blank cell — a blank cell
+ * reads as "nothing", which is the opposite of what it means.
+ *
+ * ## Saving replaces, it does not merge
+ *
+ * The panel holds the complete answer, so what it sends replaces what is stored.
+ * A merge would make removing a programme impossible — and removing a programme
+ * is the common correction.
+ */
+function AccessCell({ row, programmes, canEdit, onSaved }) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  const scopes = useMemo(() => row.coordinator_scopes ?? [], [row.coordinator_scopes])
+
+  // The head flag overrides any programme, so it is the first thing to read.
+  const isHead = scopes.some((s) => s.is_primary)
+  const chosen = useMemo(
+    () => scopes.filter((s) => !s.is_primary && s.program).map((s) => s.program),
+    [scopes],
+  )
+
+  const [head, setHead] = useState(isHead)
+  const [picked, setPicked] = useState(chosen)
+
+  useEffect(() => {
+    setHead(isHead)
+    setPicked(chosen)
+  }, [isHead, chosen])
+
+  if (row.role !== 'coordinator') {
+    return <span className="text-xs text-slate-400">—</span>
+  }
+
+  async function save() {
+    setBusy(true)
+    setError(null)
+
+    try {
+      // `[]` for a head is deliberate: the flag carries the meaning, and a
+      // programme beside it would be a second answer to the same question.
+      const payload = head
+        ? [{ is_primary: true }]
+        : picked.map((program) => ({ program }))
+
+      await userApi.updateScopes(row.id, payload)
+      setOpen(false)
+      onSaved(`${row.name}: access updated.`)
+    } catch (err) {
+      setError(err?.message ?? 'That access could not be saved.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <div className="flex flex-wrap items-center gap-1.5">
+        {isHead ? (
+          <Badge tone="brand">Head — all programmes</Badge>
+        ) : chosen.length > 0 ? (
+          chosen.map((p) => (
+            <Badge key={p} tone="neutral">{p}</Badge>
+          ))
+        ) : (
+          /*
+           * Not "no access" — no *restriction*. The colour is the warning: this
+           * person sees the whole faculty because nobody said otherwise.
+           */
+          <Badge tone="warning">All cohorts — unrestricted</Badge>
+        )}
+
+        {canEdit && (
+          <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
+            {isHead || chosen.length > 0 ? 'Edit' : 'Limit'}
+          </Button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-slate-200 p-2 min-w-[15rem]">
+      <label className="flex items-start gap-2 text-xs text-slate-700">
+        <input
+          type="checkbox"
+          className="mt-0.5"
+          checked={head}
+          onChange={(e) => {
+            setHead(e.target.checked)
+            // A head has no programme list: clearing it stops the two answers
+            // disagreeing in the payload.
+            if (e.target.checked) setPicked([])
+          }}
+        />
+        <span>
+          <span className="font-medium">Head coordinator</span>
+          <span className="block text-slate-500">Sees every programme</span>
+        </span>
+      </label>
+
+      {!head && (
+        <div className="flex flex-wrap gap-1.5 pl-6">
+          {(programmes ?? []).map((p) => {
+            const on = picked.includes(p.value)
+
+            return (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() =>
+                  setPicked((prev) =>
+                    on ? prev.filter((x) => x !== p.value) : [...prev, p.value],
+                  )
+                }
+                className={
+                  'rounded-md border px-2 py-0.5 text-xs transition ' +
+                  (on
+                    ? 'border-brand-500 bg-brand-50 text-brand-800'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-50')
+                }
+              >
+                {p.value}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {!head && picked.length === 0 && (
+        <p className="pl-6 text-xs text-amber-700">
+          Nothing chosen means <span className="font-medium">no restriction</span> — this
+          person sees every programme.
+        </p>
+      )}
+
+      {error && <p className="pl-6 text-xs text-rose-600">{error}</p>}
+
+      <div className="flex gap-2 pl-6">
+        <Button size="sm" loading={busy} onClick={save}>
+          Save
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            setOpen(false)
+            setHead(isHead)
+            setPicked(chosen)
+            setError(null)
+          }}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function CreateUserPanel({
   form, setForm, errors, saving, semesters, programmes, defaultSemesterId, onCancel, onSubmit,
 }) {

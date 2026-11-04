@@ -504,6 +504,107 @@ class UserController extends ApiController
     }
 
     /**
+     * PUT /api/users/{user}/scopes
+     *
+     * Replace a coordinator's programme scope.
+     *
+     * **This endpoint exists because there was no way to set a scope after the
+     * account was created.** `store()` accepted a `scopes` array, `update()`
+     * ignored the field entirely, and the user form never sent it — so every
+     * coordinator made through the UI silently got no rows, and no rows means
+     * the whole faculty. A permission that can only be granted by accident and
+     * never corrected is not a permission.
+     *
+     * Three shapes arrive here, and they are the three states the model
+     * documents:
+     *
+     *   `{ scopes: [] }`                                   -> no restriction
+     *   `{ scopes: [{ program: 'BIP' }, { program: 'BIS' }] }` -> those programmes
+     *   `{ scopes: [{ is_primary: true }] }`               -> head coordinator
+     *
+     * The list is **replaced**, not merged: the screen shows the whole scope, so
+     * what it sends back is the whole answer. Merging would make removing a
+     * programme impossible, which is the bug this endpoint is here to fix.
+     */
+    public function updateScopes(Request $request, User $user): JsonResponse
+    {
+        // `manageScopes`, not `update`: `update` lets a person edit their own
+        // record, which would let a coordinator widen their own scope.
+        $this->authorize('manageScopes', $user);
+
+        if (! $user->isCoordinator()) {
+            return $this->fail(
+                'Only a coordinator holds a programme scope. '
+                ."{$user->email} is a {$user->role->label()}.",
+                422
+            );
+        }
+
+        $validated = $request->validate([
+            'scopes'              => ['present', 'array'],
+            'scopes.*.program'    => ['nullable', 'string', Rule::in(Programme::values())],
+            'scopes.*.is_primary' => ['sometimes', 'boolean'],
+        ]);
+
+        // More than one head is not a hierarchy, it is an ambiguity: two people
+        // both "not limited" means neither one is the person answerable for the
+        // cohort. Refused rather than silently stored.
+        $heads = collect($validated['scopes'])
+            ->filter(fn (array $s) => (bool) ($s['is_primary'] ?? false))
+            ->count();
+
+        if ($heads > 1) {
+            return $this->fail(
+                'Only one scope row may mark the head coordinator. '
+                .'A head sees every programme, so a second one says nothing new.',
+                422
+            );
+        }
+
+        $before = $user->coordinatorScopes()
+            ->get(['program', 'is_primary'])
+            ->map(fn ($s) => ['program' => $s->program, 'is_primary' => (bool) $s->is_primary])
+            ->all();
+
+        DB::transaction(function () use ($user, $validated) {
+            CoordinatorScope::query()->where('user_id', $user->id)->delete();
+
+            foreach ($validated['scopes'] as $scope) {
+                CoordinatorScope::create([
+                    'user_id'    => $user->id,
+                    'program'    => $scope['program'] ?? null,
+                    'is_primary' => (bool) ($scope['is_primary'] ?? false),
+                ]);
+            }
+        });
+
+        $user->unsetRelation('coordinatorScopes');
+        $user->load('coordinatorScopes');
+
+        $after = $user->coordinatorScopes->map(fn ($s) => [
+            'program'    => $s->program,
+            'is_primary' => (bool) $s->is_primary,
+        ])->all();
+
+        $this->audit->log(
+            action: AuditAction::RoleChanged,
+            description: 'Coordinator scope changed: {'.$user->email.'} now sees '
+                .(CoordinatorScope::visibleProgrammes($user->coordinatorScopes) === null
+                    ? 'all programmes'
+                    : implode(', ', CoordinatorScope::visibleProgrammes($user->coordinatorScopes))),
+            subject: $user,
+            before: ['scopes' => $before],
+            after: ['scopes' => $after],
+            actor: $request->user(),
+        );
+
+        return $this->ok(
+            new UserResource($user),
+            'Access updated.'
+        );
+    }
+
+    /**
      * POST /api/users/{user}/deactivate
      */
     public function deactivate(Request $request, User $user): JsonResponse
