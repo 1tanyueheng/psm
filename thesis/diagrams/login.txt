@@ -3,7 +3,6 @@
   'sequence': {
     'mirrorActors': false
   },
-  'themeCSS': '.actor-line { stroke-dasharray: 4, 4; }',
   'themeVariables': {
     'fontFamily': 'Times New Roman, serif',
     'fontSize': '15px',
@@ -29,29 +28,52 @@
 }}%%
 sequenceDiagram
     autonumber
-    actor U as User
-    participant UI as Login UI<br/>(React SPA)
-    participant AC as AuthController<br/>(Laravel API)
-    participant DB as User model<br/>+ database
+    actor User
+    boundary LoginUI as Login screen<br/>(React SPA)
+    control AuthController as AuthController<br/>(Laravel API)
+    control LoginRequest as LoginRequest<br/>(validation)
+    database DB as PostgreSQL
+    control UserModel as User<br/>(model)
+    control Audit as AuditLogger
 
-    U->>UI: Enter email and password
-    UI->>AC: POST /api/auth/login
+    User->>LoginUI: Enter email and password
+    LoginUI->>LoginUI: Validate the form (required, email, max 255)
+    LoginUI->>AuthController: POST /api/auth/login
+    AuthController->>LoginRequest: Validate and normalise the request
+    LoginRequest-->>AuthController: email lower-cased and trimmed
 
-    Note over UI,AC: A.1 Missing or malformed input<br/>is refused by the form before it is sent
+    AuthController->>DB: SELECT the account by email
+    DB-->>AuthController: the user row, or null
 
-    AC->>DB: Find the account by email
-    DB-->>AC: user row, or none
-    AC->>DB: Verify the password against its hash
-    DB-->>AC: hash, or no match
-
-    alt A.2 Unknown account, A.3 locked, A.4 inactive
-        AC-->>UI: 422 refused (one message for all three)
-        UI-->>U: Show the error, stay on the form
-    else Credentials correct and account usable
-        AC->>AC: Reset the failed attempt counter
-        AC->>AC: Record the sign-in in the audit log
-        AC->>DB: Create the Sanctum token
-        DB-->>AC: token, user, home route
-        AC-->>UI: 200 OK
-        UI-->>U: Redirect to the role dashboard
+    alt A.1 The account does not exist
+        AuthController->>Audit: log LoginFailed (unknown account)
+        AuthController-->>LoginUI: 422 "These credentials do not match"
+    else The account is locked
+        AuthController->>UserModel: isLocked()
+        UserModel-->>AuthController: locked until a time still in the future
+        AuthController-->>LoginUI: 422 "temporarily locked until ..."
+    else A.2 The password is wrong
+        AuthController->>UserModel: Hash::check(password, hash)
+        UserModel-->>AuthController: no match
+        AuthController->>UserModel: registerFailedLogin()
+        AuthController->>Audit: log LoginFailed (wrong password, maybe now locked)
+        AuthController-->>LoginUI: 422 "These credentials do not match"
+    else A.3 The account is suspended or inactive
+        AuthController->>UserModel: isActive()
+        UserModel-->>AuthController: status is not "active"
+        AuthController-->>LoginUI: 422 naming the reason
+    else Credentials correct and the account is active
+        opt The client asks for a clean session
+            AuthController->>DB: DELETE every token this user holds
+        end
+        AuthController->>DB: INSERT a Sanctum personal access token
+        DB-->>AuthController: the plain-text token
+        AuthController->>DB: UPDATE last_login_at, last_login_ip, reset failures
+        AuthController->>Audit: log Login
+        AuthController-->>LoginUI: 200 OK (token, user, home_route)
     end
+
+    LoginUI->>LoginUI: Store the token, set the signed-in user
+    LoginUI-->>User: Redirect to the role dashboard
+
+    Note over LoginUI,DB: Every guarded request afterwards sends<br/>Authorization: Bearer, which Sanctum resolves<br/>to the user before the route runs.
