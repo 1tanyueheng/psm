@@ -144,33 +144,6 @@ classDiagram
         lampiranCBy : bigint <<FK>>
     }
 
-    %% Chain - table `milestone_templates`
-    class MilestoneTemplate{
-        id : bigint <<PK>>
-        psmPart : varchar(8)
-        version : smallint
-        isActive : boolean
-    }
-
-    %% Chain - table `milestone_template_items`
-    class MilestoneTemplateItem{
-        id : bigint <<PK>>
-        milestoneTemplateId : bigint <<FK>>
-        code : varchar(32)
-        sequence : smallint
-        weight : numeric
-    }
-
-    %% Chain - table `milestone_schedules`
-    class MilestoneSchedule{
-        id : bigint <<PK>>
-        academicSemesterId : bigint <<FK>>
-        psmPart : varchar(8)
-        code : varchar(32)
-        opensAt : date
-        dueAt : date
-    }
-
     %% Chain - table `submission_files`
     class SubmissionFile{
         id : bigint <<PK>>
@@ -180,16 +153,6 @@ classDiagram
         revisionNo : smallint
         isCurrent : boolean
         supersededById : bigint <<FK>>
-    }
-
-    %% Chain - table `submission_events`
-    class SubmissionEvent{
-        id : bigint <<PK>>
-        milestoneId : bigint <<FK>>
-        actorId : bigint <<FK>>
-        event : varchar(64)
-        fromStatus : varchar(32)
-        toStatus : varchar(32)
     }
 
     %% Chain - table `milestone_reviews`
@@ -356,24 +319,6 @@ classDiagram
         passMark : numeric
     }
 
-    %% Results - table `leaderboards`
-    class Leaderboard{
-        id : bigint <<PK>>
-        psmPart : varchar(8)
-        status : varchar(32)
-        publishedAt : timestamp
-    }
-
-    %% Results - table `leaderboard_entries`
-    class LeaderboardEntry{
-        id : bigint <<PK>>
-        leaderboardId : bigint <<FK>>
-        projectId : bigint <<FK>>
-        finalGradeId : bigint <<FK>>
-        rank : smallint
-        score : numeric
-    }
-
     %% ======== UC-06 ========
 
     %% Term - table `academic_semesters`
@@ -393,15 +338,6 @@ classDiagram
         notifiableId : bigint
         data : text
         readAt : timestamp
-    }
-
-    %% Term - table `reminder_dispatches`
-    class ReminderDispatch{
-        id : bigint <<PK>>
-        milestoneId : bigint <<FK>>
-        userId : bigint <<FK>>
-        wave : varchar(32)
-        sentAt : timestamp
     }
 
     %% ---- Associations ----
@@ -435,18 +371,11 @@ classDiagram
     Milestone "0..1" --> "0..*" LampiranBForm : carried by
     SupervisorProfile "0..1" --> "0..*" LampiranBForm : files for
     LampiranBForm "0..1" --> "0..1" LampiranBForm : superseded by
-    MilestoneTemplateItem "1" --> "0..*" Milestone : instanced as
-    MilestoneTemplate "1" *-- "0..*" MilestoneTemplateItem : orders
     Milestone "1" *-- "0..*" SubmissionFile : holds
-    Milestone "1" *-- "0..*" SubmissionEvent : logs
     Milestone "1" *-- "0..*" MilestoneReview : reviewed by
-    Milestone "1" *-- "0..*" ReminderDispatch : reminds
     User "1" --> "0..*" SubmissionFile : uploads
-    User "1" --> "0..*" SubmissionEvent : triggers
     User "0..1" --> "0..*" MilestoneReview : reviews
-    User "1" --> "0..*" ReminderDispatch : receives
     User "1" --> "0..*" DatabaseNotification : is notified
-    AcademicSemester "1" --> "0..*" MilestoneSchedule : schedules
     RubricTemplate "1" *-- "0..*" RubricComponent : contains
     RubricComponent "1" *-- "0..*" RubricCriterion : breaks into
     Project "1" *-- "0..*" Evaluation : assessed by
@@ -469,9 +398,6 @@ classDiagram
     StudentProfile "1" --> "0..*" MarkSubmission : submits
     FinalGrade "0..1" --> "0..*" MarkSubmission : published by
     Project "1" --> "0..*" GradeScheme : graded under
-    Leaderboard "1" *-- "0..*" LeaderboardEntry : ranks
-    FinalGrade "0..1" --> "0..*" LeaderboardEntry : scores
-    Project "0..1" --> "0..*" LeaderboardEntry : listed as
     AcademicSemester "1" --> "0..*" StudentEnrolment : enrols
     AcademicSemester "1" --> "0..*" Section : provisions
     AcademicSemester "0..1" --> "0..*" Project : placed in

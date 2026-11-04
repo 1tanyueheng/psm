@@ -55,12 +55,8 @@ CLASSES = [
     # --- The project and its chain (UC-03) ---------------------------------
     ("Project",            "projects",                   "UC-03", "Chain"),
     ("Milestone",          "milestones",                 "UC-03", "Chain"),
-    ("MilestoneTemplate",  "milestone_templates",        "UC-03", "Chain"),
-    ("MilestoneTemplateItem", "milestone_template_items", "UC-03", "Chain"),
-    ("MilestoneSchedule",  "milestone_schedules",        "UC-03", "Chain"),
     ("LampiranBForm",      "lampiran_b_forms",           "UC-02", "Chain"),
     ("SubmissionFile",     "submission_files",           "UC-03", "Chain"),
-    ("SubmissionEvent",    "submission_events",          "UC-03", "Chain"),
     ("MilestoneReview",    "milestone_reviews",          "UC-03", "Chain"),
 
     # --- Assessment (UC-04) ------------------------------------------------
@@ -75,13 +71,10 @@ CLASSES = [
     ("FinalGrade",         "final_grades",               "UC-05", "Results"),
     ("MarkSubmission",     "mark_submissions",           "UC-05", "Results"),
     ("GradeScheme",        "grade_schemes",              "UC-05", "Results"),
-    ("Leaderboard",        "leaderboards",               "UC-05", "Results"),
-    ("LeaderboardEntry",   "leaderboard_entries",        "UC-05", "Results"),
 
     # --- Term and audit (UC-06 / UC-01) ------------------------------------
     ("AcademicSemester",   "academic_semesters",         "UC-06", "Term"),
     ("DatabaseNotification", "notifications",            "UC-06", "Term"),
-    ("ReminderDispatch",   "reminder_dispatches",        "UC-06", "Term"),
     ("AuditLog",           "audit_logs",                 "UC-01", "Term"),
 ]
 
@@ -142,14 +135,6 @@ ATTRIBUTES = {
                   "milestoneTemplateItemId : bigint <<FK>>", "code : varchar(32)",
                   "attempt : smallint", "status : varchar(32)", "dueAt : date",
                   "lampiranCBy : bigint <<FK>>"],
-    "MilestoneTemplate": ["id : bigint <<PK>>", "psmPart : varchar(8)",
-                          "version : smallint", "isActive : boolean"],
-    "MilestoneTemplateItem": ["id : bigint <<PK>>", "milestoneTemplateId : bigint <<FK>>",
-                              "code : varchar(32)", "sequence : smallint",
-                              "weight : numeric"],
-    "MilestoneSchedule": ["id : bigint <<PK>>", "academicSemesterId : bigint <<FK>>",
-                          "psmPart : varchar(8)", "code : varchar(32)",
-                          "opensAt : date", "dueAt : date"],
     "LampiranBForm": ["id : bigint <<PK>>", "projectId : bigint <<FK>>",
                       "milestoneId : bigint <<FK>>", "revisionNo : smallint",
                       "title : varchar(255)", "status : varchar(32)",
@@ -158,9 +143,6 @@ ATTRIBUTES = {
                        "uploadedBy : bigint <<FK>>", "originalName : varchar(255)",
                        "revisionNo : smallint", "isCurrent : boolean",
                        "supersededById : bigint <<FK>>"],
-    "SubmissionEvent": ["id : bigint <<PK>>", "milestoneId : bigint <<FK>>",
-                        "actorId : bigint <<FK>>", "event : varchar(64)",
-                        "fromStatus : varchar(32)", "toStatus : varchar(32)"],
     "MilestoneReview": ["id : bigint <<PK>>", "milestoneId : bigint <<FK>>",
                         "reviewerId : bigint <<FK>>", "roundNo : smallint",
                         "ackReceived : boolean", "ackReviewed : boolean",
@@ -202,21 +184,12 @@ ATTRIBUTES = {
                        "expectedPanelSize : smallint"],
     "GradeScheme": ["id : bigint <<PK>>", "projectId : bigint <<FK>>",
                     "passMark : numeric"],
-    "Leaderboard": ["id : bigint <<PK>>", "psmPart : varchar(8)",
-                    "status : varchar(32)", "publishedAt : timestamp"],
-    "LeaderboardEntry": ["id : bigint <<PK>>", "leaderboardId : bigint <<FK>>",
-                         "projectId : bigint <<FK>>", "finalGradeId : bigint <<FK>>",
-                         "rank : smallint", "score : numeric"],
-
     "AcademicSemester": ["id : bigint <<PK>>", "name : varchar(255)",
                          "isActive : boolean", "startsAt : date", "endsAt : date"],
     "DatabaseNotification": ["id : uuid <<PK>>", "type : varchar(255)",
                              "notifiableType : varchar(255)",
                              "notifiableId : bigint", "data : text",
                              "readAt : timestamp"],
-    "ReminderDispatch": ["id : bigint <<PK>>", "milestoneId : bigint <<FK>>",
-                         "userId : bigint <<FK>>", "wave : varchar(32)",
-                         "sentAt : timestamp"],
     "AuditLog": ["id : bigint <<PK>>", "userId : bigint <<FK>>",
                  "action : varchar(64)", "subjectType : varchar(64)",
                  "properties : json", "createdAt : timestamp"],
@@ -280,16 +253,10 @@ RELATIONS = [
     ("Milestone", "|o--o{", "", "LampiranBForm", "carried by", "assoc"),
     ("SupervisorProfile", "|o--o{", "", "LampiranBForm", "files for", "assoc"),
     ("LampiranBForm", "|o--o|", "", "LampiranBForm", "superseded by", "assoc"),
-    ("MilestoneTemplateItem", "||--o{", "", "Milestone", "instanced as", "assoc"),
-    ("MilestoneTemplate", "*--", "", "MilestoneTemplateItem", "orders", "comp"),
     ("Milestone", "*--", "", "SubmissionFile", "holds", "comp"),
-    ("Milestone", "*--", "", "SubmissionEvent", "logs", "comp"),
     ("Milestone", "*--", "", "MilestoneReview", "reviewed by", "comp"),
-    ("Milestone", "*--", "", "ReminderDispatch", "reminds", "comp"),
     ("User", "||--o{", "", "SubmissionFile", "uploads", "assoc"),
-    ("User", "||--o{", "", "SubmissionEvent", "triggers", "assoc"),
     ("User", "|o--o{", "", "MilestoneReview", "reviews", "assoc"),
-    ("User", "||--o{", "", "ReminderDispatch", "receives", "assoc"),
     # `notifications` has no foreign key to `users`: Laravel stores the owner as
     # `notifiable_id` behind a polymorphic `notifiable_type`. The association is
     # real (UC-06 reads it every time the centre loads), so it is drawn — and
@@ -297,7 +264,6 @@ RELATIONS = [
     # Without it the class is an island on the page, which was the user's other
     # complaint.
     ("User", "||--o{", "", "DatabaseNotification", "is notified", "assoc"),
-    ("AcademicSemester", "||--o{", "", "MilestoneSchedule", "schedules", "assoc"),
 
     # --- Assessment (UC-04) ---------------------------------------------------
     ("RubricTemplate", "*--", "", "RubricComponent", "contains", "comp"),
@@ -325,9 +291,6 @@ RELATIONS = [
     ("StudentProfile", "||--o{", "", "MarkSubmission", "submits", "assoc"),
     ("FinalGrade", "|o--o{", "", "MarkSubmission", "published by", "assoc"),
     ("Project", "||--o{", "", "GradeScheme", "graded under", "assoc"),
-    ("Leaderboard", "*--", "", "LeaderboardEntry", "ranks", "comp"),
-    ("FinalGrade", "|o--o{", "", "LeaderboardEntry", "scores", "assoc"),
-    ("Project", "|o--o{", "", "LeaderboardEntry", "listed as", "assoc"),
 
     # --- Term ----------------------------------------------------------------
     ("AcademicSemester", "||--o{", "", "StudentEnrolment", "enrols", "assoc"),
