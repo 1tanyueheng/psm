@@ -98,7 +98,7 @@ ATTRIBUTES = {
                      "affective : numeric", "cognitive : numeric",
                      "psychomotor : numeric", "enteredBy : bigint <<FK>>"],
     "CoordinatorScope": ["id : bigint <<PK>>", "userId : bigint <<FK>>",
-                         "psmPart : varchar(8)", "programme : varchar(8)"],
+                         "program : varchar(128)", "isPrimary : boolean"],
 
     "SupervisorAgreement": ["id : bigint <<PK>>", "studentProfileId : bigint <<FK>>",
                             "supervisorProfileId : bigint <<FK>>",

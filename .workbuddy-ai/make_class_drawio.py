@@ -58,12 +58,22 @@ def esc(text):
     return out
 
 
-def main():
+def main(classes=None, relations=None, out=None, title=None):
+    """Write a .drawio for a subset of the model.
+
+    Called with no arguments it writes the whole 4.14. `split_class_drawio.py`
+    passes one figure's classes and relations so the two halves can each be a
+    native draw.io file, laid out separately.
+    """
+    classes = gen.CLASSES if classes is None else classes
+    relations = gen.RELATIONS if relations is None else relations
+    out = out or OUT
+
     cell_specs = []
 
     # --- lay the classes out, one block per use-case group -------------------
     groups = {}
-    for alias, _table, uc, group in gen.CLASSES:
+    for alias, _table, uc, group in classes:
         groups.setdefault((uc, group), []).append(alias)
 
     ids = {}
@@ -114,7 +124,7 @@ def main():
 
     # --- one edge per relation, anchored at both ends -----------------------
     missing = []
-    for rel in gen.RELATIONS:
+    for rel in relations:
         left, card, _spare, right, label, kind = rel
 
         source_alias = right if kind == "inherit" else left
@@ -149,7 +159,7 @@ def main():
     # and ampersands exactly once.
     tree = ET.Element("mxfile", host="app.diagrams.net", type="device")
     diagram = ET.SubElement(tree, "diagram",
-                            name="Class diagram - PSM Assessment System",
+                            name=title or "Class diagram - PSM Assessment System",
                             id="psm-class-diagram")
     model = ET.SubElement(
         diagram, "mxGraphModel",
@@ -167,15 +177,15 @@ def main():
         geo = ET.SubElement(el, "mxGeometry", **cell["geometry"])
 
     ET.indent(tree, space="  ")
-    io.open(OUT, "w", encoding="utf-8", newline="\n").write(
+    io.open(out, "w", encoding="utf-8", newline="\n").write(
         ET.tostring(tree, encoding="unicode")
     )
-    io.open(OUT, "a", encoding="utf-8").write("\n")
+    io.open(out, "a", encoding="utf-8").write("\n")
 
     print(f"classes : {len(ids)}")
-    print(f"edges   : {len(gen.RELATIONS) - len(missing)}")
+    print(f"edges   : {len(relations) - len(missing)}")
     print(f"missing : {missing or 'none'}")
-    print(f"wrote {OUT}")
+    print(f"wrote {out}")
     return 0 if not missing else 1
 
 
