@@ -29,20 +29,22 @@ sys.path.insert(0, os.path.join(BASE, ".workbuddy-ai"))
 # Reuse the declarations rather than re-parsing the diagram text.
 import make_class_diagram as gen  # noqa: E402
 
-# Columns whose only meaning is "who did this": `created_by`, `approved_by`,
-# `locked_by`, `entered_by` and the rest. They point at `users` because every
-# actor is a user, not because the class has an association with a person, and
-# drawing all twenty-one would bury the relationships a reader needs.
-# Named as a category rather than listed one by one, so a new `*_by` column
-# does not fail the check and does not silently change the diagram either.
-AUDIT_COLUMN_PATTERNS = (
-    "_by",                    # created_by, approved_by, locked_by, decided_by…
-    "superseded_by", "uploaded_by", "released_by",
-)
+# **No column is exempt as of 2026-11-04.**
+#
+# This used to skip every `*_by` column as "who did this, not an association",
+# which excused 21 foreign keys. The user's rule is that the diagram follows the
+# constraints: if a foreign key exists between two drawn classes, it is drawn.
+# The 21 are real relationships to `User` and the diagram draws them.
+#
+# What is still exempt, and only this: two foreign keys between the SAME pair of
+# classes collapse to one arrow, because Mermaid cannot draw the same pair twice.
+# `examiner_pairs.examiner_1_id` and `examiner_2_id` are both to `users`, and
+# there is one `User - ExaminerPair` arrow.
 
 
-def is_audit_column(column):
-    return any(column == p or column.endswith(p) for p in AUDIT_COLUMN_PATTERNS)
+def is_audit_column(column):  # kept for callers; no longer excuses anything
+    return False
+
 
 SQL_FILE = os.path.join(BASE, ".workbuddy-ai", "dump_foreign_keys.php")
 
@@ -106,10 +108,10 @@ def main():
         # A relation the schema cannot back with a foreign key is only allowed
         # where a rule says so — the polymorphic notification link, and the
         # hand-drawn structural links (a file superseding another, an enrolment
-        # repeating one). Those are named in `gen.NOT_DRAWN` or are self-links.
+        # repeating one). Those are named in `getattr(gen, 'NOT_DRAWN', {})` or are self-links.
         if table_of[left] == table_of[right]:
             continue                      # self-references: the column exists, the pair is trivial
-        if pair in gen.DECLARED_WITHOUT_FK or (pair[1], pair[0]) in gen.DECLARED_WITHOUT_FK:
+        if pair in getattr(gen, 'DECLARED_WITHOUT_FK', {}) or (pair[1], pair[0]) in getattr(gen, 'DECLARED_WITHOUT_FK', {}):
             continue
         unsupported.append(f"{left} - {right} ({label})")
 
@@ -124,7 +126,7 @@ def main():
             continue                      # self-references are drawn by hand
         if child not in alias_of or parent not in alias_of:
             continue                      # a table the diagram leaves out
-        if (child, column) in gen.NOT_DRAWN:
+        if (child, column) in getattr(gen, 'NOT_DRAWN', {}):
             continue                      # a declared omission, with a reason
         if is_audit_column(column):
             continue                      # "who did this", not an association
@@ -135,7 +137,7 @@ def main():
     # --- every declared omission must name a real foreign key -------------
     stale = []
     real = {(c, col) for c, col, _p in fks}
-    for (table, column) in gen.NOT_DRAWN:
+    for (table, column) in getattr(gen, 'NOT_DRAWN', {}):
         if column == "*":
             continue
         if (table, column) not in real:

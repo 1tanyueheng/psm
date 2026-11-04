@@ -74,7 +74,6 @@ CLASSES = [
 
     # --- Term and audit (UC-06 / UC-01) ------------------------------------
     ("AcademicSemester",   "academic_semesters",         "UC-06", "Term"),
-    ("DatabaseNotification", "notifications",            "UC-06", "Term"),
     ("AuditLog",           "audit_logs",                 "UC-01", "Term"),
 ]
 
@@ -186,10 +185,6 @@ ATTRIBUTES = {
                     "passMark : numeric"],
     "AcademicSemester": ["id : bigint <<PK>>", "name : varchar(255)",
                          "isActive : boolean", "startsAt : date", "endsAt : date"],
-    "DatabaseNotification": ["id : uuid <<PK>>", "type : varchar(255)",
-                             "notifiableType : varchar(255)",
-                             "notifiableId : bigint", "data : text",
-                             "readAt : timestamp"],
     "AuditLog": ["id : bigint <<PK>>", "userId : bigint <<FK>>",
                  "action : varchar(64)", "subjectType : varchar(64)",
                  "properties : json", "createdAt : timestamp"],
@@ -244,6 +239,11 @@ RELATIONS = [
     ("SupervisorAgreement", "|o--o|", "", "SupervisionAssignment", "confirmed by", "assoc"),
     ("StudentEnrolment", "||--o|", "", "Project", "starts", "assoc"),
     ("StudentEnrolment", "|o--o{", "", "StudentEnrolment", "repeats", "assoc"),
+    # `student_enrolments.enrolled_by -> users`. This was previously listed in
+    # NOT_DRAWN as "an audit trail, not a relationship" — but the rule the user
+    # set is *draw every foreign key*, so it is drawn. A coordinator who placed a
+    # student is still the person who did it, and the column is a real constraint.
+    ("User", "||--o{", "", "StudentEnrolment", "enrols", "assoc"),
     ("Project", "||--o{", "", "ProjectMember", "has", "comp"),
     ("StudentProfile", "||--o{", "", "ProjectMember", "takes part as", "assoc"),
 
@@ -257,13 +257,6 @@ RELATIONS = [
     ("Milestone", "*--", "", "MilestoneReview", "reviewed by", "comp"),
     ("User", "||--o{", "", "SubmissionFile", "uploads", "assoc"),
     ("User", "|o--o{", "", "MilestoneReview", "reviews", "assoc"),
-    # `notifications` has no foreign key to `users`: Laravel stores the owner as
-    # `notifiable_id` behind a polymorphic `notifiable_type`. The association is
-    # real (UC-06 reads it every time the centre loads), so it is drawn — and
-    # declared in DECLARED_WITHOUT_FK so the checker does not call it invented.
-    # Without it the class is an island on the page, which was the user's other
-    # complaint.
-    ("User", "||--o{", "", "DatabaseNotification", "is notified", "assoc"),
 
     # --- Assessment (UC-04) ---------------------------------------------------
     ("RubricTemplate", "*--", "", "RubricComponent", "contains", "comp"),
@@ -300,26 +293,38 @@ RELATIONS = [
     ("AcademicSemester", "|o--o{", "", "SupervisorAgreement", "filed in", "assoc"),
     ("AcademicSemester", "|o--o{", "", "LecturerMark", "keyed in", "assoc"),
     ("AcademicSemester", "|o--o{", "", "MarkSubmission", "closed in", "assoc"),
+
+    # --- The actor columns --------------------------------------------------
+    # One arrow per foreign key to `users`: `created_by`, `approved_by`,
+    # `locked_by` and the rest. These were excluded from the diagram as "audit
+    # columns" until 2026-11-04; the rule is now that every foreign key between
+    # two drawn classes is an arrow, and these are real relationships to `User`.
+    # `*` marks a row where several columns point at `users`.
+    ("User", "|o--o{", "", "Project", "created or approved by *", "assoc"),
+    ("User", "|o--o{", "", "SupervisorAgreement", "decided by *", "assoc"),
+    ("User", "|o--o{", "", "SupervisionAssignment", "assigned by *", "assoc"),
+    ("User", "|o--o{", "", "LampiranBForm", "rejected by *", "assoc"),
+    ("User", "|o--o{", "", "Milestone", "reviewed, signed or overridden by *", "assoc"),
+    ("User", "|o--o{", "", "RubricTemplate", "created by *", "assoc"),
+    ("User", "|o--o{", "", "AssessmentWindow", "opened, closed or created by *", "assoc"),
+    ("User", "|o--o{", "", "GradeScheme", "created by *", "assoc"),
+    ("User", "|o--o{", "", "MarkSubmission", "opened or locked by *", "assoc"),
 ]
 
-# Foreign keys that exist in the schema but are NOT drawn, with the reason. The
-# checker reads this list so an omission is a decision on the record.
-NOT_DRAWN = {
-    ("student_enrolments", "enrolled_by"):   "who created the enrolment — an audit trail, "
-                                             "not a relationship a use case reads",
-    ("final_grades", "released_by"):         "drawn as `releases` from User",
-    ("notifications", "*"):                  "polymorphic (`notifiable_type`), not a foreign key",
-    ("examiner_pairs", "examiner_1_id"):     "drawn as one `examiner 1 / examiner 2` edge",
-    ("examiner_pairs", "examiner_2_id"):     "drawn as one `examiner 1 / examiner 2` edge",
-}
-
-# Pairs the diagram draws that no foreign key backs, and why. An arrow without a
-# constraint is a claim about the design, so each one has to be argued for here.
-DECLARED_WITHOUT_FK = {
-    ("users", "notifications"):
-        "the notification's owner is `notifiable_id` behind a polymorphic type; "
-        "Laravel's own table has no FK and the relationship is real",
-}
+# **Rules as of 2026-11-04: every arrow is a foreign key, and every foreign key
+# between two drawn classes is an arrow.** No exceptions. The two lists below
+# used to hold them; the user asked for the diagrams to follow the constraints
+# exactly, so what follows is now the whole rule:
+#
+#   * a table with no foreign key is not connected — `DatabaseNotification` had
+#     none (polymorphic `notifiable_id`) and has been removed from the diagram;
+#   * a foreign key that exists is drawn — `student_enrolments.enrolled_by` used
+#     to be excluded as "an audit trail" and is now an arrow;
+#   * two foreign keys between the same pair (`examiner_1_id`, `examiner_2_id`)
+#     are one arrow, because Mermaid cannot draw the same pair twice.
+#
+# Removing a class means removing its foreign keys too, which is why trimming the
+# milestone family also removed `submission_events` and `reminder_dispatches`.
 
 USE_CASES = ["UC-01", "UC-02", "UC-03", "UC-04", "UC-05", "UC-06"]
 

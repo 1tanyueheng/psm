@@ -395,7 +395,7 @@ from. Two kinds, and they are not interchangeable:
 | File | Kind | What it draws |
 |---|---|---|
 | `login.txt`, `title.txt`, `milestone.txt`, `evaluation.txt`, `report.txt`, `notification.txt` | `sequenceDiagram` | Figures 4.2, 4.4, 4.6, 4.8, 4.10, 4.11–4.12 — **the user's own**, generated earlier by `make_mermaid_sources.py` |
-| **`class_diagram.txt`** | `classDiagram` | **Figure 4.14** — **29 classes and 59 relations**, one class per table the six use cases read or write. Widened from twelve on 2026-11-04 after the supervisor said it could not show the relationships, then trimmed to 29 at the user's request. See below |
+| **`class_diagram.txt`** | `classDiagram` | **Figure 4.14** — **28 classes and 68 relations**, one class per table the six use cases read or write. Widened from twelve on 2026-11-04 after the supervisor said it could not show the relationships, then trimmed at the user's request and reduced to the foreign keys alone. See below |
 | `system_class.txt` | `classDiagram` | the whole system: **39 classes, one per model**, 45 relations. Kept as reference, **not** the chapter figure |
 | `system_interaction.txt` | `sequenceDiagram` | one request through Route → Policy → Service → Eloquent → PostgreSQL, with the enrolment, assignment, window-open and release paths |
 | **`psm1_plan.txt`** | **`gantt`** | **the PSM 1 delivery plan by teaching week**, Weeks 01–16, from the faculty timetable in `psm1_timeline.png` |
@@ -453,9 +453,37 @@ only — the tables and code are still live, see the note below):
 > they are meant to go from the system too, that is a separate job and it breaks
 > anything still calling them.
 
-The diagram is now **29 classes and 59 relations**, and every arrow is still
-backed by a live foreign key (`check_class_diagram.py`: 0 unsupported, 0
-missing), with no class left as an island.
+**The arrows are now exactly the foreign keys (2026-11-04).** The user's rule:
+*connect the relation if a foreign key exists; if there is none, do not; if one
+exists and is missing, draw it.* Three corrections followed:
+
+| Was | Now | Why |
+|---|---|---|
+| `User - DatabaseNotification` drawn | **class removed** | `notifications` has no foreign key to `users` (polymorphic `notifiable_id`), so there was nothing to connect |
+| `student_enrolments.enrolled_by` excluded as "an audit trail" | **drawn** | it is a real foreign key; the exclusion was my opinion, not the schema's |
+| 17 `*_by` columns excused by an `*_by` pattern in the checker | **drawn**, one arrow each to `User` | the checker was hiding real constraints |
+
+The exception lists (`NOT_DRAWN`, `DECLARED_WITHOUT_FK`) are **gone**. Nothing is
+exempt except that **two foreign keys between the same pair collapse to one
+arrow** — `examiner_pairs.examiner_1_id` and `examiner_2_id` are both to `users`,
+and Mermaid cannot draw the same pair twice.
+
+Result: **28 classes, 68 relations**, verified in both directions:
+
+```
+arrows with a foreign key behind them : 68
+arrows with NO foreign key            : 0
+foreign keys between drawn classes, NOT drawn: 0
+```
+
+`verify_arrows_are_fks.py` is the independent check. It had its own bug — it
+skipped inheritance edges, so it reported `student_profiles.user_id` as undrawn
+when `User <|-- StudentProfile` *is* that foreign key. **Two checkers disagreeing
+is how that was found**, which is the argument for keeping both.
+
+> **Known consequence:** `User` now holds about 22 relations and the diagram is
+> dense around it. That is what the schema looks like; a reader who wants fewer
+> arrows is asking for fewer constraints, not a tidier picture.
 
 ##### The two faults that produced "so many single class with no relation"
 
@@ -1502,11 +1530,11 @@ exactly the overlaps this table lists.
 | `make_mermaid_sources.py` | writes the six `sequenceDiagram` sources the user pastes into draw.io |
 | `make_system_mermaid_sources.py` | writes `thesis\diagrams\system_class.txt` and `system_interaction.txt` — the whole-system figures, with self-checks |
 | `make_class_diagram_mermaid.py` | writes `thesis\diagrams\class_diagram.txt` — the **twelve** data-dictionary classes. **Superseded 2026-11-04** by `make_class_diagram.py`, which draws 36 |
-| `make_class_diagram.py` | writes `thesis\diagrams\class_diagram.txt` — **Figure 4.14, 29 classes and 59 relations**, grouped by the use case that needs each class |
+| `make_class_diagram.py` | writes `thesis\diagrams\class_diagram.txt` — **Figure 4.14, 28 classes and 68 relations**, grouped by the use case that needs each class |
 | `check_class_diagram.py` | **checks that diagram against the live foreign keys** and fails on an invented or a missing relation. Run it after any edit |
 | `dump_foreign_keys.php` | the `child\|column\|parent` dump the check reads |
 | `class_diagram_stats.py` | before/after counts for the diagram, so an improvement is measured rather than claimed |
-| **`make_class_drawio.py`** | writes `thesis\diagrams\class_diagram.drawio` — **the native file to open in draw.io**, 29 vertices and 59 anchored edges |
+| **`make_class_drawio.py`** | writes `thesis\diagrams\class_diagram.drawio` — **the native file to open in draw.io**, 28 vertices and 68 anchored edges |
 | `check_drawio.py` | verifies the `.drawio`: every edge anchored to two real vertices, no islands, no duplicate ids |
 | `class_diagram_orphans.py` | lists classes that no relation touches — the check that catches a syntax the parser silently dropped |
 | `act_login_v2.py`, `act_pairing_v2.py`, `act_ms_v3.py`, `act_notif.py` | earlier activity draughts, superseded |

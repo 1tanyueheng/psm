@@ -85,64 +85,64 @@
         <mxCell id="cls36" value="&lt;div style=&quot;font-weight:bold;border-bottom:1px solid #1a1a1a;padding-bottom:2px;margin-bottom:3px&quot;&gt;AcademicSemester&lt;/div&gt;id : bigint &lt;&lt;PK&gt;&gt;&lt;br/&gt;name : varchar(255)&lt;br/&gt;isActive : boolean&lt;br/&gt;startsAt : date&lt;br/&gt;endsAt : date" style="swimlane;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=2;html=1;whiteSpace=nowrap;startSize=22;fillColor=none;strokeColor=#1A1A1A;fontFamily=Times New Roman;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="40" y="2930" width="230" height="106" as="geometry" />
         </mxCell>
-        <mxCell id="cls37" value="&lt;div style=&quot;font-weight:bold;border-bottom:1px solid #1a1a1a;padding-bottom:2px;margin-bottom:3px&quot;&gt;DatabaseNotification&lt;/div&gt;id : uuid &lt;&lt;PK&gt;&gt;&lt;br/&gt;type : varchar(255)&lt;br/&gt;notifiableType : varchar(255)&lt;br/&gt;notifiableId : bigint&lt;br/&gt;data : text&lt;br/&gt;readAt : timestamp" style="swimlane;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=2;html=1;whiteSpace=nowrap;startSize=22;fillColor=none;strokeColor=#1A1A1A;fontFamily=Times New Roman;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="340" y="2930" width="230" height="122" as="geometry" />
-        </mxCell>
-        <mxCell id="cls38" value="&lt;div style=&quot;font-weight:bold;border-bottom:1px solid #1a1a1a;padding-bottom:2px;margin-bottom:3px&quot;&gt;AuditLog&lt;/div&gt;id : bigint &lt;&lt;PK&gt;&gt;&lt;br/&gt;userId : bigint &lt;&lt;FK&gt;&gt;&lt;br/&gt;action : varchar(64)&lt;br/&gt;subjectType : varchar(64)&lt;br/&gt;properties : json&lt;br/&gt;createdAt : timestamp" style="swimlane;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=2;html=1;whiteSpace=nowrap;startSize=22;fillColor=none;strokeColor=#1A1A1A;fontFamily=Times New Roman;fontSize=11;" vertex="1" parent="1">
+        <mxCell id="cls37" value="&lt;div style=&quot;font-weight:bold;border-bottom:1px solid #1a1a1a;padding-bottom:2px;margin-bottom:3px&quot;&gt;AuditLog&lt;/div&gt;id : bigint &lt;&lt;PK&gt;&gt;&lt;br/&gt;userId : bigint &lt;&lt;FK&gt;&gt;&lt;br/&gt;action : varchar(64)&lt;br/&gt;subjectType : varchar(64)&lt;br/&gt;properties : json&lt;br/&gt;createdAt : timestamp" style="swimlane;fontStyle=1;align=left;verticalAlign=top;spacingLeft=6;spacingTop=2;html=1;whiteSpace=nowrap;startSize=22;fillColor=none;strokeColor=#1A1A1A;fontFamily=Times New Roman;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="40" y="3200" width="230" height="122" as="geometry" />
         </mxCell>
-        <mxCell id="edge39" value="is a" style="endArrow=block;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls11">
+        <mxCell id="edge38" value="is a" style="endArrow=block;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls11">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge40" value="is a" style="endArrow=block;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls12">
+        <mxCell id="edge39" value="is a" style="endArrow=block;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls12">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge41" value="holds" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls11" target="cls19">
+        <mxCell id="edge40" value="holds" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls11" target="cls19">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge42" value="sits in" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls11" target="cls14">
+        <mxCell id="edge41" value="sits in" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls11" target="cls14">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge43" value="lectures" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls14">
+        <mxCell id="edge42" value="lectures" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls14">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge44" value="keys" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls15">
+        <mxCell id="edge43" value="keys" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls15">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge45" value="records" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls14" target="cls15">
+        <mxCell id="edge44" value="records" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls14" target="cls15">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge46" value="earns" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls11" target="cls15">
+        <mxCell id="edge45" value="earns" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls11" target="cls15">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge47" value="scoped as" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls13">
+        <mxCell id="edge46" value="scoped as" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls13">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge48" value="acts" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls38">
+        <mxCell id="edge47" value="acts" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls37">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge49" value="files" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls11" target="cls16">
+        <mxCell id="edge48" value="files" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls11" target="cls16">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge50" value="signs" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls12" target="cls16">
+        <mxCell id="edge49" value="signs" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls12" target="cls16">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge51" value="becomes" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls16" target="cls22">
+        <mxCell id="edge50" value="becomes" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls16" target="cls22">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge52" value="paired by" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls11" target="cls17">
+        <mxCell id="edge51" value="paired by" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls11" target="cls17">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge53" value="supervises" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls12" target="cls17">
+        <mxCell id="edge52" value="supervises" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls12" target="cls17">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge54" value="confirmed by" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls16" target="cls17">
+        <mxCell id="edge53" value="confirmed by" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls16" target="cls17">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge55" value="starts" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls19" target="cls22">
+        <mxCell id="edge54" value="starts" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls19" target="cls22">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge56" value="repeats" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls19" target="cls19">
+        <mxCell id="edge55" value="repeats" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls19" target="cls19">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge56" value="enrols" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls19">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="edge57" value="has" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls22" target="cls18">
@@ -178,94 +178,118 @@
         <mxCell id="edge67" value="reviews" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls25">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge68" value="is notified" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls37">
+        <mxCell id="edge68" value="contains" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls27" target="cls28">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge69" value="contains" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls27" target="cls28">
+        <mxCell id="edge69" value="breaks into" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls28" target="cls29">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge70" value="breaks into" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls28" target="cls29">
+        <mxCell id="edge70" value="assessed by" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls22" target="cls31">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge71" value="assessed by" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls22" target="cls31">
+        <mxCell id="edge71" value="assesses" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls31">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge72" value="assesses" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls31">
+        <mxCell id="edge72" value="governs" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls27" target="cls31">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge73" value="governs" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls27" target="cls31">
+        <mxCell id="edge73" value="scores" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls31" target="cls32">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge74" value="scores" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls31" target="cls32">
+        <mxCell id="edge74" value="measured by" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls28" target="cls32">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge75" value="measured by" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls28" target="cls32">
+        <mxCell id="edge75" value="measured by" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls29" target="cls32">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge76" value="measured by" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls29" target="cls32">
+        <mxCell id="edge76" value="runs" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls30">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge77" value="runs" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls30">
+        <mxCell id="edge77" value="panel of" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls22" target="cls21">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge78" value="panel of" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls22" target="cls21">
+        <mxCell id="edge78" value="examines" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls21">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge79" value="examines" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls21">
+        <mxCell id="edge79" value="seated for" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls11" target="cls21">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge80" value="seated for" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls11" target="cls21">
+        <mxCell id="edge80" value="seats" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls20" target="cls21">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge81" value="seats" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls20" target="cls21">
+        <mxCell id="edge81" value="pairs in" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls20">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge82" value="pairs in" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls20">
+        <mxCell id="edge82" value="examiner 1 / examiner 2" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls20">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge83" value="examiner 1 / examiner 2" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls20">
+        <mxCell id="edge83" value="results in" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls22" target="cls33">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge84" value="results in" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls22" target="cls33">
+        <mxCell id="edge84" value="awarded" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls11" target="cls33">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge85" value="awarded" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls11" target="cls33">
+        <mxCell id="edge85" value="releases" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls33">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge86" value="releases" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls33">
+        <mxCell id="edge86" value="closed by" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls22" target="cls34">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge87" value="closed by" style="startArrow=diamondThin;startFill=1;endArrow=none;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls22" target="cls34">
+        <mxCell id="edge87" value="submits" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls11" target="cls34">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge88" value="submits" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls11" target="cls34">
+        <mxCell id="edge88" value="published by" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls33" target="cls34">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge89" value="published by" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls33" target="cls34">
+        <mxCell id="edge89" value="graded under" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls22" target="cls35">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge90" value="graded under" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls22" target="cls35">
+        <mxCell id="edge90" value="enrols" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls19">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge91" value="enrols" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls19">
+        <mxCell id="edge91" value="provisions" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls14">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge92" value="provisions" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls14">
+        <mxCell id="edge92" value="placed in" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls22">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge93" value="placed in" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls22">
+        <mxCell id="edge93" value="cohort of" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls11">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge94" value="cohort of" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls11">
+        <mxCell id="edge94" value="filed in" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls16">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge95" value="filed in" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls16">
+        <mxCell id="edge95" value="keyed in" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls15">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge96" value="keyed in" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls15">
+        <mxCell id="edge96" value="closed in" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls34">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge97" value="closed in" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls36" target="cls34">
+        <mxCell id="edge97" value="created or approved by *" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls22">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge98" value="decided by *" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge99" value="assigned by *" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls17">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge100" value="rejected by *" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls26">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge101" value="reviewed, signed or overridden by *" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls23">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge102" value="created by *" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls27">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge103" value="opened, closed or created by *" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls30">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge104" value="created by *" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls35">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge105" value="opened or locked by *" style="endArrow=open;endFill=0;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;endSize=6;fontFamily=Times New Roman;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls10" target="cls34">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>
