@@ -1,6 +1,6 @@
 # PROGRESS — PSM Assessment System (thesis + code)
 
-**Last updated:** 2026-11-01 (evening session — see §3A.0's second table)
+**Last updated:** 2026-11-03 (bug-check pass — two fixes, see §3A "Recently fixed")
 **Owner:** yuehe
 **Purpose:** the single file another agent (or you, next month) reads first to
 know exactly where this project stands.
@@ -395,10 +395,44 @@ from. Two kinds, and they are not interchangeable:
 | File | Kind | What it draws |
 |---|---|---|
 | `login.txt`, `title.txt`, `milestone.txt`, `evaluation.txt`, `report.txt`, `notification.txt` | `sequenceDiagram` | Figures 4.2, 4.4, 4.6, 4.8, 4.10, 4.11–4.12 — **the user's own**, generated earlier by `make_mermaid_sources.py` |
-| **`class_diagram.txt`** | `classDiagram` | **Figure 4.14** — the **twelve classes of the Chapter 4 data dictionary**, members and multiplicities as the PNG has them. This is what the user asked for on 11-01: *"just using these table only"* |
+| **`class_diagram.txt`** | `classDiagram` | **Figure 4.14** — **36 classes and 68 associations**, one class per table the six use cases read or write. Widened on 2026-11-04 after the supervisor said the twelve-class version could not show the relationships. See below |
 | `system_class.txt` | `classDiagram` | the whole system: **39 classes, one per model**, 45 relations. Kept as reference, **not** the chapter figure |
 | `system_interaction.txt` | `sequenceDiagram` | one request through Route → Policy → Service → Eloquent → PostgreSQL, with the enrolment, assignment, window-open and release paths |
-| **`psm1_plan.txt`** | **`gantt`** | **the PSM 1 delivery plan by teaching week**, Weeks 00–15, from the faculty timetable in `psm1_timeline.png` |
+| **`psm1_plan.txt`** | **`gantt`** | **the PSM 1 delivery plan by teaching week**, Weeks 01–16, from the faculty timetable in `psm1_timeline.png` |
+
+##### Figure 4.14 — why it grew, and what keeps it true
+
+**The supervisor's note was that twelve classes and thirteen arrows cannot show
+the relationships**, and the number agrees: the schema has **102 foreign keys**
+and the use cases turn on about forty of them. The parts a reader could not see
+were exactly the parts the use cases depend on — the examiner pair, the
+assessment window, the rubric's three-level cascade, the enrolment's repeat
+link, the submission chain behind each milestone.
+
+| | 2026-11-01 | 2026-11-04 |
+|---|---|---|
+| classes | 12 | **36** |
+| associations | 13 | **68** |
+| attributes drawn | 62 | **230** |
+
+`make_class_diagram.py` declares the classes, their attributes and every
+relation — one line per foreign key — and writes the Mermaid.
+**`check_class_diagram.py` is what makes that safe**: it reads the declarations,
+pulls the real foreign keys out of `psm-app`, and fails on
+
+- a **relation the schema does not support**, unless it is named in
+  `DECLARED_WITHOUT_FK` (the polymorphic notification link is the only one);
+- a **foreign key between two drawn classes that the diagram omits**, unless
+  the column is listed in `NOT_DRAWN` or is an audit column (`*_by`).
+
+On 2026-11-04 it caught **four invented relations and ten missing ones** —
+`supervision_assignments` has no `project_id`, `evaluations` has no
+`student_profile_id`, and `notifications` is polymorphic, not a foreign key. All
+four were arrows drawn from memory. **Run the check after any edit**; it is the
+only thing standing between the diagram and another set of plausible arrows.
+
+Two Mermaid limits still apply: no `namespace` blocks (draw.io drops them) and
+members are written without braces so `varchar(16)` needs no quoting.
 
 ##### The PSM 1 Gantt — how to date it, and what not to change
 
@@ -1153,6 +1187,19 @@ the proposal milestone.**
   every student (the list denied them while the row rule allowed a released
   form). The Mark tab read `final_mark`, which is withheld from students; it now
   uses the breakdown, the same source the dashboard uses.
+- **The section page's "Marked"/"Outstanding" cards now count (2026-11-03).**
+  `LecturerMarkController::show()` built its roster without marks, so
+  `SectionDetailPage.jsx` read `student.marked` as `undefined` for every row —
+  "Marked" was always 0 and "Outstanding" was always the whole roster. `show()`
+  now loads the section's `LecturerMark` rows once and sets `marked` from
+  `isComplete()` on each row, the same completeness rule the lecturer dashboard
+  uses. A partly-keyed set still reads as not marked.
+- **Mojibake in two term-close refusals fixed (2026-11-03).**
+  `TermCloseService::closeBlockedReason()` built its "...and N more" trailer as
+  `', Ã¢…'` (a double-mangled ellipsis) on two lines — returned verbatim as the
+  422 message a coordinator sees when closing a term with >5 un-enrolled
+  students or unmarked projects. Both are now `', …'`. Re-run
+  `.workbuddy-ai/fix_mojibake.py` to confirm the backend is clean.
 
 ### Removed / retired
 
@@ -1382,7 +1429,11 @@ exactly the overlaps this table lists.
 | `seqkit.py` + `seq_login.py`, `seq_title.py`, `seq_milestone.py`, `seq_evaluation.py`, `seq_report.py`, `seq_notification.py` | the six sequence figures. **Superseded** by the user's Mermaid renders; keep them as the record of the intended flow |
 | `make_mermaid_sources.py` | writes the six `sequenceDiagram` sources the user pastes into draw.io |
 | `make_system_mermaid_sources.py` | writes `thesis\diagrams\system_class.txt` and `system_interaction.txt` — the whole-system figures, with self-checks |
-| `make_class_diagram_mermaid.py` | writes `thesis\diagrams\class_diagram.txt` — **Figure 4.14 as Mermaid**, the twelve data-dictionary classes, self-checked against `class_diagram.py`'s boxes |
+| `make_class_diagram_mermaid.py` | writes `thesis\diagrams\class_diagram.txt` — the **twelve** data-dictionary classes. **Superseded 2026-11-04** by `make_class_diagram.py`, which draws 36 |
+| `make_class_diagram.py` | writes `thesis\diagrams\class_diagram.txt` — **Figure 4.14, 36 classes and 68 associations**, grouped by the use case that needs each class |
+| `check_class_diagram.py` | **checks that diagram against the live foreign keys** and fails on an invented or a missing relation. Run it after any edit |
+| `dump_foreign_keys.php` | the `child\|column\|parent` dump the check reads |
+| `class_diagram_stats.py` | before/after counts for the diagram, so an improvement is measured rather than claimed |
 | `act_login_v2.py`, `act_pairing_v2.py`, `act_ms_v3.py`, `act_notif.py` | earlier activity draughts, superseded |
 | `make_*_seq.py`, `make_*_act.py` | earlier sequence/activity diagrams, superseded |
 | `build_ch4_*.py` | the per-use-case `.docx` builders — **superseded** by `build_chapter4_v2.py` |
