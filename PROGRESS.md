@@ -395,7 +395,7 @@ from. Two kinds, and they are not interchangeable:
 | File | Kind | What it draws |
 |---|---|---|
 | `login.txt`, `title.txt`, `milestone.txt`, `evaluation.txt`, `report.txt`, `notification.txt` | `sequenceDiagram` | Figures 4.2, 4.4, 4.6, 4.8, 4.10, 4.11–4.12 — **the user's own**, generated earlier by `make_mermaid_sources.py` |
-| **`class_diagram.txt`** | `classDiagram` | **Figure 4.14** — **28 classes and 68 relations**, one class per table the six use cases read or write. Widened from twelve on 2026-11-04 after the supervisor said it could not show the relationships, then trimmed at the user's request and reduced to the foreign keys alone. See below |
+| **`class_diagram.txt`** | `classDiagram` | **Figure 4.14** — **28 classes and 70 relations**, one class per table the six use cases read or write. Widened from twelve on 2026-11-04 after the supervisor said it could not show the relationships, then trimmed at the user's request and reduced to the foreign keys alone. See below |
 | `system_class.txt` | `classDiagram` | the whole system: **39 classes, one per model**, 45 relations. Kept as reference, **not** the chapter figure |
 | `system_interaction.txt` | `sequenceDiagram` | one request through Route → Policy → Service → Eloquent → PostgreSQL, with the enrolment, assignment, window-open and release paths |
 | **`psm1_plan.txt`** | **`gantt`** | **the PSM 1 delivery plan by teaching week**, Weeks 01–16, from the faculty timetable in `psm1_timeline.png` |
@@ -485,54 +485,59 @@ is how that was found**, which is the argument for keeping both.
 > dense around it. That is what the schema looks like; a reader who wants fewer
 > arrows is asking for fewer constraints, not a tidier picture.
 
-##### Figure 4.14 is now **two** figures (2026-11-04)
+##### Figure 4.14 is one figure again, with role arrows on the profiles (2026-11-04)
 
-The single figure was unreadable because `users` sat at the centre of **22
-foreign keys** — more than the next three classes combined (Project 12,
-StudentProfile 11, AcademicSemester 9). That is the schema, not a drawing fault,
-and no amount of layout fixes it.
+Two attempts, in order, because the first was rejected:
 
-**The user asked whether to normalise `users` instead, and the answer given was
-no.** Splitting a user row into per-role profile tables would tidy the *table*
-and leave the *diagram* exactly as messy: every `created_by`, `approved_by` and
-`locked_by` is a foreign key to a person, which is what `users` is for. Moving
-those columns elsewhere changes where a column lives, not how many arrows there
-are. So the figure was split, and nothing in the database changed.
+1. **Split into two figures** (4.14a people, 4.14b work). Readable, and it lost
+   nothing — but **the thesis does not permit two class diagrams**, so it was
+   undone.
+2. **One figure, with role-specific associations re-pointed** to `StudentProfile`
+   / `SupervisorProfile` instead of `User`.
 
-| Figure | Classes | Relations | What it shows |
-|---|---|---|---|
-| **4.14a People and access** | 7 | 11 | Identity, the two roles with data of their own, sections, coursework |
-| **4.14b Project work and assessment** | 22 | 43 | Registration, the chain, the rubric, the result |
+**Only four arrows could move**, and the rule is what makes the rest legitimate:
 
-**`User` is drawn in both figures.** That is the seam, and it is deliberate: 16
-of the 22 arrows into `User` come from the work side, so keeping it only in the
-people figure would have meant 30 relations reduced to prose ("see the other
-figure") — two figures each needing the other open, which defeats the split.
-
-**Nothing is lost.** `check_split.py` proves it: every class and every relation
-from the single-figure source is either **drawn** in a figure or **named** in its
-cross-reference block.
-
-```
-classes in the source        : 28      relations in the source   : 68
-classes across both figures  : 28      relations drawn somewhere : 54
-                                       relations named somewhere : 14
-relations accounted for      : 68
-```
-
-| File | Format |
+| Moved to `SupervisorProfile` | Foreign key |
 |---|---|
-| `class_people.txt`, `class_project_work.txt` | Mermaid — paste into draw.io |
-| `class_people.drawio`, `class_project_work.drawio` | **native draw.io** — open the file |
-| `class_diagram.txt`, `class_diagram.drawio` | the single figure, still generated, **superseded** |
+| `lectures` | `sections.lecturer_id` |
+| `assesses` | `evaluations.assessor_id` |
+| `examines` | `examiner_assignments.examiner_id` |
+| `examiner 1 / 2` | `examiner_pairs.examiner_1_id`, `examiner_2_id` |
 
-Both `.drawio` files come from the *same* partition as the Mermaid, so the two
-formats cannot disagree. That partition lives in `split_class_diagram.py`; the
-`.drawio` writer calls into it rather than re-deciding.
+Each is a foreign key to `users` that **can only ever hold a supervisor**. The
+other 16 arrows into `User` are `created_by`, `approved_by`, `locked_by`,
+`rejected_by` and friends — **the actor may be an admin**, so drawing them on a
+profile class would state something false in a figure whose whole claim is to
+describe the schema. They stay.
 
-**`CoordinatorScope` was also corrected while here**: it still showed `psmPart`
-and `programme`, which the 2026-11-04 migration had replaced with `program` and
-`is_primary`. The diagram had been describing a column that no longer existed.
+**`User` still carries 18 arrows** (down from 20). The diagram is not untangled
+and saying otherwise would be wrong; it is 28 classes, 70 arrows, average degree
+5.0, and `User` is still the most connected class at 20. The measurable gain is
+that the **assessment chain no longer runs through the identity table** — the
+rubric, the evaluations and the panel now attach to the people who actually hold
+those roles.
+
+**The redirect found two arrows that had never been drawn.** `examiner_pairs` and
+`examiner_assignments` each had ONE arrow to `User` standing for two columns: the
+examiner (a supervisor) and the actor (`created_by` / `assigned_by`, anyone).
+Re-pointing that single arrow to the profile left the actor undrawn. Each table
+now has two arrows, one to each class. The same check found
+`final_grades.locked_by` drawn nowhere — the arrow said `releases` and meant only
+`released_by`.
+
+`check_combined_diagram.py` is the guard, in both directions:
+
+- an arrow may sit on `SupervisorProfile` **only** if the column behind it is
+  supervisor-only;
+- every actor column must **still** land on `User`.
+
+> **If a future edit wants to move more arrows off `User`, the question to answer
+> first is: can this column hold an admin?** If yes, it belongs on `User`, and
+> moving it makes the diagram prettier and wrong.
+
+The split scripts (`split_class_diagram.py`, `split_class_drawio.py`,
+`check_split.py`) and the four split files were **deleted** — one figure is the
+requirement and two sets of files describing the same model is how they drift.
 
 ##### The two faults that produced "so many single class with no relation"
 
@@ -1683,7 +1688,7 @@ exactly the overlaps this table lists.
 | `make_mermaid_sources.py` | writes the six `sequenceDiagram` sources the user pastes into draw.io |
 | `make_system_mermaid_sources.py` | writes `thesis\diagrams\system_class.txt` and `system_interaction.txt` — the whole-system figures, with self-checks |
 | `make_class_diagram_mermaid.py` | writes `thesis\diagrams\class_diagram.txt` — the **twelve** data-dictionary classes. **Superseded 2026-11-04** by `make_class_diagram.py`, which draws 36 |
-| `make_class_diagram.py` | writes `thesis\diagrams\class_diagram.txt` — **Figure 4.14, 28 classes and 68 relations**, grouped by the use case that needs each class |
+| `make_class_diagram.py` + `make_class_diagram_combined.py` | write `thesis\diagrams\class_diagram.txt` — **Figure 4.14, 28 classes and 70 relations** (the combined script re-points four arrows to SupervisorProfile), grouped by the use case that needs each class |
 | `check_class_diagram.py` | **checks that diagram against the live foreign keys** and fails on an invented or a missing relation. Run it after any edit |
 | `dump_foreign_keys.php` | the `child\|column\|parent` dump the check reads |
 | `class_diagram_stats.py` | before/after counts for the diagram, so an improvement is measured rather than claimed |

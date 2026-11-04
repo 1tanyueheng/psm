@@ -50,7 +50,7 @@ sequenceDiagram
         C-->>UI: 200 OK, the tables and charts
 
         alt A.4 No grade has been released yet
-            Note over SVC,DB: Empty mark bands rather than zero,<br/>because no mark is not a mark of zero
+SVC->>DB: returns empty bands 
         else Grades have been released
             SVC->>DB: Include the released marks
         end

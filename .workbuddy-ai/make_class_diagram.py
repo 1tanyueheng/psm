@@ -279,7 +279,7 @@ RELATIONS = [
     # --- Results and reporting (UC-05) ----------------------------------------
     ("Project", "||--o|", "", "FinalGrade", "results in", "assoc"),
     ("StudentProfile", "||--o{", "", "FinalGrade", "awarded", "assoc"),
-    ("User", "|o--o{", "", "FinalGrade", "releases", "assoc"),
+    ("User", "|o--o{", "", "FinalGrade", "releases or locks *", "assoc"),
     ("Project", "||--o{", "", "MarkSubmission", "closed by", "comp"),
     ("StudentProfile", "||--o{", "", "MarkSubmission", "submits", "assoc"),
     ("FinalGrade", "|o--o{", "", "MarkSubmission", "published by", "assoc"),
