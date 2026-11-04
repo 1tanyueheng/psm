@@ -65,19 +65,19 @@ def main():
     print()
     print("behaviours the code performs, and whether the diagram shows them:")
     behaviours = [
-        ("validate the request", "LoginRequest", "validate and normalise"),
-        # Eloquent writes `User::where(...)->first()`, not SQL — matching on
-        # "SELECT" looked for a string the code never contains.
-        ("look the account up", "User::where('email'", "select the account by email"),
-        ("hash comparison", "Hash::check", "hash::check"),
-        ("failed-attempt counter", "registerFailedLogin", "registerfailedlogin()"),
-        ("lock check", "isLocked()", "islocked()"),
-        ("active check", "isActive()", "isactive()"),
-        ("revoke existing tokens", "tokens()->delete()", "delete every token"),
-        ("create the token", "createToken", "insert a sanctum"),
-        ("mark logged in", "markLoggedIn", "update last_login_at"),
-        ("audit the sign-in", "AuditAction::Login,", "log login"),
-        ("return home_route", "home_route", "home_route"),
+        ("validate the request", "LoginRequest", "checks the request"),
+        ("look the account up", "User::where('email'", "queries the account by email"),
+        ("hash comparison", "Hash::check", "compares the password"),
+        ("failed-attempt counter", "registerFailedLogin", "counts the failed attempt"),
+        ("lock check", "isLocked()", "is locked"),
+        ("active check", "isActive()", "checks the account status"),
+        ("revoke existing tokens", "tokens()->delete()", "removes every previous login token"),
+        ("create the token", "createToken", "stores a new login token"),
+        ("mark logged in", "markLoggedIn", "updates the sign in time"),
+        ("audit the sign-in", "AuditAction::Login,", "records the successful sign in"),
+        # The diagram says "returns the user"; `home_route` is what the SPA
+        # redirects with, and the message names the outcome rather than the key.
+        ("return home_route", "home_route", "returns the user"),
     ]
 
     for label, needle, diagram_needle in behaviours:

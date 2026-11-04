@@ -36,44 +36,44 @@ sequenceDiagram
     control UserModel as User<br/>(model)
     control Audit as AuditLogger
 
-    User->>LoginUI: Enter email and password
-    LoginUI->>LoginUI: Validate the form (required, email, max 255)
-    LoginUI->>AuthController: POST /api/auth/login
-    AuthController->>LoginRequest: Validate and normalise the request
-    LoginRequest-->>AuthController: email lower-cased and trimmed
+    User->>LoginUI: Enters an email address and a password
+    LoginUI->>LoginUI: Checks the form is filled in correctly
+    LoginUI->>AuthController: Sends the login request
+    AuthController->>LoginRequest: Checks the request and tidies the email
+    LoginRequest-->>AuthController: Returns the email in a standard form
 
-    AuthController->>DB: SELECT the account by email
-    DB-->>AuthController: the user row, or null
+    AuthController->>DB: Queries the account by email
+    DB-->>AuthController: Returns the account record, or nothing
 
-    alt A.1 The account does not exist
-        AuthController->>Audit: log LoginFailed (unknown account)
-        AuthController-->>LoginUI: 422 "These credentials do not match"
+    alt No account matches the email
+        AuthController->>Audit: Records the failed attempt
+        AuthController-->>LoginUI: Rejects the login, credentials do not match
     else The account is locked
-        AuthController->>UserModel: isLocked()
-        UserModel-->>AuthController: locked until a time still in the future
-        AuthController-->>LoginUI: 422 "temporarily locked until ..."
-    else A.2 The password is wrong
-        AuthController->>UserModel: Hash::check(password, hash)
-        UserModel-->>AuthController: no match
-        AuthController->>UserModel: registerFailedLogin()
-        AuthController->>Audit: log LoginFailed (wrong password, maybe now locked)
-        AuthController-->>LoginUI: 422 "These credentials do not match"
-    else A.3 The account is suspended or inactive
-        AuthController->>UserModel: isActive()
-        UserModel-->>AuthController: status is not "active"
-        AuthController-->>LoginUI: 422 naming the reason
-    else Credentials correct and the account is active
-        opt The client asks for a clean session
-            AuthController->>DB: DELETE every token this user holds
+        AuthController->>UserModel: Checks whether the account is locked
+        UserModel-->>AuthController: Confirms the lock is still in force
+        AuthController-->>LoginUI: Rejects the login, account locked until a time
+    else The password is wrong
+        AuthController->>UserModel: Compares the password with the stored one
+        UserModel-->>AuthController: Reports no match
+        AuthController->>UserModel: Counts the failed attempt and locks if needed
+        AuthController->>Audit: Records the failed attempt
+        AuthController-->>LoginUI: Rejects the login, credentials do not match
+    else The account is suspended or inactive
+        AuthController->>UserModel: Checks the account status
+        UserModel-->>AuthController: Reports the account is not active
+        AuthController-->>LoginUI: Rejects the login and states the reason
+    else The credentials are correct
+        opt The user asks for a clean session
+            AuthController->>DB: Removes every previous login token
         end
-        AuthController->>DB: INSERT a Sanctum personal access token
-        DB-->>AuthController: the plain-text token
-        AuthController->>DB: UPDATE last_login_at, last_login_ip, reset failures
-        AuthController->>Audit: log Login
-        AuthController-->>LoginUI: 200 OK (token, user, home_route)
+        AuthController->>DB: Stores a new login token
+        DB-->>AuthController: Returns the token
+        AuthController->>DB: Updates the sign in time and clears the failures
+        AuthController->>Audit: Records the successful sign in
+        AuthController-->>LoginUI: Confirms the login and returns the user
     end
 
-    LoginUI->>LoginUI: Store the token, set the signed-in user
-    LoginUI-->>User: Redirect to the role dashboard
+    LoginUI->>LoginUI: Keeps the token and the signed in user
+    LoginUI-->>User: Redirects to the dashboard for their role
 
-    Note over LoginUI,DB: Every guarded request afterwards sends<br/>Authorization: Bearer, which Sanctum resolves<br/>to the user before the route runs.
+    Note over LoginUI,DB: Each later request carries the token,<br/>so the system knows who is asking<br/>before the page is opened.
