@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\CoordinatorScope;
 use App\Models\Project;
 use App\Models\User;
 
@@ -213,15 +214,33 @@ class ProjectPolicy
             ->exists();
     }
 
+    /**
+     * Does this coordinator's scope cover the project's students?
+     *
+     * The same rule `Project::visibleTo()` applies to the list, asked about one
+     * row — and it must be the same rule, or a coordinator sees a project on a
+     * screen and is then refused when they open it. Both go through
+     * `CoordinatorScope::visibleProgrammes()`, which returns null for a head
+     * coordinator and for one with no scope: null means "no restriction".
+     *
+     * It matches on the **student's programme**, not on `projects.batch`. The
+     * project row carries a batch because a project belongs to an intake, but a
+     * scope is about a programme — and before 2026-11-04 this compared the batch,
+     * which is why a coordinator scoped to 2026 could not open a 2025 project
+     * even though the same students' programmes were on their scope.
+     */
     protected function coordinatorCovers(User $actor, Project $project): bool
     {
-        $scopes = $actor->coordinatorScopes;
+        $programmes = CoordinatorScope::visibleProgrammes($actor->coordinatorScopes);
 
-        if ($scopes->isEmpty()) {
-            return true;   // no explicit scope = whole faculty
+        if ($programmes === null) {
+            return true;   // head coordinator, or no scope = whole faculty
         }
 
-        return $scopes->contains(fn ($scope) => $scope->batch === $project->batch
-            || ($scope->program !== null && $scope->program === $project->program));
+        return $project->members()
+            ->whereHas('studentProfile', fn ($q) => $q
+                ->whereIn('program_code', $programmes)
+                ->orWhereIn('program', $programmes))
+            ->exists();
     }
 }

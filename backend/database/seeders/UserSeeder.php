@@ -46,8 +46,18 @@ class UserSeeder extends Seeder
             ]
         );
 
+        /**
+         * The seeded coordinator is the **head** of the cohort.
+         *
+         * `is_primary` is what says so, and it is why this row carries no
+         * `program`: a head coordinator answers for every programme and is not
+         * limited by one (`CoordinatorScope::visibleProgrammes()`). Before
+         * 2026-11-04 this row also carried `batch = '2026'`, which restricted the
+         * demo coordinator to the 2026 intake on every screen — the column is
+         * gone, because an intake year is a report filter, not a permission.
+         */
         CoordinatorScope::updateOrCreate(
-            ['user_id' => $coordinator->id, 'batch' => '2026', 'program' => null],
+            ['user_id' => $coordinator->id, 'program' => null],
             ['is_primary' => true]
         );
 

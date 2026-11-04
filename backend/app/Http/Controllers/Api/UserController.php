@@ -226,10 +226,23 @@ class UserController extends ApiController
             'expertise_area_ids'=> ['sometimes', 'array'],
             'expertise_area_ids.*' => ['integer', 'exists:expertise_areas,id'],
 
-            // Coordinator scope
-            'scopes'          => ['sometimes', 'array'],
-            'scopes.*.batch'  => ['nullable', 'string', 'max:32'],
-            'scopes.*.program'=> ['nullable', 'string', 'max:128'],
+            /**
+             * Coordinator scope.
+             *
+             * A coordinator is limited by **programme**, not by intake year
+             * (2026-11-04). `batch` is no longer accepted here: it used to
+             * restrict which projects a coordinator could see at all, which turned
+             * a report filter into a permission.
+             *
+             * `is_primary` marks the **head coordinator** — the one person who
+             * answers for the whole faculty and is therefore not limited. Exactly
+             * one scope row per person should carry it, and a head needs no other
+             * row; `CoordinatorScope::visibleProgrammes()` returns "no
+             * restriction" as soon as it meets the flag.
+             */
+            'scopes'              => ['sometimes', 'array'],
+            'scopes.*.program'    => ['nullable', 'string', Rule::in(Programme::values())],
+            'scopes.*.is_primary' => ['sometimes', 'boolean'],
         ], [
             // Name the role's requirement rather than leaving Laravel's
             // "required when role is student", which reads like a rule the admin
@@ -372,9 +385,9 @@ class UserController extends ApiController
 
                 Role::Coordinator => collect($validated['scopes'] ?? [])
                     ->each(fn (array $scope) => CoordinatorScope::create([
-                        'user_id' => $user->id,
-                        'batch'   => $scope['batch'] ?? null,
-                        'program' => $scope['program'] ?? null,
+                        'user_id'    => $user->id,
+                        'program'    => $scope['program'] ?? null,
+                        'is_primary' => (bool) ($scope['is_primary'] ?? false),
                     ])),
 
                 default => null,

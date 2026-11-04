@@ -492,24 +492,28 @@ class Project extends Model
         }
 
         if ($user->isCoordinator()) {
-            $scopes = $user->coordinatorScopes;
+            /**
+             * A coordinator sees the programmes on their scope, and no others.
+             *
+             * `CoordinatorScope::visibleProgrammes()` returns null for a head
+             * coordinator and for one with no scope rows, and null means "add no
+             * filter" — the whole faculty. See the model for the three states.
+             *
+             * This used to filter on `batch` too, which made a coordinator
+             * scoped to one intake year blind to every other one. The intake is a
+             * report filter (`?batch=`), not a permission.
+             */
+            $programmes = CoordinatorScope::visibleProgrammes($user->coordinatorScopes);
 
-            if ($scopes->isEmpty()) {
+            if ($programmes === null) {
                 return $query;
             }
 
-            return $query->where(function ($q) use ($scopes) {
-                foreach ($scopes as $scope) {
-                    $q->orWhere(function ($sub) use ($scope) {
-                        if ($scope->batch) {
-                            $sub->where('batch', $scope->batch);
-                        }
-                        if ($scope->program) {
-                            $sub->where('program', $scope->program);
-                        }
-                    });
-                }
-            });
+            return $query->whereHas(
+                'members.studentProfile',
+                fn ($q) => $q->whereIn('program_code', $programmes)
+                    ->orWhereIn('program', $programmes),
+            );
         }
 
         if ($user->isStudent()) {
