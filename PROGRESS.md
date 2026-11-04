@@ -432,7 +432,57 @@ four were arrows drawn from memory. **Run the check after any edit**; it is the
 only thing standing between the diagram and another set of plausible arrows.
 
 Two Mermaid limits still apply: no `namespace` blocks (draw.io drops them) and
-members are written without braces so `varchar(16)` needs no quoting.
+members are written without braces… **no — with braces.** See the next heading;
+the bracket form was one of two faults that made draw.io draw no lines at all.
+
+##### The two faults that produced "so many single class with no relation"
+
+Reported by the user on 2026-11-04 against Figure 4.14 pasted into draw.io.
+**Neither was draw.io's fault.** Both were the diagram being written in a
+syntax Mermaid does not have:
+
+| Fault | What was written | What it drew | What Mermaid documents |
+|---|---|---|---|
+| **Crow's-foot arrows** | `A \|\|--o{ B` | two classes, **no line** | `A "1" --> "0..*" B` |
+| **Bracket class bodies** | `class A [ … ]` | an empty box | `class A{ … }` |
+
+`||--o{` is **ER-diagram** notation. Mermaid's class grammar takes a bare arrow
+(`-->`, `*--`, `o--`, `..>`, `--|>`) with the cardinalities **quoted** on either
+side. A line the parser cannot read is not rendered and not reported — the
+classes still appear, which is exactly the symptom the user described.
+
+**The lesson is general: a diagram that parses to "most of the way" looks
+correct in the source and is empty on the page.** There is no Mermaid renderer in
+this repo, so the check that catches this class of fault is a **syntax** check,
+not a semantic one — `.workbuddy-ai/class_diagram_orphans.py` reports any class
+that no relation touches, and that is what proves the arrows were read.
+
+`DatabaseNotification` was a genuine island too: `notifications` has no foreign
+key to `users` (it is polymorphic, `notifiable_type`/`notifiable_id`), so the
+schema-driven relation had nothing to draw. It is now declared in
+`DECLARED_WITHOUT_FK` with that reason, and the class is connected.
+
+##### `class_diagram.drawio` — the file to open, not paste
+
+`thesis\diagrams\class_diagram.drawio` is a **native draw.io file**: 36
+`mxCell` vertices and 69 `mxCell` edges, every edge carrying `source` and
+`target` pointing at a real cell id. Written by `make_class_drawio.py` from the
+same declarations as the Mermaid, so the two cannot disagree.
+
+- **Use this one** for the chapter. It opens with the connectors already there,
+  because it *is* the connectors — draw.io's Mermaid converter is not involved.
+- `.workbuddy-ai/check_drawio.py` verifies the file without opening draw.io:
+  every `source`/`target` names an existing vertex, every edge has both ends,
+  no vertex is an island, no duplicate cell ids.
+- **The layout is a shelf pack, not a design.** Classes sit in their use-case
+  group, five across. Select all → *Edit > Arrange > Layout* in draw.io does
+  better, and the geometry is throw-away.
+- **Escape labels once.** draw.io treats `value` as HTML, so a label is written
+  with real `<div>`/`<<PK>>` and escaped by the XML writer exactly once.
+  Escaping it in the generator as well produced
+  `&amp;lt;&amp;lt;PK&amp;gt;&amp;gt;`, which renders as the literal text
+  `&lt;&lt;PK&gt;&gt;` — the second time this project has double-encoded
+  something.
 
 ##### The PSM 1 Gantt — how to date it, and what not to change
 
@@ -1434,6 +1484,9 @@ exactly the overlaps this table lists.
 | `check_class_diagram.py` | **checks that diagram against the live foreign keys** and fails on an invented or a missing relation. Run it after any edit |
 | `dump_foreign_keys.php` | the `child\|column\|parent` dump the check reads |
 | `class_diagram_stats.py` | before/after counts for the diagram, so an improvement is measured rather than claimed |
+| **`make_class_drawio.py`** | writes `thesis\diagrams\class_diagram.drawio` — **the native file to open in draw.io**, 36 vertices and 69 anchored edges |
+| `check_drawio.py` | verifies the `.drawio`: every edge anchored to two real vertices, no islands, no duplicate ids |
+| `class_diagram_orphans.py` | lists classes that no relation touches — the check that catches a syntax the parser silently dropped |
 | `act_login_v2.py`, `act_pairing_v2.py`, `act_ms_v3.py`, `act_notif.py` | earlier activity draughts, superseded |
 | `make_*_seq.py`, `make_*_act.py` | earlier sequence/activity diagrams, superseded |
 | `build_ch4_*.py` | the per-use-case `.docx` builders — **superseded** by `build_chapter4_v2.py` |

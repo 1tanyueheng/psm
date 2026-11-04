@@ -228,6 +228,27 @@ ATTRIBUTES = {
 #   (left, cardinality-left, cardinality-right, right, label, kind)
 #   kind: assoc, comp (the part cannot outlive the whole), agg, inherit
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Relations, in the three parts Mermaid's grammar actually takes:
+#
+#   (left, left_cardinality, arrow, right_cardinality, right, label, kind)
+#
+# **This used to be written as `A ||--o{ B`, which is crow's-foot notation from
+# an ER grammar, not Mermaid's class grammar.** Mermaid renders it as two
+# unrelated classes with no line between them, which is exactly what the user
+# saw in draw.io: "so many single class with no relation". The documented form
+# is a bare arrow with QUOTED cardinalities either side —
+# `Customer "1" --> "*" Order : places` — so that is what is emitted now.
+#
+# Arrow kinds: `-->` association, `*--` composition, `o--` aggregation,
+# `..>` dependency, `--|>` inheritance.
+# ---------------------------------------------------------------------------
+C = {                      # crow's foot -> (left cardinality, right cardinality)
+    "||--o{": ("1", "0..*"), "||--|{": ("1", "1..*"), "||--o|": ("1", "0..1"),
+    "|o--o{": ("0..1", "0..*"), "|o--o|": ("0..1", "0..1"), "|o--|{": ("0..1", "1..*"),
+    "*--": ("1", "0..*"),
+}
+
 RELATIONS = [
     # --- People (UC-01, UC-02) -----------------------------------------------
     ("StudentProfile", "|", "{", "User", "is a", "inherit"),
@@ -269,6 +290,13 @@ RELATIONS = [
     ("User", "||--o{", "", "SubmissionEvent", "triggers", "assoc"),
     ("User", "|o--o{", "", "MilestoneReview", "reviews", "assoc"),
     ("User", "||--o{", "", "ReminderDispatch", "receives", "assoc"),
+    # `notifications` has no foreign key to `users`: Laravel stores the owner as
+    # `notifiable_id` behind a polymorphic `notifiable_type`. The association is
+    # real (UC-06 reads it every time the centre loads), so it is drawn — and
+    # declared in DECLARED_WITHOUT_FK so the checker does not call it invented.
+    # Without it the class is an island on the page, which was the user's other
+    # complaint.
+    ("User", "||--o{", "", "DatabaseNotification", "is notified", "assoc"),
     ("AcademicSemester", "||--o{", "", "MilestoneSchedule", "schedules", "assoc"),
 
     # --- Assessment (UC-04) ---------------------------------------------------
@@ -287,9 +315,7 @@ RELATIONS = [
     ("ExaminerPair", "|o--o{", "", "ExaminerAssignment", "seats", "assoc"),
     ("AcademicSemester", "|o--o{", "", "ExaminerPair", "pairs in", "assoc"),
     # Two foreign keys to `users` on one row: `examiner_1_id` and `examiner_2_id`.
-    # Mermaid can say it once per endpoint, so the `labels` show which side is
-    # which rather than drawing the same association twice.
-    ("User", "1 -- 2", "", "ExaminerPair", "examiner 1 / examiner 2", "assoc"),
+    ("User", "2", "||", "ExaminerPair", "examiner 1 / examiner 2", "assoc"),
 
     # --- Results and reporting (UC-05) ----------------------------------------
     ("Project", "||--o|", "", "FinalGrade", "results in", "assoc"),
@@ -382,25 +408,42 @@ def render():
             also = f" (also {', '.join(others)})" if others else ""
 
             out.append(f"    %% {group} - table `{table}`{also}")
-            out.append(f"    class {alias} [")
+            # Braces, not brackets: Mermaid documents `class Animal{ ... }`.
+            # `class Animal[ ... ]` is not a class body in any version and is
+            # dropped, which leaves an empty box with no members.
+            out.append(f"    class {alias}{{")
             for member in ATTRIBUTES[alias]:
                 out.append(f"        {member}")
-            out.append("    ]")
+            out.append("    }")
             out.append("")
 
             drawn.add(alias)
 
     out.append("    %% ---- Associations ----")
-    out.append("    %% One line per foreign key the use cases turn on. `*--` is a")
-    out.append("    %% composition: the part cannot outlive the whole.")
+    out.append("    %% Mermaid's documented form: a bare arrow with quoted")
+    out.append("    %% cardinalities either side. Crow's-foot tokens (`||--o{`)")
+    out.append("    %% belong to an ER grammar and render as NO LINE AT ALL here.")
+    out.append("    %% `*--` is composition: the part cannot outlive the whole.")
     out.append("")
 
-    for left, card, kind, right, label, rel_kind in RELATIONS:
+    for rel in RELATIONS:
+        left, card, _spare, right, label, rel_kind = rel
+
         if rel_kind == "inherit":
-            out.append(f"    {left} --|> {right} : {label}")
+            out.append(f"    {right} <|-- {left} : {label}")
             continue
 
-        out.append(f'    {left} {card} {right} : {label}')
+        # `User 2 || ExaminerPair` is the one relation with two foreign keys to
+        # the same class; it is written by hand because neither cardinality map
+        # has a "two" in it.
+        if card == "2" and _spare == "||":
+            out.append(f'    {left} "2" --> "1" {right} : {label}')
+            continue
+
+        left_card, right_card = C[card]
+        arrow = {"assoc": "-->", "comp": "*--", "agg": "o--"}.get(rel_kind, "-->")
+
+        out.append(f'    {left} "{left_card}" {arrow} "{right_card}" {right} : {label}')
 
     out.append("")
     return "\n".join(out)

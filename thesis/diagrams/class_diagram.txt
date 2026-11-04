@@ -21,7 +21,7 @@ classDiagram
     %% ======== UC-01 ========
 
     %% People - table `users`
-    class User [
+    class User{
         id : bigint <<PK>>
         name : varchar(255)
         email : varchar(255)
@@ -29,41 +29,41 @@ classDiagram
         role : varchar(255)
         status : varchar(255)
         failedLoginAttempts : smallint
-    ]
+    }
 
     %% Term - table `audit_logs`
-    class AuditLog [
+    class AuditLog{
         id : bigint <<PK>>
         userId : bigint <<FK>>
         action : varchar(64)
         subjectType : varchar(64)
         properties : json
         createdAt : timestamp
-    ]
+    }
 
     %% ======== UC-02 ========
 
     %% People - table `student_profiles`
-    class StudentProfile [
+    class StudentProfile{
         id : bigint <<PK>>
         userId : bigint <<FK>>
         matricNo : varchar(32)
         programCode : varchar(8)
         yearOfStudy : smallint
         sectionId : bigint <<FK>>
-    ]
+    }
 
     %% People - table `supervisor_profiles`
-    class SupervisorProfile [
+    class SupervisorProfile{
         id : bigint <<PK>>
         userId : bigint <<FK>>
         programCode : varchar(8)
         capacityPsm1 : smallint
         capacityPsm2 : smallint
-    ]
+    }
 
     %% Registration - table `supervisor_agreements`
-    class SupervisorAgreement [
+    class SupervisorAgreement{
         id : bigint <<PK>>
         studentProfileId : bigint <<FK>>
         supervisorProfileId : bigint <<FK>>
@@ -73,10 +73,10 @@ classDiagram
         status : varchar(255)
         studentSignedAt : timestamp
         supervisorAcknowledgedAt : timestamp
-    ]
+    }
 
     %% Registration - table `supervision_assignments`
-    class SupervisionAssignment [
+    class SupervisionAssignment{
         id : bigint <<PK>>
         studentProfileId : bigint <<FK>>
         supervisorProfileId : bigint <<FK>>
@@ -85,18 +85,18 @@ classDiagram
         effectiveFrom : date
         effectiveUntil : date
         endedAt : timestamp
-    ]
+    }
 
     %% Registration - table `project_members`
-    class ProjectMember [
+    class ProjectMember{
         id : bigint <<PK>>
         projectId : bigint <<FK>>
         studentProfileId : bigint <<FK>>
         isLeader : boolean
-    ]
+    }
 
     %% Registration - table `student_enrolments`
-    class StudentEnrolment [
+    class StudentEnrolment{
         id : bigint <<PK>>
         studentProfileId : bigint <<FK>>
         academicSemesterId : bigint <<FK>>
@@ -105,10 +105,10 @@ classDiagram
         attemptNo : smallint
         status : varchar(32)
         repeatsEnrolmentId : bigint <<FK>>
-    ]
+    }
 
     %% Chain - table `lampiran_b_forms`
-    class LampiranBForm [
+    class LampiranBForm{
         id : bigint <<PK>>
         projectId : bigint <<FK>>
         milestoneId : bigint <<FK>>
@@ -117,12 +117,12 @@ classDiagram
         status : varchar(32)
         rejectedReason : text
         supersededById : bigint <<FK>>
-    ]
+    }
 
     %% ======== UC-03 ========
 
     %% Chain - table `projects`
-    class Project [
+    class Project{
         id : bigint <<PK>>
         code : varchar(32)
         title : varchar(255)
@@ -130,10 +130,10 @@ classDiagram
         status : varchar(255)
         agreementId : bigint <<FK>>
         academicSemesterId : bigint <<FK>>
-    ]
+    }
 
     %% Chain - table `milestones`
-    class Milestone [
+    class Milestone{
         id : bigint <<PK>>
         projectId : bigint <<FK>>
         milestoneTemplateItemId : bigint <<FK>>
@@ -142,37 +142,37 @@ classDiagram
         status : varchar(32)
         dueAt : date
         lampiranCBy : bigint <<FK>>
-    ]
+    }
 
     %% Chain - table `milestone_templates`
-    class MilestoneTemplate [
+    class MilestoneTemplate{
         id : bigint <<PK>>
         psmPart : varchar(8)
         version : smallint
         isActive : boolean
-    ]
+    }
 
     %% Chain - table `milestone_template_items`
-    class MilestoneTemplateItem [
+    class MilestoneTemplateItem{
         id : bigint <<PK>>
         milestoneTemplateId : bigint <<FK>>
         code : varchar(32)
         sequence : smallint
         weight : numeric
-    ]
+    }
 
     %% Chain - table `milestone_schedules`
-    class MilestoneSchedule [
+    class MilestoneSchedule{
         id : bigint <<PK>>
         academicSemesterId : bigint <<FK>>
         psmPart : varchar(8)
         code : varchar(32)
         opensAt : date
         dueAt : date
-    ]
+    }
 
     %% Chain - table `submission_files`
-    class SubmissionFile [
+    class SubmissionFile{
         id : bigint <<PK>>
         milestoneId : bigint <<FK>>
         uploadedBy : bigint <<FK>>
@@ -180,20 +180,20 @@ classDiagram
         revisionNo : smallint
         isCurrent : boolean
         supersededById : bigint <<FK>>
-    ]
+    }
 
     %% Chain - table `submission_events`
-    class SubmissionEvent [
+    class SubmissionEvent{
         id : bigint <<PK>>
         milestoneId : bigint <<FK>>
         actorId : bigint <<FK>>
         event : varchar(64)
         fromStatus : varchar(32)
         toStatus : varchar(32)
-    ]
+    }
 
     %% Chain - table `milestone_reviews`
-    class MilestoneReview [
+    class MilestoneReview{
         id : bigint <<PK>>
         milestoneId : bigint <<FK>>
         reviewerId : bigint <<FK>>
@@ -203,22 +203,22 @@ classDiagram
         verdict : varchar(32)
         totalScore : numeric
         maxScore : numeric
-    ]
+    }
 
     %% ======== UC-04 ========
 
     %% People - table `sections`
-    class Section [
+    class Section{
         id : bigint <<PK>>
         code : varchar(16)
         name : varchar(128)
         courseCode : varchar(16)
         lecturerId : bigint <<FK>>
         academicSemesterId : bigint <<FK>>
-    ]
+    }
 
     %% People - table `lecturer_marks`
-    class LecturerMark [
+    class LecturerMark{
         id : bigint <<PK>>
         studentProfileId : bigint <<FK>>
         sectionId : bigint <<FK>>
@@ -227,30 +227,30 @@ classDiagram
         cognitive : numeric
         psychomotor : numeric
         enteredBy : bigint <<FK>>
-    ]
+    }
 
     %% Registration - table `examiner_pairs`
-    class ExaminerPair [
+    class ExaminerPair{
         id : bigint <<PK>>
         name : varchar(64)
         psmPart : varchar(8)
         examiner1Id : bigint <<FK>>
         examiner2Id : bigint <<FK>>
         isActive : boolean
-    ]
+    }
 
     %% Registration - table `examiner_assignments`
-    class ExaminerAssignment [
+    class ExaminerAssignment{
         id : bigint <<PK>>
         projectId : bigint <<FK>>
         examinerId : bigint <<FK>>
         examinerPairId : bigint <<FK>>
         panelRole : varchar(32)
         isActive : boolean
-    ]
+    }
 
     %% Assessment - table `rubric_templates`
-    class RubricTemplate [
+    class RubricTemplate{
         id : bigint <<PK>>
         formCode : varchar(8)
         psmPart : varchar(20)
@@ -258,30 +258,30 @@ classDiagram
         version : smallint
         totalMarks : numeric
         isPublished : boolean
-    ]
+    }
 
     %% Assessment - table `rubric_components`
-    class RubricComponent [
+    class RubricComponent{
         id : bigint <<PK>>
         rubricTemplateId : bigint <<FK>>
         code : varchar(32)
         title : varchar(255)
         weightPercent : numeric
         sequence : smallint
-    ]
+    }
 
     %% Assessment - table `rubric_criteria`
-    class RubricCriterion [
+    class RubricCriterion{
         id : bigint <<PK>>
         rubricComponentId : bigint <<FK>>
         code : varchar(32)
         title : varchar(255)
         weightPercent : numeric
         maxMarks : numeric
-    ]
+    }
 
     %% Assessment - table `assessment_windows`
-    class AssessmentWindow [
+    class AssessmentWindow{
         id : bigint <<PK>>
         formCode : varchar(16)
         psmPart : varchar(16)
@@ -289,10 +289,10 @@ classDiagram
         academicSemesterId : bigint <<FK>>
         openedAt : timestamp
         closedAt : timestamp
-    ]
+    }
 
     %% Assessment - table `evaluations`
-    class Evaluation [
+    class Evaluation{
         id : bigint <<PK>>
         projectId : bigint <<FK>>
         assessorId : bigint <<FK>>
@@ -307,172 +307,175 @@ classDiagram
         isLateAssessment : boolean
         submittedAt : timestamp
         releasedAt : timestamp
-    ]
+    }
 
     %% Assessment - table `evaluation_scores`
-    class EvaluationScore [
+    class EvaluationScore{
         id : bigint <<PK>>
         evaluationId : bigint <<FK>>
         rubricComponentId : bigint <<FK>>
         rubricCriterionId : bigint <<FK>>
         itemScore : smallint
         marks : numeric
-    ]
+    }
 
     %% ======== UC-05 ========
 
     %% People - table `coordinator_scopes`
-    class CoordinatorScope [
+    class CoordinatorScope{
         id : bigint <<PK>>
         userId : bigint <<FK>>
         psmPart : varchar(8)
         programme : varchar(8)
-    ]
+    }
 
     %% Results - table `final_grades`
-    class FinalGrade [
+    class FinalGrade{
         id : bigint <<PK>>
         projectId : bigint <<FK>>
         studentProfileId : bigint <<FK>>
         finalMark : numeric
         releasedAt : timestamp
         releasedBy : bigint <<FK>>
-    ]
+    }
 
     %% Results - table `mark_submissions`
-    class MarkSubmission [
+    class MarkSubmission{
         id : bigint <<PK>>
         projectId : bigint <<FK>>
         studentProfileId : bigint <<FK>>
         finalGradeId : bigint <<FK>>
         status : varchar(255)
         expectedPanelSize : smallint
-    ]
+    }
 
     %% Results - table `grade_schemes`
-    class GradeScheme [
+    class GradeScheme{
         id : bigint <<PK>>
         projectId : bigint <<FK>>
         passMark : numeric
-    ]
+    }
 
     %% Results - table `leaderboards`
-    class Leaderboard [
+    class Leaderboard{
         id : bigint <<PK>>
         psmPart : varchar(8)
         status : varchar(32)
         publishedAt : timestamp
-    ]
+    }
 
     %% Results - table `leaderboard_entries`
-    class LeaderboardEntry [
+    class LeaderboardEntry{
         id : bigint <<PK>>
         leaderboardId : bigint <<FK>>
         projectId : bigint <<FK>>
         finalGradeId : bigint <<FK>>
         rank : smallint
         score : numeric
-    ]
+    }
 
     %% ======== UC-06 ========
 
     %% Term - table `academic_semesters`
-    class AcademicSemester [
+    class AcademicSemester{
         id : bigint <<PK>>
         name : varchar(255)
         isActive : boolean
         startsAt : date
         endsAt : date
-    ]
+    }
 
     %% Term - table `notifications`
-    class DatabaseNotification [
+    class DatabaseNotification{
         id : uuid <<PK>>
         type : varchar(255)
         notifiableType : varchar(255)
         notifiableId : bigint
         data : text
         readAt : timestamp
-    ]
+    }
 
     %% Term - table `reminder_dispatches`
-    class ReminderDispatch [
+    class ReminderDispatch{
         id : bigint <<PK>>
         milestoneId : bigint <<FK>>
         userId : bigint <<FK>>
         wave : varchar(32)
         sentAt : timestamp
-    ]
+    }
 
     %% ---- Associations ----
-    %% One line per foreign key the use cases turn on. `*--` is a
-    %% composition: the part cannot outlive the whole.
+    %% Mermaid's documented form: a bare arrow with quoted
+    %% cardinalities either side. Crow's-foot tokens (`||--o{`)
+    %% belong to an ER grammar and render as NO LINE AT ALL here.
+    %% `*--` is composition: the part cannot outlive the whole.
 
-    StudentProfile --|> User : is a
-    SupervisorProfile --|> User : is a
-    StudentProfile ||--o{ StudentEnrolment : holds
-    StudentProfile ||--o| Section : sits in
-    User ||--o{ Section : lectures
-    User ||--o{ LecturerMark : keys
-    Section ||--o{ LecturerMark : records
-    StudentProfile ||--o{ LecturerMark : earns
-    User ||--o{ CoordinatorScope : scoped as
-    User ||--o{ AuditLog : acts
-    StudentProfile ||--o{ SupervisorAgreement : files
-    SupervisorProfile |o--o{ SupervisorAgreement : signs
-    SupervisorAgreement ||--o| Project : becomes
-    StudentProfile ||--o{ SupervisionAssignment : paired by
-    SupervisorProfile ||--o{ SupervisionAssignment : supervises
-    SupervisorAgreement |o--o| SupervisionAssignment : confirmed by
-    StudentEnrolment ||--o| Project : starts
-    StudentEnrolment |o--o{ StudentEnrolment : repeats
-    Project ||--o{ ProjectMember : has
-    StudentProfile ||--o{ ProjectMember : takes part as
-    Project ||--o{ Milestone : carries
-    Project ||--o{ LampiranBForm : files
-    Milestone |o--o{ LampiranBForm : carried by
-    SupervisorProfile |o--o{ LampiranBForm : files for
-    LampiranBForm |o--o| LampiranBForm : superseded by
-    MilestoneTemplateItem ||--o{ Milestone : instanced as
-    MilestoneTemplate *-- MilestoneTemplateItem : orders
-    Milestone *-- SubmissionFile : holds
-    Milestone *-- SubmissionEvent : logs
-    Milestone *-- MilestoneReview : reviewed by
-    Milestone *-- ReminderDispatch : reminds
-    User ||--o{ SubmissionFile : uploads
-    User ||--o{ SubmissionEvent : triggers
-    User |o--o{ MilestoneReview : reviews
-    User ||--o{ ReminderDispatch : receives
-    AcademicSemester ||--o{ MilestoneSchedule : schedules
-    RubricTemplate *-- RubricComponent : contains
-    RubricComponent *-- RubricCriterion : breaks into
-    Project ||--o{ Evaluation : assessed by
-    User ||--o{ Evaluation : assesses
-    RubricTemplate ||--o{ Evaluation : governs
-    Evaluation *-- EvaluationScore : scores
-    RubricComponent |o--o{ EvaluationScore : measured by
-    RubricCriterion |o--o{ EvaluationScore : measured by
-    AcademicSemester ||--o{ AssessmentWindow : runs
-    Project ||--o{ ExaminerAssignment : panel of
-    User ||--o{ ExaminerAssignment : examines
-    StudentProfile |o--o{ ExaminerAssignment : seated for
-    ExaminerPair |o--o{ ExaminerAssignment : seats
-    AcademicSemester |o--o{ ExaminerPair : pairs in
-    User 1 -- 2 ExaminerPair : examiner 1 / examiner 2
-    Project ||--o| FinalGrade : results in
-    StudentProfile ||--o{ FinalGrade : awarded
-    User |o--o{ FinalGrade : releases
-    Project ||--o{ MarkSubmission : closed by
-    StudentProfile ||--o{ MarkSubmission : submits
-    FinalGrade |o--o{ MarkSubmission : published by
-    Project ||--o{ GradeScheme : graded under
-    Leaderboard *-- LeaderboardEntry : ranks
-    FinalGrade |o--o{ LeaderboardEntry : scores
-    Project |o--o{ LeaderboardEntry : listed as
-    AcademicSemester ||--o{ StudentEnrolment : enrols
-    AcademicSemester ||--o{ Section : provisions
-    AcademicSemester |o--o{ Project : placed in
-    AcademicSemester |o--o{ StudentProfile : cohort of
-    AcademicSemester |o--o{ SupervisorAgreement : filed in
-    AcademicSemester |o--o{ LecturerMark : keyed in
-    AcademicSemester |o--o{ MarkSubmission : closed in
+    User <|-- StudentProfile : is a
+    User <|-- SupervisorProfile : is a
+    StudentProfile "1" --> "0..*" StudentEnrolment : holds
+    StudentProfile "1" --> "0..1" Section : sits in
+    User "1" --> "0..*" Section : lectures
+    User "1" --> "0..*" LecturerMark : keys
+    Section "1" --> "0..*" LecturerMark : records
+    StudentProfile "1" --> "0..*" LecturerMark : earns
+    User "1" --> "0..*" CoordinatorScope : scoped as
+    User "1" --> "0..*" AuditLog : acts
+    StudentProfile "1" --> "0..*" SupervisorAgreement : files
+    SupervisorProfile "0..1" --> "0..*" SupervisorAgreement : signs
+    SupervisorAgreement "1" --> "0..1" Project : becomes
+    StudentProfile "1" --> "0..*" SupervisionAssignment : paired by
+    SupervisorProfile "1" --> "0..*" SupervisionAssignment : supervises
+    SupervisorAgreement "0..1" --> "0..1" SupervisionAssignment : confirmed by
+    StudentEnrolment "1" --> "0..1" Project : starts
+    StudentEnrolment "0..1" --> "0..*" StudentEnrolment : repeats
+    Project "1" *-- "0..*" ProjectMember : has
+    StudentProfile "1" --> "0..*" ProjectMember : takes part as
+    Project "1" *-- "0..*" Milestone : carries
+    Project "1" *-- "0..*" LampiranBForm : files
+    Milestone "0..1" --> "0..*" LampiranBForm : carried by
+    SupervisorProfile "0..1" --> "0..*" LampiranBForm : files for
+    LampiranBForm "0..1" --> "0..1" LampiranBForm : superseded by
+    MilestoneTemplateItem "1" --> "0..*" Milestone : instanced as
+    MilestoneTemplate "1" *-- "0..*" MilestoneTemplateItem : orders
+    Milestone "1" *-- "0..*" SubmissionFile : holds
+    Milestone "1" *-- "0..*" SubmissionEvent : logs
+    Milestone "1" *-- "0..*" MilestoneReview : reviewed by
+    Milestone "1" *-- "0..*" ReminderDispatch : reminds
+    User "1" --> "0..*" SubmissionFile : uploads
+    User "1" --> "0..*" SubmissionEvent : triggers
+    User "0..1" --> "0..*" MilestoneReview : reviews
+    User "1" --> "0..*" ReminderDispatch : receives
+    User "1" --> "0..*" DatabaseNotification : is notified
+    AcademicSemester "1" --> "0..*" MilestoneSchedule : schedules
+    RubricTemplate "1" *-- "0..*" RubricComponent : contains
+    RubricComponent "1" *-- "0..*" RubricCriterion : breaks into
+    Project "1" *-- "0..*" Evaluation : assessed by
+    User "1" --> "0..*" Evaluation : assesses
+    RubricTemplate "1" --> "0..*" Evaluation : governs
+    Evaluation "1" *-- "0..*" EvaluationScore : scores
+    RubricComponent "0..1" --> "0..*" EvaluationScore : measured by
+    RubricCriterion "0..1" --> "0..*" EvaluationScore : measured by
+    AcademicSemester "1" --> "0..*" AssessmentWindow : runs
+    Project "1" *-- "0..*" ExaminerAssignment : panel of
+    User "1" --> "0..*" ExaminerAssignment : examines
+    StudentProfile "0..1" --> "0..*" ExaminerAssignment : seated for
+    ExaminerPair "0..1" --> "0..*" ExaminerAssignment : seats
+    AcademicSemester "0..1" --> "0..*" ExaminerPair : pairs in
+    User "2" --> "1" ExaminerPair : examiner 1 / examiner 2
+    Project "1" --> "0..1" FinalGrade : results in
+    StudentProfile "1" --> "0..*" FinalGrade : awarded
+    User "0..1" --> "0..*" FinalGrade : releases
+    Project "1" *-- "0..*" MarkSubmission : closed by
+    StudentProfile "1" --> "0..*" MarkSubmission : submits
+    FinalGrade "0..1" --> "0..*" MarkSubmission : published by
+    Project "1" --> "0..*" GradeScheme : graded under
+    Leaderboard "1" *-- "0..*" LeaderboardEntry : ranks
+    FinalGrade "0..1" --> "0..*" LeaderboardEntry : scores
+    Project "0..1" --> "0..*" LeaderboardEntry : listed as
+    AcademicSemester "1" --> "0..*" StudentEnrolment : enrols
+    AcademicSemester "1" --> "0..*" Section : provisions
+    AcademicSemester "0..1" --> "0..*" Project : placed in
+    AcademicSemester "0..1" --> "0..*" StudentProfile : cohort of
+    AcademicSemester "0..1" --> "0..*" SupervisorAgreement : filed in
+    AcademicSemester "0..1" --> "0..*" LecturerMark : keyed in
+    AcademicSemester "0..1" --> "0..*" MarkSubmission : closed in

@@ -75,7 +75,7 @@ def main():
     alias_of = {table: alias for alias, table, _uc, _g in gen.CLASSES}
 
     drawn = set()
-    for left, _card, _kind, right, _label, _rel in gen.RELATIONS:
+    for left, _card, _spare, right, _label, rel in gen.RELATIONS:
         drawn.add((table_of[left], table_of[right]))
         drawn.add((table_of[right], table_of[left]))
 
@@ -89,7 +89,7 @@ def main():
     # without an FK; everything else has to be backed by one.
     fk_pairs = {(child, parent) for child, _col, parent in fks}
     supported = set()
-    for left, _card, _kind, right, _label, rel in gen.RELATIONS:
+    for left, _card, _spare, right, _label, rel in gen.RELATIONS:
         if rel == "inherit":
             continue
         pair = (table_of[left], table_of[right])
@@ -97,7 +97,7 @@ def main():
             supported.add(pair)
 
     unsupported = []
-    for left, _card, _kind, right, label, rel in gen.RELATIONS:
+    for left, _card, _spare, right, label, rel in gen.RELATIONS:
         if rel == "inherit":
             continue
         pair = (table_of[left], table_of[right])
