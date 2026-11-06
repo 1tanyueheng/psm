@@ -1,51 +1,122 @@
 import { useEffect, useRef, useState } from 'react'
 import { milestoneApi } from '../api/endpoints'
-import { Badge, Button, Card, CardHeader, Field, Select, Textarea } from './ui'
+import { Badge, Button, Card, CardHeader, Field, Textarea } from './ui'
 import { formatDateTime } from '../lib/format'
 import MilestoneReviewDocument from './MilestoneReviewDocument'
 
 /**
- * Lampiran R1 — the supervisor's review of a chapter submission, and the
- * history of every round.
+ * Lampiran R1 — the supervisor's endorsement of a chapter submission.
  *
- * The published form (UTHM.FSKTM/UA-31/2025) has two parts that matter here:
+ * The form is laid out as the published sheet (UTHM.FSKTM/UA-31/2025) is laid
+ * out, because it is filled in during a supervision meeting with the printed
+ * copy on the table:
  *
- *   Bahagian A  the student's details and which item is being submitted,
- *               filled by the student and **frozen into the review** so the
- *               record says what was reviewed, not what the profile says later
- *   Bahagian B  the supervisor's acknowledgment — the two checkboxes that *are*
- *               the verdict — the 0-5 review scores, comments and signature
+ *   Bahagian A  the student's details and the item being reviewed; filled by the
+ *               student and **frozen into the review** so the record says what
+ *               was reviewed, not what the profile says later
+ *   Bahagian B  the supervisor's acknowledgment — the two checkboxes — the 0-5
+ *               review scores, comments and signature
  *
- * The two checkboxes are the whole decision:
- *
- *   "menerima item ... untuk semakan"          -> received, the milestone settles
- *   "menyemak item ... untuk penambahbaikan"   -> improvement, the student revises
- *                                                 and the next round starts
- *
- * Ticking the second implies the first, so both ticked reads as improvement.
- * Ticking neither is refused: an R1 that declares nothing decides nothing.
+ * **Both checkboxes are ticked.** The faculty files R1 once per chapter and
+ * endorses it by declaring both halves of the form; the pair together is the
+ * approval, not a choice between accept and reject. A single tick is an unsigned
+ * form, so the service refuses it and the screen says so in red before anything
+ * is submitted.
  *
  * The scores are evidential. They are stored and printed, and are deliberately
  * absent from every grade calculation — see `is_evidence_only` on the API.
  */
 
-/** The four review items the sheet prints, in its order. */
-const REVIEW_ITEMS = [
-  { key: 'report_content', label: 'Kandungan (Content)', section: 'report' },
-  { key: 'report_format', label: 'Format Laporan (Writing Format)', section: 'report' },
-  { key: 'prototype_analysis', label: 'Analisis & Spesifikasi / Alat, Data, Kajian Kes', section: 'prototype' },
-  { key: 'prototype_ui', label: 'Antara Muka Pengguna & Kefungsian / Teknik, Metrik Prestasi', section: 'prototype' },
+/**
+ * The four review items the sheet prints, split into the two tables the form
+ * prints them in. Items are keyed exactly as `MilestoneReviewService::REVIEW_ITEMS`
+ * keys them, so the rows the screen renders are the rows the API stores.
+ */
+const REPORT_ITEMS = [
+  { key: 'report_content', ms: 'Kandungan', en: 'Content' },
+  { key: 'report_format', ms: 'Format Laporan', en: 'Writing Format' },
 ]
 
-const SCORE_OPTIONS = [
-  { value: '', label: '—' },
-  { value: '0', label: '0' },
-  { value: '1', label: '1' },
-  { value: '2', label: '2' },
-  { value: '3', label: '3' },
-  { value: '4', label: '4' },
-  { value: '5', label: '5' },
+const PROTOTYPE_ITEMS = [
+  {
+    key: 'prototype_analysis',
+    ms: 'Analisis & Spesifikasi / Alat, Data, Kajian Kes',
+    en: 'Analysis & Specifications / Tool, Data, Case Studies',
+  },
+  {
+    key: 'prototype_ui',
+    ms: 'Antara Muka Pengguna & Kefungsian / Teknik, Metrik Prestasi',
+    en: 'User Interface & Functionality / Technique, Performance Metric',
+  },
 ]
+
+/** The printed 0-5 reviewing scale: score, Malay label, English label. */
+const SCALE = [
+  [0, 'Tiada Data', 'No Data'],
+  [1, 'Sangat Kurang Memuaskan', 'Very Unsatisfactory'],
+  [2, 'Kurang Memuaskan', 'Unsatisfactory'],
+  [3, 'Sederhana', 'Moderate'],
+  [4, 'Baik', 'Good'],
+  [5, 'Sangat Baik', 'Very Good'],
+]
+
+/**
+ * One printed item-quality table, with the form's own 0-5 radio row per item.
+ *
+ * The paper form prints six radio buttons per row, so the screen does too. A
+ * `Select` would fit in less width but it is a control the form does not have:
+ * a supervisor copying from the sheet reads across a row of numbers, not down a
+ * dropdown.
+ */
+function ScoreTable({ title, subtitle, items, scores, onScore, disabled, dimmed }) {
+  return (
+    <div className={dimmed ? 'opacity-40' : ''}>
+      <p className="text-[11px] font-bold uppercase">{title}</p>
+      <p className="text-[10px] italic">{subtitle}</p>
+      <table className="mt-1 w-full border-collapse text-[11px]">
+        <thead>
+          <tr>
+            <th className="w-9 border border-slate-400 bg-slate-100 p-1 text-left">Bil</th>
+            <th className="border border-slate-400 bg-slate-100 p-1 text-left">
+              Item Semakan (Review Item)
+            </th>
+            <th className="w-52 border border-slate-400 bg-slate-100 p-1">
+              Skor / Score (0 - 5)
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, i) => (
+            <tr key={item.key}>
+              <td className="border border-slate-400 p-1 align-top">{i + 1}.</td>
+              <td className="border border-slate-400 p-1 align-top">
+                {item.ms}
+                <span className="block text-[10px] italic">({item.en})</span>
+              </td>
+              <td className="border border-slate-400 p-1">
+                <div className="flex items-center justify-around">
+                  {SCALE.map(([n]) => (
+                    <label key={n} className="flex items-center gap-0.5">
+                      <input
+                        type="radio"
+                        name={`r1-${item.key}`}
+                        checked={String(scores[item.key] ?? '') === String(n)}
+                        onChange={() => onScore(item.key, n)}
+                        disabled={disabled}
+                        aria-label={`${item.ms} — ${n}`}
+                      />
+                      {n}
+                    </label>
+                  ))}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 /**
  * Draw-or-upload signature, mirroring the form's "[ Ruang Tandatangan ]" box.
@@ -275,9 +346,12 @@ function RoundRow({ round, milestone, defaultOpen = false }) {
 
           <table className="w-full text-sm">
             <tbody>
-              {REVIEW_ITEMS.map((item) => (
+              {[...REPORT_ITEMS, ...PROTOTYPE_ITEMS].map((item) => (
                 <tr key={item.key} className="border-b border-slate-100 last:border-0">
-                  <td className="py-1 pr-3 text-slate-600">{item.label}</td>
+                  <td className="py-1 pr-3 text-slate-600">
+                    {item.ms}
+                    <span className="block text-[11px] italic text-slate-400">({item.en})</span>
+                  </td>
                   <td className="w-16 py-1 text-right font-medium tabular-nums">
                     {round.scores?.[item.key] ?? '—'}
                     <span className="text-slate-400"> / 5</span>
@@ -351,6 +425,59 @@ export default function MilestoneReviewCard({ milestone, rounds, onDone, isRevie
   const [error, setError] = useState(null)
   /** Set once the reader has tried to record with an incomplete tick. */
   const [triedIncomplete, setTriedIncomplete] = useState(false)
+
+  /**
+   * "Sila tandakan pada ITEM YANG DISEMAK" — the top row of the printed form.
+   *
+   * Pre-selected from the milestone rather than left blank: a chapter milestone
+   * knows its own number, and the system demo is the prototype review. The
+   * supervisor is still free to change it, which is what the printed row is for.
+   */
+  const milestoneChapterNo = /^chapter_(\d)$/.exec(milestone.code ?? '')?.[1] ?? null
+  const [chapterNo, setChapterNo] = useState(milestoneChapterNo)
+  const [isProceeding, setIsProceeding] = useState(
+    Boolean(milestone.declaration?.items?.includes?.('proceeding'))
+  )
+  const [isPrototype, setIsPrototype] = useState(
+    milestone.code === 'demo' || Boolean(milestone.declaration?.items?.includes?.('prototype'))
+  )
+
+  /** Which of the two printed tables the ticked items call for. */
+  const isReportItem = chapterNo !== null || isProceeding
+
+  const declaration = milestone.declaration
+  /**
+   * The supervisor's own name, from the declaration block the resource builds
+   * from the student's active supervision — the project payload has no
+   * `supervisor` relation, so reading it produced a blank line where the official
+   * form prints the endorser's name.
+   */
+  const supervisorName = declaration?.supervisor_name ?? '_______________'
+
+  /** Bahagian A's "Tarikh Penyerahan" — when the student filed, not today. */
+  const submittedLabel = milestone.submitted_at
+    ? new Date(milestone.submitted_at).toLocaleDateString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric',
+      })
+    : '—'
+
+  const todayLabel = new Date().toLocaleDateString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric',
+  })
+
+  function setScore(key, value) {
+    // Radios cannot be unticked, so a second click on the chosen value clears it
+    // — the form's rows may legitimately be left unscored, and a blank is not a
+    // zero on this scale (0 is "Tiada Data").
+    setScores((prev) => {
+      if (String(prev[key] ?? '') === String(value)) {
+        const next = { ...prev }
+        delete next[key]
+        return next
+      }
+      return { ...prev, [key]: value }
+    })
+  }
 
   const canReview = Boolean(milestone.can_review_r1)
   const bothTicked = ackReceived && ackReviewed
@@ -479,17 +606,146 @@ export default function MilestoneReviewCard({ milestone, rounds, onDone, isRevie
         )}
 
         {showForm ? (
-          <>
-            {/* Bahagian B — the acknowledgment that decides the milestone. */}
-            <div className="rounded-md border border-slate-200">
-              <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                Bahagian B — Akuan Semakan oleh Penyelia
-              </div>
-              <div className="space-y-2 px-3 py-3 text-sm">
-                <p className="text-xs font-medium text-slate-600">
-                  Mengesahkan bahawa saya telah (confirm that I have):
+          /**
+           * The form is laid out as the published sheet lays it out, not as a
+           * generic CRUD form: the document reference and the faculty header,
+           * the two blue section bars, the scale table printed above the scores,
+           * and one row of 0-5 radio buttons per item exactly where the paper
+           * form puts them. A supervisor fills this in during a meeting with the
+           * student, with the printed R1 beside them, so matching the print is
+           * the point — the earlier version was a stack of `Select` dropdowns
+           * with the sections renamed, and it did not read as the same document.
+           *
+           * What the app adds is the part paper cannot: the live red prompt, the
+           * signature pad, and the fact that recording it moves the milestone.
+           */
+          <div className="rounded-md border border-slate-300 bg-white">
+            {/* ---------- doc reference + header, as printed ---------- */}
+            <div className="border-b border-slate-200 px-4 pt-3">
+              <p className="text-right text-[11px] font-bold leading-tight">
+                UTHM.FSKTM/UA-31/2025
+                <br />
+                LAMPIRAN R1
+              </p>
+              <div className="border-b-2 border-[#003366] pb-2 text-center">
+                <p className="text-[13px] font-bold uppercase text-[#003366]">
+                  Universiti Tun Hussein Onn Malaysia
                 </p>
+                <p className="text-[12px] font-bold uppercase text-[#003366]">
+                  Fakulti Sains Komputer dan Teknologi Maklumat
+                </p>
+                <p className="mt-1 text-[12px] font-bold text-[#003366]">Projek Sarjana Muda 1</p>
+                <p className="mt-1 text-[11px] font-bold">
+                  BORANG PENYERAHAN DAN SEMAKAN BAB DALAM LAPORAN, KERTAS PROSIDING &amp;
+                  PROTOTAIP SISTEM/KERANGKA PENYELIDIKAN
+                </p>
+                <p className="text-[10px] italic">
+                  Report Chapter, Proceeding Paper &amp; System Prototype/ Research Framework
+                  Submission and Reviewing Form
+                </p>
+              </div>
+            </div>
 
+            <div className="space-y-3 px-4 py-3">
+              {/* ---------- Sesi / Semester ---------- */}
+              <div className="text-xs">
+                <p className="font-bold">Sesi/Semester (Session/Semester):</p>
+                <p className="mt-0.5 border border-slate-300 bg-slate-50 px-2 py-1">
+                  {declaration?.session ?? milestone.project?.academic_session ?? '—'}
+                </p>
+              </div>
+
+              {/* ---------- BAHAGIAN A ---------- */}
+              <p className="bg-[#003366] px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
+                Bahagian A: Maklumat Pelajar / Part A: Student Information
+              </p>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                {[
+                  ['Nama (Name)', declaration?.student_name],
+                  ['No. Matrik (Matric Num)', declaration?.matric],
+                  ['Program (Programme)', declaration?.programme],
+                  ['Tahun Pengajian (Current Year of Study)', declaration?.year_study],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="font-bold">{label}:</dt>
+                    <dd className="mt-0.5 border border-slate-300 bg-slate-50 px-2 py-1">
+                      {value ?? '—'}
+                    </dd>
+                  </div>
+                ))}
+                <div className="col-span-2">
+                  <dt className="font-bold">Tajuk Projek (Project Title):</dt>
+                  <dd className="mt-0.5 border border-slate-300 bg-slate-50 px-2 py-1">
+                    {declaration?.project_title ?? milestone.project?.title ?? '—'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-bold">Tarikh Penyerahan (Date):</dt>
+                  <dd className="mt-0.5 border border-slate-300 bg-slate-50 px-2 py-1">
+                    {submittedLabel}
+                  </dd>
+                </div>
+              </dl>
+
+              {/* ---------- ITEM YANG DISEMAK ---------- */}
+              <div className="border border-slate-300 p-2 text-xs">
+                <p className="text-[11px] font-bold">
+                  Sila tandakan pada ITEM YANG DISEMAK (Tick on the REVIEWED ITEM):
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-1">
+                  <span className="flex items-center gap-1">
+                    <strong>Bab (Chapter):</strong>
+                    {['1', '2', '3', '4'].map((n) => (
+                      <label key={n} className="flex items-center gap-0.5">
+                        <input
+                          type="radio"
+                          name="r1-chapter"
+                          checked={chapterNo === n}
+                          onChange={() => setChapterNo(n)}
+                          disabled={busy}
+                        />
+                        {n}
+                      </label>
+                    ))}
+                  </span>
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="checkbox"
+                      checked={isProceeding}
+                      onChange={(e) => setIsProceeding(e.target.checked)}
+                      disabled={busy}
+                    />
+                    <strong>Kertas Prosiding (Proceeding Paper)</strong>
+                  </label>
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="checkbox"
+                      checked={isPrototype}
+                      onChange={(e) => setIsPrototype(e.target.checked)}
+                      disabled={busy}
+                    />
+                    <strong>Prototaip Sistem / Kerangka Penyelidikan</strong>
+                  </label>
+                </div>
+              </div>
+
+              {/* ---------- BAHAGIAN B ---------- */}
+              <p className="bg-[#003366] px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
+                Bahagian B: Akuan Semakan oleh Penyelia / Part B: Supervisor Review Acknowledgment
+              </p>
+
+              <div className="text-xs">
+                <p className="font-bold">Nama Penyelia (Supervisor Name):</p>
+                <p className="mt-0.5 border border-slate-300 bg-slate-50 px-2 py-1">
+                  {supervisorName}
+                </p>
+              </div>
+
+              <p className="text-[11px] font-bold">
+                Mengesahkan / Menolak bahawa saya telah (confirm / decline that I have):
+              </p>
+
+              <div className="space-y-1.5 text-xs">
                 <label className="flex items-start gap-2">
                   <input
                     type="checkbox"
@@ -500,9 +756,9 @@ export default function MilestoneReviewCard({ milestone, rounds, onDone, isRevie
                     aria-invalid={triedIncomplete && !ackReceived}
                   />
                   <span>
-                    menerima item projek pelajar untuk semakan
-                    <em className="block text-xs text-slate-500">
-                      received the student's project item for review
+                    menerima item projek pelajar (seperti yang ditandakan di atas) untuk semakan{' '}
+                    <em className="text-[10.5px] text-slate-500">
+                      (received student&apos;s project item (as indicated above) for review)
                     </em>
                   </span>
                 </label>
@@ -517,97 +773,132 @@ export default function MilestoneReviewCard({ milestone, rounds, onDone, isRevie
                     aria-invalid={triedIncomplete && !ackReviewed}
                   />
                   <span>
-                    menyemak item projek pelajar untuk penambahbaikan
-                    <em className="block text-xs text-slate-500">
-                      reviewed the student's project item for improvement
+                    menyemak item projek pelajar (seperti yang ditandakan di atas) untuk
+                    penambahbaikan{' '}
+                    <em className="text-[10.5px] text-slate-500">
+                      (reviewed student&apos;s project item (as indicated above) for improvement)
                     </em>
                   </span>
                 </label>
-
-                {/*
-                  Both boxes, or nothing. Lampiran R1 is filed once per chapter
-                  and the two declarations together are the endorsement, so one
-                  tick is not a weaker approval — it is an unsigned form. The
-                  alert is red and always visible while a box is unticked, not
-                  only after a failed submit, so the supervisor is told before
-                  they fill in four score rows.
-                */}
-                {incomplete ? (
-                  <p
-                    role="alert"
-                    className="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700"
-                  >
-                    <strong>Tick both boxes.</strong> Lampiran R1 is submitted once:
-                    both declarations together are the endorsement. Ticking only one
-                    will not record the review.
-                    {triedIncomplete && (
-                      <span className="mt-1 block font-normal">
-                        Nothing was saved. Tick the box that is still empty and try again.
-                      </span>
-                    )}
-                  </p>
-                ) : (
-                  <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
-                    Both declarations ticked — recording this will endorse the chapter
-                    and settle the milestone.
-                  </p>
-                )}
               </div>
-            </div>
 
-            {/* The review scores, 0-5 as the sheet prints them. */}
-            <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                Skala Semakan (0 — Tiada Data … 5 — Sangat Baik)
-              </p>
-              <table className="w-full text-sm">
+              {/*
+                Both boxes, or nothing. Lampiran R1 is filed once per chapter and
+                the two declarations together are the endorsement, so one tick is
+                not a weaker approval — it is an unsigned form. The alert is red
+                and always visible while a box is unticked, not only after a
+                failed submit, so the supervisor is told before they fill in four
+                score rows.
+              */}
+              {incomplete ? (
+                <p
+                  role="alert"
+                  className="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700"
+                >
+                  <strong>Tick both boxes.</strong> Lampiran R1 is submitted once: both
+                  declarations together are the endorsement. Ticking only one will not record
+                  the review.
+                  {triedIncomplete && (
+                    <span className="mt-1 block font-normal">
+                      Nothing was saved. Tick the box that is still empty and try again.
+                    </span>
+                  )}
+                </p>
+              ) : (
+                <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+                  Both declarations ticked — recording this will endorse the chapter and settle
+                  the milestone.
+                </p>
+              )}
+
+              {/* ---------- Skala Semakan, as printed ---------- */}
+              <p className="text-[11px] font-bold">Skala Semakan (Reviewing Scale):</p>
+              <table className="w-full border-collapse text-center text-[10px]">
                 <tbody>
-                  {REVIEW_ITEMS.map((item) => (
-                    <tr key={item.key} className="border-b border-slate-100 last:border-0">
-                      <td className="py-1.5 pr-3 text-slate-600">{item.label}</td>
-                      <td className="w-20 py-1.5 text-right">
-                        <Select
-                          value={scores[item.key] ?? ''}
-                          disabled={busy}
-                          onChange={(e) => setScores((prev) => ({ ...prev, [item.key]: e.target.value }))}
-                          className="py-1 text-sm"
-                          aria-label={`Score for ${item.label}`}
-                        >
-                          {SCORE_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                          ))}
-                        </Select>
+                  <tr>
+                    {SCALE.map(([n]) => (
+                      <th key={n} className="border border-slate-400 bg-slate-100 p-1">
+                        {n}
+                      </th>
+                    ))}
+                  </tr>
+                  <tr>
+                    {SCALE.map(([n, ms, en]) => (
+                      <td key={n} className="border border-slate-400 p-1 align-top">
+                        {ms}
+                        <span className="block italic">({en})</span>
                       </td>
-                    </tr>
-                  ))}
+                    ))}
+                  </tr>
                 </tbody>
               </table>
-            </div>
 
-            <Field label="Ulasan / Komen (Review / Comment)" htmlFor="r1-comments">
-              <Textarea
-                id="r1-comments"
-                rows={3}
-                value={comments}
+              {/* ---------- quality tables, one radio row per item ---------- */}
+              <ScoreTable
+                title="Kualiti Item - Lengkapkan bahagian ini untuk semakan bab dalam laporan atau prosiding sahaja"
+                subtitle="(Item Quality - Complete this section for review on the chapter or proceeding only)"
+                items={REPORT_ITEMS}
+                scores={scores}
+                onScore={setScore}
                 disabled={busy}
-                onChange={(e) => setComments(e.target.value)}
-                placeholder="Optional — a note for the student's record. The endorsement is the two ticks above."
+                dimmed={!isReportItem && isPrototype}
               />
-            </Field>
 
-            <Field label="Tandatangan (Signature)" hint="Optional — the acknowledgment above is the record">
-              <SignatureBox
+              <ScoreTable
+                title="Kualiti Item - Lengkapkan bahagian ini untuk semakan prototaip sistem atau kerangka penyelidikan sahaja"
+                subtitle="(Item Quality - Complete this section for review on the system prototype or research framework only)"
+                items={PROTOTYPE_ITEMS}
+                scores={scores}
+                onScore={setScore}
                 disabled={busy}
-                onChange={(file, type) => setSignature({ file, type })}
+                dimmed={isReportItem && !isPrototype}
               />
-            </Field>
 
-            <div className="flex items-center justify-end gap-2">
-              <Button onClick={submit} disabled={!canSubmit}>
-                {busy ? 'Recording…' : 'Record R1'}
-              </Button>
+              <Field label="Ulasan / Komen (Review / Comment)" htmlFor="r1-comments">
+                <Textarea
+                  id="r1-comments"
+                  rows={3}
+                  value={comments}
+                  disabled={busy}
+                  onChange={(e) => setComments(e.target.value)}
+                  placeholder="Optional — a note for the student's record. The endorsement is the two ticks above."
+                />
+              </Field>
+
+              {/* ---------- signature, as printed ---------- */}
+              <div className="grid grid-cols-2 gap-4 border-t border-slate-300 pt-3">
+                <div className="text-xs">
+                  <p className="font-bold">Tarikh (Date):</p>
+                  <p className="mt-0.5 border border-slate-300 bg-slate-50 px-2 py-1">
+                    {todayLabel}
+                  </p>
+                </div>
+                <div className="text-xs">
+                  <p className="font-bold">
+                    Tandatangan Penyelia (Supervisor Signature):
+                    <em className="block text-[10px] font-normal text-slate-500">
+                      Optional — the acknowledgment above is the record
+                    </em>
+                  </p>
+                  <SignatureBox
+                    disabled={busy}
+                    onChange={(file, type) => setSignature({ file, type })}
+                  />
+                </div>
+              </div>
+
+              <p className="text-[10.5px] text-slate-500">
+                Cop Rasmi Penyelia (Official Stamp): the stamp is applied to the printed copy;
+                this record carries the supervisor&apos;s account and signature.
+              </p>
+
+              <div className="flex items-center justify-end gap-2">
+                <Button onClick={submit} disabled={!canSubmit}>
+                  {busy ? 'Recording…' : 'Record R1'}
+                </Button>
+              </div>
             </div>
-          </>
+          </div>
         ) : (
           /**
            * Say *why* the form is absent rather than a blanket "nothing to
