@@ -624,13 +624,43 @@ class ReportingService
         return [
             'cohort'            => $progress,
             'awaiting_review'   => $submitted,
-            'at_risk'           => $this->atRiskStudents($batch, 5, $psmPart, $semesterId)->count(),
+            'at_risk'           => $this->atRiskCount($batch, $psmPart, $semesterId),
             'marks'             => $this->markDistribution($batch, $psmPart, $semesterId),
             'categories'        => $this->categoryBreakdown($batch, $psmPart, $semesterId),
 
             // The per-batch rollup the coordinator's segmented control reads.
             'by_part'           => $this->dashboardByPart($batch, $semesterId),
         ];
+    }
+
+    /**
+     * How many projects are at risk, with no page limit applied.
+     *
+     * The tile used to call `atRiskStudents($batch, 5, …)->count()`, which
+     * counted **five at most**: a list method's page size was doing duty as a
+     * total, so a cohort with fourteen at-risk projects reported five and the
+     * number quietly stopped moving once the intervention list grew past a
+     * screenful. The rule is the same as `atRiskStudents()` — a project counts
+     * when at least one of its milestones is `overdue` or `rejected` under the
+     * same filters — but only the distinct projects are counted.
+     */
+    public function atRiskCount(
+        ?string $batch = null,
+        ?string $psmPart = null,
+        ?int $semesterId = null
+    ): int {
+        return Milestone::query()
+            ->whereIn('status', [
+                MilestoneStatus::Overdue->value,
+                MilestoneStatus::Rejected->value,
+            ])
+            ->whereHas('project', function ($p) use ($batch, $psmPart, $semesterId) {
+                $p->when($semesterId !== null, fn ($q) => $q->forSemester($semesterId))
+                    ->when($psmPart !== null, fn ($q) => $q->forPart($psmPart))
+                    ->when($batch, fn ($q) => $q->forBatch($batch));
+            })
+            ->distinct()
+            ->count('project_id');
     }
 
     /**
@@ -647,7 +677,7 @@ class ReportingService
                 'label'   => $part->label(),
                 'cohort'  => $this->cohortProgress($batch, $part->value, $semesterId),
                 'marks'   => $this->markDistribution($batch, $part->value, $semesterId),
-                'at_risk' => $this->atRiskStudents($batch, 5, $part->value, $semesterId)->count(),
+                'at_risk' => $this->atRiskCount($batch, $part->value, $semesterId),
             ];
         }
 

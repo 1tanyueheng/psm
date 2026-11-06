@@ -60,13 +60,15 @@ class MilestoneReviewController extends ApiController
     /**
      * POST /api/milestones/{milestone}/reviews
      *
-     * Record the supervisor's response. The two acknowledgement boxes are the
-     * verdict:
+     * Record the supervisor's R1 endorsement. The two acknowledgement boxes are
+     * the verdict, and **both must be ticked** — the faculty files the form once
+     * per chapter and endorses it by declaring both:
      *
-     *   ack_received only          -> the milestone is approved and settles
-     *   ack_reviewed (and/or both) -> improvement, the student revises and the
-     *                                 next round starts (no cap)
-     *   neither                    -> refused
+     *   both ticked -> the milestone is approved and settles
+     *   one or none -> refused, with the wording the red prompt on screen uses
+     *
+     * A second filing for the same milestone is refused by the policy: R1 is
+     * submitted once, so there is no round history to append to.
      *
      * `declaration` is the student's Bahagian A, echoed back so the review
      * records what was actually reviewed rather than what the student's profile

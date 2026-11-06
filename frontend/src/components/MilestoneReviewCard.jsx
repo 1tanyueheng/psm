@@ -321,11 +321,16 @@ function RoundRow({ round, milestone, defaultOpen = false }) {
 }
 
 /**
- * The reviewer's card: fill in a new R1, and read the rounds already filed.
+ * The reviewer's card: file the R1 once, and read the one already filed.
  *
  * `milestone.can_review_r1` comes from the server, so the card cannot offer a
- * review the API would refuse (nothing submitted, or the proposal milestone,
- * whose verdict belongs to the panel).
+ * review the API would refuse (nothing submitted, the proposal milestone whose
+ * verdict belongs to the panel, or a chapter whose R1 is already filed).
+ *
+ * **Both acknowledgement boxes must be ticked.** The faculty files Lampiran R1
+ * once per chapter and endorses it by declaring both halves of the form; a
+ * single tick is not an endorsement, so the form refuses to record one and says
+ * so in red.
  */
 export default function MilestoneReviewCard({ milestone, rounds, onDone, isReviewer = false }) {
   /**
@@ -333,7 +338,7 @@ export default function MilestoneReviewCard({ milestone, rounds, onDone, isRevie
    *
    * The form is long — two acknowledgment boxes, four score rows, a comment and
    * a signature pad — and on a milestone page the reader usually wants the
-   * submission and the history first. Opening it on demand keeps the page
+   * submission and the filed form first. Opening it on demand keeps the page
    * scannable and gives the form the whole width when it is opened.
    */
   const [expanded, setExpanded] = useState(false)
@@ -344,21 +349,33 @@ export default function MilestoneReviewCard({ milestone, rounds, onDone, isRevie
   const [signature, setSignature] = useState({ file: null, type: 'drawn' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  /** Set once the reader has tried to record with an incomplete tick. */
+  const [triedIncomplete, setTriedIncomplete] = useState(false)
 
   const canReview = Boolean(milestone.can_review_r1)
-  const needsReason = ackReviewed && comments.trim().length === 0
-  const canSubmit = canReview && (ackReceived || ackReviewed) && !needsReason && !busy
+  const bothTicked = ackReceived && ackReviewed
+  const incomplete = !bothTicked
+  const canSubmit = canReview && bothTicked && !busy
 
   /**
    * The form is the *reviewer's* tool. A student opening the same milestone gets
-   * the history of their reviews — the verdicts, the scores and the reasons they
-   * were sent back — but never the inputs, because recording a review of one's
-   * own chapter is not something the API would accept and not something the
-   * screen should offer.
+   * the filed R1 — the verdicts, the scores and the comment — but never the
+   * inputs, because recording a review of one's own chapter is not something the
+   * API would accept and not something the screen should offer.
    */
   const showForm = canReview && isReviewer
 
   async function submit() {
+    /**
+     * The red prompt is the primary guard, but the button is also disabled —
+     * this branch exists so a keyboard or programmatic submit still gets the
+     * message rather than a silent no-op.
+     */
+    if (incomplete) {
+      setTriedIncomplete(true)
+      return
+    }
+
     setBusy(true)
     setError(null)
     try {
@@ -389,6 +406,7 @@ export default function MilestoneReviewCard({ milestone, rounds, onDone, isRevie
       setScores({})
       setComments('')
       setSignature({ file: null, type: 'drawn' })
+      setTriedIncomplete(false)
       onDone?.()
     } catch (err) {
       setError(err?.message ?? 'The review could not be recorded.')
@@ -403,10 +421,10 @@ export default function MilestoneReviewCard({ milestone, rounds, onDone, isRevie
         title="Lampiran R1 — Semakan Penyelia"
         subtitle={
           showForm
-            ? "The supervisor's review of this submission"
+            ? "The supervisor's endorsement of this chapter"
             : rounds.length > 0
-              ? `${rounds.length} review round${rounds.length === 1 ? '' : 's'} recorded`
-              : 'The supervisor reviews this chapter on the Lampiran R1 form'
+              ? 'Lampiran R1 filed'
+              : 'The supervisor endorses this chapter on the Lampiran R1 form'
         }
         action={
           <button
@@ -479,11 +497,12 @@ export default function MilestoneReviewCard({ milestone, rounds, onDone, isRevie
                     onChange={(e) => setAckReceived(e.target.checked)}
                     disabled={busy}
                     className="mt-0.5"
+                    aria-invalid={triedIncomplete && !ackReceived}
                   />
                   <span>
                     menerima item projek pelajar untuk semakan
                     <em className="block text-xs text-slate-500">
-                      received the student's project item for review — settles this milestone
+                      received the student's project item for review
                     </em>
                   </span>
                 </label>
@@ -495,18 +514,42 @@ export default function MilestoneReviewCard({ milestone, rounds, onDone, isRevie
                     onChange={(e) => setAckReviewed(e.target.checked)}
                     disabled={busy}
                     className="mt-0.5"
+                    aria-invalid={triedIncomplete && !ackReviewed}
                   />
                   <span>
                     menyemak item projek pelajar untuk penambahbaikan
                     <em className="block text-xs text-slate-500">
-                      reviewed the student's project item for improvement — sends it back to revise
+                      reviewed the student's project item for improvement
                     </em>
                   </span>
                 </label>
 
-                {ackReviewed && ackReceived && (
-                  <p className="text-xs text-amber-700">
-                    Both ticked reads as improvement: asking for improvement implies receipt.
+                {/*
+                  Both boxes, or nothing. Lampiran R1 is filed once per chapter
+                  and the two declarations together are the endorsement, so one
+                  tick is not a weaker approval — it is an unsigned form. The
+                  alert is red and always visible while a box is unticked, not
+                  only after a failed submit, so the supervisor is told before
+                  they fill in four score rows.
+                */}
+                {incomplete ? (
+                  <p
+                    role="alert"
+                    className="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700"
+                  >
+                    <strong>Tick both boxes.</strong> Lampiran R1 is submitted once:
+                    both declarations together are the endorsement. Ticking only one
+                    will not record the review.
+                    {triedIncomplete && (
+                      <span className="mt-1 block font-normal">
+                        Nothing was saved. Tick the box that is still empty and try again.
+                      </span>
+                    )}
+                  </p>
+                ) : (
+                  <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+                    Both declarations ticked — recording this will endorse the chapter
+                    and settle the milestone.
                   </p>
                 )}
               </div>
@@ -548,11 +591,7 @@ export default function MilestoneReviewCard({ milestone, rounds, onDone, isRevie
                 value={comments}
                 disabled={busy}
                 onChange={(e) => setComments(e.target.value)}
-                placeholder={
-                  ackReviewed
-                    ? 'Required when sending back for improvement — the student needs to know what to change.'
-                    : 'Optional when accepting the work.'
-                }
+                placeholder="Optional — a note for the student's record. The endorsement is the two ticks above."
               />
             </Field>
 
@@ -568,12 +607,6 @@ export default function MilestoneReviewCard({ milestone, rounds, onDone, isRevie
                 {busy ? 'Recording…' : 'Record R1'}
               </Button>
             </div>
-
-            {!ackReceived && !ackReviewed && (
-              <p className="text-right text-xs text-slate-500">
-                Tick at least one acknowledgment to record this review.
-              </p>
-            )}
           </>
         ) : (
           /**
@@ -593,9 +626,9 @@ export default function MilestoneReviewCard({ milestone, rounds, onDone, isRevie
               ? // The student's view. Saying "you are not the reviewer" to the
                 // person who wrote the chapter is technically true and useless;
                 // what they need to know is that this is where feedback arrives.
-                'Your supervisor reviews this chapter on the Lampiran R1 form. Their verdict, scores and comments will appear here.'
+                'Your supervisor files Lampiran R1 for this chapter. Their endorsement, scores and comments will appear here.'
               : milestone.status === 'approved'
-                ? 'This milestone has been approved — there is nothing left to review.'
+                ? 'Lampiran R1 has already been filed — this chapter is endorsed and settled.'
                 : milestone.is_proposal
                   ? 'The proposal is decided by the seated panel, not by an R1 review.'
                   : !milestone.uses_r1
@@ -606,11 +639,12 @@ export default function MilestoneReviewCard({ milestone, rounds, onDone, isRevie
           </p>
         )}
 
-        {/* Previous rounds, newest first, visible to both parties. */}
+        {/* The filed form — there is only ever one, but it is a list so a
+            milestone that carries an older send-back row still renders. */}
         {rounds.length > 0 && (
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-              R1 rounds ({rounds.length})
+              Lampiran R1 filed
             </p>
             <ul className="space-y-2">
               {rounds.map((round, i) => (

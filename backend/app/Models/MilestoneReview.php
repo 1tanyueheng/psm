@@ -8,23 +8,23 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Module 3 — one round of Lampiran R1 review against a milestone submission.
+ * Module 3 — one Lampiran R1 review against a milestone submission.
  *
- * The student submits a chapter; the supervisor responds on the official R1
- * form; if improvement is asked for, the student revises and the cycle repeats,
- * each turn being a row here. See the create migration for why this is not a
- * milestone of its own.
+ * The student submits a chapter; the supervisor files the official R1 form
+ * **once**, ticking both declarations, and the milestone settles. One form per
+ * chapter is the faculty's practice, so the normal case is a single row here.
+ * `VERDICT_IMPROVEMENT` is retained for the stored history of rounds recorded
+ * before the both-ticked rule was corrected, and for the send-back the
+ * supervisor's own review route still supports; it is no longer reachable from
+ * the R1 form.
  *
  * Reading a row:
  *
- *   ack_received   the supervisor has received the item and is satisfied with
- *                  it — "menerima item projek pelajar ... untuk semakan"
- *   ack_reviewed   the supervisor has reviewed it and wants improvement —
- *                  "menyemak item projek pelajar ... untuk penambahbaikan"
+ *   ack_received   "menerima item projek pelajar ... untuk semakan"
+ *   ack_reviewed   "menyemak item projek pelajar ... untuk penambahbaikan"
  *
- * Both ticked reads as *improvement*: asking for improvement necessarily
- * implies having received the work, so `verdict` records the stronger of the
- * two rather than trusting the reader to notice.
+ * Both ticked is the endorsement and reads as *approved*. A row with only one
+ * box ticked cannot be created by the current service — see `verdictFor()`.
  *
  * The scores are evidential. They are stored and printed, and they are
  * deliberately absent from every grade calculation — see `isEvidenceOnly()`.
@@ -36,7 +36,13 @@ class MilestoneReview extends Model
     /** Received, and nothing further owed: the milestone settles. */
     public const VERDICT_APPROVED = 'approved';
 
-    /** Reviewed for improvement: the student revises and the round repeats. */
+    /**
+     * Reviewed for improvement: the student revises and the cycle repeats.
+     *
+     * Not produced by the R1 form any more — both boxes now mean approval. Kept
+     * because rows already stored carry this value, and because the separate
+     * review route can still send work back.
+     */
     public const VERDICT_IMPROVEMENT = 'improvement';
 
     protected $fillable = [
@@ -99,21 +105,26 @@ class MilestoneReview extends Model
     /**
      * The round's outcome, derived from the two printed checkboxes.
      *
-     * Returns null when neither box is ticked — an R1 that declares nothing is
-     * not a verdict, and the service refuses to record one. Kept as the single
-     * place the rule lives: the controller validates against it, the service
-     * stores it, and the screen reads it back.
+     * **Both boxes are ticked, or the form is not a verdict.** The faculty's
+     * practice is that a supervisor files Lampiran R1 **once** per chapter and
+     * endorses it by ticking *both* declarations — "menerima … untuk semakan"
+     * and "menyemak … untuk penambahbaikan" are the two halves of one signed
+     * endorsement, not a choice between accept and reject. There is no
+     * revision round in this use case: a chapter is filed, endorsed once, and
+     * settled.
+     *
+     * This reverses the earlier rule, where `ack_reviewed` won outright so
+     * that ticking both sent the chapter **back for improvement** — the exact
+     * opposite of what the supervisor meant, and the reason chapters could sit
+     * in a revision loop that the faculty does not run.
+     *
+     * A single tick returns null and is refused, rather than being read as half
+     * an approval: the screen shows a red prompt asking for both boxes, because
+     * an R1 half-filled is an endorsement nobody signed.
      */
     public static function verdictFor(bool $ackReceived, bool $ackReviewed): ?string
     {
-        // Improvement is the stronger claim: a supervisor cannot ask for
-        // improvement without having received the work, so the tick stands on
-        // its own and wins even when both are ticked.
-        if ($ackReviewed) {
-            return self::VERDICT_IMPROVEMENT;
-        }
-
-        if ($ackReceived) {
+        if ($ackReceived && $ackReviewed) {
             return self::VERDICT_APPROVED;
         }
 
@@ -140,7 +151,7 @@ class MilestoneReview extends Model
     public function verdictLabel(): ?string
     {
         return match ($this->verdict) {
-            self::VERDICT_APPROVED    => 'Received — settled',
+            self::VERDICT_APPROVED    => 'Received and reviewed — endorsed',
             self::VERDICT_IMPROVEMENT => 'Improvement requested',
             default                   => null,
         };

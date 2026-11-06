@@ -10,26 +10,27 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
- * Module 3 — Lampiran R1 review rounds.
+ * Module 3 — Lampiran R1 review.
  *
  * The supervisor responds to a chapter submission on the official R1 form. That
- * response is *the* review: its two checkboxes decide the milestone's fate, and
- * its scores and signature are the evidence that the review happened. There is
- * no second, parallel state machine — an approved round calls
- * `MilestoneService::approve()` and an improvement round calls
- * `MilestoneService::requestRevision()`, so the chain advances exactly as it did
- * before, with an R1 row recorded alongside each move.
+ * response is *the* review: its two checkboxes are the endorsement, and its
+ * scores and signature are the evidence that the review happened. There is no
+ * second, parallel state machine — an approved round calls
+ * `MilestoneService::approve()`, so the chain advances exactly as it did before,
+ * with an R1 row recorded alongside each move.
+ *
+ * **One form per chapter, both boxes ticked.** The faculty files R1 once; the
+ * supervisor endorses by ticking both declarations. The form therefore has
+ * exactly one outcome — the milestone settles — and the improvement branch below
+ * is reachable only from the separate review route, never from R1.
  *
  * Rules this service enforces:
  *
- *   - At least one acknowledgement box must be ticked. An R1 that declares
- *     nothing is not a verdict, and storing it would leave a round that never
- *     closes anything.
- *   - Improvement needs a written reason. Sending a chapter back with scores
- *     alone gives the student nothing to act on, so `comments` is required when
- *     `ack_reviewed` is set.
- *   - No cap on rounds. The faculty's rule is that a student revises as many
- *     times as it takes.
+ *   - **Both acknowledgement boxes must be ticked.** Half an R1 is an
+ *     endorsement nobody signed: the screen shows a red prompt, and this service
+ *     refuses the record with the same wording.
+ *   - **At most one round.** A second filing for the same milestone is refused
+ *     rather than appended, because the form is submitted once.
  *   - No date lock. Chapter milestones are always open — the due date is
  *     advisory and `acceptsSubmission()` is consulted for *submitting*, not for
  *     reviewing. A supervisor reviewing late is not refused here.
@@ -57,7 +58,7 @@ class MilestoneReviewService
     public function __construct(private readonly MilestoneService $milestones) {}
 
     /**
-     * Record a review round and move the milestone accordingly.
+     * Record the R1 review and move the milestone to approved.
      *
      * @param  array{ack_received?:bool,ack_reviewed?:bool,scores?:array<string,int|float|null>,
      *               comments?:?string,declaration?:?array,reviewer_name?:?string}  $data
@@ -71,19 +72,13 @@ class MilestoneReviewService
 
         if ($verdict === null) {
             throw new InvalidArgumentException(
-                'Tick at least one acknowledgement: "received ... for review" or '
-                .'"reviewed ... for improvement".'
+                'Tick both acknowledgements: "received ... for review" and '
+                .'"reviewed ... for improvement". Lampiran R1 is filed once, and '
+                .'both boxes together are the endorsement.'
             );
         }
 
         $comments = trim((string) ($data['comments'] ?? ''));
-
-        if ($verdict === MilestoneReview::VERDICT_IMPROVEMENT && $comments === '') {
-            throw new InvalidArgumentException(
-                'Improvement was requested, so a written reason is required — the student '
-                .'cannot act on scores alone.'
-            );
-        }
 
         // The proposal milestone is the panel's to decide; its verdict is the
         // title decision and must go through ProposalReviewService. Refused here
@@ -101,6 +96,16 @@ class MilestoneReviewService
         if (! $milestone->usesR1()) {
             throw new InvalidArgumentException(
                 "Lampiran R1 applies to Chapters 1-4 of PSM 1 only, not to '{$milestone->code}'."
+            );
+        }
+
+        // One form per chapter. The faculty files R1 once and endorses once, so
+        // a second filing is a correction to a record that is already settled,
+        // not a new round — and `round_no` would otherwise manufacture a history
+        // the faculty does not keep.
+        if ($milestone->reviews()->exists()) {
+            throw new InvalidArgumentException(
+                'Lampiran R1 has already been filed for this milestone — the form is submitted once.'
             );
         }
 
@@ -176,7 +181,11 @@ class MilestoneReviewService
                 }
 
                 $this->milestones->approve($milestone, $actor, $comments !== '' ? $comments : null);
-            } else {
+            } elseif ($comments !== '') {
+                // Only reachable from the separate review route: the R1 form's
+                // both-ticked endorsement always approves, so this branch is dead
+                // for R1. Kept so a send-back recorded through that route still
+                // moves the milestone rather than silently doing nothing.
                 $this->milestones->requestRevision($milestone, $actor, $comments);
             }
 
@@ -286,8 +295,9 @@ class MilestoneReviewService
     /**
      * How many times the milestone has been sent back.
      *
-     * The count a report quotes — "chapter 2 was returned four times" — read
-     * from stored rows rather than inferred from the event timeline.
+     * The count a report quotes — "chapter 2 was returned twice" — read from
+     * stored rows rather than inferred from the event timeline. Always 0 for a
+     * milestone reviewed on the R1 form, since both-ticked means approved.
      */
     public function improvementCount(Milestone $milestone): int
     {
@@ -296,10 +306,23 @@ class MilestoneReviewService
             ->count();
     }
 
+    /** Has Lampiran R1 already been filed for this milestone? */
+    public function hasBeenFiled(Milestone $milestone): bool
+    {
+        return $milestone->reviews()->exists();
+    }
+
     /** Can this milestone take an R1 review right now? */
     public function canReview(Milestone $milestone): bool
     {
         if ($milestone->isProposal() || ! $milestone->usesR1()) {
+            return false;
+        }
+
+        // The form is filed once. Once a row exists the milestone is settled and
+        // there is nothing left to endorse, so the screen offers the history
+        // instead of the inputs.
+        if ($this->hasBeenFiled($milestone)) {
             return false;
         }
 

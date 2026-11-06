@@ -6,6 +6,7 @@ use App\Enums\MilestoneStatus;
 use App\Enums\ProjectCategory;
 use App\Models\AcademicSemester;
 use App\Models\Milestone;
+use App\Models\MilestoneReview;
 use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\StudentProfile;
@@ -113,8 +114,19 @@ class ProjectSeeder extends Seeder
 
             $project = $this->createProject($student, $category, $coordinator, $profileName, $psmPart, $semester);
 
-            // Module 3 — the real instantiation path
-            $this->milestones->instantiateFor($project, now()->subDays($profile['started_days_ago']));
+            /**
+             * Module 3 — the real instantiation path, **once per project**.
+             *
+             * `instantiateFor()` inserts the chain unconditionally, and
+             * `milestone_project_code_attempt_unique` refuses a second
+             * `(project_id, code, attempt)` — so re-running the seed against an
+             * existing cohort threw immediately. A project that already carries
+             * its chain is stepped over; `driveTo()` still tops up the statuses
+             * and the R1 rows below, which is what a re-seed is actually for.
+             */
+            if ($project->milestones()->doesntExist()) {
+                $this->milestones->instantiateFor($project, now()->subDays($profile['started_days_ago']));
+            }
 
             $this->advance($project, $profile);
             $this->attachSupervisorNote($project, $supervisorId);
@@ -127,6 +139,20 @@ class ProjectSeeder extends Seeder
         // 2/2 PSM 1 and 2/2 PSM 2 — masking the per-part capacity feature.
         // If a student holds both batches (rare), the pairing stays BOTH.
         $this->reconcileSupervisionParts($semester);
+
+        /**
+         * Final sweep: file Lampiran R1 behind **every** approved chapter.
+         *
+         * The loop above only reaches students who hold an active supervision,
+         * and `driveTo()` only files R1 for a milestone it is asked to drive.
+         * Between them, two whole classes of chapter were left with an empty R1
+         * card: projects whose owner sits outside the loop (the two students the
+         * UserSeeder leaves unassigned), and every project that already existed
+         * before this seeding was added. An approved chapter with no R1 behind it
+         * is exactly the inconsistency being fixed, so the check is done over the
+         * table rather than over whatever the loop happened to touch.
+         */
+        $this->fileMissingR1();
 
         $this->command?->info(sprintf(
             '  Projects: %d (PSM 1: %d, PSM 2: %d), milestones: %d, submission files: %d, events: %d.',
@@ -229,10 +255,37 @@ class ProjectSeeder extends Seeder
         $title = $student->thesis_title
             ?? "PSM Project — {$student->student_id}";
 
+        /**
+         * Re-seed the project this student already holds, rather than minting a
+         * new one.
+         *
+         * `nextCode()` numbers by *count* (`count + 1`), so on a second run the
+         * codes it produces no longer match the existing rows, `updateOrCreate`
+         * misses on the code, and the whole cohort is duplicated: 53 projects
+         * became 78, then 157, each with a full chain of 401+ milestones. A
+         * student holds one project per part per term, so that is the key the
+         * seeder should have used all along.
+         *
+         * **Oldest first.** A database that was already double-seeded holds two
+         * PSM 1 projects for the same student — one from the original run and a
+         * duplicate the bug created later. `->first()` with no order returned
+         * whichever the planner offered (id 7's student picked up `PSM2-…-015`
+         * and never reached their own PSM 1 project), so half the cohort was
+         * re-seeded and half silently skipped. The oldest row is the one the
+         * demo has been showing all along.
+         */
+        $existing = Project::query()
+            ->where('psm_part', $psmPart)
+            ->where('academic_session', self::SESSION)
+            ->whereHas('members', fn ($q) => $q->where('student_profile_id', $student->id))
+            ->orderBy('id')
+            ->first();
+
         // Completed projects carry a raw code; in-flight ones use the sequence.
         // The part goes into the code so PSM 1 and PSM 2 projects in the same
         // term never collide on the same sequence.
-        $code = Project::nextCode($psmPart, self::SESSION, $student->program_code);
+        $code = $existing?->code
+            ?? Project::nextCode($psmPart, self::SESSION, $student->program_code);
 
         $project = Project::updateOrCreate(
             ['code' => $code],
@@ -468,6 +521,18 @@ class ProjectSeeder extends Seeder
     protected function driveTo(Milestone $milestone, MilestoneStatus $target, ?User $supervisor): void
     {
         if ($milestone->status === $target) {
+            /**
+             * Already where the profile wants it — but an approved chapter may
+             * still be missing its Lampiran R1. Re-seeding a demo database that
+             * predates the R1 seeding hits exactly this path: every milestone
+             * reports "already approved", the loop below never runs, and the R1
+             * cards stay empty for ever. Filing here makes the seed idempotent
+             * in the direction that matters.
+             */
+            if ($target === MilestoneStatus::Approved) {
+                $this->fileR1($milestone, $supervisor);
+            }
+
             return;
         }
 
@@ -513,7 +578,106 @@ class ProjectSeeder extends Seeder
             if ($step === MilestoneStatus::Submitted) {
                 $this->fakeSubmissionFiles($current->fresh());
             }
+
+            // Lampiran R1 is the endorsement of a chapter: a chapter that the
+            // demo shows as approved must carry the form behind it, or its
+            // milestone page opens an empty R1 card. Written here rather than in
+            // the profile tables so it cannot drift from the statuses.
+            if ($step === MilestoneStatus::Approved) {
+                $this->fileR1($current->fresh(), $supervisor);
+            }
         }
+    }
+
+    /**
+     * File Lampiran R1 for every approved chapter that has none.
+     *
+     * Table-driven on purpose: the seeding loop is scoped to students with an
+     * active supervision, and the demo cohort contains projects outside that set
+     * (the two students the UserSeeder leaves for the coordinator's pairing
+     * queue). Asking "which approved chapter lacks an R1?" over `milestones`
+     * catches those, plus anything a previous seed created before this rule
+     * existed, and is the same question a reader of the demo would ask.
+     */
+    protected function fileMissingR1(): void
+    {
+        Milestone::query()
+            ->whereIn('code', Milestone::R1_CODES)
+            ->where('status', MilestoneStatus::Approved->value)
+            ->whereDoesntHave('reviews')
+            ->with('project')
+            ->chunkById(100, function ($milestones) {
+                foreach ($milestones as $milestone) {
+                    $this->fileR1($milestone, $this->supervisorFor($milestone->project));
+                }
+            });
+    }
+
+    /**
+     * Record the Lampiran R1 form behind an approved chapter.
+     *
+     * Mirrors what the R1 screen does — **both** declarations ticked, which is
+     * the endorsement and the approval — and the scores the supervisor typed
+     * against the four printed review items. Written with `MilestoneReview::create`
+     * rather than through `MilestoneReviewService::record()` because the service
+     * drives the state machine, and `driveTo()` has already walked it.
+     *
+     * Only PSM 1's chapters 1-4 and the system demo are covered (see
+     * `Milestone::R1_CODES`); every other milestone is endorsed on a different
+     * form, so nothing is written for it.
+     */
+    protected function fileR1(Milestone $milestone, ?User $supervisor): void
+    {
+        if (! $milestone->usesR1() || $milestone->reviews()->exists()) {
+            return;
+        }
+
+        /**
+         * The demo has no submission to point at, and needs none — it is a
+         * face-to-face session. A chapter is only ever reviewed after the student
+         * uploaded, so a chapter with no current file is skipped rather than
+         * given an R1 against a document that does not exist.
+         */
+        if ($milestone->code !== Milestone::CODE_DEMO
+            && $milestone->currentFiles()->count() === 0) {
+            return;
+        }
+
+        $comments = $this->commentFor(MilestoneStatus::Approved, $milestone);
+
+        // Deterministic per milestone, so re-running the seed does not shuffle
+        // which chapter scored what.
+        $scores = match ($milestone->code) {
+            'chapter_1' => ['report_content' => 4, 'report_format' => 4],
+            'chapter_2' => ['report_content' => 5, 'report_format' => 4],
+            'chapter_3' => ['report_content' => 4, 'report_format' => 4, 'prototype_analysis' => 4],
+            'chapter_4' => ['report_content' => 4, 'report_format' => 4, 'prototype_analysis' => 5, 'prototype_ui' => 4],
+            'demo'      => ['prototype_analysis' => 5, 'prototype_ui' => 5],
+            default     => ['report_content' => 4, 'report_format' => 4],
+        };
+
+        MilestoneReview::create([
+            'milestone_id'  => $milestone->id,
+            'round_no'      => 1,
+            'revision_no'   => (int) ($milestone->currentFiles()->max('revision_no') ?: 1),
+            'reviewer_id'   => $supervisor?->id,
+            'reviewer_name' => $supervisor?->name ?? 'Supervisor',
+            'reviewer_role' => $supervisor?->role?->value,
+            'ack_received'  => true,
+            'ack_reviewed'  => true,
+            'verdict'       => MilestoneReview::VERDICT_APPROVED,
+            'declaration'   => [
+                'student_name'  => $milestone->project?->leader()?->user?->name,
+                'matric'        => $milestone->project?->leader()?->student_id,
+                'programme'     => $milestone->project?->program,
+                'project_title' => $milestone->project?->title,
+                'session'       => $milestone->project?->academic_session,
+            ],
+            'scores'        => $scores,
+            'total_score'   => array_sum($scores),
+            'max_score'     => count($scores) * 5,
+            'comments'      => $comments,
+        ]);
     }
 
     protected function commentFor(MilestoneStatus $step, Milestone $milestone): ?string

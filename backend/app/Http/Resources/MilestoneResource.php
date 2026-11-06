@@ -116,10 +116,20 @@ class MilestoneResource extends JsonResource
              *
              * The same ability the endpoint authorises, so the "Respond (R1)"
              * button cannot offer a review the API will refuse. False for the
-             * proposal, whose verdict is the panel's, and false while nothing
-             * has been submitted — there is nothing to respond to.
+             * proposal, whose verdict is the panel's; false while nothing has
+             * been submitted, because there is nothing to respond to; and false
+             * once the form has been filed, because R1 is submitted once.
              */
             'can_review_r1' => (bool) $request->user()?->can('reviewR1', $this->resource),
+
+            /**
+             * Has Lampiran R1 already been filed for this milestone?
+             *
+             * The page uses it to say so plainly instead of printing "you are not
+             * the assigned reviewer" — which is what a supervisor saw after they
+             * had already endorsed the chapter and the form disappeared.
+             */
+            'r1_filed' => $this->usesR1() && $this->reviews()->exists(),
 
             /**
              * Does Lampiran R1 govern this milestone?

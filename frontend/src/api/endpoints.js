@@ -796,10 +796,11 @@ export const milestoneApi = {
    * Record a review decision. The two outcomes are separate routes on the
    * server, so this dispatches rather than inventing a combined endpoint.
    *
-   * Superseded by `reviewR1` for chapter milestones: the Lampiran R1 form's two
-   * checkboxes are now the verdict, and its round is recorded alongside the
-   * transition. Kept because the proposal branch and any milestone without a
-   * submission still go through the plain decision.
+   * Superseded by `reviewR1` for chapter milestones: Lampiran R1 is the
+   * endorsement of a chapter, and its ticked declarations are the approval — the
+   * server refuses a plain `/approve` on any milestone R1 governs. Kept because
+   * the OSHE form, the final report and any milestone without a submission still
+   * go through the plain decision.
    */
   review: (id, { decision, comment }) =>
     decision === 'approved'

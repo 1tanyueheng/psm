@@ -125,7 +125,9 @@ class MilestonePolicy
      *   - the proposal milestone is excluded, because its verdict is the panel's
      *     (see `decideTitle`);
      *   - there must be a current submission to have reviewed. A verdict on a
-     *     document that was never filed is not evidence of anything.
+     *     document that was never filed is not evidence of anything;
+     *   - the form must not already have been filed, because R1 is submitted
+     *     once per chapter.
      */
     public function reviewR1(User $actor, Milestone $milestone): bool
     {
@@ -142,6 +144,18 @@ class MilestonePolicy
         }
 
         if (! $this->review($actor, $milestone)) {
+            return false;
+        }
+
+        /**
+         * Lampiran R1 is filed **once** per milestone.
+         *
+         * The faculty submits a single form per chapter and endorses it by
+         * ticking both declarations, so a second filing is not a second round —
+         * it would rewrite a settled record. Once a row exists the screen shows
+         * the history and the endpoint refuses, so the two agree.
+         */
+        if ($milestone->reviews()->exists()) {
             return false;
         }
 

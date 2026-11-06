@@ -402,10 +402,30 @@ class MilestoneController extends ApiController
 
     /**
      * POST /api/milestones/{milestone}/approve
+     *
+     * The shortcut route: approve a submission without filling in a form.
+     *
+     * **Refused for a milestone that Lampiran R1 governs.** Chapters 1-4 and the
+     * system demo are endorsed on the R1 sheet, and R1 *is* the approval — its
+     * two ticked declarations are the evidence, and `MilestoneReviewService`
+     * moves the milestone for them. Approving here instead would settle the
+     * chapter with no R1 row behind it, which is exactly how chapters 1 and 2 of
+     * the demo project came to be `approved` with an empty R1 card. The message
+     * points at the route that records the form, so the caller is not left
+     * guessing.
      */
     public function approve(Request $request, Milestone $milestone): JsonResponse
     {
         $this->authorize('review', $milestone);
+
+        if ($milestone->usesR1()) {
+            return $this->fail(
+                'This milestone is endorsed on Lampiran R1. File the R1 form (both '
+                .'acknowledgements ticked) at POST /api/milestones/'.$milestone->id
+                .'/reviews — that is the approval.',
+                422
+            );
+        }
 
         $validated = $request->validate([
             'comment' => ['nullable', 'string', 'max:2000'],

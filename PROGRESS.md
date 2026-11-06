@@ -395,7 +395,7 @@ from. Two kinds, and they are not interchangeable:
 | File | Kind | What it draws |
 |---|---|---|
 | `login.txt`, `title.txt`, `milestone.txt`, `evaluation.txt`, `report.txt`, `notification.txt` | `sequenceDiagram` | Figures 4.2, 4.4, 4.6, 4.8, 4.10, 4.11–4.12 — **the user's own**, generated earlier by `make_mermaid_sources.py` |
-| **`class_diagram.txt`** | `classDiagram` | **Figure 4.14** — **28 classes and 70 relations**, one class per table the six use cases read or write. Widened from twelve on 2026-11-04 after the supervisor said it could not show the relationships, then trimmed at the user's request and reduced to the foreign keys alone. See below |
+| **`class_diagram.txt`** | `classDiagram` | **Figure 4.14** — **22 classes and 39 arrows**, one class per concept the six use cases need, five roles normalised out of `User`, and a `Report` class for UC-05. **A design model, not the schema.** See below |
 | `system_class.txt` | `classDiagram` | the whole system: **39 classes, one per model**, 45 relations. Kept as reference, **not** the chapter figure |
 | `system_interaction.txt` | `sequenceDiagram` | one request through Route → Policy → Service → Eloquent → PostgreSQL, with the enrolment, assignment, window-open and release paths |
 | **`psm1_plan.txt`** | **`gantt`** | **the PSM 1 delivery plan by teaching week**, Weeks 01–16, from the faculty timetable in `psm1_timeline.png` |
@@ -485,111 +485,57 @@ is how that was found**, which is the argument for keeping both.
 > dense around it. That is what the schema looks like; a reader who wants fewer
 > arrows is asking for fewer constraints, not a tidier picture.
 
-##### Figure 4.14 is now a **normalised design**, not a mirror (2026-11-04)
+##### Figure 4.14 — 22 classes, the six use cases, a Report table (2026-11-04)
 
-At the user's instruction: "create the normalised table for each role — the real
-system will be considered later." **This is a design model. The database has not
-changed**, and the difference is stated in both the diagram's header and here,
-because a figure that claims to be the schema and is not is worse than no figure.
+Three attempts preceded this one and each chased the database: 28 classes, then
+33 with normalised roles, then role-connected arrows. All of them were schema
+dumps with an arrow per foreign key, and none could be read at print width.
 
-`User` now holds **identity and authentication only**. Every role has its own
-table joined 1:1:
+**A class diagram in a chapter shows the model, not the schema.** The figure now
+has 22 classes, one per concept the six use cases need:
 
-| Table | Holds |
+| Use case | Classes |
 |---|---|
-| `User` | name, email, password, `role_id`, status, phone, login state |
-| `Role` | the role vocabulary as data, not a string column |
-| `AdminProfile` | `staff_id`, `department`, `scope` |
-| `CoordinatorProfile` | `staff_id`, `department`, `is_head` |
-| `LecturerProfile` | `staff_id`, `department`, `course_code` |
-| `SupervisorProfile` | `staff_id`, `department`, programme, capacities |
-| `StudentProfile` | matric, programme, batch, section, term |
+| UC-01 log in | `User` + the five role classes |
+| UC-02 register | `AcademicSemester`, `StudentEnrolment`, `SupervisorAgreement`, `SupervisionAssignment`, `Project` |
+| UC-03 milestones | `Milestone`, `Submission`, `MilestoneReview` |
+| UC-04 assess | `Rubric`, `RubricCriterion`, `AssessmentWindow`, `PanelAssignment`, `Evaluation` |
+| UC-05 reports | `FinalGrade`, **`Report`** |
+| UC-06 notify | `Notification` |
 
-| | implemented | normalised |
-|---|---|---|
-| classes | 28 | **33** |
-| arrows into `User` | 18 | **21** (five are the role joins) |
+**Five roles are normalised out of `User`** with a **dashed** `..>` line labelled
+`normalised from User`. Dashed on purpose: a solid line would be an association,
+and this is a projection — a different claim.
 
-**The arrow count went UP and that is correct.** `staff_id`, `department`,
-`programme`, `capacity*`, `matric_no` and `batch` all leave `User` — that is what
-normalising means — and five 1:1 joins arrive to replace them. The count was never
-the readability metric; the composition of the `User` block is.
+**`Report` is a new class and is not a table.** UC-05 computes reports and streams
+them; there is no `reports` table and adding one would be inventing storage. But
+the use case *produces a report*, it has a type, a format, a period, a generator
+and a time, so the concept belongs in the diagram. Its header says the objects are
+generated, not stored.
 
-**The `*_by` columns still point at `User`, and should.** `created_by`,
-`approved_by`, `locked_by` are about *an actor*, and an actor may hold any role or
-none. They are not role-specific, so they belong on the identity table. Anyone
-tempted to re-point them should answer "can this column hold an admin?" first.
+**Merged on purpose**, to keep the figure readable: `RubricTemplate` +
+`RubricComponent` → `Rubric`; `SubmissionFile` + `SubmissionEvent` →
+`Submission`; `ExaminerPair` + `ExaminerAssignment` → `PanelAssignment`;
+`LampiranBForm` → the registration chain.
 
-> **Two diagrams now exist and they describe different things:**
->
-> | File | Describes |
-> |---|---|
-> | `class_diagram.txt` / `.drawio` | **the normalised design** — what the chapter presents |
-> | `class_diagram_implemented.txt` / `.drawio` | **what runs** — `users` with staff columns, two profile tables, no role table |
->
-> The implemented one is kept so the gap is auditable rather than forgotten. If
-> the code is ever brought across, that file is the "before".
+`check_compact_diagram.py` checks the **brief**, not the schema: 18–24 classes,
+every use case UC-01…UC-06 represented, five roles each with exactly one dashed
+normalisation line, `Report` declared and connected, no island.
 
-**`check_combined_diagram.py` cannot validate this file** — it compares arrows to
-live foreign keys and the role tables do not exist. `check_normalised_diagram.py`
-replaces it and checks the design's own invariants instead: each role joins `User`
-exactly once and 1:1, **no role attribute survives on `User`**, every class has
-members and at least one relation, and the rendered file matches the module's
-declarations.
+```
+classes : 22      use cases : UC-01 .. UC-06
+roles normalised : 5/5        Report arrows : 6
+arrows  : 5 dashed + 34 solid    islands : 0
+```
 
-##### Figure 4.14 is one figure again, with role arrows on the profiles (2026-11-04)
+The schema-accurate figures (`class_diagram_implemented.*`) and the role-connected
+generators were **deleted**. They described the database, which this figure
+deliberately no longer does, and three class diagrams is worse than one.
 
-Two attempts, in order, because the first was rejected:
-
-1. **Split into two figures** (4.14a people, 4.14b work). Readable, and it lost
-   nothing — but **the thesis does not permit two class diagrams**, so it was
-   undone.
-2. **One figure, with role-specific associations re-pointed** to `StudentProfile`
-   / `SupervisorProfile` instead of `User`.
-
-**Only four arrows could move**, and the rule is what makes the rest legitimate:
-
-| Moved to `SupervisorProfile` | Foreign key |
-|---|---|
-| `lectures` | `sections.lecturer_id` |
-| `assesses` | `evaluations.assessor_id` |
-| `examines` | `examiner_assignments.examiner_id` |
-| `examiner 1 / 2` | `examiner_pairs.examiner_1_id`, `examiner_2_id` |
-
-Each is a foreign key to `users` that **can only ever hold a supervisor**. The
-other 16 arrows into `User` are `created_by`, `approved_by`, `locked_by`,
-`rejected_by` and friends — **the actor may be an admin**, so drawing them on a
-profile class would state something false in a figure whose whole claim is to
-describe the schema. They stay.
-
-**`User` still carries 18 arrows** (down from 20). The diagram is not untangled
-and saying otherwise would be wrong; it is 28 classes, 70 arrows, average degree
-5.0, and `User` is still the most connected class at 20. The measurable gain is
-that the **assessment chain no longer runs through the identity table** — the
-rubric, the evaluations and the panel now attach to the people who actually hold
-those roles.
-
-**The redirect found two arrows that had never been drawn.** `examiner_pairs` and
-`examiner_assignments` each had ONE arrow to `User` standing for two columns: the
-examiner (a supervisor) and the actor (`created_by` / `assigned_by`, anyone).
-Re-pointing that single arrow to the profile left the actor undrawn. Each table
-now has two arrows, one to each class. The same check found
-`final_grades.locked_by` drawn nowhere — the arrow said `releases` and meant only
-`released_by`.
-
-`check_combined_diagram.py` is the guard, in both directions:
-
-- an arrow may sit on `SupervisorProfile` **only** if the column behind it is
-  supervisor-only;
-- every actor column must **still** land on `User`.
-
-> **If a future edit wants to move more arrows off `User`, the question to answer
-> first is: can this column hold an admin?** If yes, it belongs on `User`, and
-> moving it makes the diagram prettier and wrong.
-
-The split scripts (`split_class_diagram.py`, `split_class_drawio.py`,
-`check_split.py`) and the four split files were **deleted** — one figure is the
-requirement and two sets of files describing the same model is how they drift.
+> **This figure does not match `information_schema` and must not be read as if it
+> did.** `admin_profiles`, `coordinator_profiles`, `lecturer_profiles`, `roles`
+> and `reports` do not exist. If the implementation is ever brought across, that
+> is a real migration — the diagram is the target, not the record.
 
 ##### The two faults that produced "so many single class with no relation"
 
@@ -1740,7 +1686,7 @@ exactly the overlaps this table lists.
 | `make_mermaid_sources.py` | writes the six `sequenceDiagram` sources the user pastes into draw.io |
 | `make_system_mermaid_sources.py` | writes `thesis\diagrams\system_class.txt` and `system_interaction.txt` — the whole-system figures, with self-checks |
 | `make_class_diagram_mermaid.py` | writes `thesis\diagrams\class_diagram.txt` — the **twelve** data-dictionary classes. **Superseded 2026-11-04** by `make_class_diagram.py`, which draws 36 |
-| `make_class_diagram.py` + `make_class_diagram_combined.py` | write `thesis\diagrams\class_diagram.txt` — **Figure 4.14, 28 classes and 70 relations** (the combined script re-points four arrows to SupervisorProfile), grouped by the use case that needs each class |
+| `make_class_diagram_compact.py` | writes `thesis\diagrams\class_diagram.txt` — **Figure 4.14, 22 classes and 39 arrows**, the design model with five roles normalised out of User and a Report class (the combined script re-points four arrows to SupervisorProfile), grouped by the use case that needs each class |
 | `check_class_diagram.py` | **checks that diagram against the live foreign keys** and fails on an invented or a missing relation. Run it after any edit |
 | `dump_foreign_keys.php` | the `child\|column\|parent` dump the check reads |
 | `class_diagram_stats.py` | before/after counts for the diagram, so an improvement is measured rather than claimed |
@@ -1915,6 +1861,48 @@ write into ./thesis/ and tell the user to copy across.
 ---
 
 ## 7. Open issues / risks
+
+### Codebase (2026-11-06) — Lampiran R1 is filed once, both boxes ticked
+
+The user reported that `/milestones/3` showed **no R1 record for any approved
+chapter** (chapter_1 and chapter_2, all four on that project). Investigation
+found three separate faults, all fixed:
+
+- [x] **`verdictFor()` read both-ticked as *improvement*.** It was
+      `if ($ackReviewed) return IMPROVEMENT`, so a supervisor who ticked both
+      declarations — which is what the faculty does — **sent the chapter back for
+      revision**. Reversed: both ticked = `approved`; one tick or none = `null`
+      and refused. The UI now shows a **red prompt** whenever either box is
+      empty, since R1 is submitted once and both ticks together are the
+      endorsement.
+- [x] **A second filing is refused.** `MilestoneReviewService::record()`,
+      `MilestonePolicy::reviewR1()` and `MilestoneReviewService::canReview()` all
+      stop at an existing row — "Lampiran R1 has already been filed for this
+      milestone — the form is submitted once."
+- [x] **`POST /milestones/{id}/approve` no longer shortcuts an R1 milestone.**
+      It refuses chapters 1–4 and the demo with a message naming the reviews
+      route. This is what let chapters 1 and 2 reach `approved` with an empty R1
+      card in the first place.
+- [x] **Seeded R1 rows.** `ProjectSeeder::fileR1()` writes the form (both ticks,
+      four scores, comment, frozen Bahagian A) for every approved chapter and the
+      demo, through `driveTo()` on a fresh seed and through a table-wide
+      `fileMissingR1()` sweep on a re-seed. Verified: **30 approved R1 milestones,
+      0 missing.**
+- [x] **The seeder is idempotent again.** `nextCode()` numbers by `count + 1`, so
+      a second run missed every `updateOrCreate` and duplicated the cohort (53 →
+      78 → 157 projects). It now keys on the student's existing project for that
+      part and term, **oldest first** — without the ordering, a double-seeded
+      database returned the duplicate and half the cohort was silently skipped.
+      `instantiateFor()` is also skipped when the chain already exists (it hits
+      `milestone_project_code_attempt_unique` otherwise).
+- [x] **The at-risk tile is no longer capped at 5.** It called
+      `atRiskStudents($batch, 5, …)->count()` — a list's page size doing duty as a
+      total. New `ReportingService::atRiskCount()` counts distinct projects under
+      the same filters; the dashboard and the per-part rollup both use it.
+
+**Note:** the demo database currently holds residual duplicate projects from the
+double-seed. They are harmless (the oldest is the one re-seeded) but a
+`RUN_MIGRATIONS=true` restart produces a clean cohort.
 
 ### Codebase (2026-10-30)
 
