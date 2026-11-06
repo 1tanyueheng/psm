@@ -150,15 +150,14 @@ class MilestoneReviewService
             if ($verdict === MilestoneReview::VERDICT_APPROVED) {
                 /**
                  * The demo has no submission, so it never reaches `submitted` on
-                 * its own — and `Approved` is only reachable from `Submitted` or
-                 * `Reviewed`.
+                 * its own.
                  *
                  * The demonstration *is* the delivery, so the service walks the
                  * same path a submitted chapter would: `pending -> open ->
-                 * submitted -> approved`. That keeps the transition table honest
-                 * (widening it would let any pending milestone be approved
-                 * without ever opening) while leaving the demo with the trail a
-                 * reader expects — it opened, it was delivered, it was approved.
+                 * submitted`. That keeps the transition table honest (widening it
+                 * would let any pending milestone be approved without ever
+                 * opening) while leaving the demo with the trail a reader
+                 * expects — it opened, it was delivered, it was endorsed.
                  */
                 if ($milestone->status === MilestoneStatus::Pending) {
                     $this->milestones->transitionTo(
@@ -176,6 +175,32 @@ class MilestoneReviewService
                         MilestoneStatus::Submitted,
                         $actor,
                         'System demonstrated in person — nothing to upload.',
+                    );
+                    $milestone = $milestone->fresh();
+                }
+
+                /**
+                 * **`Submitted` has no direct path to `Approved`.**
+                 *
+                 * `MilestoneStatus::allowedTransitions()` is explicit about it:
+                 * `Reviewed` is the endorsement, and it is the panel's gate — a
+                 * panel must not rule on work its supervisor never read. Filling
+                 * in Lampiran R1 *is* that endorsement, so the service walks the
+                 * chapter through `Reviewed` and then approves it.
+                 *
+                 * Calling `approve()` on a `submitted` milestone threw "Cannot
+                 * move milestone [chapter_1] from 'submitted' to 'approved'" and
+                 * rolled the whole transaction back, so **no R1 could be filed
+                 * for any submitted chapter** — the form only ever worked for the
+                 * demo, which arrives here from `open`. The seeder hid it by
+                 * skipping illegal hops quietly.
+                 */
+                if ($milestone->status === MilestoneStatus::Submitted) {
+                    $this->milestones->transitionTo(
+                        $milestone,
+                        MilestoneStatus::Reviewed,
+                        $actor,
+                        'Endorsed on Lampiran R1.',
                     );
                     $milestone = $milestone->fresh();
                 }

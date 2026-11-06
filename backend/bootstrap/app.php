@@ -18,6 +18,18 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    /**
+     * Command discovery.
+     *
+     * `withRouting(commands: …)` only loads the *route file* — it does not walk
+     * `app/Console/Commands`. Everything in that directory was therefore
+     * invisible to Artisan until it happened to be referenced from
+     * `routes/console.php`, which is why `psm:prune-duplicate-projects` reported
+     * "command is not defined" while sitting in the folder with a valid
+     * signature. Registering the path makes a new command runnable the moment it
+     * is written, instead of only when somebody remembers to import it.
+     */
+    ->withCommands([__DIR__.'/../app/Console/Commands'])
     ->withMiddleware(function (Middleware $middleware) {
         // ---------------------------------------------------------------
         // Authentication model: token, not cookie

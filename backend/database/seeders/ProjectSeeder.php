@@ -536,13 +536,29 @@ class ProjectSeeder extends Seeder
             return;
         }
 
-        // Route each destination through the states that must precede it
+        /**
+         * Route each destination through the states that must precede it.
+         *
+         * `Approved` routes through **`Reviewed`**, not straight from
+         * `Submitted`. The state machine deliberately has no
+         * `submitted -> approved` hop: `Reviewed` is the supervisor's endorsement
+         * and the panel's gate, and the seeder used to ask for the illegal hop
+         * and then swallow the refusal in the `continue` below — so every seeded
+         * approval silently did nothing, chapters sat at `submitted`, and the
+         * R1 rows had to be written by hand afterwards. A milestone that is
+         * genuinely approved has always passed through `Reviewed`.
+         */
         $route = match ($target) {
             MilestoneStatus::Open      => [MilestoneStatus::Open],
             MilestoneStatus::Overdue   => [MilestoneStatus::Overdue],
             MilestoneStatus::Submitted => [MilestoneStatus::Open, MilestoneStatus::Submitted],
             MilestoneStatus::Reviewed  => [MilestoneStatus::Open, MilestoneStatus::Submitted, MilestoneStatus::Reviewed],
-            MilestoneStatus::Approved  => [MilestoneStatus::Open, MilestoneStatus::Submitted, MilestoneStatus::Approved],
+            MilestoneStatus::Approved  => [
+                MilestoneStatus::Open,
+                MilestoneStatus::Submitted,
+                MilestoneStatus::Reviewed,
+                MilestoneStatus::Approved,
+            ],
             MilestoneStatus::Rejected  => [MilestoneStatus::Open, MilestoneStatus::Submitted, MilestoneStatus::Rejected],
             MilestoneStatus::Pending   => [],
         };

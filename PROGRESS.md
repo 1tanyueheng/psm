@@ -1862,6 +1862,58 @@ write into ./thesis/ and tell the user to copy across.
 
 ## 7. Open issues / risks
 
+### Codebase (2026-11-06, later) — the seeder never really approved anything
+
+Testing the R1 fix over HTTP turned up a deeper fault, and it explains why the
+demo's chapters all showed an empty R1 card.
+
+- [x] **`submitted -> approved` is not a legal transition, so R1 could never be
+      filed for a submitted chapter.** `MilestoneStatus::allowedTransitions()`
+      routes approvals through `Reviewed` on purpose (the supervisor's
+      endorsement is the panel's gate). `MilestoneReviewService` called
+      `approve()` directly and threw *"Cannot move milestone [chapter_1] from
+      'submitted' to 'approved'"*, rolling the whole transaction back. It now
+      walks `submitted -> reviewed -> approved`, the same way it already walked
+      the demo's `pending -> open -> submitted`. **The form had only ever worked
+      for the system demo**, which arrives from `open`.
+- [x] **The seeder hid it by swallowing illegal hops.** `driveTo()` asked for
+      `submitted -> approved` and its `canTransitionTo()` guard `continue`d
+      past the refusal, so every seeded approval silently did nothing: the
+      chapters stayed `submitted` and the R1 rows had to be written afterwards.
+      The route now goes through `Reviewed` and the guard is still there as a
+      safety net, but nothing legitimate trips it any more.
+- [x] **Duplicate projects removed from the dev database.** The pre-fix seeder
+      had left 28 orphans (78 projects for a 50-project cohort). New
+      `psm:prune-duplicate-projects` decides by the same rule the seeder uses —
+      oldest project per student and part wins — and **refuses to delete
+      anything carrying a final grade, an R1 record, an evaluation, an archive
+      reference, a leaderboard entry or a student enrolment**, because a cleanup
+      tool must not throw a mark away. Result: 78 -> 50 projects, 591 -> 371
+      milestones, 31 R1 rows untouched. A re-seed afterwards produced no growth.
+- [x] **Command discovery was broken in this image.** `withRouting(commands:)`
+      loads the route file only; `app/Console/Commands` was invisible to Artisan,
+      so a new command reported "not defined" while sitting in the folder.
+      `bootstrap/app.php` now registers the path with `->withCommands([...])`.
+- [ ] **The container's `vendor` volume can drift from the host's.** It is a
+      named volume (`psm-system_vendor-data`), not a bind mount, so
+      `composer dump-autoload` run on the host does **not** reach the container,
+      and a dev package (collision) went missing from it. Fix in this session was
+      `docker cp backend/vendor/. psm-app:/var/www/html/vendor/`. After changing
+      dependencies or adding a class, copy the tree in or rebuild the volume —
+      the autoloader is `classMapAuthoritative`, so a class absent from the
+      classmap does not autoload at all.
+
+**How to check Lampiran R1 by hand** (all four cases, verified 2026-11-06):
+
+1. `GET /api/milestones/{id}` as the supervisor — `r1_filed`, `can_review_r1`.
+2. POST one tick — refused: *"Tick both acknowledgements…"*.
+3. POST both ticks + scores + comment — 201, `verdict=approved`,
+   `verdict_label='Received and reviewed — endorsed'`, milestone `approved`.
+4. POST again — refused: *"Lampiran R1 has already been filed…"*.
+5. `POST /api/milestones/{id}/approve` on an R1 milestone — refused, names the
+   reviews route.
+6. `GET /api/milestones/{id}/reviews` — the filed round, scores and comment.
+
 ### Codebase (2026-11-06) — Lampiran R1 is filed once, both boxes ticked
 
 The user reported that `/milestones/3` showed **no R1 record for any approved

@@ -1,9 +1,22 @@
 <?php
 
 use App\Console\Commands\PruneAuditLogCommand;
+use App\Console\Commands\PruneDuplicateProjectsCommand;
 use App\Console\Commands\SendDeadlineRemindersCommand;
 use Illuminate\Support\Facades\Schedule;
 
+/*
+|--------------------------------------------------------------------------
+| Commands
+|--------------------------------------------------------------------------
+|
+| Laravel 11 auto-discovers `app/Console/Commands`, but this app registers its
+| commands for the scheduler here, and `PruneAuditLogCommand` is invoked by the
+| retention schedule below. `PruneDuplicateProjectsCommand` is a manual repair
+| tool for a dev database that ran the pre-2026-11-06 seeder, so it is
+| referenced here only to keep the set together.
+|
+*/
 /*
 |--------------------------------------------------------------------------
 | Console routes & schedule
